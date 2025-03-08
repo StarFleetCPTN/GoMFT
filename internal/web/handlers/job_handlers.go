@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -274,7 +275,8 @@ func (h *Handlers) HandleRunJob(c *gin.Context) {
 	
 	var job db.Job
 	if err := h.DB.First(&job, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+		c.Header("Content-Type", "text/html")
+		c.String(http.StatusNotFound, "<script>window.notyfInstance.error('Job not found')</script>")
 		return
 	}
 
@@ -283,19 +285,37 @@ func (h *Handlers) HandleRunJob(c *gin.Context) {
 		// Check if user is admin
 		isAdmin, exists := c.Get("isAdmin")
 		if !exists || isAdmin != true {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You do not have permission to run this job"})
+			c.Header("Content-Type", "text/html")
+			c.String(http.StatusForbidden, "<script>window.notyfInstance.error('You do not have permission to run this job')</script>")
 			return
+		}
+	}
+
+	// Determine job name for response
+	jobName := job.Name
+	if jobName == "" {
+		// If job name is empty, try to get config name
+		var config db.TransferConfig
+		if err := h.DB.First(&config, job.ConfigID).Error; err == nil {
+			jobName = config.Name
+		} else {
+			jobName = fmt.Sprintf("Job #%d", job.ID)
 		}
 	}
 
 	// Run the job immediately using the scheduler
 	if err := h.Scheduler.RunJobNow(job.ID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to run job: " + err.Error()})
+		c.Header("Content-Type", "text/html")
+		errorMsg := fmt.Sprintf("<script>window.notyfInstance.error('Failed to run job: %s')</script>", err.Error())
+		c.String(http.StatusInternalServerError, errorMsg)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Job started successfully",
-		"jobId":   job.ID,
-	})
+	// Set custom header with job name for HTMX to use in the toast notification
+	c.Header("HX-Job-Name", jobName)
+	c.Header("Content-Type", "text/html")
+	
+	// Return HTML with JavaScript to trigger the notification
+	successScript := fmt.Sprintf("<script>window.notyfInstance.success('Job \"%s\" has been started successfully')</script>", jobName)
+	c.String(http.StatusOK, successScript)
 } 

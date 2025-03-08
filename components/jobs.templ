@@ -6,12 +6,243 @@ import (
 	"github.com/starfleetcptn/gomft/internal/db"
 )
 
+// Dialog component for confirmation dialogs - copied from admin_tools.templ
+templ JobDialog(id string, title string, message string, confirmClass string, confirmText string, action string, jobID uint, jobName string) {
+	<div id={ id } class="hidden fixed inset-0 bg-secondary-900/50 dark:bg-secondary-900/80 backdrop-blur-sm z-50 flex items-center justify-center">
+		<div class="bg-white dark:bg-secondary-800 rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden">
+			<div class="px-6 pt-5 pb-3 text-center">
+				<div class="flex justify-center mb-2">
+					<i class="fas fa-exclamation-triangle text-yellow-400 text-3xl"></i>
+				</div>
+				<h3 class="text-xl font-medium text-secondary-900 dark:text-secondary-100">
+					{ title }
+				</h3>
+			</div>
+			<div class="px-6 py-4 text-center">
+				<p class="text-secondary-700 dark:text-secondary-300">
+					{ message }
+				</p>
+			</div>
+			<div class="px-6 py-4 flex justify-end space-x-3">
+				<button type="button" class="btn-secondary" onclick={ hideJobDialog(id) }>
+					Cancel
+				</button>
+				<button 
+					type="button" 
+					class={ confirmClass }
+					hx-delete={ fmt.Sprintf("/jobs/%d", jobID) }
+					hx-target="closest li"
+					hx-swap="delete"
+					data-job-name={ jobName }
+					data-job-id={ fmt.Sprint(jobID) }
+					id={ fmt.Sprintf("delete-btn-%d", jobID) }
+					onclick={ triggerJobDelete(id, jobID, jobName) }>
+					{ confirmText }
+				</button>
+			</div>
+		</div>
+	</div>
+}
+
+script hideJobDialog(id string) {
+	document.getElementById(id).classList.add("hidden");
+}
+
+script showJobDialog(id string) {
+	document.getElementById(id).classList.remove("hidden");
+}
+
+script triggerJobDelete(dialogId string, jobID uint, jobName string) {
+	// Hide the dialog
+	document.getElementById(dialogId).classList.add("hidden");
+	
+	// Add debugging info
+	console.log(`Job deletion triggered for: ${jobName} (ID: ${jobID})`);
+	
+	// Store data in a way that's accessible to event handlers
+	window.lastDeletedJob = {
+		id: jobID,
+		name: jobName
+	};
+
+	// Add custom marker to track this deletion
+	window.currentlyDeletingJob = true;
+}
+
 type JobsData struct {
 	Jobs []db.Job
 }
 
 templ Jobs(ctx context.Context, data JobsData) {
 	@LayoutWithContext("Transfer Jobs", ctx) {
+		<script>
+			// Debug notification system
+			console.log("Jobs template loaded, setting up notification system");
+			
+			// Create a global notyf instance immediately
+			window.notyf = new Notyf({
+				duration: 3000,
+				position: {
+					x: 'right',
+					y: 'top',
+				},
+				types: [
+					{
+						type: 'success',
+						background: '#38c172',
+						icon: {
+							className: 'fas fa-check-circle',
+							tagName: 'i'
+						}
+					},
+					{
+						type: 'error',
+						background: '#e3342f',
+						icon: {
+							className: 'fas fa-exclamation-circle',
+							tagName: 'i'
+						}
+					}
+				]
+			});
+			console.log("Notyf initialized:", window.notyf);
+			
+			// Global function to handle job running
+			window.runJob = function(button) {
+				// Get job data from button attributes
+				const jobId = button.getAttribute('data-job-id');
+				const jobName = button.getAttribute('data-job-name') || `Job #${jobId}`;
+				
+				console.log(`Run job clicked for: ${jobName} (ID: ${jobId})`);
+				
+				// No loading notification - just listen for the response
+				button.addEventListener('htmx:afterRequest', function(event) {
+					console.log("Run job request completed:", event.detail);
+					if (event.detail.successful) {
+						let displayName = jobName;
+						// Try to extract job name from response headers
+						if (event.detail.headers && event.detail.headers['HX-Job-Name']) {
+							displayName = event.detail.headers['HX-Job-Name'];
+						}
+						console.log(`Showing success notification for job: ${displayName}`);
+						window.notyf.success(`Job "${displayName}" started successfully!`);
+					} else {
+						let errorMsg = `Failed to start job "${jobName}"`;
+						if (event.detail.xhr && event.detail.xhr.responseText) {
+							errorMsg = `Error: ${event.detail.xhr.responseText}`;
+						}
+						console.log(`Showing error notification: ${errorMsg}`);
+						window.notyf.error(errorMsg);
+					}
+				}, { once: true });
+			};
+
+			// Track all HTMX events for debugging
+			document.addEventListener('htmx:beforeRequest', function(event) {
+				console.log("HTMX before request:", event.detail);
+				
+				// Check if this is a DELETE request by examining the URL and method
+				const path = event.detail.path;
+				const method = event.detail.verb;
+				
+				console.log(`Request path: ${path}, method: ${method}`);
+				
+				// Pattern match for job deletions (e.g., /jobs/123)
+				if (path && method === 'DELETE' && path.match(/^\/jobs\/\d+$/)) {
+					console.log("Detected job deletion request via URL pattern");
+					
+					// This is definitely a delete request - store this information
+					window.isJobDeleteRequest = true;
+				}
+			});
+
+			// Track HTMX after-request events for job deletion
+			document.addEventListener('htmx:afterRequest', function(event) {
+				console.log("HTMX after request:", event.detail);
+				
+				// Check for job deletion multiple ways
+				const isDeleteRequest = 
+					// Check global flag from the triggerJobDelete function
+					window.currentlyDeletingJob ||
+					// Check flag from beforeRequest handler
+					window.isJobDeleteRequest ||
+					// Check URL pattern directly from this event
+					(event.detail.pathInfo && event.detail.pathInfo.requestPath && 
+					 event.detail.pathInfo.requestPath.match(/^\/jobs\/\d+$/) && 
+					 event.detail.verb === 'DELETE');
+				
+				console.log(`Is delete request: ${isDeleteRequest}`);
+				
+				// If this is a successful delete request, show notification
+				if (isDeleteRequest && event.detail.successful) {
+					console.log("Delete request was successful");
+					
+					let jobName = "Unknown";
+					
+					// Try multiple sources for job name
+					if (event.detail.elt && event.detail.elt.getAttribute) {
+						jobName = event.detail.elt.getAttribute('data-job-name') || jobName;
+					}
+					
+					if (jobName === "Unknown" && window.lastDeletedJob) {
+						// Fallback to our stored job info
+						jobName = window.lastDeletedJob.name;
+					}
+					
+					console.log(`Showing success notification for deleted job: ${jobName}`);
+					window.notyf.success(`Job "${jobName}" deleted successfully`);
+					
+					// Clear flags
+					window.currentlyDeletingJob = false;
+					window.isJobDeleteRequest = false;
+					window.lastDeletedJob = null;
+				}
+			});
+			
+			// Track HTMX error events for job deletion
+			document.addEventListener('htmx:responseError', function(event) {
+				console.log("HTMX response error:", event.detail);
+				
+				// Similar logic as success but for errors
+				const isDeleteRequest = 
+					window.currentlyDeletingJob ||
+					window.isJobDeleteRequest ||
+					(event.detail.pathInfo && event.detail.pathInfo.requestPath && 
+					 event.detail.pathInfo.requestPath.match(/^\/jobs\/\d+$/) && 
+					 event.detail.verb === 'DELETE');
+				
+				if (isDeleteRequest) {
+					console.log("Delete request failed");
+					
+					let jobName = "Unknown";
+					
+					// Try multiple sources for job name
+					if (event.detail.elt && event.detail.elt.getAttribute) {
+						jobName = event.detail.elt.getAttribute('data-job-name') || jobName;
+					}
+					
+					if (jobName === "Unknown" && window.lastDeletedJob) {
+						// Fallback to our stored job info
+						jobName = window.lastDeletedJob.name;
+					}
+					
+					let errorMsg = `Failed to delete job "${jobName}"`;
+					
+					if (event.detail.xhr && event.detail.xhr.responseText) {
+						errorMsg = `Error: ${event.detail.xhr.responseText}`;
+					}
+					
+					console.log(`Showing error notification: ${errorMsg}`);
+					window.notyf.error(errorMsg);
+					
+					// Clear flags
+					window.currentlyDeletingJob = false;
+					window.isJobDeleteRequest = false;
+					window.lastDeletedJob = null;
+				}
+			});
+		</script>
+		
 		<div class="py-6">
 			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 				<div class="flex justify-between items-center mb-8">
@@ -68,15 +299,34 @@ templ Jobs(ctx context.Context, data JobsData) {
 														}
 													</div>
 													<div class="ml-2 flex-shrink-0 flex space-x-2">
+														<button 
+															hx-post={ fmt.Sprintf("/jobs/%d/run", job.ID) }
+															hx-swap="none"
+															class="btn-primary btn-sm"
+															data-job-id={ fmt.Sprint(job.ID) }
+															data-job-name={ job.Name }
+															onclick="window.runJob(this)">
+															<i class="fas fa-play mr-1"></i>
+															Run Now
+														</button>
 														<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) } class="btn-secondary btn-sm">
 															<i class="fas fa-edit mr-1"></i>
 															Edit
 														</a>
+														<!-- Add delete dialog for each job -->
+														@JobDialog(
+															fmt.Sprintf("delete-job-dialog-%d", job.ID),
+															"Delete Job",
+															fmt.Sprintf("Are you sure you want to delete the job '%s'? This cannot be undone.", determineJobName(job)),
+															"btn-danger",
+															"Delete",
+															"delete",
+															job.ID,
+															determineJobName(job),
+														)
 														<button 
-															hx-delete={ fmt.Sprintf("/jobs/%d", job.ID) }
-															hx-confirm="Are you sure you want to delete this job?"
-															hx-target="closest li"
-															hx-swap="outerHTML"
+															type="button"
+															onclick={ showJobDialog(fmt.Sprintf("delete-job-dialog-%d", job.ID)) }
 															class="btn-danger btn-sm">
 															<i class="fas fa-trash-alt mr-1"></i>
 															Delete
@@ -128,4 +378,12 @@ templ Jobs(ctx context.Context, data JobsData) {
 			</div>
 		</div>
 	}
+}
+
+// Helper function to determine the job name (reuse this logic to keep it consistent)
+func determineJobName(job db.Job) string {
+	if job.Name != "" {
+		return job.Name
+	}
+	return job.Config.Name
 }

@@ -50,3 +50,11 @@ data/
 
 # Ignore the tmp directory
 tmp/ 
+
+# Ignore the configs directory
+configs/
+
+# Ignore Dirs
+source/
+destination/
+archive/
