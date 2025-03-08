@@ -49,6 +49,8 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
 - **Password Recovery**: Self-service password reset via email with secure token-based authentication
 - **User Profile Management**: Personal settings including theme preferences
 - **Modern UI**: Built with Templ, HTMX and Tailwind CSS for a responsive experience
+- **Docker Support**: Easy deployment with Docker images and Docker Compose support
+- **Portable Deployment**: Run on any platform that supports Docker or Go
 
 ## Prerequisites
 
@@ -57,6 +59,8 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
 - SQLite 3
 
 ## Installation
+
+### Standard Installation
 
 1. Clone the repository:
 ```bash
@@ -73,6 +77,54 @@ go mod download
 ```bash
 go build -o gomft
 ```
+
+### Docker Installation
+
+GoMFT is available as a Docker image for quick and easy deployment.
+
+1. Pull the latest image from Docker Hub:
+```bash
+docker pull starfleetcptn/gomft:latest
+```
+
+2. Run the container:
+```bash
+docker run -d \
+  --name gomft \
+  -p 8080:8080 \
+  -v /path/to/data:/app/data \
+  starfleetcptn/gomft:latest
+```
+
+3. Access the web interface at `http://localhost:8080`
+
+#### Docker Compose Example
+
+For production deployments, you can use Docker Compose:
+
+```yaml
+version: '3'
+services:
+  gomft:
+    image: starfleetcptn/gomft:latest
+    container_name: gomft
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+      - ./backups:/app/data/gomft/backups
+    environment:
+      - TZ=UTC
+```
+
+Save this as `docker-compose.yml` and run:
+
+```bash
+docker-compose up -d
+```
+
+For more information and available tags, visit the [GoMFT Docker Hub page](https://hub.docker.com/r/starfleetcptn/gomft).
 
 ## Configuration
 
@@ -244,6 +296,7 @@ To configure email functionality:
 - **Authentication**: JWT (JSON Web Tokens)
 - **Database**: GORM with SQLite
 - **File Transfer**: rclone
+- **Deployment**: Docker containerization and traditional installation
 
 ### Building from Source
 
