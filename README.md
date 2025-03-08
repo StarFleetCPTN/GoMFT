@@ -19,8 +19,8 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
 ![Job Scheduling](screenshots/new.job.gomft.png)
 *Scheduling transfers with flexible cron expressions*
 
-### User Mangement
-![User Mangement](screenshots/user.management.gomft.png)
+### User Management
+![User Management](screenshots/user.management.gomft.png)
 *Create user accounts and manage them*
 
 
