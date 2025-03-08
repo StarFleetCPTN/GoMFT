@@ -58,3 +58,6 @@ configs/
 source/
 destination/
 archive/
+
+# Ignore binaries
+gomft

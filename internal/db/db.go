@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/starfleetcptn/gomft/internal/auth"
-	"gorm.io/driver/sqlite"
+	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -136,7 +136,7 @@ func Initialize(dbPath string) (*DB, error) {
 		return nil, fmt.Errorf("failed to create database directory: %v", err)
 	}
 
-	// Open database connection
+	// Open database connection with modernc.org/sqlite driver
 	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %v", err)
