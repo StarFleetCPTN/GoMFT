@@ -66,6 +66,11 @@ type TransferConfig struct {
 	SourceDomain     string `form:"source_domain"`
 	// FTP source fields
 	SourcePassiveMode bool   `gorm:"default:true" form:"source_passive_mode"`
+	// OneDrive and Google Drive source fields
+	SourceClientID     string `form:"source_client_id"`
+	SourceClientSecret string `form:"source_client_secret" gorm:"-"` // Not stored in DB, only used for form
+	SourceDriveID      string `form:"source_drive_id"`       // For OneDrive
+	SourceTeamDrive    string `form:"source_team_drive"`     // For Google Drive
 	// General fields
 	FilePattern     string `gorm:"default:'*'" form:"file_pattern"`
 	OutputPattern   string `form:"output_pattern"` // Pattern for output filenames with date variables
@@ -87,6 +92,11 @@ type TransferConfig struct {
 	DestDomain     string `form:"dest_domain"`
 	// FTP destination fields
 	DestPassiveMode bool   `gorm:"default:true" form:"dest_passive_mode"`
+	// OneDrive and Google Drive destination fields
+	DestClientID     string `form:"dest_client_id"`
+	DestClientSecret string `form:"dest_client_secret" gorm:"-"` // Not stored in DB, only used for form
+	DestDriveID      string `form:"dest_drive_id"`      // For OneDrive
+	DestTeamDrive    string `form:"dest_team_drive"`    // For Google Drive
 	// General fields
 	ArchivePath     string `form:"archive_path"`
 	ArchiveEnabled  bool   `gorm:"default:false" form:"archive_enabled"`
@@ -430,6 +440,73 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create source config: %v\nOutput: %s", err, output)
 		}
+	case "webdav":
+		args := []string{
+			"config", "create", sourceName, "webdav",
+			"url", config.SourceHost,
+			"user", config.SourceUser,
+			"pass", config.SourcePassword,
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+		
+		cmd := exec.Command(rclonePath, args...)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to create source config: %v\nOutput: %s", err, output)
+		}
+	case "nextcloud":
+		args := []string{
+			"config", "create", sourceName, "webdav",
+			"url", config.SourceHost,
+			"user", config.SourceUser,
+			"pass", config.SourcePassword,
+			"vendor", "nextcloud",
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+		
+		cmd := exec.Command(rclonePath, args...)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to create source config: %v\nOutput: %s", err, output)
+		}
+	case "onedrive":
+		args := []string{
+			"config", "create", sourceName, "onedrive",
+			"client_id", config.SourceClientID,
+			"client_secret", config.SourceClientSecret,
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+		
+		if config.SourceDriveID != "" {
+			args = append(args, "drive_id", config.SourceDriveID)
+		}
+		
+		cmd := exec.Command(rclonePath, args...)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to create source config: %v\nOutput: %s", err, output)
+		}
+	case "google_drive":
+		args := []string{
+			"config", "create", sourceName, "drive",
+			"client_id", config.SourceClientID,
+			"client_secret", config.SourceClientSecret,
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+		
+		if config.SourceTeamDrive != "" {
+			args = append(args, "team_drive", config.SourceTeamDrive)
+		}
+		
+		cmd := exec.Command(rclonePath, args...)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to create source config: %v\nOutput: %s", err, output)
+		}
 	default:
 		// Write local config
 		content := fmt.Sprintf("[source_%d]\ntype = local\n\n", config.ID)
@@ -545,6 +622,73 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 		
 		if config.DestPassiveMode {
 			args = append(args, "passive", "true")
+		}
+		
+		cmd := exec.Command(rclonePath, args...)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to create destination config: %v\nOutput: %s", err, output)
+		}
+	case "webdav":
+		args := []string{
+			"config", "create", destName, "webdav",
+			"url", config.DestHost,
+			"user", config.DestUser,
+			"pass", config.DestPassword,
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+		
+		cmd := exec.Command(rclonePath, args...)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to create destination config: %v\nOutput: %s", err, output)
+		}
+	case "nextcloud":
+		args := []string{
+			"config", "create", destName, "webdav",
+			"url", config.DestHost,
+			"user", config.DestUser,
+			"pass", config.DestPassword,
+			"vendor", "nextcloud",
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+		
+		cmd := exec.Command(rclonePath, args...)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to create destination config: %v\nOutput: %s", err, output)
+		}
+	case "onedrive":
+		args := []string{
+			"config", "create", destName, "onedrive",
+			"client_id", config.DestClientID,
+			"client_secret", config.DestClientSecret,
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+		
+		if config.DestDriveID != "" {
+			args = append(args, "drive_id", config.DestDriveID)
+		}
+		
+		cmd := exec.Command(rclonePath, args...)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to create destination config: %v\nOutput: %s", err, output)
+		}
+	case "google_drive":
+		args := []string{
+			"config", "create", destName, "drive",
+			"client_id", config.DestClientID,
+			"client_secret", config.DestClientSecret,
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+		
+		if config.DestTeamDrive != "" {
+			args = append(args, "team_drive", config.DestTeamDrive)
 		}
 		
 		cmd := exec.Command(rclonePath, args...)

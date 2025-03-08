@@ -38,6 +38,11 @@ func getInitialData(config *db.TransferConfig) string {
 	sourceDomain := ""
 	// FTP fields
 	sourcePassiveMode := true
+	// OneDrive and Google Drive fields
+	sourceClientId := ""
+	sourceClientSecret := ""
+	sourceDriveId := ""
+	sourceTeamDrive := ""
 	filePattern := "*"
 	outputPattern := ""
 	destinationType := "local"
@@ -58,6 +63,11 @@ func getInitialData(config *db.TransferConfig) string {
 	destDomain := ""
 	// FTP fields
 	destPassiveMode := true
+	// OneDrive and Google Drive fields
+	destClientId := ""
+	destClientSecret := ""
+	destDriveId := ""
+	destTeamDrive := ""
 	archivePath := ""
 	archiveEnabled := false
 	deleteAfterTransfer := false
@@ -83,6 +93,11 @@ func getInitialData(config *db.TransferConfig) string {
 		sourceDomain = config.SourceDomain
 		// FTP fields
 		sourcePassiveMode = config.SourcePassiveMode
+		// OneDrive and Google Drive fields
+		sourceClientId = config.SourceClientID
+		sourceClientSecret = config.SourceClientSecret
+		sourceDriveId = config.SourceDriveID
+		sourceTeamDrive = config.SourceTeamDrive
 		filePattern = config.FilePattern
 		outputPattern = config.OutputPattern
 		destinationType = config.DestinationType
@@ -103,6 +118,11 @@ func getInitialData(config *db.TransferConfig) string {
 		destDomain = config.DestDomain
 		// FTP fields
 		destPassiveMode = config.DestPassiveMode
+		// OneDrive and Google Drive fields
+		destClientId = config.DestClientID
+		destClientSecret = config.DestClientSecret
+		destDriveId = config.DestDriveID
+		destTeamDrive = config.DestTeamDrive
 		archivePath = config.ArchivePath
 		archiveEnabled = config.ArchiveEnabled
 		deleteAfterTransfer = config.DeleteAfterTransfer
@@ -126,6 +146,10 @@ func getInitialData(config *db.TransferConfig) string {
 		sourceShare: '%s',
 		sourceDomain: '%s',
 		sourcePassiveMode: %v,
+		sourceClientId: '%s',
+		sourceClientSecret: '%s',
+		sourceDriveId: '%s',
+		sourceTeamDrive: '%s',
 		filePattern: '%s',
 		outputPattern: '%s',
 		destinationType: '%s',
@@ -146,12 +170,18 @@ func getInitialData(config *db.TransferConfig) string {
 		destDomain: '%s',
 		// FTP fields
 		destPassiveMode: %v,
+		// OneDrive and Google Drive fields
+		destClientId: '%s',
+		destClientSecret: '%s',
+		destDriveId: '%s',
+		destTeamDrive: '%s',
 		// Existing fields
 		archivePath: '%s',
 		archiveEnabled: %v,
 		deleteAfterTransfer: %v,
 		rcloneFlags: '%s',
 		loading: false,
+		
 		validate() {
 			if (this.sourceType === 'sftp') {
 				if (!this.sourceHost || !this.sourceUser || (!this.sourcePassword && !this.sourceKeyFile)) {
@@ -175,6 +205,22 @@ func getInitialData(config *db.TransferConfig) string {
 				}
 			} else if (this.sourceType === 'ftp') {
 				if (!this.sourceHost || !this.sourceUser || !this.sourcePassword) {
+					return false;
+				}
+			} else if (this.sourceType === 'webdav') {
+				if (!this.sourceHost || !this.sourceUser || !this.sourcePassword) {
+					return false;
+				}
+			} else if (this.sourceType === 'nextcloud') {
+				if (!this.sourceHost || !this.sourceUser || !this.sourcePassword) {
+					return false;
+				}
+			} else if (this.sourceType === 'onedrive') {
+				if (!this.sourceClientId || !this.sourceClientSecret) {
+					return false;
+				}
+			} else if (this.sourceType === 'google_drive') {
+				if (!this.sourceClientId || !this.sourceClientSecret) {
 					return false;
 				}
 			}
@@ -203,15 +249,33 @@ func getInitialData(config *db.TransferConfig) string {
 				if (!this.destHost || !this.destUser || !this.destPassword) {
 					return false;
 				}
+			} else if (this.destinationType === 'webdav') {
+				if (!this.destHost || !this.destUser || !this.destPassword) {
+					return false;
+				}
+			} else if (this.destinationType === 'nextcloud') {
+				if (!this.destHost || !this.destUser || !this.destPassword) {
+					return false;
+				}
+			} else if (this.destinationType === 'onedrive') {
+				if (!this.destClientId || !this.destClientSecret) {
+					return false;
+				}
+			} else if (this.destinationType === 'google_drive') {
+				if (!this.destClientId || !this.destClientSecret) {
+					return false;
+				}
 			}
 			return this.name && this.sourcePath && this.filePattern && this.destinationPath && (!this.archiveEnabled || this.archivePath);
 		}
 	}`, name, sourceType, sourcePath, sourceHost, sourcePort, sourceUser, sourcePassword, sourceKeyFile,
 		sourceBucket, sourceRegion, sourceAccessKey, sourceSecretKey, sourceEndpoint,
 		sourceShare, sourceDomain, sourcePassiveMode,
+		sourceClientId, sourceClientSecret, sourceDriveId, sourceTeamDrive,
 		filePattern, outputPattern, destinationType, destinationPath, destHost, destPort, destUser, destPassword, destKeyFile,
 		destBucket, destRegion, destAccessKey, destSecretKey, destEndpoint,
 		destShare, destDomain, destPassiveMode,
+		destClientId, destClientSecret, destDriveId, destTeamDrive,
 		archivePath, archiveEnabled, deleteAfterTransfer, rcloneFlags)
 }
 
@@ -284,6 +348,10 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 													<option value="b2">Backblaze B2</option>
 													<option value="smb">SMB</option>
 													<option value="ftp">FTP</option>
+													<option value="webdav">WebDAV</option>
+													<option value="nextcloud">NextCloud</option>
+													<option value="onedrive">OneDrive</option>
+													<option value="google_drive">Google Drive</option>
 												</select>
 											</div>
 										</div>
@@ -728,6 +796,268 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 											</div>
 										</template>
 
+										<template x-if="sourceType === 'webdav'">
+											<div class="sm:col-span-6 space-y-6">
+												<div class="sm:col-span-4">
+													<label for="source_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">WebDAV URL</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-globe text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="text"
+															name="source_host"
+															id="source_host"
+															x-model="sourceHost"
+															required
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+															placeholder="https://webdav.example.com/remote.php/webdav/"/>
+													</div>
+												</div>
+
+												<div class="sm:col-span-4">
+													<label for="source_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="text"
+															name="source_user"
+															id="source_user"
+															x-model="sourceUser"
+															required
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
+													</div>
+												</div>
+
+												<div class="sm:col-span-4">
+													<label for="source_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="password"
+															name="source_password"
+															id="source_password"
+															x-model="sourcePassword"
+															required
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+															placeholder="Password"/>
+													</div>
+													<input type="hidden" name="source_password" :value="sourcePassword"/>
+												</div>
+											</div>
+										</template>
+
+										<template x-if="sourceType === 'nextcloud'">
+											<div class="sm:col-span-6 space-y-6">
+												<div class="sm:col-span-4">
+													<label for="source_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">NextCloud URL</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-cloud text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="text"
+															name="source_host"
+															id="source_host"
+															x-model="sourceHost"
+															required
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+															placeholder="https://nextcloud.example.com"/>
+													</div>
+												</div>
+
+												<div class="sm:col-span-4">
+													<label for="source_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="text"
+															name="source_user"
+															id="source_user"
+															x-model="sourceUser"
+															required
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
+													</div>
+												</div>
+
+												<div class="sm:col-span-4">
+													<label for="source_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password or App Password</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="password"
+															name="source_password"
+															id="source_password"
+															x-model="sourcePassword"
+															required
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+															placeholder="Password"/>
+													</div>
+													<input type="hidden" name="source_password" :value="sourcePassword"/>
+													<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">Using an app password is recommended for security</p>
+												</div>
+											</div>
+										</template>
+
+										<template x-if="sourceType === 'onedrive'">
+											<div class="sm:col-span-6 space-y-6">
+												<div class="relative p-4 border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/30 dark:border-yellow-700 rounded-lg mb-4">
+													<div class="flex">
+														<div class="flex-shrink-0">
+															<i class="fas fa-info-circle text-yellow-400"></i>
+														</div>
+														<div class="ml-3">
+															<h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-300">OneDrive Authentication</h3>
+															<div class="mt-2 text-sm text-yellow-700 dark:text-yellow-400">
+																<p>OneDrive requires OAuth authentication. You'll need to:</p>
+																<ol class="list-decimal ml-4 mt-1 space-y-1">
+																	<li>Register an application in the Microsoft Azure portal</li>
+																	<li>Add redirect URI: http://localhost:53682/</li>
+																	<li>Save the application details below</li>
+																</ol>
+															</div>
+														</div>
+													</div>
+												</div>
+
+												<div class="sm:col-span-4">
+													<label for="source_client_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client ID</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-id-card text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="text"
+															name="source_client_id"
+															id="source_client_id"
+															x-model="sourceClientId"
+															required
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+															placeholder="Azure application client ID"/>
+													</div>
+												</div>
+
+												<div class="sm:col-span-4">
+													<label for="source_client_secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client Secret</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="password"
+															name="source_client_secret"
+															id="source_client_secret"
+															x-model="sourceClientSecret"
+															required
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+															placeholder="Azure application client secret"/>
+													</div>
+													<input type="hidden" name="source_client_secret" :value="sourceClientSecret"/>
+												</div>
+
+												<div class="sm:col-span-4">
+													<label for="source_drive_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Drive ID (Optional)</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-hdd text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="text"
+															name="source_drive_id"
+															id="source_drive_id"
+															x-model="sourceDriveId"
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+															placeholder="OneDrive drive ID (leave empty for default)"/>
+													</div>
+													<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">For shared or business drives</p>
+												</div>
+											</div>
+										</template>
+
+										<template x-if="sourceType === 'google_drive'">
+											<div class="sm:col-span-6 space-y-6">
+												<div class="relative p-4 border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/30 dark:border-yellow-700 rounded-lg mb-4">
+													<div class="flex">
+														<div class="flex-shrink-0">
+															<i class="fas fa-info-circle text-yellow-400"></i>
+														</div>
+														<div class="ml-3">
+															<h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-300">Google Drive Authentication</h3>
+															<div class="mt-2 text-sm text-yellow-700 dark:text-yellow-400">
+																<p>Google Drive requires OAuth authentication. You'll need to:</p>
+																<ol class="list-decimal ml-4 mt-1 space-y-1">
+																	<li>Create a project in Google Cloud Console</li>
+																	<li>Enable Google Drive API</li>
+																	<li>Create OAuth credentials</li>
+																	<li>Add redirect URI: http://localhost:53682/</li>
+																	<li>Save the client details below</li>
+																</ol>
+															</div>
+														</div>
+													</div>
+												</div>
+
+												<div class="sm:col-span-4">
+													<label for="source_client_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client ID</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-id-card text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="text"
+															name="source_client_id"
+															id="source_client_id"
+															x-model="sourceClientId"
+															required
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+															placeholder="Google OAuth client ID"/>
+													</div>
+												</div>
+
+												<div class="sm:col-span-4">
+													<label for="source_client_secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client Secret</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="password"
+															name="source_client_secret"
+															id="source_client_secret"
+															x-model="sourceClientSecret"
+															required
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+															placeholder="Google OAuth client secret"/>
+													</div>
+													<input type="hidden" name="source_client_secret" :value="sourceClientSecret"/>
+												</div>
+
+												<div class="sm:col-span-4">
+													<label for="source_team_drive" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Team Drive ID (Optional)</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-users text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="text"
+															name="source_team_drive"
+															id="source_team_drive"
+															x-model="sourceTeamDrive"
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+															placeholder="Team Drive ID (leave empty for personal drive)"/>
+													</div>
+												</div>
+											</div>
+										</template>
+
 										<div class="sm:col-span-6">
 											<label for="source_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Source Path</label>
 											<div class="relative">
@@ -814,6 +1144,10 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 													<option value="b2">Backblaze B2</option>
 													<option value="smb">SMB</option>
 													<option value="ftp">FTP</option>
+													<option value="webdav">WebDAV</option>
+													<option value="nextcloud">NextCloud</option>
+													<option value="onedrive">OneDrive</option>
+													<option value="google_drive">Google Drive</option>
 												</select>
 											</div>
 										</div>
@@ -1258,15 +1592,277 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 											</div>
 										</template>
 
+										<template x-if="destinationType === 'webdav'">
+											<div class="sm:col-span-6 space-y-6">
+												<div class="sm:col-span-4">
+													<label for="dest_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">WebDAV URL</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-globe text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="text"
+															name="dest_host"
+															id="dest_host"
+															x-model="destHost"
+															required
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+															placeholder="https://webdav.example.com/remote.php/webdav/"/>
+													</div>
+												</div>
+
+												<div class="sm:col-span-4">
+													<label for="dest_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="text"
+															name="dest_user"
+															id="dest_user"
+															x-model="destUser"
+															required
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
+													</div>
+												</div>
+
+												<div class="sm:col-span-4">
+													<label for="dest_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="password"
+															name="dest_password"
+															id="dest_password"
+															x-model="destPassword"
+															required
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+															placeholder="Password"/>
+													</div>
+													<input type="hidden" name="dest_password" :value="destPassword"/>
+												</div>
+											</div>
+										</template>
+
+										<template x-if="destinationType === 'nextcloud'">
+											<div class="sm:col-span-6 space-y-6">
+												<div class="sm:col-span-4">
+													<label for="dest_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">NextCloud URL</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-cloud text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="text"
+															name="dest_host"
+															id="dest_host"
+															x-model="destHost"
+															required
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+															placeholder="https://nextcloud.example.com"/>
+													</div>
+												</div>
+
+												<div class="sm:col-span-4">
+													<label for="dest_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="text"
+															name="dest_user"
+															id="dest_user"
+															x-model="destUser"
+															required
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
+													</div>
+												</div>
+
+												<div class="sm:col-span-4">
+													<label for="dest_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password or App Password</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="password"
+															name="dest_password"
+															id="dest_password"
+															x-model="destPassword"
+															required
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+															placeholder="Password"/>
+													</div>
+													<input type="hidden" name="dest_password" :value="destPassword"/>
+													<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">Using an app password is recommended for security</p>
+												</div>
+											</div>
+										</template>
+
+										<template x-if="destinationType === 'onedrive'">
+											<div class="sm:col-span-6 space-y-6">
+												<div class="relative p-4 border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/30 dark:border-yellow-700 rounded-lg mb-4">
+													<div class="flex">
+														<div class="flex-shrink-0">
+															<i class="fas fa-info-circle text-yellow-400"></i>
+														</div>
+														<div class="ml-3">
+															<h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-300">OneDrive Authentication</h3>
+															<div class="mt-2 text-sm text-yellow-700 dark:text-yellow-400">
+																<p>OneDrive requires OAuth authentication. You'll need to:</p>
+																<ol class="list-decimal ml-4 mt-1 space-y-1">
+																	<li>Register an application in the Microsoft Azure portal</li>
+																	<li>Add redirect URI: http://localhost:53682/</li>
+																	<li>Save the application details below</li>
+																</ol>
+															</div>
+														</div>
+													</div>
+												</div>
+
+												<div class="sm:col-span-4">
+													<label for="dest_client_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client ID</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-id-card text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="text"
+															name="dest_client_id"
+															id="dest_client_id"
+															x-model="destClientId"
+															required
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+															placeholder="Azure application client ID"/>
+													</div>
+												</div>
+
+												<div class="sm:col-span-4">
+													<label for="dest_client_secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client Secret</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="password"
+															name="dest_client_secret"
+															id="dest_client_secret"
+															x-model="destClientSecret"
+															required
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+															placeholder="Azure application client secret"/>
+													</div>
+													<input type="hidden" name="dest_client_secret" :value="destClientSecret"/>
+												</div>
+
+												<div class="sm:col-span-4">
+													<label for="dest_drive_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Drive ID (Optional)</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-hdd text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="text"
+															name="dest_drive_id"
+															id="dest_drive_id"
+															x-model="destDriveId"
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+															placeholder="OneDrive drive ID (leave empty for default)"/>
+													</div>
+													<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">For shared or business drives</p>
+												</div>
+											</div>
+										</template>
+
+										<template x-if="destinationType === 'google_drive'">
+											<div class="sm:col-span-6 space-y-6">
+												<div class="relative p-4 border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/30 dark:border-yellow-700 rounded-lg mb-4">
+													<div class="flex">
+														<div class="flex-shrink-0">
+															<i class="fas fa-info-circle text-yellow-400"></i>
+														</div>
+														<div class="ml-3">
+															<h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-300">Google Drive Authentication</h3>
+															<div class="mt-2 text-sm text-yellow-700 dark:text-yellow-400">
+																<p>Google Drive requires OAuth authentication. You'll need to:</p>
+																<ol class="list-decimal ml-4 mt-1 space-y-1">
+																	<li>Create a project in Google Cloud Console</li>
+																	<li>Enable Google Drive API</li>
+																	<li>Create OAuth credentials</li>
+																	<li>Add redirect URI: http://localhost:53682/</li>
+																	<li>Save the client details below</li>
+																</ol>
+															</div>
+														</div>
+													</div>
+												</div>
+
+												<div class="sm:col-span-4">
+													<label for="dest_client_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client ID</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-id-card text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="text"
+															name="dest_client_id"
+															id="dest_client_id"
+															x-model="destClientId"
+															required
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+															placeholder="Google OAuth client ID"/>
+													</div>
+												</div>
+
+												<div class="sm:col-span-4">
+													<label for="dest_client_secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client Secret</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="password"
+															name="dest_client_secret"
+															id="dest_client_secret"
+															x-model="destClientSecret"
+															required
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+															placeholder="Google OAuth client secret"/>
+													</div>
+													<input type="hidden" name="dest_client_secret" :value="destClientSecret"/>
+												</div>
+
+												<div class="sm:col-span-4">
+													<label for="dest_team_drive" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Team Drive ID (Optional)</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-users text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input
+															type="text"
+															name="dest_team_drive"
+															id="dest_team_drive"
+															x-model="destTeamDrive"
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+															placeholder="Team Drive ID (leave empty for personal drive)"/>
+													</div>
+												</div>
+											</div>
+										</template>
+
 										<div class="sm:col-span-6">
 											<label for="destination_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Destination Path</label>
 											<div class="relative">
 												<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
 													<i class="fas fa-folder-open text-secondary-400 dark:text-secondary-600"></i>
 												</div>
-												<input 
-													type="text" 
-													name="destination_path" 
+												<input
+													type="text"
+													name="destination_path"
 													id="destination_path"
 													x-model="destinationPath"
 													required
@@ -1302,7 +1898,6 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 														class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
 														placeholder="/path/to/archive"/>
 												</div>
-												<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">Location to move files after successful transfer</p>
 											</div>
 										</div>
 
@@ -1339,7 +1934,6 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 													class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
 													placeholder="--transfers 4 --checkers 8"/>
 											</div>
-											<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">Optional: Additional rclone flags for fine-tuning the transfer.</p>
 										</div>
 									</div>
 								</div>
