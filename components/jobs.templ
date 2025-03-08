@@ -68,6 +68,13 @@ templ Jobs(ctx context.Context, data JobsData) {
 														}
 													</div>
 													<div class="ml-2 flex-shrink-0 flex space-x-2">
+														<button 
+															hx-post={ fmt.Sprintf("/jobs/%d/run", job.ID) }
+															hx-swap="none"
+															class="btn-primary btn-sm">
+															<i class="fas fa-play mr-1"></i>
+															Run Now
+														</button>
 														<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) } class="btn-secondary btn-sm">
 															<i class="fas fa-edit mr-1"></i>
 															Edit
