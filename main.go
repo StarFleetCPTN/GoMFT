@@ -1,8 +1,11 @@
 package main
 
 import (
+	"embed"
 	"fmt"
+	"io/fs"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -15,6 +18,9 @@ import (
 	"github.com/starfleetcptn/gomft/internal/web"
 	"golang.org/x/crypto/bcrypt"
 )
+
+//go:embed static
+var staticFiles embed.FS
 
 func main() {
 	// Set Gin to release mode
@@ -34,10 +40,6 @@ func main() {
 	dirs := []string{
 		cfg.DataDir,
 		cfg.BackupDir,
-		// "templates",
-		"static",
-		"static/css",
-		"static/js",
 	}
 
 	for _, dir := range dirs {
@@ -101,9 +103,13 @@ func main() {
 	}))
 	router.Use(gin.Recovery())
 
-	// Serve static files
-	router.Static("/static", "./static")
-	log.Printf("Static file serving configured")
+	// Serve embedded static files
+	staticFS, err := fs.Sub(staticFiles, "static")
+	if err != nil {
+		log.Fatalf("Failed to create sub-filesystem: %v", err)
+	}
+	router.StaticFS("/static", http.FS(staticFS))
+	log.Printf("Embedded static files configured for serving")
 
 	// Initialize web handlers
 	webHandler, err := web.NewHandler(database, scheduler, cfg.JWTSecret, dbPath, cfg.BackupDir, cfg)
