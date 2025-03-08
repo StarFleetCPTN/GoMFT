@@ -44,6 +44,7 @@ Thumbs.db
 
 # Ignore all Go files in the components directory
 components/*.go
+!components/components.go
 
 # Ignore the data directory
 data/
