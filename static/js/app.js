@@ -1,6 +1,7 @@
 // Theme management for GoMFT application
 document.addEventListener('DOMContentLoaded', function() {
   initializeTheme();
+  initializeMobileSupport();
 });
 
 // Initialize theme based on user preference
@@ -242,3 +243,94 @@ style.textContent = `
   }
 `;
 document.head.appendChild(style);
+
+// Initialize mobile support features
+function initializeMobileSupport() {
+  // Check if it's a mobile device
+  const isMobile = window.matchMedia('(max-width: 768px)').matches;
+  
+  if (isMobile) {
+    // Add padding to main content to prevent overlap with bottom nav
+    const bottomNav = document.querySelector('.mobile-nav-container');
+    if (bottomNav) {
+      const main = document.querySelector('main');
+      if (main) {
+        main.style.paddingBottom = (bottomNav.offsetHeight + 16) + 'px';
+      }
+    }
+    
+    // Add active class to current page in bottom nav
+    highlightCurrentPageInBottomNav();
+    
+    // Make tables scrollable on mobile
+    makeTablesResponsive();
+    
+    // Improve mobile form experience
+    enhanceMobileForms();
+  }
+  
+  // Listen for orientation changes
+  window.addEventListener('orientationchange', function() {
+    // Wait for orientation change to complete
+    setTimeout(function() {
+      if (window.matchMedia('(max-width: 768px)').matches) {
+        makeTablesResponsive();
+      }
+    }, 300);
+  });
+}
+
+// Highlight current page in mobile bottom navigation
+function highlightCurrentPageInBottomNav() {
+  const currentPath = window.location.pathname;
+  const bottomNavLinks = document.querySelectorAll('.mobile-nav-container a');
+  
+  bottomNavLinks.forEach(link => {
+    const href = link.getAttribute('href');
+    if (currentPath === href || (href !== '/' && currentPath.startsWith(href))) {
+      link.classList.add('text-primary-600', 'dark:text-primary-400');
+      link.classList.remove('text-secondary-500', 'dark:text-secondary-400');
+    }
+  });
+}
+
+// Make tables responsive on mobile
+function makeTablesResponsive() {
+  const tables = document.querySelectorAll('table');
+  tables.forEach(table => {
+    if (!table.parentElement.classList.contains('table-responsive')) {
+      const wrapper = document.createElement('div');
+      wrapper.classList.add('table-responsive');
+      table.parentNode.insertBefore(wrapper, table);
+      wrapper.appendChild(table);
+    }
+  });
+}
+
+// Enhance mobile forms
+function enhanceMobileForms() {
+  // Prevent zooming on inputs in iOS
+  const metaViewport = document.querySelector('meta[name=viewport]');
+  if (metaViewport) {
+    metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0');
+  }
+  
+  // Add 'required' visual indicator to required fields
+  const requiredInputs = document.querySelectorAll('input[required], select[required], textarea[required]');
+  requiredInputs.forEach(input => {
+    const label = input.previousElementSibling;
+    if (label && label.tagName === 'LABEL') {
+      if (!label.innerHTML.includes('*')) {
+        label.innerHTML += ' <span class="text-red-500">*</span>';
+      }
+    }
+  });
+  
+  // Improve date input on mobile
+  const dateInputs = document.querySelectorAll('input[type="date"]');
+  dateInputs.forEach(input => {
+    input.addEventListener('focus', function() {
+      input.click(); // Force native date picker on mobile
+    });
+  });
+}

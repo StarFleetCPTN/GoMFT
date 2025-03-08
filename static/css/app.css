@@ -20,6 +20,8 @@ body {
     line-height: 1.6;
     color: var(--text-color);
     background-color: var(--background-color);
+    /* Prevent content from going under bottom nav on mobile */
+    padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* Layout */
@@ -223,8 +225,21 @@ body {
     border-top: 1px solid #e2e8f0;
 }
 
+/* Mobile Bottom Navigation */
+.mobile-bottom-nav {
+    display: none;
+}
+
+.pb-mobile-nav {
+    padding-bottom: 1rem;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
+    .pb-mobile-nav {
+        padding-bottom: 5rem !important; /* Account for bottom nav */
+    }
+    
     .grid-cols-2,
     .grid-cols-3 {
         grid-template-columns: 1fr;
@@ -233,5 +248,121 @@ body {
     .navbar-menu {
         flex-direction: column;
         align-items: flex-start;
+    }
+    
+    /* Adjust cards for mobile */
+    .card {
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    /* Table adjustments for mobile */
+    .table-responsive {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Adjust forms for mobile */
+    .form-label {
+        font-size: 0.875rem;
+    }
+    
+    .form-input {
+        font-size: 16px; /* Prevents zoom on iOS */
+        padding: 0.625rem;
+    }
+    
+    /* Touch-friendly buttons */
+    .button {
+        padding: 0.625rem 1rem;
+        min-height: 44px; /* Better touch target */
+    }
+    
+    /* Mobile spacing */
+    .container {
+        padding: 0.75rem;
+    }
+    
+    .px-4 {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+    
+    .py-4 {
+        padding-top: 0.75rem;
+        padding-bottom: 0.75rem;
+    }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+    .card-body {
+        padding: 0.75rem;
+    }
+    
+    .card-title {
+        font-size: 1.125rem;
+    }
+    
+    .hidden-xs {
+        display: none;
+    }
+    
+    /* Stack buttons on small screens */
+    .button-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    /* Ensure safe area at bottom of the page */
+    body {
+        padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+}
+
+/* Support for notch phones */
+@supports (padding: max(0px)) {
+    body, 
+    .container,
+    .navbar {
+        padding-left: max(1rem, env(safe-area-inset-left));
+        padding-right: max(1rem, env(safe-area-inset-right));
+    }
+    
+    .mobile-nav-container {
+        padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+    }
+}
+
+/* Dark mode support for mobile */
+@media (prefers-color-scheme: dark) {
+    .mobile-bottom-nav {
+        background-color: #1e293b;
+        border-top-color: #334155;
+    }
+}
+
+/* Improve form elements on mobile */
+@media (hover: none) and (pointer: coarse) {
+    input[type="checkbox"], 
+    input[type="radio"],
+    button,
+    .button,
+    select {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    
+    input, select, textarea {
+        font-size: 16px !important; /* Prevents zoom on focus in iOS */
     }
 }

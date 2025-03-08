@@ -32,7 +32,10 @@ templ LayoutWithContext(title string, ctx context.Context) {
 	<html lang="en" class="light h-full">
 		<head>
 			<meta charset="UTF-8"/>
-			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+			<meta name="theme-color" content="#2563eb"/>
+			<meta name="apple-mobile-web-app-capable" content="yes"/>
+			<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 			<link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
 			<link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
 			<link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
@@ -283,6 +286,18 @@ templ LayoutWithContext(title string, ctx context.Context) {
 									<i class="fas fa-moon block dark:hidden"></i>
 								</button>
 								
+								<!-- Mobile menu button -->
+								<div class="sm:hidden flex items-center">
+									<button 
+										id="mobile-menu-button" 
+										class="text-secondary-500 dark:text-secondary-400 hover:bg-secondary-100 dark:hover:bg-secondary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-lg text-sm p-2"
+										x-data="{}" 
+										@click="$dispatch('toggle-mobile-menu')"
+									>
+										<i class="fas fa-bars text-lg"></i>
+									</button>
+								</div>
+								
 								<!-- User Menu -->
 								<div x-data="{ open: false }" class="relative">
 									<button @click="open = !open" class="flex text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
@@ -315,8 +330,53 @@ templ LayoutWithContext(title string, ctx context.Context) {
 						</div>
 					</div>
 				</nav>
+				
+				<!-- Mobile Navigation Menu -->
+				<div 
+					x-data="{ open: false }" 
+					x-on:toggle-mobile-menu.window="open = !open"
+					x-show="open" 
+					x-transition:enter="transition ease-out duration-200"
+					x-transition:enter-start="opacity-0 transform -translate-y-2"
+					x-transition:enter-end="opacity-100 transform translate-y-0"
+					x-transition:leave="transition ease-in duration-150"
+					x-transition:leave-start="opacity-100 transform translate-y-0"
+					x-transition:leave-end="opacity-0 transform -translate-y-2"
+					class="sm:hidden bg-white dark:bg-secondary-800 shadow-md"
+				>
+					<div class="px-2 pt-2 pb-3 space-y-1">
+						<a href="/dashboard" class="block px-3 py-2 rounded-md text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-primary-50 dark:hover:bg-secondary-700 hover:text-primary-600 dark:hover:text-primary-400">
+							<i class="fas fa-tachometer-alt mr-2"></i> Dashboard
+						</a>
+						<a href="/configs" class="block px-3 py-2 rounded-md text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-primary-50 dark:hover:bg-secondary-700 hover:text-primary-600 dark:hover:text-primary-400">
+							<i class="fas fa-cogs mr-2"></i> Configs
+						</a>
+						<a href="/jobs" class="block px-3 py-2 rounded-md text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-primary-50 dark:hover:bg-secondary-700 hover:text-primary-600 dark:hover:text-primary-400">
+							<i class="fas fa-tasks mr-2"></i> Jobs
+						</a>
+						<a href="/history" class="block px-3 py-2 rounded-md text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-primary-50 dark:hover:bg-secondary-700 hover:text-primary-600 dark:hover:text-primary-400">
+							<i class="fas fa-history mr-2"></i> History
+						</a>
+						if isAdmin(ctx) {
+							<a href="/admin/users" class="block px-3 py-2 rounded-md text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-primary-50 dark:hover:bg-secondary-700 hover:text-primary-600 dark:hover:text-primary-400">
+								<i class="fas fa-users mr-2"></i> Users
+							</a>
+							<a href="/admin/tools" class="block px-3 py-2 rounded-md text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-primary-50 dark:hover:bg-secondary-700 hover:text-primary-600 dark:hover:text-primary-400">
+								<i class="fas fa-tools mr-2"></i> Admin Tools
+							</a>
+						}
+						<a href="/profile" class="block px-3 py-2 rounded-md text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-primary-50 dark:hover:bg-secondary-700 hover:text-primary-600 dark:hover:text-primary-400">
+							<i class="fas fa-user-circle mr-2"></i> Profile
+						</a>
+						<form method="POST" action="/logout">
+							<button type="submit" class="w-full text-left block px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900 hover:text-red-700 dark:hover:text-red-400">
+								<i class="fas fa-sign-out-alt mr-2"></i> Sign out
+							</button>
+						</form>
+					</div>
+				</div>
 			}
-			<main class="flex-grow w-full max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 animate-fadeIn">
+			<main class="flex-grow w-full max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 animate-fadeIn pb-mobile-nav">
 				{ children... }
 			</main>
 			<footer class="bg-white dark:bg-secondary-800 shadow-inner mt-auto w-full">
@@ -326,6 +386,39 @@ templ LayoutWithContext(title string, ctx context.Context) {
 					</p>
 				</div>
 			</footer>
+			
+			if isLoggedIn(ctx) {
+				<!-- Mobile Bottom Navigation -->
+				<div class="sm:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-secondary-800 border-t border-secondary-200 dark:border-secondary-700 shadow-lg mobile-nav-container z-10">
+					<div class="grid grid-cols-5 h-16">
+						<a href="/dashboard" class="flex flex-col items-center justify-center text-secondary-500 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400">
+							<i class="fas fa-tachometer-alt text-lg"></i>
+							<span class="text-xs mt-1">Dashboard</span>
+						</a>
+						<a href="/configs" class="flex flex-col items-center justify-center text-secondary-500 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400">
+							<i class="fas fa-cogs text-lg"></i>
+							<span class="text-xs mt-1">Configs</span>
+						</a>
+						<a href="/jobs" class="flex flex-col items-center justify-center text-secondary-500 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400">
+							<i class="fas fa-tasks text-lg"></i>
+							<span class="text-xs mt-1">Jobs</span>
+						</a>
+						<a href="/history" class="flex flex-col items-center justify-center text-secondary-500 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400">
+							<i class="fas fa-history text-lg"></i>
+							<span class="text-xs mt-1">History</span>
+						</a>
+						<button 
+							type="button" 
+							class="flex flex-col items-center justify-center text-secondary-500 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400"
+							x-data="{}" 
+							@click="$dispatch('toggle-mobile-menu')"
+						>
+							<i class="fas fa-ellipsis-h text-lg"></i>
+							<span class="text-xs mt-1">More</span>
+						</button>
+					</div>
+				</div>
+			}
 		</body>
 	</html>
 }
