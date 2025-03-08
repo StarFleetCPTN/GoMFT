@@ -1,0 +1,578 @@
+package components
+
+import (
+	"context"
+	"fmt"
+	"time"
+)
+
+type BackupFile struct {
+	Name    string
+	Size    string
+	ModTime time.Time
+}
+
+type AdminToolsData struct {
+	JobHistoryCount    int
+	DatabaseSize       string
+	LastBackupTime     *time.Time
+	BackupCount        int
+	SystemUptime       string
+	ActiveJobs         int
+	TotalConfigs       int
+	TotalJobs          int
+	TotalUsers         int
+	DatabasePath       string
+	BackupPath         string
+	MaintenanceMessage string
+	BackupFiles        []BackupFile
+}
+
+// Dialog component for confirmation dialogs
+templ Dialog(id string, title string, message string, confirmClass string, confirmText string, formId string, targetAction string) {
+	<div id={ id } class="hidden fixed inset-0 bg-secondary-900/50 dark:bg-secondary-900/80 backdrop-blur-sm z-50 flex items-center justify-center">
+		<div class="bg-white dark:bg-secondary-800 rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden">
+			<div class="px-6 pt-5 pb-3 text-center">
+				<div class="flex justify-center mb-2">
+					<i class="fas fa-exclamation-triangle text-yellow-400 text-3xl"></i>
+				</div>
+				<h3 class="text-xl font-medium text-secondary-900 dark:text-secondary-100">
+					{ title }
+				</h3>
+			</div>
+			<div class="px-6 py-4 text-center">
+				<p class="text-secondary-700 dark:text-secondary-300">
+					{ message }
+				</p>
+			</div>
+			<div class="px-6 py-4 flex justify-end space-x-3">
+				<button type="button" class="btn-secondary" onclick={ hideDialog(id) }>
+					Cancel
+				</button>
+				if formId != "" {
+					<button 
+						type="button" 
+						class={ confirmClass }
+						onclick={ submitFormAndHideDialog(formId, id) }>
+						{ confirmText }
+					</button>
+				} else {
+					<button 
+						type="button" 
+						class={ confirmClass }
+						hx-target={ targetAction }
+						onclick={ hideDialog(id) }>
+						{ confirmText }
+					</button>
+				}
+			</div>
+		</div>
+	</div>
+}
+
+script hideDialog(id string) {
+	document.getElementById(id).classList.add("hidden");
+}
+
+script submitFormAndHideDialog(formId string, dialogId string) {
+	document.getElementById(formId).submit();
+	document.getElementById(dialogId).classList.add("hidden");
+}
+
+script showDialog(id string) {
+	document.getElementById(id).classList.remove("hidden");
+}
+
+// Backup dialog component specifically for restore and delete actions
+templ BackupActionDialog(id string, title string, message string, confirmClass string, confirmText string, action string, backupName string) {
+	<div id={ id } class="hidden fixed inset-0 bg-secondary-900/50 dark:bg-secondary-900/80 backdrop-blur-sm z-50 flex items-center justify-center">
+		<div class="bg-white dark:bg-secondary-800 rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden">
+			<div class="px-6 pt-5 pb-3 text-center">
+				<div class="flex justify-center mb-2">
+					<i class="fas fa-exclamation-triangle text-yellow-400 text-5xl"></i>
+				</div>
+				<h3 class="text-xl font-medium text-secondary-900 dark:text-secondary-100">
+					{ title }
+				</h3>
+			</div>
+			<div class="px-6 py-4 text-center">
+				<p class="text-secondary-700 dark:text-secondary-300">
+					{ message }
+				</p>
+			</div>
+			<div class="px-6 py-4 flex justify-center space-x-3">
+				<button type="button" class="btn-secondary" onclick={ hideDialog(id) }>
+					Cancel
+				</button>
+				if action == "restore" {
+					<button 
+						type="button" 
+						class="btn-warning"
+						hx-post={ fmt.Sprintf("/admin/restore-database/%s", backupName) }
+						hx-swap="none"
+						onclick={ hideDialog(id) }>
+						{ confirmText }
+					</button>
+				} else if action == "delete" {
+					<button 
+						type="button" 
+						class="btn-danger"
+						hx-delete={ fmt.Sprintf("/admin/delete-backup/%s", backupName) }
+						hx-target="closest tr"
+						hx-swap="delete"
+						onclick={ hideDialog(id) }>
+						{ confirmText }
+					</button>
+				}
+			</div>
+		</div>
+	</div>
+}
+
+templ AdminTools(ctx context.Context, data AdminToolsData) {
+	@LayoutWithContext("Admin Tools", ctx) {
+		<div class="py-6">
+			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+				<div class="flex items-center justify-between mb-8">
+					<h1 class="text-3xl font-bold text-secondary-900 dark:text-secondary-100">
+						<i class="fas fa-tools mr-2 text-primary-600 dark:text-primary-400"></i>
+						Admin Tools
+					</h1>
+					<div class="text-sm text-secondary-500 dark:text-secondary-400">
+						<span id="current-date" class="font-medium"></span>
+						<script>
+							document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+						</script>
+					</div>
+				</div>
+
+				if data.MaintenanceMessage != "" {
+					<div class="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-4 rounded">
+						<div class="flex">
+							<div class="flex-shrink-0">
+								<i class="fas fa-exclamation-triangle text-yellow-400"></i>
+							</div>
+							<div class="ml-3">
+								<p class="text-sm text-yellow-700 dark:text-yellow-300">
+									{ data.MaintenanceMessage }
+								</p>
+							</div>
+						</div>
+					</div>
+				}
+
+				<!-- System Overview -->
+				<div class="mb-8">
+					<h2 class="text-xl font-semibold text-secondary-900 dark:text-secondary-100 mb-4">
+						<i class="fas fa-chart-line mr-2 text-primary-500"></i>
+						System Overview
+					</h2>
+					<div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+						<div class="card overflow-hidden">
+							<div class="p-5">
+								<div class="flex items-center">
+									<div class="flex-shrink-0">
+										<i class="fas fa-database text-blue-500 text-2xl"></i>
+									</div>
+									<div class="ml-5 w-0 flex-1">
+										<dl>
+											<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400 truncate">
+												Database Size
+											</dt>
+											<dd>
+												<div class="text-lg font-medium text-secondary-900 dark:text-secondary-100">
+													{ data.DatabaseSize }
+												</div>
+											</dd>
+										</dl>
+									</div>
+								</div>
+							</div>
+						</div>
+						
+						<div class="card overflow-hidden">
+							<div class="p-5">
+								<div class="flex items-center">
+									<div class="flex-shrink-0">
+										<i class="fas fa-history text-green-500 text-2xl"></i>
+									</div>
+									<div class="ml-5 w-0 flex-1">
+										<dl>
+											<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400 truncate">
+												Job History Records
+											</dt>
+											<dd>
+												<div class="text-lg font-medium text-secondary-900 dark:text-secondary-100">
+													{ fmt.Sprint(data.JobHistoryCount) }
+												</div>
+											</dd>
+										</dl>
+									</div>
+								</div>
+							</div>
+						</div>
+						
+						<div class="card overflow-hidden">
+							<div class="p-5">
+								<div class="flex items-center">
+									<div class="flex-shrink-0">
+										<i class="fas fa-clock text-purple-500 text-2xl"></i>
+									</div>
+									<div class="ml-5 w-0 flex-1">
+										<dl>
+											<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400 truncate">
+												System Uptime
+											</dt>
+											<dd>
+												<div class="text-lg font-medium text-secondary-900 dark:text-secondary-100">
+													{ data.SystemUptime }
+												</div>
+											</dd>
+										</dl>
+									</div>
+								</div>
+							</div>
+						</div>
+						
+						<div class="card overflow-hidden">
+							<div class="p-5">
+								<div class="flex items-center">
+									<div class="flex-shrink-0">
+										<i class="fas fa-tasks text-orange-500 text-2xl"></i>
+									</div>
+									<div class="ml-5 w-0 flex-1">
+										<dl>
+											<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400 truncate">
+												Active Jobs
+											</dt>
+											<dd>
+												<div class="text-lg font-medium text-secondary-900 dark:text-secondary-100">
+													{ fmt.Sprint(data.ActiveJobs) }
+												</div>
+											</dd>
+										</dl>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				
+				<!-- Admin Tools Cards -->
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+					<!-- Backup & Restore -->
+					<div class="card">
+						<div class="card-header">
+							<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100">
+								<i class="fas fa-save mr-2 text-primary-500"></i>
+								Backup & Restore
+							</h3>
+						</div>
+						
+						<div class="card-body space-y-4">
+							<div class="flex items-center justify-between text-sm text-secondary-500 dark:text-secondary-400 mb-2">
+							if data.LastBackupTime != nil {
+								<span>Last backup: { data.LastBackupTime.Format("Jan 02, 2006 15:04:05") }</span>
+							} else {
+								<span>Last backup: Never</span>
+							}
+							</div>
+							
+							
+							<button id="backup-form" 
+								hx-post="/admin/backup-database" 
+								hx-swap="none" 
+								hx-indicator="#backup-indicator" 
+								hx-on::after-request="htmx.trigger('#refresh-backups-trigger', 'click')"
+								class="btn-primary w-full flex items-center justify-center">
+								<i class="fas fa-database mr-2"></i>
+								<span>Backup Database</span>
+								<div id="backup-indicator" class="htmx-indicator ml-2">
+									<i class="fas fa-circle-notch fa-spin"></i>
+								</div>
+							</button>
+							
+							<!-- Hidden refresh trigger -->
+							<button id="refresh-backups-trigger" 
+								class="hidden"
+								hx-get="/admin/refresh-backups" 
+								hx-target="#backups-container"></button>
+							
+							<form id="export-configs-form" action="/admin/export-configs" method="GET">
+								<button type="submit" class="btn-secondary w-full flex items-center justify-center">
+									<i class="fas fa-file-export mr-2"></i>
+									<span>Export All Configurations</span>
+									<div id="export-configs-indicator" class="htmx-indicator ml-2">
+										<i class="fas fa-circle-notch fa-spin"></i>
+									</div>
+								</button>
+							</form>
+							
+							<form id="export-jobs-form" action="/admin/export-jobs" method="GET">
+								<button type="submit" class="btn-secondary w-full flex items-center justify-center">
+									<i class="fas fa-file-export mr-2"></i>
+									<span>Export All Jobs</span>
+									<div id="export-jobs-indicator" class="htmx-indicator ml-2">
+										<i class="fas fa-circle-notch fa-spin"></i>
+									</div>
+								</button>
+							</form>
+							
+							<div class="border-t border-secondary-200 dark:border-secondary-700 pt-4 mt-4">
+								<h4 class="text-sm font-medium text-secondary-900 dark:text-secondary-100 mb-2">Restore Database</h4>
+								<form id="restore-form" hx-post="/admin/restore-database" hx-encoding="multipart/form-data" hx-swap="none" hx-indicator="#restore-indicator">
+									<div class="flex items-center space-x-2">
+										<div class="flex-grow">
+											<label class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+												Select Backup File
+											</label>
+											<input type="file" name="backup_file" class="block w-full text-sm text-secondary-500 dark:text-secondary-400
+												file:mr-4 file:py-2 file:px-4
+												file:rounded-md file:border-0
+												file:text-sm file:font-medium
+												file:bg-primary-50 file:text-primary-700
+												dark:file:bg-primary-900 dark:file:text-primary-300
+												hover:file:bg-primary-100 dark:hover:file:bg-primary-800
+												focus:outline-none" required />
+										</div>
+										<button type="submit" class="btn-warning flex-shrink-0 flex items-center justify-center h-10">
+											<div class="flex items-center justify-center">
+												<i class="fas fa-upload mr-1"></i>
+												<span>Restore</span>
+												<div id="restore-indicator" class="htmx-indicator ml-2">
+													<i class="fas fa-circle-notch fa-spin"></i>
+												</div>
+											</div>
+										</button>
+									</div>
+									<p class="text-xs text-red-600 dark:text-red-400 mt-2">
+										<i class="fas fa-exclamation-triangle mr-1"></i>
+										Warning: This will replace your current database. Make sure to backup first!
+									</p>
+								</form>
+							</div>
+						</div>
+					</div>
+					
+					<!-- Maintenance Tools -->
+					<div class="card">
+						<div class="card-header">
+							<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100">
+								<i class="fas fa-wrench mr-2 text-primary-500"></i>
+								Maintenance Tools
+							</h3>
+						</div>
+						<div class="card-body space-y-4">
+							<!-- Clear Job History Button and Dialog -->
+							@Dialog("clear-job-dialog", "Clear Job History", "Are you sure you want to clear all job history? This cannot be undone.", "btn-danger", "Clear History", "purge-form", "")
+							<form id="purge-form" hx-post="/admin/clear-job-history" hx-swap="none" hx-indicator="#clear-history-indicator">
+								<button type="button" class="btn-danger w-full flex items-center justify-center" onclick={ showDialog("clear-job-dialog") }>
+									<i class="fas fa-trash-alt mr-2"></i>
+									<span>Clear Job History</span>
+									<div id="clear-history-indicator" class="htmx-indicator ml-2">
+										<i class="fas fa-circle-notch fa-spin"></i>
+									</div>
+								</button>
+							</form>
+							
+							<div class="border-t border-secondary-200 dark:border-secondary-700 pt-4 mt-4">
+								<form id="vacuum-form" hx-post="/admin/vacuum-database" hx-swap="none" hx-indicator="#vacuum-indicator">
+									<button type="submit" class="btn-secondary w-full flex items-center justify-center">
+										<i class="fas fa-compress-alt mr-2"></i>
+										<span>Optimize Database</span>
+										<div id="vacuum-indicator" class="htmx-indicator ml-2">
+											<i class="fas fa-circle-notch fa-spin"></i>
+										</div>
+									</button>
+									<p class="text-xs text-secondary-500 dark:text-secondary-400 mt-2">
+										Runs VACUUM to optimize the database and reclaim unused space.
+									</p>
+								</form>
+							</div>
+
+						</div>
+					</div>
+				</div>
+				
+				<!-- Available Backups -->
+				<div id="backups-container" class="mt-8">
+					@BackupsList(data)
+				</div>
+				
+				<!-- System Information -->
+				<div class="mt-8">
+					<div class="card">
+						<div class="card-header">
+							<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100">
+								<i class="fas fa-info-circle mr-2 text-primary-500"></i>
+								System Information
+							</h3>
+						</div>
+						<div class="card-body">
+							<dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+								<div class="sm:col-span-1">
+									<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">Database Path</dt>
+									<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100 font-mono bg-secondary-50 dark:bg-secondary-900 p-2 rounded overflow-auto">
+										{ data.DatabasePath }
+									</dd>
+								</div>
+								
+								<div class="sm:col-span-1">
+									<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">Backup Directory</dt>
+									<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100 font-mono bg-secondary-50 dark:bg-secondary-900 p-2 rounded overflow-auto">
+										{ data.BackupPath }
+									</dd>
+								</div>
+								
+								<div class="sm:col-span-1">
+									<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">Total Users</dt>
+									<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100">
+										{ fmt.Sprint(data.TotalUsers) }
+									</dd>
+								</div>
+								
+								<div class="sm:col-span-1">
+									<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">Total Configurations</dt>
+									<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100">
+										{ fmt.Sprint(data.TotalConfigs) }
+									</dd>
+								</div>
+								
+								<div class="sm:col-span-1">
+									<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">Total Jobs</dt>
+									<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100">
+										{ fmt.Sprint(data.TotalJobs) }
+									</dd>
+								</div>
+							</dl>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	}
+}
+
+// BackupsList is a separate component for the backups list that can be refreshed via HTMX
+templ BackupsList(data AdminToolsData) {
+	if len(data.BackupFiles) > 0 {
+		<div class="card">
+			<div class="card-header flex justify-between items-center">
+				<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100">
+					<i class="fas fa-history mr-2 text-primary-500"></i>
+					Available Backups
+				</h3>
+				<button 
+					hx-get="/admin/refresh-backups" 
+					hx-target="#backups-container" 
+					hx-indicator="#refresh-backups-indicator"
+					class="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+					title="Refresh backups list">
+					<i class="fas fa-sync-alt"></i>
+					<span id="refresh-backups-indicator" class="htmx-indicator ml-1">
+						<i class="fas fa-circle-notch fa-spin"></i>
+					</span>
+				</button>
+			</div>
+			<div class="card-body">
+				<div class="bg-secondary-50 dark:bg-secondary-900 rounded-lg overflow-hidden">
+					<div class="overflow-x-auto">
+						<table class="min-w-full divide-y divide-secondary-200 dark:divide-secondary-700">
+							<thead>
+								<tr class="bg-secondary-100 dark:bg-secondary-800">
+									<th class="px-4 py-2 text-left text-xs font-medium text-secondary-500 dark:text-secondary-400">Name</th>
+									<th class="px-4 py-2 text-left text-xs font-medium text-secondary-500 dark:text-secondary-400">Size</th>
+									<th class="px-4 py-2 text-left text-xs font-medium text-secondary-500 dark:text-secondary-400">Date</th>
+									<th class="px-4 py-2 text-right text-xs font-medium text-secondary-500 dark:text-secondary-400">Action</th>
+								</tr>
+							</thead>
+							<tbody class="divide-y divide-secondary-200 dark:divide-secondary-700">
+								for _, backup := range data.BackupFiles {
+									<tr class="hover:bg-secondary-100 dark:hover:bg-secondary-800 transition-colors">
+										<td class="px-4 py-2 text-sm text-secondary-900 dark:text-secondary-100">{ backup.Name }</td>
+										<td class="px-4 py-2 text-sm text-secondary-500 dark:text-secondary-400">{ backup.Size }</td>
+										<td class="px-4 py-2 text-sm text-secondary-500 dark:text-secondary-400">{ backup.ModTime.Format("Jan 02, 2006 15:04:05") }</td>
+										<td class="px-4 py-2 text-right">
+											<a href={ templ.SafeURL(fmt.Sprintf("/admin/download-backup/%s", backup.Name)) } 
+												class="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 mr-2"
+												title="Download backup">
+												<i class="fas fa-download"></i>
+											</a>
+											
+											<!-- Restore Dialog -->
+											@BackupActionDialog(
+												fmt.Sprintf("restore-dialog-%s", backup.Name),
+												"RESTORE BACKUP",
+												fmt.Sprintf("Are you sure you want to restore the backup '%s'? This will replace your current database.", backup.Name),
+												"btn-warning",
+												"Restore",
+												"restore",
+												backup.Name,
+											)
+											<button
+												type="button"
+												class="text-yellow-600 hover:text-yellow-700 dark:text-yellow-400 dark:hover:text-yellow-300 mr-2"
+												title="Restore this backup"
+												onclick={ showDialog(fmt.Sprintf("restore-dialog-%s", backup.Name)) }>
+												<i class="fas fa-upload"></i>
+											</button>
+											
+											<!-- Delete Dialog -->
+											@BackupActionDialog(
+												fmt.Sprintf("delete-dialog-%s", backup.Name),
+												"DELETE BACKUP",
+												fmt.Sprintf("Are you sure you want to delete the backup '%s'? This cannot be undone.", backup.Name),
+												"btn-danger",
+												"Delete",
+												"delete",
+												backup.Name,
+											)
+											<button
+												type="button"
+												class="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+												title="Delete backup"
+												onclick={ showDialog(fmt.Sprintf("delete-dialog-%s", backup.Name)) }>
+												<i class="fas fa-trash-alt"></i>
+											</button>
+										</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+				</div>
+			</div>
+		</div>
+	} else {
+		<div class="card">
+			<div class="card-header flex justify-between items-center">
+				<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100">
+					<i class="fas fa-history mr-2 text-primary-500"></i>
+					Available Backups
+				</h3>
+				<button 
+					hx-get="/admin/refresh-backups" 
+					hx-target="#backups-container" 
+					hx-indicator="#refresh-backups-indicator"
+					class="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+					title="Refresh backups list">
+					<i class="fas fa-sync-alt"></i>
+					<span id="refresh-backups-indicator" class="htmx-indicator ml-1">
+						<i class="fas fa-circle-notch fa-spin"></i>
+					</span>
+				</button>
+			</div>
+			<div class="card-body">
+				<div class="text-center py-6">
+					<div class="mx-auto w-12 h-12 rounded-full bg-secondary-100 dark:bg-secondary-800 flex items-center justify-center mb-4">
+						<i class="fas fa-folder-open text-secondary-400 dark:text-secondary-500"></i>
+					</div>
+					<h3 class="text-sm font-medium text-secondary-900 dark:text-secondary-100">No Backups Available</h3>
+					<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">
+						Create a backup using the "Backup Database" button.
+					</p>
+				</div>
+			</div>
+		</div>
+	}
+}

@@ -1,0 +1,18 @@
+{
+  "server_address": ":8080",
+  "data_dir": "/app/data/gomft",
+  "backup_dir": "/app/data/gomft/backups",
+  "jwt_secret": "change_this_to_a_secure_random_string",
+  "email": {
+    "enabled": true,
+    "host": "smtp.example.com",
+    "port": 587,
+    "from_email": "gomft@example.com",
+    "from_name": "GoMFT",
+    "reply_to": "",
+    "enable_tls": true,
+    "require_auth": true,
+    "username": "smtp_username",
+    "password": "smtp_password"
+  }
+}

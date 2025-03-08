@@ -1,0 +1,251 @@
+package components
+
+import (
+	"context"
+	"fmt"
+	"github.com/starfleetcptn/gomft/internal/db"
+	"time"
+)
+
+type JobRunDetailsData struct {
+	JobHistory db.JobHistory
+	Job        db.Job
+	Config     db.TransferConfig
+}
+
+templ JobRunDetails(ctx context.Context, data JobRunDetailsData) {
+	@LayoutWithContext("Job Run Details", ctx) {
+		<div class="py-6">
+			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+				<div class="mb-6">
+					<a href="/dashboard" class="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">
+						<i class="fas fa-arrow-left mr-1"></i> Back to Dashboard
+					</a>
+				</div>
+				
+				<div class="flex items-center justify-between mb-8">
+					<h1 class="text-3xl font-bold text-secondary-900 dark:text-secondary-100">
+						<i class="fas fa-file-alt mr-2 text-primary-600 dark:text-primary-400"></i>
+						Job Run Details
+					</h1>
+				</div>
+				
+				<!-- Job Run Information Card -->
+				<div class="bg-white dark:bg-secondary-800 shadow overflow-hidden rounded-lg mb-8">
+					<div class="px-4 py-5 sm:px-6 border-b border-secondary-200 dark:border-secondary-700">
+						<div class="flex items-center justify-between">
+							<h3 class="text-lg leading-6 font-medium text-secondary-900 dark:text-secondary-100">
+								if data.Job.Name != "" {
+									 { data.Job.Name }
+								} else {
+								 	{ data.Config.Name }
+								}
+							</h3>
+							if data.JobHistory.Status == "completed" {
+								<span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300">
+									<i class="fas fa-check mr-1"></i> Completed
+								</span>
+							} else if data.JobHistory.Status == "failed" {
+								<span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-300">
+									<i class="fas fa-times mr-1"></i> Failed
+								</span>
+							} else {
+								<span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300">
+									<i class="fas fa-sync-alt mr-1"></i> { data.JobHistory.Status }
+								</span>
+							}
+						</div>
+						if data.Job.Name != "" && data.Job.Name != data.Config.Name {
+							<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">
+								Config: { data.Config.Name }
+							</p>
+						}
+					</div>
+					
+					<div class="px-4 py-5 sm:p-6">
+						<dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
+							<div class="sm:col-span-1">
+								<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">
+									<i class="fas fa-calendar-alt mr-1"></i> Start Time
+								</dt>
+								<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100">
+									{ data.JobHistory.StartTime.Format("Jan 02, 2006 15:04:05") }
+								</dd>
+							</div>
+							
+							<div class="sm:col-span-1">
+								<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">
+									<i class="fas fa-calendar-check mr-1"></i> End Time
+								</dt>
+								<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100">
+									if data.JobHistory.EndTime != nil {
+										{ data.JobHistory.EndTime.Format("Jan 02, 2006 15:04:05") }
+									} else {
+										<span class="text-secondary-500 dark:text-secondary-400">Still running...</span>
+									}
+								</dd>
+							</div>
+							
+							<div class="sm:col-span-1">
+								<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">
+									<i class="fas fa-clock mr-1"></i> Duration
+								</dt>
+								<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100">
+									if data.JobHistory.EndTime != nil {
+										{ formatDuration(data.JobHistory.EndTime.Sub(data.JobHistory.StartTime)) }
+									} else {
+										{ formatDuration(time.Since(data.JobHistory.StartTime)) } (ongoing)
+									}
+								</dd>
+							</div>
+							
+							<div class="sm:col-span-1">
+								<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">
+									<i class="fas fa-upload mr-1"></i> Data Transferred
+								</dt>
+								<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100">
+									{ formatBytes(data.JobHistory.BytesTransferred) }
+								</dd>
+							</div>
+							
+							<div class="sm:col-span-1">
+								<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">
+									<i class="fas fa-file mr-1"></i> Files Transferred
+								</dt>
+								<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100">
+									{ fmt.Sprint(data.JobHistory.FilesTransferred) }
+								</dd>
+							</div>
+							
+							<div class="sm:col-span-1">
+								<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">
+									<i class="fas fa-calendar-day mr-1"></i> Job Schedule
+								</dt>
+								<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100">
+									{ data.Job.Schedule }
+								</dd>
+							</div>
+						</dl>
+					</div>
+				</div>
+				
+				<!-- Transfer Configuration Details -->
+				<div class="bg-white dark:bg-secondary-800 shadow overflow-hidden rounded-lg mb-8">
+					<div class="px-4 py-5 sm:px-6 border-b border-secondary-200 dark:border-secondary-700">
+						<h3 class="text-lg leading-6 font-medium text-secondary-900 dark:text-secondary-100">
+							<i class="fas fa-cog mr-2 text-primary-600 dark:text-primary-400"></i>
+							Transfer Configuration
+						</h3>
+					</div>
+					
+					<div class="px-4 py-5 sm:p-6">
+						<dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
+							<div class="sm:col-span-1">
+								<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">Source Type</dt>
+								<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100">
+									<span class="px-2 py-1 text-xs font-medium rounded bg-secondary-100 dark:bg-secondary-700">
+										{ data.Config.SourceType }
+									</span>
+								</dd>
+							</div>
+							
+							<div class="sm:col-span-1">
+								<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">Destination Type</dt>
+								<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100">
+									<span class="px-2 py-1 text-xs font-medium rounded bg-secondary-100 dark:bg-secondary-700">
+										{ data.Config.DestinationType }
+									</span>
+								</dd>
+							</div>
+							
+							<div class="sm:col-span-1">
+								<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">Source Path</dt>
+								<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100 font-mono bg-secondary-50 dark:bg-secondary-900 p-2 rounded">
+									if data.Config.SourceType == "sftp" {
+										{ data.Config.SourceUser } `@` { data.Config.SourceHost }:{ data.Config.SourcePath }
+									} else {
+										{ data.Config.SourcePath } 
+									}
+								</dd>
+							</div>
+							
+							<div class="sm:col-span-1">
+								<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">Destination Path</dt>
+								<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100 font-mono bg-secondary-50 dark:bg-secondary-900 p-2 rounded">
+									if data.Config.DestinationType == "sftp" {
+										data.Config.DestUser@data.Config.DestHost:data.Config.DestinationPath
+									} else {
+										{ data.Config.DestinationPath }
+									}
+								</dd>
+							</div>
+							
+							<div class="sm:col-span-1">
+								<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">File Pattern</dt>
+								<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100 font-mono">
+									{ data.Config.FilePattern }
+								</dd>
+							</div>
+							
+							if data.Config.ArchiveEnabled {
+								<div class="sm:col-span-1">
+									<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">Archive Path</dt>
+									<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100 font-mono bg-secondary-50 dark:bg-secondary-900 p-2 rounded">
+										{ data.Config.ArchivePath }
+									</dd>
+								</div>
+							}
+						</dl>
+					</div>
+				</div>
+				
+				<!-- Error Information (if any) -->
+				if data.JobHistory.ErrorMessage != "" {
+					<div class="bg-white dark:bg-secondary-800 shadow overflow-hidden rounded-lg mb-8 border-l-4 border-red-500">
+						<div class="px-4 py-5 sm:px-6 border-b border-secondary-200 dark:border-secondary-700">
+							<h3 class="text-lg leading-6 font-medium text-red-600 dark:text-red-400">
+								<i class="fas fa-exclamation-triangle mr-2"></i>
+								Error Details
+							</h3>
+						</div>
+						
+						<div class="px-4 py-5 sm:p-6 bg-red-50 dark:bg-red-900/20">
+							<pre class="text-sm text-red-600 dark:text-red-400 whitespace-pre-wrap font-mono">{ data.JobHistory.ErrorMessage }</pre>
+						</div>
+					</div>
+				}
+				
+				<!-- Action Buttons -->
+				<div class="flex flex-col sm:flex-row gap-4 mt-8">
+					<a href="/jobs" class="btn-secondary text-center flex items-center justify-center">
+						<i class="fas fa-list-ul mr-2"></i>
+						View All Jobs
+					</a>
+					
+					<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", data.Job.ID)) } class="btn-primary text-center flex items-center justify-center">
+						<i class="fas fa-edit mr-2"></i>
+						Edit Job
+					</a>
+				</div>
+			</div>
+		</div>
+	}
+}
+
+// formatDuration formats a duration in a human-readable way
+func formatDuration(d time.Duration) string {
+	d = d.Round(time.Second)
+	h := d / time.Hour
+	d -= h * time.Hour
+	m := d / time.Minute
+	d -= m * time.Minute
+	s := d / time.Second
+	
+	if h > 0 {
+		return fmt.Sprintf("%dh %dm %ds", h, m, s)
+	}
+	if m > 0 {
+		return fmt.Sprintf("%dm %ds", m, s)
+	}
+	return fmt.Sprintf("%ds", s)
+}

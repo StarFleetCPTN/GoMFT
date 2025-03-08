@@ -1,0 +1,29 @@
+services:
+  gomft:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gomft
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # Persist data directory for SQLite database and configurations
+      - gomft-data:/app/data
+      # For development, you can mount the source code
+      # - .:/app
+    environment:
+      - TZ=UTC
+      # Add any environment variables needed for configuration
+      # - GOMFT_DB_PATH=/app/data/gomft.db
+      # - GOMFT_LOG_LEVEL=info
+    networks:
+      - gomft-network
+
+networks:
+  gomft-network:
+    driver: bridge
+
+volumes:
+  gomft-data:
+    driver: local 

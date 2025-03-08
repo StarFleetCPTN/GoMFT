@@ -1,0 +1,353 @@
+package components
+
+import (
+	"context"
+	"fmt"
+	"github.com/starfleetcptn/gomft/internal/db"
+)
+
+type HistoryData struct {
+	History     []db.JobHistory
+	CurrentPage int
+	TotalPages  int
+	SearchTerm  string
+	PageSize    int
+	Total       int
+}
+
+// min returns the smaller of x or y
+func min(x, y int) int {
+	if x < y {
+		return x
+	}
+	return y
+}
+
+// HistoryContent renders only the content part of the history page for HTMX requests
+templ HistoryContent(ctx context.Context, data HistoryData) {
+	if len(data.History) == 0 {
+		<div class="text-center py-12 bg-white dark:bg-secondary-800 rounded-lg shadow">
+			<div class="inline-block p-4 rounded-full bg-secondary-100 dark:bg-secondary-700 mb-4">
+				<i class="fas fa-inbox text-secondary-400 dark:text-secondary-500 text-3xl"></i>
+			</div>
+			<h3 class="mt-2 text-lg font-medium text-secondary-900 dark:text-secondary-100">No transfer history</h3>
+			if data.SearchTerm != "" {
+				<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">No results found for "{ data.SearchTerm }". Try a different search term or <button hx-get="/history" hx-target="#history-content" hx-vals={ fmt.Sprintf(`{"pageSize": %d}`, data.PageSize) } class="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">clear search</button>.</p>
+			} else if data.CurrentPage > 1 {
+				<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">No more results on this page. <button hx-get="/history" hx-target="#history-content" hx-vals={ fmt.Sprintf(`{"page": 1, "pageSize": %d}`, data.PageSize) } class="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">Return to first page</button>.</p>
+			} else {
+				<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">Transfer history will appear here once jobs have run.</p>
+			}
+		</div>
+	} else {
+		<div class="bg-white dark:bg-secondary-800 shadow overflow-hidden rounded-lg">
+			<ul role="list" class="divide-y divide-secondary-200 dark:divide-secondary-700">
+				for _, history := range data.History {
+					<li class="hover:bg-secondary-50 dark:hover:bg-secondary-750 transition-colors">
+						<div class="px-4 py-4 sm:px-6">
+							<div class="flex items-center justify-between">
+								<div class="flex items-center">
+									<p class="text-sm font-medium text-primary-600 dark:text-primary-400 truncate">{ history.Job.Config.Name }</p>
+									if history.Status == "completed" {
+										<span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300">
+											<i class="fas fa-check mr-1"></i> Completed
+										</span>
+									} else if history.Status == "failed" {
+										<span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-300">
+											<i class="fas fa-times mr-1"></i> Failed
+										</span>
+									} else {
+										<span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300">
+											<i class="fas fa-sync-alt mr-1"></i> { history.Status }
+										</span>
+									}
+								</div>
+								<div>
+									<a href={ templ.SafeURL(fmt.Sprintf("/job-runs/%d", history.ID)) } 
+										class="inline-flex items-center px-3 py-1.5 border border-secondary-300 dark:border-secondary-600 text-sm leading-5 font-medium rounded-full text-secondary-700 dark:text-secondary-200 bg-white dark:bg-secondary-700 hover:bg-secondary-50 dark:hover:bg-secondary-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors">
+										<i class="fas fa-eye mr-1"></i>
+										View Details
+									</a>
+								</div>
+							</div>
+							<div class="mt-2 sm:flex sm:justify-between">
+								<div class="sm:flex">
+									<p class="flex items-center text-sm text-secondary-500 dark:text-secondary-400">
+										<i class="fas fa-calendar-alt flex-shrink-0 mr-1.5 h-5 w-5 text-secondary-400 dark:text-secondary-500"></i>
+										Started: { history.StartTime.Format("Jan 02, 2006 15:04:05") }
+									</p>
+									if history.EndTime != nil {
+										<p class="mt-2 flex items-center text-sm text-secondary-500 dark:text-secondary-400 sm:mt-0 sm:ml-6">
+											<i class="fas fa-clock flex-shrink-0 mr-1.5 h-5 w-5 text-secondary-400 dark:text-secondary-500"></i>
+											Duration: { history.EndTime.Sub(history.StartTime).String() }
+										</p>
+									}
+								</div>
+								<div class="mt-2 flex items-center text-sm text-secondary-500 dark:text-secondary-400 sm:mt-0">
+									if history.BytesTransferred > 0 {
+										<i class="fas fa-upload flex-shrink-0 mr-1.5 h-5 w-5 text-secondary-400 dark:text-secondary-500"></i>
+										<p>
+											{ formatBytes(history.BytesTransferred) } transferred
+										</p>
+									}
+								</div>
+							</div>
+							if history.ErrorMessage != "" {
+								<div class="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded border border-red-200 dark:border-red-800">
+									<p class="text-sm text-red-600 dark:text-red-400">
+										<i class="fas fa-exclamation-triangle mr-1"></i>
+										Error: { history.ErrorMessage }
+									</p>
+								</div>
+							}
+						</div>
+					</li>
+				}
+			</ul>
+		</div>
+		
+		<!-- Pagination -->
+		if data.TotalPages > 1 {
+			<div class="mt-6 flex items-center justify-between">
+				<div class="flex-1 flex justify-between sm:hidden">
+					if data.CurrentPage > 1 {
+						<button 
+							hx-get="/history" 
+							hx-target="#history-content" 
+							hx-vals={ fmt.Sprintf(`{"page": %d, "pageSize": %d, "search": "%s"}`, data.CurrentPage-1, data.PageSize, data.SearchTerm) }
+							hx-indicator="#mobile-prev-indicator"
+							class="relative inline-flex items-center px-4 py-2 border border-secondary-300 dark:border-secondary-600 text-sm font-medium rounded-md text-secondary-700 dark:text-secondary-200 bg-white dark:bg-secondary-700 hover:bg-secondary-50 dark:hover:bg-secondary-600 transition-colors">
+							<i class="fas fa-chevron-left mr-1"></i> Previous
+							<span id="mobile-prev-indicator" class="htmx-indicator ml-1">
+								<i class="fas fa-spinner fa-spin"></i>
+							</span>
+						</button>
+					} else {
+						<span class="relative inline-flex items-center px-4 py-2 border border-secondary-300 dark:border-secondary-700 text-sm font-medium rounded-md text-secondary-300 dark:text-secondary-600 bg-secondary-100 dark:bg-secondary-800 cursor-not-allowed">
+							<i class="fas fa-chevron-left mr-1"></i> Previous
+						</span>
+					}
+					
+					if data.CurrentPage < data.TotalPages {
+						<button 
+							hx-get="/history" 
+							hx-target="#history-content" 
+							hx-vals={ fmt.Sprintf(`{"page": %d, "pageSize": %d, "search": "%s"}`, data.CurrentPage+1, data.PageSize, data.SearchTerm) }
+							hx-indicator="#mobile-next-indicator"
+							class="ml-3 relative inline-flex items-center px-4 py-2 border border-secondary-300 dark:border-secondary-600 text-sm font-medium rounded-md text-secondary-700 dark:text-secondary-200 bg-white dark:bg-secondary-700 hover:bg-secondary-50 dark:hover:bg-secondary-600 transition-colors">
+							Next <i class="fas fa-chevron-right ml-1"></i>
+							<span id="mobile-next-indicator" class="htmx-indicator ml-1">
+								<i class="fas fa-spinner fa-spin"></i>
+							</span>
+						</button>
+					} else {
+						<span class="ml-3 relative inline-flex items-center px-4 py-2 border border-secondary-300 dark:border-secondary-700 text-sm font-medium rounded-md text-secondary-300 dark:text-secondary-600 bg-secondary-100 dark:bg-secondary-800 cursor-not-allowed">
+							Next <i class="fas fa-chevron-right ml-1"></i>
+						</span>
+					}
+				</div>
+				<div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+					<div>
+						<p class="text-sm text-secondary-700 dark:text-secondary-300">
+							Showing 
+							<span class="font-medium">{ fmt.Sprint((data.CurrentPage-1)*data.PageSize + 1) }</span> 
+							to 
+							<span class="font-medium">{ fmt.Sprint(min((data.CurrentPage)*data.PageSize, data.Total)) }</span> 
+							of 
+							<span class="font-medium">{ fmt.Sprint(data.Total) }</span> 
+							results
+						</p>
+					</div>
+					<div>
+						<nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+							if data.CurrentPage > 1 {
+								<button 
+									hx-get="/history" 
+									hx-target="#history-content" 
+									hx-vals={ fmt.Sprintf(`{"page": %d, "pageSize": %d, "search": "%s"}`, data.CurrentPage-1, data.PageSize, data.SearchTerm) }
+									hx-indicator="#prev-indicator"
+									class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-secondary-300 dark:border-secondary-600 bg-white dark:bg-secondary-700 text-sm font-medium text-secondary-500 dark:text-secondary-400 hover:bg-secondary-50 dark:hover:bg-secondary-600 transition-colors">
+									<span class="sr-only">Previous</span>
+									<i class="fas fa-chevron-left h-5 w-5"></i>
+									<span id="prev-indicator" class="htmx-indicator ml-1">
+										<i class="fas fa-spinner fa-spin"></i>
+									</span>
+								</button>
+							} else {
+								<span class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-secondary-300 dark:border-secondary-700 bg-secondary-100 dark:bg-secondary-800 text-sm font-medium text-secondary-300 dark:text-secondary-600 cursor-not-allowed">
+									<span class="sr-only">Previous</span>
+									<i class="fas fa-chevron-left h-5 w-5"></i>
+								</span>
+							}
+							
+							<!-- Page numbers -->
+							@pageNumbers(data.CurrentPage, data.TotalPages, data.PageSize, data.SearchTerm)
+							
+							if data.CurrentPage < data.TotalPages {
+								<button 
+									hx-get="/history" 
+									hx-target="#history-content" 
+									hx-vals={ fmt.Sprintf(`{"page": %d, "pageSize": %d, "search": "%s"}`, data.CurrentPage+1, data.PageSize, data.SearchTerm) }
+									hx-indicator="#next-indicator"
+									class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-secondary-300 dark:border-secondary-600 bg-white dark:bg-secondary-700 text-sm font-medium text-secondary-500 dark:text-secondary-400 hover:bg-secondary-50 dark:hover:bg-secondary-600 transition-colors">
+									<span class="sr-only">Next</span>
+									<i class="fas fa-chevron-right h-5 w-5"></i>
+									<span id="next-indicator" class="htmx-indicator ml-1">
+										<i class="fas fa-spinner fa-spin"></i>
+									</span>
+								</button>
+							} else {
+								<span class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-secondary-300 dark:border-secondary-700 bg-secondary-100 dark:bg-secondary-800 text-sm font-medium text-secondary-300 dark:text-secondary-600 cursor-not-allowed">
+									<span class="sr-only">Next</span>
+									<i class="fas fa-chevron-right h-5 w-5"></i>
+								</span>
+							}
+						</nav>
+					</div>
+				</div>
+			</div>
+		}
+	}
+}
+
+templ History(ctx context.Context, data HistoryData) {
+	@LayoutWithContext("Transfer History", ctx) {
+		<div id="history-page" class="py-6">
+			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+				<div class="flex items-center justify-between mb-8">
+					<h1 class="text-3xl font-bold text-secondary-900 dark:text-secondary-100">
+						<i class="fas fa-history mr-2 text-primary-600 dark:text-primary-400"></i>
+						Transfer History
+					</h1>
+					<div class="text-sm text-secondary-500 dark:text-secondary-400">
+						<span class="font-medium">Total: { fmt.Sprint(data.Total) } transfers</span>
+					</div>
+				</div>
+				
+				<!-- Search and Pagination Controls -->
+				<div class="mt-4 flex flex-col sm:flex-row justify-between items-center bg-secondary-50 dark:bg-secondary-800 p-4 rounded-lg mb-6">
+					<form hx-get="/history" hx-target="#history-content" hx-indicator="#search-indicator" class="w-full sm:w-auto mb-4 sm:mb-0">
+						<div class="flex">
+							<div class="relative flex-grow">
+								<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+									<i class="fas fa-search text-secondary-400 dark:text-secondary-500"></i>
+								</div>
+								<input
+									type="text"
+									name="search"
+									value={ data.SearchTerm }
+									placeholder="Search by job name or status..."
+									class="block w-full pl-10 pr-3 py-2 border border-secondary-300 dark:border-secondary-600 rounded-md leading-5 bg-white dark:bg-secondary-700 text-secondary-900 dark:text-secondary-100 placeholder-secondary-500 dark:placeholder-secondary-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+								/>
+								<input type="hidden" name="page" value="1" />
+								<input type="hidden" name="pageSize" value={ fmt.Sprint(data.PageSize) } />
+							</div>
+							<button
+								type="submit"
+								class="ml-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:bg-primary-500 dark:hover:bg-primary-600 transition-colors"
+							>
+								<span>Search</span>
+								<span id="search-indicator" class="htmx-indicator ml-1">
+									<i class="fas fa-spinner fa-spin"></i>
+								</span>
+							</button>
+							if data.SearchTerm != "" {
+								<button
+									hx-get="/history"
+									hx-target="#history-content"
+									hx-indicator="#clear-indicator"
+									hx-vals={ fmt.Sprintf(`{"pageSize": %d}`, data.PageSize) }
+									class="ml-2 inline-flex items-center px-4 py-2 border border-secondary-300 dark:border-secondary-600 text-sm font-medium rounded-md text-secondary-700 dark:text-secondary-200 bg-white dark:bg-secondary-700 hover:bg-secondary-50 dark:hover:bg-secondary-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
+								>
+									<i class="fas fa-times mr-1"></i>
+									Clear
+									<span id="clear-indicator" class="htmx-indicator ml-1">
+										<i class="fas fa-spinner fa-spin"></i>
+									</span>
+								</button>
+							}
+						</div>
+					</form>
+					
+					<div class="flex items-center">
+						<span class="text-sm text-secondary-700 dark:text-secondary-300">
+							Show 
+							<select 
+								name="pageSize" 
+								hx-get="/history"
+								hx-target="#history-content"
+								hx-include="[name='search']"
+								hx-indicator="#size-indicator"
+								class="mx-1 rounded-md border-secondary-300 dark:border-secondary-600 py-1 text-base bg-white dark:bg-secondary-700 text-secondary-900 dark:text-secondary-100 focus:border-primary-500 focus:outline-none focus:ring-primary-500 sm:text-sm"
+							>
+								<option value="10" selected?={ data.PageSize == 10 }>10</option>
+								<option value="25" selected?={ data.PageSize == 25 }>25</option>
+								<option value="50" selected?={ data.PageSize == 50 }>50</option>
+								<option value="100" selected?={ data.PageSize == 100 }>100</option>
+							</select>
+							entries
+							<span id="size-indicator" class="htmx-indicator ml-1">
+								<i class="fas fa-spinner fa-spin"></i>
+							</span>
+						</span>
+					</div>
+				</div>
+				
+				<div id="history-content" class="mt-6">
+					@HistoryContent(ctx, data)
+				</div>
+			</div>
+		</div>
+	}
+}
+
+templ pageNumbers(currentPage int, totalPages int, pageSize int, searchTerm string) {
+	// Show at most 5 page numbers with the current page in the middle when possible
+	{{startPage := max(1, currentPage-2)}}
+	{{endPage := min(totalPages, startPage+4)}}
+	
+	// Adjust startPage if we're near the end
+	if endPage - startPage < 4 && startPage > 1 {
+		startPage = max(1, endPage-4)
+	}
+	
+	for i := startPage; i <= endPage; i++ {
+		if i == currentPage {
+			<span aria-current="page" class="relative inline-flex items-center px-4 py-2 border border-primary-500 bg-primary-50 dark:bg-primary-900/30 text-sm font-medium text-primary-600 dark:text-primary-400">
+				{ fmt.Sprint(i) }
+			</span>
+		} else {
+			<button 
+				hx-get="/history" 
+				hx-target="#history-content" 
+				hx-vals={ fmt.Sprintf(`{"page": %d, "pageSize": %d, "search": "%s"}`, i, pageSize, searchTerm) }
+				hx-indicator="#page-indicator"
+				class="relative inline-flex items-center px-4 py-2 border border-secondary-300 dark:border-secondary-600 bg-white dark:bg-secondary-700 text-sm font-medium text-secondary-700 dark:text-secondary-300 hover:bg-secondary-50 dark:hover:bg-secondary-600 transition-colors">
+				{ fmt.Sprint(i) }
+				<span id="page-indicator" class="htmx-indicator ml-1">
+					<i class="fas fa-spinner fa-spin"></i>
+				</span>
+			</button>
+		}
+	}
+}
+
+func formatBytes(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+func max(x, y int) int {
+	if x > y {
+		return x
+	}
+	return y
+}

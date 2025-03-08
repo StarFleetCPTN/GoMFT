@@ -1,0 +1,235 @@
+package components
+
+import (
+	"context"
+	"github.com/starfleetcptn/gomft/internal/db"
+)
+
+templ Profile(ctx context.Context, user db.User) {
+	@LayoutWithContext("Profile", ctx) {
+		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+			<div class="flex items-center justify-between mb-6">
+				<h1 class="text-3xl font-bold text-secondary-900 dark:text-secondary-100">
+					<i class="fas fa-user-circle mr-2 text-primary-600 dark:text-primary-400"></i>
+					Profile
+				</h1>
+			</div>
+
+			<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+				<!-- Profile Information Card -->
+				<div class="card">
+					<div class="card-header">
+						<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100">
+							<i class="fas fa-id-card mr-2 text-primary-500"></i>
+							Profile Information
+						</h3>
+						<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">Personal details and application settings.</p>
+					</div>
+					<div class="card-body">
+						<dl class="space-y-6">
+							<div class="flex flex-col sm:flex-row">
+								<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400 sm:w-1/3 mb-1 sm:mb-0">Email</dt>
+								<dd class="text-sm text-secondary-900 dark:text-secondary-100 sm:w-2/3">{ user.Email }</dd>
+							</div>
+							<div class="flex flex-col sm:flex-row">
+								<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400 sm:w-1/3 mb-1 sm:mb-0">Role</dt>
+								<dd class="text-sm text-secondary-900 dark:text-secondary-100 sm:w-2/3">
+									if user.IsAdmin {
+										<span class="badge badge-success">
+											<i class="fas fa-user-shield mr-1"></i> Administrator
+										</span>
+									} else {
+										<span class="badge badge-info">
+											<i class="fas fa-user mr-1"></i> Regular User
+										</span>
+									}
+								</dd>
+							</div>
+							<div class="flex flex-col sm:flex-row">
+								<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400 sm:w-1/3 mb-1 sm:mb-0">Theme</dt>
+								<dd class="text-sm text-secondary-900 dark:text-secondary-100 sm:w-2/3">
+									<form 
+										hx-post="/profile/theme" 
+										hx-swap="none"
+										class="flex items-center space-x-4">
+										<div class="flex items-center">
+											<input 
+												type="radio" 
+												id="theme-light" 
+												name="theme" 
+												value="light"
+												checked?={ user.Theme == "light" || user.Theme == "" }
+												hx-trigger="change"
+												hx-post="/profile/theme"
+												class="form-checkbox" />
+											<label for="theme-light" class="ml-2 block text-sm text-secondary-700 dark:text-secondary-300">
+												<i class="fas fa-sun mr-1"></i> Light
+											</label>
+										</div>
+										<div class="flex items-center">
+											<input 
+												type="radio" 
+												id="theme-dark" 
+												name="theme" 
+												value="dark"
+												checked?={ user.Theme == "dark" }
+												hx-trigger="change"
+												hx-post="/profile/theme"
+												class="form-checkbox" />
+											<label for="theme-dark" class="ml-2 block text-sm text-secondary-700 dark:text-secondary-300">
+												<i class="fas fa-moon mr-1"></i> Dark
+											</label>
+										</div>
+										<div class="flex items-center">
+											<input 
+												type="radio" 
+												id="theme-system" 
+												name="theme" 
+												value="system"
+												checked?={ user.Theme == "system" }
+												hx-trigger="change"
+												hx-post="/profile/theme"
+												class="form-checkbox" />
+											<label for="theme-system" class="ml-2 block text-sm text-secondary-700 dark:text-secondary-300">
+												<i class="fas fa-desktop mr-1"></i> System
+											</label>
+										</div>
+									</form>
+								</dd>
+							</div>
+						</dl>
+					</div>
+				</div>
+
+				<!-- Change Password Card -->
+				<div class="card">
+					<div class="card-header">
+						<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100">
+							<i class="fas fa-key mr-2 text-primary-500"></i>
+							Change Password
+						</h3>
+						<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">Update your password to keep your account secure.</p>
+					</div>
+					<div class="card-body">
+						<form 
+							method="POST"
+							action="/change-password"
+							hx-post="/change-password" 
+							hx-target="#password-result"
+							hx-swap="innerHTML"
+							hx-headers='{"X-Profile-Page": "true"}'
+							hx-indicator="#password-change-indicator"
+							class="space-y-4"
+							x-data="{ 
+								currentPassword: '',
+								newPassword: '',
+								confirmPassword: '',
+								loading: false,
+								validate() {
+									return this.currentPassword && 
+										this.newPassword && 
+										this.confirmPassword && 
+										this.newPassword === this.confirmPassword;
+								}
+							}"
+							@htmx:before-request="loading = true"
+							@htmx:after-request="loading = false">
+							
+							<div id="password-result"></div>
+							
+							<div>
+								<label for="current-password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+									<i class="fas fa-lock mr-1"></i> Current Password
+								</label>
+								<div class="relative">
+									<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+										<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+									</div>
+									<input 
+										type="password" 
+										id="current-password" 
+										name="current_password"
+										x-model="currentPassword"
+										class="form-input pl-10 w-full" 
+										placeholder="••••••••"
+										required/>
+								</div>
+							</div>
+							
+							<div>
+								<label for="new-password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+									<i class="fas fa-lock-open mr-1"></i> New Password
+								</label>
+								<div class="relative">
+									<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+										<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+									</div>
+									<input 
+										type="password" 
+										id="new-password" 
+										name="new_password"
+										x-model="newPassword"
+										class="form-input pl-10 w-full" 
+										placeholder="••••••••"
+										required/>
+								</div>
+							</div>
+							
+							<div>
+								<label for="confirm-password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+									<i class="fas fa-check-double mr-1"></i> Confirm New Password
+								</label>
+								<div class="relative">
+									<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+										<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+									</div>
+									<input 
+										type="password" 
+										id="confirm-password" 
+										name="confirm_password"
+										x-model="confirmPassword"
+										class="form-input pl-10 w-full" 
+										placeholder="••••••••"
+										required/>
+								</div>
+							</div>
+							
+							<div>
+								<button 
+									type="submit" 
+									class="btn-primary w-full flex justify-center py-3"
+									x-bind:disabled="!validate() || loading">
+									<span x-show="!loading" class="flex items-center">
+										<i class="fas fa-save mr-2"></i>
+										Update Password
+									</span>
+									<span x-show="loading" class="flex items-center">
+										<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+											<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+											<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+										</svg>
+										Processing...
+									</span>
+								</button>
+							</div>
+						</form>
+					</div>
+					<div class="px-6 py-4 bg-secondary-50 dark:bg-secondary-800 border-t border-secondary-200 dark:border-secondary-700">
+						<div class="flex items-center text-sm text-secondary-500 dark:text-secondary-400">
+							<i class="fas fa-shield-alt mr-2 text-primary-500"></i>
+							<span>Password must be at least 8 characters with letters, numbers, and special characters</span>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Security Notice -->
+			<div class="mt-8 text-center">
+				<div class="inline-flex items-center text-sm text-secondary-500 dark:text-secondary-400">
+					<i class="fas fa-shield-alt mr-2 text-primary-500"></i>
+					<span>All profile changes are securely logged for your protection</span>
+				</div>
+			</div>
+		</div>
+	}
+}

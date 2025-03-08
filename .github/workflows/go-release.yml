@@ -1,0 +1,98 @@
+name: Go Multi-Architecture Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      manual_version:
+        description: 'Manual version override (leave empty to use git tag)'
+        required: false
+        default: ''
+
+# Add permissions at workflow level
+permissions:
+  contents: write    # This is required for creating releases
+  packages: read
+
+jobs:
+  build:
+    name: Build Go Binaries
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache: true
+      
+      - name: Install dependencies
+        run: |
+          go mod download
+          # Install templ compiler for template generation
+          go install github.com/a-h/templ/cmd/templ@latest
+      
+      - name: Generate template files
+        run: templ generate
+      
+      - name: Set Version
+        id: version
+        run: |
+          if [[ "${{ github.event.inputs.manual_version }}" != "" ]]; then
+            echo "VERSION=${{ github.event.inputs.manual_version }}" >> $GITHUB_ENV
+            echo "version=${{ github.event.inputs.manual_version }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+            echo "VERSION=$VERSION" >> $GITHUB_ENV
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+          else
+            VERSION=$(git describe --tags --abbrev=0)-$(git rev-parse --short HEAD)
+            echo "VERSION=$VERSION" >> $GITHUB_ENV
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Build for multiple platforms
+        run: |
+          mkdir -p dist
+          
+          # Linux builds
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-X main.version=$VERSION" -o dist/gomft-$VERSION-linux-amd64 .
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-X main.version=$VERSION" -o dist/gomft-$VERSION-linux-arm64 .
+          GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=0 go build -ldflags="-X main.version=$VERSION" -o dist/gomft-$VERSION-linux-armv7 .
+          
+          # macOS builds
+          GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-X main.version=$VERSION" -o dist/gomft-$VERSION-darwin-amd64 .
+          GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-X main.version=$VERSION" -o dist/gomft-$VERSION-darwin-arm64 .
+          
+          # Windows builds
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-X main.version=$VERSION" -o dist/gomft-$VERSION-windows-amd64.exe .
+          GOOS=windows GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-X main.version=$VERSION" -o dist/gomft-$VERSION-windows-arm64.exe .
+          
+          # Create checksums
+          cd dist
+          sha256sum * > SHA256SUMS.txt
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries
+          path: dist/
+      
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/') || github.event.inputs.manual_version != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ steps.version.outputs.version }}
+          files: |
+            dist/*
+          generate_release_notes: true
+          draft: false
+          # The following line is not needed as we set permissions at workflow level
+          # token: ${{ secrets.GITHUB_TOKEN }} 

@@ -1,0 +1,192 @@
+package components
+
+import (
+	"context"
+	"fmt"
+	"github.com/starfleetcptn/gomft/internal/db"
+	"strconv"
+)
+
+type DashboardData struct {
+	RecentJobs      []db.JobHistory
+	ActiveTransfers int
+	CompletedToday  int
+	FailedTransfers int
+}
+
+templ Dashboard(ctx context.Context, data DashboardData) {
+	@LayoutWithContext("Dashboard", ctx) {
+		<div class="py-6">
+			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+				<div class="flex items-center justify-between mb-8">
+					<h1 class="text-3xl font-bold text-secondary-900 dark:text-secondary-100">
+						<i class="fas fa-tachometer-alt mr-2 text-primary-600 dark:text-primary-400"></i>
+						Dashboard
+					</h1>
+					<div class="text-sm text-secondary-500 dark:text-secondary-400">
+						<span id="current-date" class="font-medium"></span>
+						<script>
+							document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+						</script>
+					</div>
+				</div>
+				
+				<!-- Stats Overview Cards -->
+				<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+					<div class="card overflow-hidden">
+						<div class="p-6 flex items-center">
+							<div class="rounded-full bg-blue-100 dark:bg-blue-900 p-3 mr-4">
+								<i class="fas fa-exchange-alt text-blue-600 dark:text-blue-300 text-xl"></i>
+							</div>
+							<div>
+								<p class="text-sm font-medium text-secondary-500 dark:text-secondary-400">Active Transfers</p>
+								<p class="text-2xl font-bold text-secondary-900 dark:text-secondary-100">{ strconv.Itoa(data.ActiveTransfers) }</p>
+							</div>
+						</div>
+					</div>
+					
+					<div class="card overflow-hidden">
+						<div class="p-6 flex items-center">
+							<div class="rounded-full bg-green-100 dark:bg-green-900 p-3 mr-4">
+								<i class="fas fa-check-circle text-green-600 dark:text-green-300 text-xl"></i>
+							</div>
+							<div>
+								<p class="text-sm font-medium text-secondary-500 dark:text-secondary-400">Completed Today</p>
+								<p class="text-2xl font-bold text-secondary-900 dark:text-secondary-100">{ strconv.Itoa(data.CompletedToday) }</p>
+							</div>
+						</div>
+					</div>
+					
+					<div class="card overflow-hidden">
+						<div class="p-6 flex items-center">
+							<div class="rounded-full bg-red-100 dark:bg-red-900 p-3 mr-4">
+								<i class="fas fa-exclamation-circle text-red-600 dark:text-red-300 text-xl"></i>
+							</div>
+							<div>
+								<p class="text-sm font-medium text-secondary-500 dark:text-secondary-400">Failed Transfers</p>
+								<p class="text-2xl font-bold text-secondary-900 dark:text-secondary-100">{ strconv.Itoa(data.FailedTransfers) }</p>
+							</div>
+						</div>
+					</div>
+				</div>
+				
+				<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+					<div class="card">
+						<div class="card-header">
+							<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100">
+								<i class="fas fa-history mr-2 text-primary-500"></i>
+								Recent Jobs
+							</h3>
+						</div>
+						<div class="card-body">
+							if len(data.RecentJobs) == 0 {
+								<div class="py-8 text-center">
+									<div class="inline-block p-4 rounded-full bg-secondary-100 dark:bg-secondary-800 mb-4">
+										<i class="fas fa-inbox text-secondary-400 text-3xl"></i>
+									</div>
+									<p class="text-secondary-500 dark:text-secondary-400">No recent jobs found</p>
+									<a href="/jobs/new" class="mt-4 inline-flex items-center text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">
+										<span>Create your first job</span>
+										<i class="fas fa-arrow-right ml-1"></i>
+									</a>
+								</div>
+							} else {
+								<div class="flow-root">
+									<ul role="list" class="-my-5 divide-y divide-secondary-200 dark:divide-secondary-700">
+										for _, job := range data.RecentJobs {
+											<li class="py-4 hover:bg-secondary-50 dark:hover:bg-secondary-800 px-4 rounded-lg transition-colors">
+												<div class="flex items-center space-x-4">
+													<div class="flex-shrink-0">
+														if job.Status == "completed" {
+															<span class="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center dark:bg-green-900">
+																<i class="fas fa-check text-green-600 dark:text-green-300"></i>
+															</span>
+														} else if job.Status == "failed" {
+															<span class="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center dark:bg-red-900">
+																<i class="fas fa-times text-red-600 dark:text-red-300"></i>
+															</span>
+														} else {
+															<span class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center dark:bg-blue-900">
+																<i class="fas fa-sync-alt text-blue-600 dark:text-blue-300"></i>
+															</span>
+														}
+													</div>
+													<div class="flex-1 min-w-0">
+														<p class="text-sm font-medium text-secondary-900 truncate dark:text-secondary-100">
+															{ job.Job.Config.Name }
+														</p>
+														<div class="flex items-center mt-1">
+															<i class="fas fa-clock text-xs text-secondary-500 dark:text-secondary-400 mr-1"></i>
+															<p class="text-sm text-secondary-500 truncate dark:text-secondary-400">
+																Started: { job.StartTime.Format("Jan 02, 2006 15:04:05") }
+															</p>
+														</div>
+													</div>
+													<div>
+														<a href={ templ.SafeURL(fmt.Sprintf("/job-runs/%d", job.ID)) } 
+															class="inline-flex items-center px-3 py-1.5 border border-secondary-300 text-sm leading-5 font-medium rounded-full text-secondary-700 bg-white hover:bg-secondary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:bg-secondary-800 dark:text-secondary-200 dark:border-secondary-600 dark:hover:bg-secondary-700">
+															<i class="fas fa-eye mr-1"></i>
+															View
+														</a>
+													</div>
+												</div>
+											</li>
+										}
+									</ul>
+								</div>
+								<div class="mt-6">
+									<a href="/jobs" class="w-full flex justify-center items-center px-4 py-2 border border-secondary-300 shadow-sm text-sm font-medium rounded-lg text-secondary-700 bg-white hover:bg-secondary-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:bg-secondary-800 dark:text-secondary-200 dark:border-secondary-600 dark:hover:bg-secondary-700">
+										<i class="fas fa-list-ul mr-2"></i>
+										View all jobs
+									</a>
+								</div>
+							}
+						</div>
+					</div>
+
+					<div class="card">
+						<div class="card-header">
+							<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100">
+								<i class="fas fa-bolt mr-2 text-primary-500"></i>
+								Quick Actions
+							</h3>
+						</div>
+						<div class="card-body space-y-4">
+							<a href="/configs/new" class="btn-primary text-center flex items-center justify-center">
+								<i class="fas fa-plus-circle mr-2"></i>
+								Create New Config
+							</a>
+							<a href="/jobs/new" class="btn-primary text-center flex items-center justify-center">
+								<i class="fas fa-play-circle mr-2"></i>
+								Create New Job
+							</a>
+							<a href="/history" class="btn-secondary text-center flex items-center justify-center">
+								<i class="fas fa-history mr-2"></i>
+								View Transfer History
+							</a>
+							
+							<!-- System Status Card -->
+							<div class="mt-6 bg-secondary-50 dark:bg-secondary-800 rounded-lg p-4 border border-secondary-200 dark:border-secondary-700">
+								<h4 class="text-sm font-medium text-secondary-900 dark:text-secondary-100 mb-2">System Status</h4>
+								<div class="space-y-2">
+									<div class="flex items-center justify-between">
+										<span class="text-xs text-secondary-500 dark:text-secondary-400">Server</span>
+										<span class="badge badge-success">Online</span>
+									</div>
+									<div class="flex items-center justify-between">
+										<span class="text-xs text-secondary-500 dark:text-secondary-400">Scheduler</span>
+										<span class="badge badge-success">Running</span>
+									</div>
+									<div class="flex items-center justify-between">
+										<span class="text-xs text-secondary-500 dark:text-secondary-400">Database</span>
+										<span class="badge badge-success">Connected</span>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	}
+}

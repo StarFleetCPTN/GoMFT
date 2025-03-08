@@ -1,0 +1,291 @@
+package components
+
+import (
+	"fmt"
+	"github.com/starfleetcptn/gomft/internal/db"
+	"context"
+)
+
+type JobFormData struct {
+	Job     *db.Job
+	Configs []db.TransferConfig
+	IsNew   bool
+}
+
+func getJobFormTitle(isNew bool) string {
+	if isNew {
+		return "New Job"
+	}
+	return "Edit Job"
+}
+
+func getJobTitle(isNew bool) string {
+	if isNew {
+		return "Create New Job"
+	}
+	return "Edit Job"
+}
+
+templ JobForm(ctx context.Context, data JobFormData) {
+	@LayoutWithContext(getJobFormTitle(data.IsNew), ctx) {
+		<div class="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-secondary-50 dark:bg-secondary-900">
+			<div class="max-w-3xl w-full">
+				<div class="card overflow-hidden shadow-lg">
+					<div class="p-8">
+						<div class="text-center mb-8">
+							<div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary-100 dark:bg-primary-900 mb-4">
+								<i class="fas fa-calendar-alt text-primary-600 dark:text-primary-400 text-3xl"></i>
+							</div>
+							<h2 class="text-3xl font-bold text-secondary-900 dark:text-secondary-100">
+								{ getJobTitle(data.IsNew) }
+							</h2>
+							<p class="mt-2 text-secondary-600 dark:text-secondary-400">Configure your scheduled transfer job</p>
+						</div>
+						
+						if data.IsNew {
+							<form 
+								class="space-y-6" 
+								hx-post="/jobs"
+								hx-target="body"
+								hx-boost="true"
+								@htmx:before-request="loading = true"
+								@htmx:after-request="loading = false"
+								@htmx:response-error="$dispatch('notification', { message: 'Failed to create job: ' + event.detail.xhr.responseText, type: 'error' })"
+								x-data="{ name: '', configId: '', schedule: '', enabled: true, loading: false, validate() { return this.configId && this.schedule; } }">
+								<div class="space-y-6">
+									<div>
+										<label for="name" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Job Name</label>
+										<div class="relative">
+											<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+												<i class="fas fa-tag text-secondary-400 dark:text-secondary-600"></i>
+											</div>
+											<input 
+												type="text" 
+												name="name" 
+												id="name" 
+												x-model="name" 
+												class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
+												placeholder="Daily Production Backup"/>
+										</div>
+										<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
+											<i class="fas fa-info-circle mr-1"></i>
+											Descriptive name for this job (optional). If not provided, the config name will be used.
+										</p>
+									</div>
+								
+									<div>
+										<label for="config_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Transfer Configuration</label>
+										<div class="relative">
+											<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+												<i class="fas fa-cog text-secondary-400 dark:text-secondary-600"></i>
+											</div>
+											<select 
+												id="config_id" 
+												name="config_id" 
+												x-model="configId" 
+												required 
+												class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500">
+												<option value="">Select a configuration</option>
+												for _, config := range data.Configs {
+													<option value={ fmt.Sprint(config.ID) }>{ config.Name }</option>
+												}
+											</select>
+										</div>
+									</div>
+									
+									<div>
+										<label for="schedule" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Schedule (Cron Expression)</label>
+										<div class="relative">
+											<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+												<i class="fas fa-clock text-secondary-400 dark:text-secondary-600"></i>
+											</div>
+											<input 
+												type="text" 
+												name="schedule" 
+												id="schedule" 
+												x-model="schedule" 
+												required 
+												class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
+												placeholder="*/15 * * * *"/>
+										</div>
+										<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
+											<i class="fas fa-info-circle mr-1"></i>
+											Use standard cron expression format. Example: */15 * * * * (every 15 minutes)
+										</p>
+									</div>
+									
+									<div class="bg-secondary-50 dark:bg-secondary-800 p-4 rounded-lg border border-secondary-200 dark:border-secondary-700">
+										<div class="flex items-center">
+											<input 
+												type="checkbox" 
+												id="enabled" 
+												x-model="enabled" 
+												class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded" 
+												checked/>
+											<input type="hidden" name="enabled" :value="enabled.toString()"/>
+											<label for="enabled" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">Enable this job</label>
+										</div>
+										<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
+											<i class="fas fa-exclamation-triangle mr-1 text-amber-500"></i>
+											Disabled jobs will not run automatically.
+										</p>
+									</div>
+								</div>
+								
+								<div class="pt-5 flex justify-end space-x-3">
+									<a href="/jobs" class="btn-secondary flex items-center justify-center px-4 py-2">
+										<i class="fas fa-times mr-2"></i>
+										Cancel
+									</a>
+									<button 
+										type="submit" 
+										class="btn-primary flex items-center justify-center px-4 py-2" 
+										x-bind:disabled="!validate() || loading">
+										<span x-show="!loading" class="flex items-center">
+											<i class="fas fa-plus mr-2"></i>
+											Create Job
+										</span>
+										<span x-show="loading" class="flex items-center">
+											<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+												<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+												<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+											</svg>
+											Processing...
+										</span>
+									</button>
+								</div>
+							</form>
+						} else {
+							<form 
+								class="space-y-6" 
+								hx-post={ fmt.Sprintf("/jobs/%d", data.Job.ID) }
+								hx-target="body"
+								hx-boost="true"
+								@htmx:before-request="loading = true"
+								@htmx:after-request="loading = false"
+								@htmx:response-error="$dispatch('notification', { message: 'Failed to update job: ' + event.detail.xhr.responseText, type: 'error' })"
+								x-data={ fmt.Sprintf("{ name: '%s', configId: '%d', schedule: '%s', enabled: %v, loading: false, validate() { return this.configId && this.schedule; } }", data.Job.Name, data.Job.ConfigID, data.Job.Schedule, data.Job.Enabled) }>
+								<div class="space-y-6">
+									<div>
+										<label for="name" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Job Name</label>
+										<div class="relative">
+											<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+												<i class="fas fa-tag text-secondary-400 dark:text-secondary-600"></i>
+											</div>
+											<input 
+												type="text" 
+												name="name" 
+												id="name" 
+												x-model="name" 
+												class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
+												placeholder="Daily Production Backup"/>
+										</div>
+										<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
+											<i class="fas fa-info-circle mr-1"></i>
+											Descriptive name for this job (optional). If not provided, the config name will be used.
+										</p>
+									</div>
+								
+									<div>
+										<label for="config_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Transfer Configuration</label>
+										<div class="relative">
+											<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+												<i class="fas fa-cog text-secondary-400 dark:text-secondary-600"></i>
+											</div>
+											<select 
+												id="config_id" 
+												name="config_id" 
+												x-model="configId" 
+												required 
+												class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500">
+												<option value="">Select a configuration</option>
+												for _, config := range data.Configs {
+													<option value={ fmt.Sprint(config.ID) } if data.Job != nil && data.Job.ConfigID == config.ID { selected }>{ config.Name }</option>
+												}
+											</select>
+										</div>
+									</div>
+									
+									<div>
+										<label for="schedule" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Schedule (Cron Expression)</label>
+										<div class="relative">
+											<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+												<i class="fas fa-clock text-secondary-400 dark:text-secondary-600"></i>
+											</div>
+											<input 
+												type="text" 
+												name="schedule" 
+												id="schedule" 
+												x-model="schedule" 
+												required 
+												class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
+												placeholder="*/15 * * * *"/>
+										</div>
+										<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
+											<i class="fas fa-info-circle mr-1"></i>
+											Use standard cron expression format. Example: */15 * * * * (every 15 minutes)
+										</p>
+									</div>
+									
+									<div class="bg-secondary-50 dark:bg-secondary-800 p-4 rounded-lg border border-secondary-200 dark:border-secondary-700">
+										<div class="flex items-center">
+											<input 
+												type="checkbox" 
+												id="enabled" 
+												x-model="enabled" 
+												class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
+											<input type="hidden" name="enabled" :value="enabled.toString()"/>
+											<label for="enabled" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">Enable this job</label>
+										</div>
+										<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
+											<i class="fas fa-exclamation-triangle mr-1 text-amber-500"></i>
+											Disabled jobs will not run automatically.
+										</p>
+									</div>
+								</div>
+								
+								<div class="pt-5 flex justify-end space-x-3">
+									<a href="/jobs" class="btn-secondary flex items-center justify-center px-4 py-2">
+										<i class="fas fa-times mr-2"></i>
+										Cancel
+									</a>
+									<button 
+										type="submit" 
+										class="btn-primary flex items-center justify-center px-4 py-2" 
+										x-bind:disabled="!validate() || loading">
+										<span x-show="!loading" class="flex items-center">
+											<i class="fas fa-save mr-2"></i>
+											Save Changes
+										</span>
+										<span x-show="loading" class="flex items-center">
+											<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+												<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+												<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+											</svg>
+											Processing...
+										</span>
+									</button>
+								</div>
+							</form>
+						}
+					</div>
+					
+					<div class="px-8 py-4 bg-secondary-50 dark:bg-secondary-800 border-t border-secondary-200 dark:border-secondary-700 text-center">
+						<p class="text-sm text-secondary-600 dark:text-secondary-400">
+							<i class="fas fa-info-circle mr-1"></i>
+							Jobs will run according to their schedule and execute the selected transfer configuration
+						</p>
+					</div>
+				</div>
+				
+				<!-- Help Notice -->
+				<div class="mt-8 text-center">
+					<div class="inline-flex items-center text-sm text-secondary-500 dark:text-secondary-400">
+						<i class="fas fa-question-circle mr-2 text-primary-500"></i>
+						<span>Need help with cron expressions? Try <a href="https://crontab.guru/" target="_blank" class="text-primary-600 hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300">crontab.guru</a></span>
+					</div>
+				</div>
+			</div>
+		</div>
+	}
+}

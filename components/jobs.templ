@@ -1,0 +1,131 @@
+package components
+
+import (
+	"context"
+	"fmt"
+	"github.com/starfleetcptn/gomft/internal/db"
+)
+
+type JobsData struct {
+	Jobs []db.Job
+}
+
+templ Jobs(ctx context.Context, data JobsData) {
+	@LayoutWithContext("Transfer Jobs", ctx) {
+		<div class="py-6">
+			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+				<div class="flex justify-between items-center mb-8">
+					<h1 class="text-3xl font-bold text-secondary-900 dark:text-secondary-100">
+						<i class="fas fa-exchange-alt mr-2 text-primary-600 dark:text-primary-400"></i>
+						Transfer Jobs
+					</h1>
+					<a href="/jobs/new" class="btn-primary">
+						<i class="fas fa-plus mr-2"></i>
+						New Job
+					</a>
+				</div>
+				<div class="mt-6">
+					if len(data.Jobs) == 0 {
+						<div class="card p-12 flex flex-col items-center justify-center text-center">
+							<div class="inline-block p-4 rounded-full bg-secondary-100 dark:bg-secondary-700 mb-4">
+								<i class="fas fa-tasks text-secondary-400 dark:text-secondary-500 text-3xl"></i>
+							</div>
+							<h3 class="mt-2 text-lg font-medium text-secondary-900 dark:text-secondary-100">No jobs</h3>
+							<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">Get started by creating a new transfer job.</p>
+							<div class="mt-6">
+								<a href="/jobs/new" class="btn-primary">
+									<i class="fas fa-plus mr-2"></i>
+									New Job
+								</a>
+							</div>
+						</div>
+					} else {
+						<div class="card overflow-hidden">
+							<ul role="list" class="divide-y divide-secondary-200 dark:divide-secondary-700">
+								for _, job := range data.Jobs {
+									<li>
+										<div class="block hover:bg-secondary-50 dark:hover:bg-secondary-750 transition-colors">
+											<div class="px-4 py-4 sm:px-6">
+												<div class="flex items-center justify-between">
+													<div class="flex items-center">
+														<p class="text-sm font-medium text-primary-600 dark:text-primary-400 truncate">
+															if job.Name != "" {
+																{ job.Name }
+															} else {
+																{ job.Config.Name }
+															}
+														</p>
+														if job.Enabled {
+															<span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300">
+																<i class="fas fa-check-circle mr-1"></i>
+																Active
+															</span>
+														} else {
+															<span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-secondary-100 dark:bg-secondary-700 text-secondary-800 dark:text-secondary-300">
+																<i class="fas fa-pause-circle mr-1"></i>
+																Inactive
+															</span>
+														}
+													</div>
+													<div class="ml-2 flex-shrink-0 flex space-x-2">
+														<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) } class="btn-secondary btn-sm">
+															<i class="fas fa-edit mr-1"></i>
+															Edit
+														</a>
+														<button 
+															hx-delete={ fmt.Sprintf("/jobs/%d", job.ID) }
+															hx-confirm="Are you sure you want to delete this job?"
+															hx-target="closest li"
+															hx-swap="outerHTML"
+															class="btn-danger btn-sm">
+															<i class="fas fa-trash-alt mr-1"></i>
+															Delete
+														</button>
+													</div>
+												</div>
+												<div class="mt-2 sm:flex sm:justify-between">
+													<div class="sm:flex">
+														<p class="flex items-center text-sm text-secondary-500 dark:text-secondary-400">
+															<i class="fas fa-cog flex-shrink-0 mr-1.5 h-5 w-5 text-secondary-400 dark:text-secondary-500"></i>
+															Config: { job.Config.Name }
+														</p>
+														<p class="mt-2 flex items-center text-sm text-secondary-500 dark:text-secondary-400 sm:mt-0 sm:ml-6">
+															<i class="fas fa-calendar-alt flex-shrink-0 mr-1.5 h-5 w-5 text-secondary-400 dark:text-secondary-500"></i>
+															Schedule: { job.Schedule }
+														</p>
+														if job.LastRun != nil {
+															<p class="mt-2 flex items-center text-sm text-secondary-500 dark:text-secondary-400 sm:mt-0 sm:ml-6">
+																<i class="fas fa-history flex-shrink-0 mr-1.5 h-5 w-5 text-secondary-400 dark:text-secondary-500"></i>
+																Last Run: { job.LastRun.Format("2006-01-02 15:04:05") }
+															</p>
+														}
+													</div>
+													if job.NextRun != nil {
+														<div class="mt-2 flex items-center text-sm text-secondary-500 dark:text-secondary-400 sm:mt-0">
+															<i class="fas fa-clock flex-shrink-0 mr-1.5 h-5 w-5 text-secondary-400 dark:text-secondary-500"></i>
+															<p>
+																Next Run: { job.NextRun.Format("2006-01-02 15:04:05") }
+															</p>
+														</div>
+													}
+												</div>
+											</div>
+										</div>
+									</li>
+								}
+							</ul>
+						</div>
+					}
+				</div>
+				
+				<!-- Help Notice -->
+				<div class="mt-8 text-center">
+					<p class="text-sm text-secondary-500 dark:text-secondary-400">
+						<i class="fas fa-info-circle mr-1 text-primary-500"></i>
+						Transfer jobs run according to their schedule and transfer files between configured sources and destinations
+					</p>
+				</div>
+			</div>
+		</div>
+	}
+}

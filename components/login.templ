@@ -1,0 +1,142 @@
+package components
+
+import (
+	"context"
+	"strings"
+)
+
+templ Login(ctx context.Context, errorMessage string) {
+	@LayoutWithContext("Login", ctx) {
+		<div class="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-secondary-50 dark:bg-secondary-900">
+			<div class="max-w-md w-full">
+				<div class="card overflow-hidden shadow-lg">
+					<div class="p-8">
+						<div class="text-center mb-8">
+							<div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary-100 dark:bg-primary-900 mb-4">
+								<i class="fas fa-lock text-primary-600 dark:text-primary-400 text-3xl"></i>
+							</div>
+							<h2 class="text-3xl font-bold text-secondary-900 dark:text-secondary-100">Sign In</h2>
+							<p class="mt-2 text-secondary-600 dark:text-secondary-400">Access your GoMFT account</p>
+						</div>
+						
+						if errorMessage != "" {
+							if strings.HasPrefix(errorMessage, "Password reset") || strings.Contains(errorMessage, "success") {
+								<div class="bg-green-100 dark:bg-green-900 border border-green-400 dark:border-green-700 text-green-700 dark:text-green-300 px-4 py-3 rounded-lg mb-6" role="alert">
+									<div class="flex items-center">
+										<i class="fas fa-check-circle mr-2"></i>
+										<span class="block sm:inline">{ errorMessage }</span>
+									</div>
+								</div>
+							} else {
+								<div class="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-6" role="alert">
+									<div class="flex items-center">
+										<i class="fas fa-exclamation-circle mr-2"></i>
+										<span class="block sm:inline">{ errorMessage }</span>
+									</div>
+								</div>
+							}
+						}
+						
+						<form 
+							class="space-y-6" 
+							method="POST"
+							action="/login"
+							x-data="{ 
+								email: '', 
+								password: '',
+								loading: false,
+								validate() {
+									return this.email && this.password;
+								}
+							}">
+							<div class="space-y-4">
+								<div>
+									<label for="email" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Email address</label>
+									<div class="relative">
+										<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+											<i class="fas fa-envelope text-secondary-400 dark:text-secondary-600"></i>
+										</div>
+										<input 
+											id="email" 
+											name="email" 
+											type="email" 
+											required 
+											x-model="email"
+											class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
+											placeholder="you@example.com"/>
+									</div>
+								</div>
+								<div>
+									<label for="password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password</label>
+									<div class="relative">
+										<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+											<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+										</div>
+										<input 
+											id="password" 
+											name="password" 
+											type="password" 
+											required 
+											x-model="password"
+											class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
+											placeholder="••••••••"/>
+									</div>
+								</div>
+							</div>
+
+							<div class="flex items-center justify-between">
+								<div class="flex items-center">
+									<input 
+										id="remember-me" 
+										name="remember-me" 
+										type="checkbox" 
+										class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
+									<label for="remember-me" class="ml-2 block text-sm text-secondary-700 dark:text-secondary-300">Remember me</label>
+								</div>
+
+								<div class="text-sm">
+									<a href="/forgot-password" class="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-500 dark:hover:text-primary-300">Forgot password?</a>
+								</div>
+							</div>
+
+							<div>
+								<button 
+									type="submit" 
+									class="btn-primary w-full flex justify-center py-3"
+									x-bind:disabled="!validate()"
+									@click="loading = true">
+									<span x-show="!loading" class="flex items-center">
+										<i class="fas fa-sign-in-alt mr-2"></i>
+										Sign in
+									</span>
+									<span x-show="loading" class="flex items-center">
+										<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+											<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+											<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+										</svg>
+										Processing...
+									</span>
+								</button>
+							</div>
+						</form>
+					</div>
+					
+					<div class="px-8 py-4 bg-secondary-50 dark:bg-secondary-800 border-t border-secondary-200 dark:border-secondary-700 text-center">
+						<p class="text-sm text-secondary-600 dark:text-secondary-400">
+							<i class="fas fa-info-circle mr-1"></i>
+							Contact an administrator to create an account
+						</p>
+					</div>
+				</div>
+				
+				<!-- Security Notice -->
+				<div class="mt-8 text-center">
+					<div class="inline-flex items-center text-sm text-secondary-500 dark:text-secondary-400">
+						<i class="fas fa-shield-alt mr-2 text-primary-500"></i>
+						<span>Secure, encrypted connection</span>
+					</div>
+				</div>
+			</div>
+		</div>
+	}
+}
