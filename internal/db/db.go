@@ -91,6 +91,7 @@ type TransferConfig struct {
 	ArchivePath     string `form:"archive_path"`
 	ArchiveEnabled  bool   `gorm:"default:false" form:"archive_enabled"`
 	RcloneFlags     string `form:"rclone_flags"`
+	DeleteAfterTransfer bool   `gorm:"default:false" form:"delete_after_transfer"`
 	CreatedBy       uint
 	User            User `gorm:"foreignkey:CreatedBy"`
 	CreatedAt       time.Time

@@ -47,6 +47,42 @@ templ LayoutWithContext(title string, ctx context.Context) {
 			<script src="/static/js/app.js"></script>
 			<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 			<link rel="stylesheet" href="/static/css/app.css"/>
+			<!-- Notyf Toast Notifications -->
+			<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.css" />
+			<script src="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.js"></script>
+			<script>
+				// Initialize Notyf and make it available globally
+				document.addEventListener('DOMContentLoaded', function() {
+					window.notyfInstance = new Notyf({
+						duration: 3000,
+						position: {
+							x: 'right',
+							y: 'bottom',
+						},
+						types: [
+							{
+								type: 'success',
+								className: 'notyf__toast--success',
+								background: '#10B981',
+								icon: {
+									className: 'fas fa-check-circle',
+									tagName: 'i'
+								}
+							},
+							{
+								type: 'error',
+								className: 'notyf__toast--error',
+								background: '#EF4444',
+								icon: {
+									className: 'fas fa-exclamation-circle',
+									tagName: 'i'
+								}
+							}
+						]
+					});
+					
+				});
+			</script>
 			<script>
 				tailwind.config = {
 					darkMode: 'class',
@@ -377,6 +413,9 @@ templ LayoutWithContext(title string, ctx context.Context) {
 				</div>
 			}
 			<main class="flex-grow w-full max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 animate-fadeIn pb-mobile-nav">
+				<!-- Hidden notification area for HTMX targets -->
+				<div id="notification-area" class="hidden" hx-swap-oob="true"></div>
+				
 				{ children... }
 			</main>
 			<footer class="bg-white dark:bg-secondary-800 shadow-inner mt-auto w-full">

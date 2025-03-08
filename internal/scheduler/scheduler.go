@@ -161,7 +161,7 @@ func (s *Scheduler) executeJob(jobID uint) {
 		"--config", configPath,
 		"size",
 		"--include", job.Config.FilePattern,
-		job.Config.SourcePath,
+		fmt.Sprintf("source_%d:%s", job.Config.ID, job.Config.SourcePath),
 	}
 	// Get the rclone path from the environment variable or use the default path
 	rclonePath := os.Getenv("RCLONE_PATH")
@@ -169,9 +169,16 @@ func (s *Scheduler) executeJob(jobID uint) {
 		rclonePath = "rclone"
 	}
 	output, err := exec.Command(rclonePath, sizeArgs...).CombinedOutput()
-	fmt.Printf("Running rclone size: %v\nOutput: %s\n", sizeArgs, output)
+	fmt.Printf("Running rclone size: %s %s\nOutput: %s\n", rclonePath, strings.Join(sizeArgs, " "), output)
 	if err != nil {
 		fmt.Printf("Error running rclone size: %v\nOutput: %s\n", err, output)
+		// Update job history with error
+		history.Status = "failed"
+		history.ErrorMessage = fmt.Sprintf("Size calculation error: %v\nOutput: %s", err, string(output))
+		history.EndTime = &startTime // Use start time as end time for a quick failure
+		if err := s.db.UpdateJobHistory(history); err != nil {
+			fmt.Printf("Error updating job history for job %d: %v\n", jobID, err)
+		}
 		return
 	}
 
@@ -232,7 +239,7 @@ func (s *Scheduler) executeJob(jobID uint) {
 			// Prepare moveto command for transfer
 			transferArgs := []string{
 				"--config", configPath,
-				"moveto",
+				"copyto",
 				"--progress",
 				"--stats-one-line",
 				"--verbose",
@@ -315,6 +322,21 @@ func (s *Scheduler) executeJob(jobID uint) {
 							fmt.Sprintf("Archive error for file %s: %v", file, archiveErr))
 						transferErrors = append(transferErrors, 
 							fmt.Sprintf("Archive error for file %s: %v", file, archiveErr))
+					}
+				}
+				if job.Config.DeleteAfterTransfer {
+					fmt.Printf("Deleting file %s for job %d\n", file, jobID)
+					deleteArgs := []string{
+						"--config", configPath,
+						"deletefile",
+						sourcePath,					}
+					deleteCmd := exec.Command(rclonePath, deleteArgs...)
+					deleteOutput, deleteErr := deleteCmd.CombinedOutput()
+					fmt.Printf("Output for file %s: %s\n", file, string(deleteOutput))
+					if deleteErr != nil {
+						fmt.Printf("Error deleting file %s for job %d: %v\n", file, jobID, deleteErr)
+						transferErrors = append(transferErrors, 
+							fmt.Sprintf("Delete error for file %s: %v", file, deleteErr))
 					}
 				}
 			}

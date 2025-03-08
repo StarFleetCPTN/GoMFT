@@ -53,3 +53,8 @@ tmp/
 
 # Ignore the configs directory
 configs/
+
+# Ignore Dirs
+source/
+destination/
+archive/

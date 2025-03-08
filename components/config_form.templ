@@ -60,6 +60,7 @@ func getInitialData(config *db.TransferConfig) string {
 	destPassiveMode := true
 	archivePath := ""
 	archiveEnabled := false
+	deleteAfterTransfer := false
 	rcloneFlags := ""
 
 	if config != nil {
@@ -104,6 +105,7 @@ func getInitialData(config *db.TransferConfig) string {
 		destPassiveMode = config.DestPassiveMode
 		archivePath = config.ArchivePath
 		archiveEnabled = config.ArchiveEnabled
+		deleteAfterTransfer = config.DeleteAfterTransfer
 		rcloneFlags = config.RcloneFlags
 	}
 
@@ -147,6 +149,7 @@ func getInitialData(config *db.TransferConfig) string {
 		// Existing fields
 		archivePath: '%s',
 		archiveEnabled: %v,
+		deleteAfterTransfer: %v,
 		rcloneFlags: '%s',
 		loading: false,
 		validate() {
@@ -209,7 +212,7 @@ func getInitialData(config *db.TransferConfig) string {
 		filePattern, outputPattern, destinationType, destinationPath, destHost, destPort, destUser, destPassword, destKeyFile,
 		destBucket, destRegion, destAccessKey, destSecretKey, destEndpoint,
 		destShare, destDomain, destPassiveMode,
-		archivePath, archiveEnabled, rcloneFlags)
+		archivePath, archiveEnabled, deleteAfterTransfer, rcloneFlags)
 }
 
 templ ConfigForm(ctx context.Context, data ConfigFormData) {
@@ -1301,6 +1304,25 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 												</div>
 												<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">Location to move files after successful transfer</p>
 											</div>
+										</div>
+
+										<div class="sm:col-span-6 mt-4">
+											<div class="flex items-center">
+												<input
+													type="checkbox"
+													id="delete_after_transfer"
+													x-model="deleteAfterTransfer"
+													class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
+												<input type="hidden" name="delete_after_transfer" :value="deleteAfterTransfer.toString()"/>
+												<label for="delete_after_transfer" class="ml-2 block text-sm text-secondary-700 dark:text-secondary-300">
+													Delete files from source after transfer
+												</label>
+											</div>
+											<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
+												<i class="fas fa-exclamation-triangle text-yellow-500 mr-1"></i>
+												Original files will be permanently deleted from source after successful transfer
+												<span x-show="archiveEnabled">and archiving</span>
+											</p>
 										</div>
 
 										<div class="sm:col-span-6">

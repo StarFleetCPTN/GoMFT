@@ -248,8 +248,48 @@ func (h *Handlers) HandleAPIDeleteJob(c *gin.Context) {
 
 // HandleAPIRunJob handles the API run job request
 func (h *Handlers) HandleAPIRunJob(c *gin.Context) {
-	// Implementation will be moved from the old handlers.go
-	c.JSON(http.StatusOK, gin.H{"message": "API run job handler stub"})
+	id := c.Param("id")
+	userID := c.GetUint("userID")
+	
+	var job db.Job
+	if err := h.DB.First(&job, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+		return
+	}
+
+	// Check if user owns this job
+	if job.CreatedBy != userID {
+		// Check if user is admin
+		isAdmin, exists := c.Get("isAdmin")
+		if !exists || isAdmin != true {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You do not have permission to run this job"})
+			return
+		}
+	}
+
+	// Determine job name for response
+	jobName := job.Name
+	if jobName == "" {
+		// If job name is empty, try to get config name
+		var config db.TransferConfig
+		if err := h.DB.First(&config, job.ConfigID).Error; err == nil {
+			jobName = config.Name
+		} else {
+			jobName = fmt.Sprintf("Job #%d", job.ID)
+		}
+	}
+
+	// Run the job immediately using the scheduler
+	if err := h.Scheduler.RunJobNow(job.ID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to run job: " + err.Error()})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Job started successfully",
+		"jobId":   job.ID,
+		"jobName": jobName,
+	})
 }
 
 // HandleAPIHistory handles the API history request
