@@ -162,7 +162,9 @@ templ JobRunDetails(ctx context.Context, data JobRunDetailsData) {
 								<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">Source Path</dt>
 								<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100 font-mono bg-secondary-50 dark:bg-secondary-900 p-2 rounded">
 									if data.Config.SourceType == "sftp" {
-										{ data.Config.SourceUser } `@` { data.Config.SourceHost }:{ data.Config.SourcePath }
+										{ data.Config.SourceUser }{`@`}{ data.Config.SourceHost }{`:`}{ data.Config.SourcePath }
+									} else if data.Config.SourceType == "s3" || data.Config.SourceType == "minio" || data.Config.SourceType == "b2" {
+										{ data.Config.SourceBucket }{`:`}{ data.Config.SourcePath }
 									} else {
 										{ data.Config.SourcePath } 
 									}
@@ -173,7 +175,9 @@ templ JobRunDetails(ctx context.Context, data JobRunDetailsData) {
 								<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">Destination Path</dt>
 								<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100 font-mono bg-secondary-50 dark:bg-secondary-900 p-2 rounded">
 									if data.Config.DestinationType == "sftp" {
-										data.Config.DestUser@data.Config.DestHost:data.Config.DestinationPath
+										{ data.Config.DestUser }{`@`}{ data.Config.DestHost }{`:`}{ data.Config.DestinationPath }
+									} else if data.Config.DestinationType == "s3" || data.Config.DestinationType == "minio" || data.Config.DestinationType == "b2" {
+										{ data.Config.DestBucket }{`:`}{ data.Config.DestinationPath }
 									} else {
 										{ data.Config.DestinationPath }
 									}
