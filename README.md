@@ -30,8 +30,8 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
   - Amazon S3
   - MinIO
   - Backblaze B2
-  - Azure Blob Storage
-  - Google Cloud Storage
+  - NextCloud
+  - WebDAV
   - SFTP
   - FTP
   - SMB/CIFS shares
