@@ -223,7 +223,13 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 				hx-redirect="/configs"
 				hx-boost="true"
 				x-data={ getInitialData(data.Config) }
-				@submit.prevent="if (validateForm()) { loading = true; $el.submit(); } else { loading = false; }"
+				x-init="$nextTick(() => { 
+					// Ensure initial form state displays correctly on load
+					sourceType = sourceType || 'local';
+					destinationType = destinationType || 'local';
+					sourcePort = sourcePort || 22;
+					destPort = destPort || 22;
+				})"
 				>
 				
 				<!-- Name field -->
