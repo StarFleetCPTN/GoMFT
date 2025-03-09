@@ -350,8 +350,8 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 													<option value="ftp">FTP</option>
 													<option value="webdav">WebDAV</option>
 													<option value="nextcloud">NextCloud</option>
-													<option value="onedrive">OneDrive</option>
-													<option value="google_drive">Google Drive</option>
+													//<option value="onedrive">OneDrive</option>
+													//<option value="google_drive">Google Drive</option>
 												</select>
 											</div>
 										</div>
@@ -907,156 +907,156 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 											</div>
 										</template>
 
-										<template x-if="sourceType === 'onedrive'">
-											<div class="sm:col-span-6 space-y-6">
-												<div class="relative p-4 border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/30 dark:border-yellow-700 rounded-lg mb-4">
-													<div class="flex">
-														<div class="flex-shrink-0">
-															<i class="fas fa-info-circle text-yellow-400"></i>
-														</div>
-														<div class="ml-3">
-															<h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-300">OneDrive Authentication</h3>
-															<div class="mt-2 text-sm text-yellow-700 dark:text-yellow-400">
-																<p>OneDrive requires OAuth authentication. You'll need to:</p>
-																<ol class="list-decimal ml-4 mt-1 space-y-1">
-																	<li>Register an application in the Microsoft Azure portal</li>
-																	<li>Add redirect URI: http://localhost:53682/</li>
-																	<li>Save the application details below</li>
-																</ol>
-															</div>
-														</div>
-													</div>
-												</div>
+										// <template x-if="sourceType === 'onedrive'">
+										// 	<div class="sm:col-span-6 space-y-6">
+										// 		<div class="relative p-4 border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/30 dark:border-yellow-700 rounded-lg mb-4">
+										// 			<div class="flex">
+										// 				<div class="flex-shrink-0">
+										// 					<i class="fas fa-info-circle text-yellow-400"></i>
+										// 				</div>
+										// 				<div class="ml-3">
+										// 					<h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-300">OneDrive Authentication</h3>
+										// 					<div class="mt-2 text-sm text-yellow-700 dark:text-yellow-400">
+										// 						<p>OneDrive requires OAuth authentication. You'll need to:</p>
+										// 						<ol class="list-decimal ml-4 mt-1 space-y-1">
+										// 							<li>Register an application in the Microsoft Azure portal</li>
+										// 							<li>Add redirect URI: http://localhost:53682/</li>
+										// 							<li>Save the application details below</li>
+										// 						</ol>
+										// 					</div>
+										// 				</div>
+										// 			</div>
+										// 		</div>
 
-												<div class="sm:col-span-4">
-													<label for="source_client_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client ID</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-id-card text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_client_id"
-															id="source_client_id"
-															x-model="sourceClientId"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="Azure application client ID"/>
-													</div>
-												</div>
+										// 		<div class="sm:col-span-4">
+										// 			<label for="source_client_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client ID</label>
+										// 			<div class="relative">
+										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+										// 					<i class="fas fa-id-card text-secondary-400 dark:text-secondary-600"></i>
+										// 				</div>
+										// 				<input
+										// 					type="text"
+										// 					name="source_client_id"
+										// 					id="source_client_id"
+										// 					x-model="sourceClientId"
+										// 					required
+										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+										// 					placeholder="Azure application client ID"/>
+										// 			</div>
+										// 		</div>
 
-												<div class="sm:col-span-4">
-													<label for="source_client_secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client Secret</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="password"
-															name="source_client_secret"
-															id="source_client_secret"
-															x-model="sourceClientSecret"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="Azure application client secret"/>
-													</div>
-													<input type="hidden" name="source_client_secret" :value="sourceClientSecret"/>
-												</div>
+										// 		<div class="sm:col-span-4">
+										// 			<label for="source_client_secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client Secret</label>
+										// 			<div class="relative">
+										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+										// 					<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+										// 				</div>
+										// 				<input
+										// 					type="password"
+										// 					name="source_client_secret"
+										// 					id="source_client_secret"
+										// 					x-model="sourceClientSecret"
+										// 					required
+										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+										// 					placeholder="Azure application client secret"/>
+										// 			</div>
+										// 			<input type="hidden" name="source_client_secret" :value="sourceClientSecret"/>
+										// 		</div>
 
-												<div class="sm:col-span-4">
-													<label for="source_drive_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Drive ID (Optional)</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-hdd text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_drive_id"
-															id="source_drive_id"
-															x-model="sourceDriveId"
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="OneDrive drive ID (leave empty for default)"/>
-													</div>
-													<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">For shared or business drives</p>
-												</div>
-											</div>
-										</template>
+										// 		<div class="sm:col-span-4">
+										// 			<label for="source_drive_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Drive ID (Optional)</label>
+										// 			<div class="relative">
+										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+										// 					<i class="fas fa-hdd text-secondary-400 dark:text-secondary-600"></i>
+										// 				</div>
+										// 				<input
+										// 					type="text"
+										// 					name="source_drive_id"
+										// 					id="source_drive_id"
+										// 					x-model="sourceDriveId"
+										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+										// 					placeholder="OneDrive drive ID (leave empty for default)"/>
+										// 			</div>
+										// 			<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">For shared or business drives</p>
+										// 		</div>
+										// 	</div>
+										// </template>
 
-										<template x-if="sourceType === 'google_drive'">
-											<div class="sm:col-span-6 space-y-6">
-												<div class="relative p-4 border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/30 dark:border-yellow-700 rounded-lg mb-4">
-													<div class="flex">
-														<div class="flex-shrink-0">
-															<i class="fas fa-info-circle text-yellow-400"></i>
-														</div>
-														<div class="ml-3">
-															<h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-300">Google Drive Authentication</h3>
-															<div class="mt-2 text-sm text-yellow-700 dark:text-yellow-400">
-																<p>Google Drive requires OAuth authentication. You'll need to:</p>
-																<ol class="list-decimal ml-4 mt-1 space-y-1">
-																	<li>Create a project in Google Cloud Console</li>
-																	<li>Enable Google Drive API</li>
-																	<li>Create OAuth credentials</li>
-																	<li>Add redirect URI: http://localhost:53682/</li>
-																	<li>Save the client details below</li>
-																</ol>
-															</div>
-														</div>
-													</div>
-												</div>
+										// <template x-if="sourceType === 'google_drive'">
+										// 	<div class="sm:col-span-6 space-y-6">
+										// 		<div class="relative p-4 border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/30 dark:border-yellow-700 rounded-lg mb-4">
+										// 			<div class="flex">
+										// 				<div class="flex-shrink-0">
+										// 					<i class="fas fa-info-circle text-yellow-400"></i>
+										// 				</div>
+										// 				<div class="ml-3">
+										// 					<h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-300">Google Drive Authentication</h3>
+										// 					<div class="mt-2 text-sm text-yellow-700 dark:text-yellow-400">
+										// 						<p>Google Drive requires OAuth authentication. You'll need to:</p>
+										// 						<ol class="list-decimal ml-4 mt-1 space-y-1">
+										// 							<li>Create a project in Google Cloud Console</li>
+										// 							<li>Enable Google Drive API</li>
+										// 							<li>Create OAuth credentials</li>
+										// 							<li>Add redirect URI: http://localhost:53682/</li>
+										// 							<li>Save the client details below</li>
+										// 						</ol>
+										// 					</div>
+										// 				</div>
+										// 			</div>
+										// 		</div>
 
-												<div class="sm:col-span-4">
-													<label for="source_client_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client ID</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-id-card text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_client_id"
-															id="source_client_id"
-															x-model="sourceClientId"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="Google OAuth client ID"/>
-													</div>
-												</div>
+										// 		<div class="sm:col-span-4">
+										// 			<label for="source_client_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client ID</label>
+										// 			<div class="relative">
+										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+										// 					<i class="fas fa-id-card text-secondary-400 dark:text-secondary-600"></i>
+										// 				</div>
+										// 				<input
+										// 					type="text"
+										// 					name="source_client_id"
+										// 					id="source_client_id"
+										// 					x-model="sourceClientId"
+										// 					required
+										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+										// 					placeholder="Google OAuth client ID"/>
+										// 			</div>
+										// 		</div>
 
-												<div class="sm:col-span-4">
-													<label for="source_client_secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client Secret</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="password"
-															name="source_client_secret"
-															id="source_client_secret"
-															x-model="sourceClientSecret"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="Google OAuth client secret"/>
-													</div>
-													<input type="hidden" name="source_client_secret" :value="sourceClientSecret"/>
-												</div>
+										// 		<div class="sm:col-span-4">
+										// 			<label for="source_client_secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client Secret</label>
+										// 			<div class="relative">
+										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+										// 					<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+										// 				</div>
+										// 				<input
+										// 					type="password"
+										// 					name="source_client_secret"
+										// 					id="source_client_secret"
+										// 					x-model="sourceClientSecret"
+										// 					required
+										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+										// 					placeholder="Google OAuth client secret"/>
+										// 			</div>
+										// 			<input type="hidden" name="source_client_secret" :value="sourceClientSecret"/>
+										// 		</div>
 
-												<div class="sm:col-span-4">
-													<label for="source_team_drive" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Team Drive ID (Optional)</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-users text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_team_drive"
-															id="source_team_drive"
-															x-model="sourceTeamDrive"
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="Team Drive ID (leave empty for personal drive)"/>
-													</div>
-												</div>
-											</div>
-										</template>
+										// 		<div class="sm:col-span-4">
+										// 			<label for="source_team_drive" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Team Drive ID (Optional)</label>
+										// 			<div class="relative">
+										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+										// 					<i class="fas fa-users text-secondary-400 dark:text-secondary-600"></i>
+										// 				</div>
+										// 				<input
+										// 					type="text"
+										// 					name="source_team_drive"
+										// 					id="source_team_drive"
+										// 					x-model="sourceTeamDrive"
+										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+										// 					placeholder="Team Drive ID (leave empty for personal drive)"/>
+										// 			</div>
+										// 		</div>
+										// 	</div>
+										// </template>
 
 										<div class="sm:col-span-6">
 											<label for="source_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Source Path</label>
@@ -1146,8 +1146,8 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 													<option value="ftp">FTP</option>
 													<option value="webdav">WebDAV</option>
 													<option value="nextcloud">NextCloud</option>
-													<option value="onedrive">OneDrive</option>
-													<option value="google_drive">Google Drive</option>
+													// <option value="onedrive">OneDrive</option>
+													// <option value="google_drive">Google Drive</option>
 												</select>
 											</div>
 										</div>
@@ -1703,156 +1703,156 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 											</div>
 										</template>
 
-										<template x-if="destinationType === 'onedrive'">
-											<div class="sm:col-span-6 space-y-6">
-												<div class="relative p-4 border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/30 dark:border-yellow-700 rounded-lg mb-4">
-													<div class="flex">
-														<div class="flex-shrink-0">
-															<i class="fas fa-info-circle text-yellow-400"></i>
-														</div>
-														<div class="ml-3">
-															<h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-300">OneDrive Authentication</h3>
-															<div class="mt-2 text-sm text-yellow-700 dark:text-yellow-400">
-																<p>OneDrive requires OAuth authentication. You'll need to:</p>
-																<ol class="list-decimal ml-4 mt-1 space-y-1">
-																	<li>Register an application in the Microsoft Azure portal</li>
-																	<li>Add redirect URI: http://localhost:53682/</li>
-																	<li>Save the application details below</li>
-																</ol>
-															</div>
-														</div>
-													</div>
-												</div>
+										// <template x-if="destinationType === 'onedrive'">
+										// 	<div class="sm:col-span-6 space-y-6">
+										// 		<div class="relative p-4 border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/30 dark:border-yellow-700 rounded-lg mb-4">
+										// 			<div class="flex">
+										// 				<div class="flex-shrink-0">
+										// 					<i class="fas fa-info-circle text-yellow-400"></i>
+										// 				</div>
+										// 				<div class="ml-3">
+										// 					<h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-300">OneDrive Authentication</h3>
+										// 					<div class="mt-2 text-sm text-yellow-700 dark:text-yellow-400">
+										// 						<p>OneDrive requires OAuth authentication. You'll need to:</p>
+										// 						<ol class="list-decimal ml-4 mt-1 space-y-1">
+										// 							<li>Register an application in the Microsoft Azure portal</li>
+										// 							<li>Add redirect URI: http://localhost:53682/</li>
+										// 							<li>Save the application details below</li>
+										// 						</ol>
+										// 					</div>
+										// 				</div>
+										// 			</div>
+										// 		</div>
 
-												<div class="sm:col-span-4">
-													<label for="dest_client_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client ID</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-id-card text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_client_id"
-															id="dest_client_id"
-															x-model="destClientId"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="Azure application client ID"/>
-													</div>
-												</div>
+										// 		<div class="sm:col-span-4">
+										// 			<label for="dest_client_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client ID</label>
+										// 			<div class="relative">
+										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+										// 					<i class="fas fa-id-card text-secondary-400 dark:text-secondary-600"></i>
+										// 				</div>
+										// 				<input
+										// 					type="text"
+										// 					name="dest_client_id"
+										// 					id="dest_client_id"
+										// 					x-model="destClientId"
+										// 					required
+										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+										// 					placeholder="Azure application client ID"/>
+										// 			</div>
+										// 		</div>
 
-												<div class="sm:col-span-4">
-													<label for="dest_client_secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client Secret</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="password"
-															name="dest_client_secret"
-															id="dest_client_secret"
-															x-model="destClientSecret"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="Azure application client secret"/>
-													</div>
-													<input type="hidden" name="dest_client_secret" :value="destClientSecret"/>
-												</div>
+										// 		<div class="sm:col-span-4">
+										// 			<label for="dest_client_secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client Secret</label>
+										// 			<div class="relative">
+										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+										// 					<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+										// 				</div>
+										// 				<input
+										// 					type="password"
+										// 					name="dest_client_secret"
+										// 					id="dest_client_secret"
+										// 					x-model="destClientSecret"
+										// 					required
+										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+										// 					placeholder="Azure application client secret"/>
+										// 			</div>
+										// 			<input type="hidden" name="dest_client_secret" :value="destClientSecret"/>
+										// 		</div>
 
-												<div class="sm:col-span-4">
-													<label for="dest_drive_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Drive ID (Optional)</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-hdd text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_drive_id"
-															id="dest_drive_id"
-															x-model="destDriveId"
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="OneDrive drive ID (leave empty for default)"/>
-													</div>
-													<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">For shared or business drives</p>
-												</div>
-											</div>
-										</template>
+										// 		<div class="sm:col-span-4">
+										// 			<label for="dest_drive_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Drive ID (Optional)</label>
+										// 			<div class="relative">
+										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+										// 					<i class="fas fa-hdd text-secondary-400 dark:text-secondary-600"></i>
+										// 				</div>
+										// 				<input
+										// 					type="text"
+										// 					name="dest_drive_id"
+										// 					id="dest_drive_id"
+										// 					x-model="destDriveId"
+										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+										// 					placeholder="OneDrive drive ID (leave empty for default)"/>
+										// 			</div>
+										// 			<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">For shared or business drives</p>
+										// 		</div>
+										// 	</div>
+										// </template>
 
-										<template x-if="destinationType === 'google_drive'">
-											<div class="sm:col-span-6 space-y-6">
-												<div class="relative p-4 border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/30 dark:border-yellow-700 rounded-lg mb-4">
-													<div class="flex">
-														<div class="flex-shrink-0">
-															<i class="fas fa-info-circle text-yellow-400"></i>
-														</div>
-														<div class="ml-3">
-															<h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-300">Google Drive Authentication</h3>
-															<div class="mt-2 text-sm text-yellow-700 dark:text-yellow-400">
-																<p>Google Drive requires OAuth authentication. You'll need to:</p>
-																<ol class="list-decimal ml-4 mt-1 space-y-1">
-																	<li>Create a project in Google Cloud Console</li>
-																	<li>Enable Google Drive API</li>
-																	<li>Create OAuth credentials</li>
-																	<li>Add redirect URI: http://localhost:53682/</li>
-																	<li>Save the client details below</li>
-																</ol>
-															</div>
-														</div>
-													</div>
-												</div>
+										// <template x-if="destinationType === 'google_drive'">
+										// 	<div class="sm:col-span-6 space-y-6">
+										// 		<div class="relative p-4 border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/30 dark:border-yellow-700 rounded-lg mb-4">
+										// 			<div class="flex">
+										// 				<div class="flex-shrink-0">
+										// 					<i class="fas fa-info-circle text-yellow-400"></i>
+										// 				</div>
+										// 				<div class="ml-3">
+										// 					<h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-300">Google Drive Authentication</h3>
+										// 					<div class="mt-2 text-sm text-yellow-700 dark:text-yellow-400">
+										// 						<p>Google Drive requires OAuth authentication. You'll need to:</p>
+										// 						<ol class="list-decimal ml-4 mt-1 space-y-1">
+										// 							<li>Create a project in Google Cloud Console</li>
+										// 							<li>Enable Google Drive API</li>
+										// 							<li>Create OAuth credentials</li>
+										// 							<li>Add redirect URI: http://localhost:53682/</li>
+										// 							<li>Save the client details below</li>
+										// 						</ol>
+										// 					</div>
+										// 				</div>
+										// 			</div>
+										// 		</div>
 
-												<div class="sm:col-span-4">
-													<label for="dest_client_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client ID</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-id-card text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_client_id"
-															id="dest_client_id"
-															x-model="destClientId"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="Google OAuth client ID"/>
-													</div>
-												</div>
+										// 		<div class="sm:col-span-4">
+										// 			<label for="dest_client_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client ID</label>
+										// 			<div class="relative">
+										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+										// 					<i class="fas fa-id-card text-secondary-400 dark:text-secondary-600"></i>
+										// 				</div>
+										// 				<input
+										// 					type="text"
+										// 					name="dest_client_id"
+										// 					id="dest_client_id"
+										// 					x-model="destClientId"
+										// 					required
+										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+										// 					placeholder="Google OAuth client ID"/>
+										// 			</div>
+										// 		</div>
 
-												<div class="sm:col-span-4">
-													<label for="dest_client_secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client Secret</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="password"
-															name="dest_client_secret"
-															id="dest_client_secret"
-															x-model="destClientSecret"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="Google OAuth client secret"/>
-													</div>
-													<input type="hidden" name="dest_client_secret" :value="destClientSecret"/>
-												</div>
+										// 		<div class="sm:col-span-4">
+										// 			<label for="dest_client_secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client Secret</label>
+										// 			<div class="relative">
+										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+										// 					<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+										// 				</div>
+										// 				<input
+										// 					type="password"
+										// 					name="dest_client_secret"
+										// 					id="dest_client_secret"
+										// 					x-model="destClientSecret"
+										// 					required
+										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+										// 					placeholder="Google OAuth client secret"/>
+										// 			</div>
+										// 			<input type="hidden" name="dest_client_secret" :value="destClientSecret"/>
+										// 		</div>
 
-												<div class="sm:col-span-4">
-													<label for="dest_team_drive" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Team Drive ID (Optional)</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-users text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_team_drive"
-															id="dest_team_drive"
-															x-model="destTeamDrive"
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="Team Drive ID (leave empty for personal drive)"/>
-													</div>
-												</div>
-											</div>
-										</template>
+										// 		<div class="sm:col-span-4">
+										// 			<label for="dest_team_drive" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Team Drive ID (Optional)</label>
+										// 			<div class="relative">
+										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+										// 					<i class="fas fa-users text-secondary-400 dark:text-secondary-600"></i>
+										// 				</div>
+										// 				<input
+										// 					type="text"
+										// 					name="dest_team_drive"
+										// 					id="dest_team_drive"
+										// 					x-model="destTeamDrive"
+										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+										// 					placeholder="Team Drive ID (leave empty for personal drive)"/>
+										// 			</div>
+										// 		</div>
+										// 	</div>
+										// </template>
 
 										<div class="sm:col-span-6">
 											<label for="destination_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Destination Path</label>
