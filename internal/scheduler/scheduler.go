@@ -158,6 +158,9 @@ func (s *Scheduler) executeJob(jobID uint) {
 		fmt.Printf("Error updating job last run time for job %d: %v\n", jobID, err)
 	}
 
+	// Track files already processed in this job execution to prevent duplicates
+	processedFiles := make(map[string]bool)
+
 	// Get rclone config path
 	configPath := s.db.GetConfigRclonePath(&job.Config)
 
@@ -261,15 +264,36 @@ func (s *Scheduler) executeJob(jobID uint) {
 		}
 
 		// Split the output by newlines to get individual files
-		files := strings.Split(strings.TrimSpace(string(listOutput)), "\n")
-		fmt.Printf("Found %d files to transfer for job %d\n", len(files), jobID)
+		fileLines := strings.Split(strings.TrimSpace(string(listOutput)), "\n")
+
+		// Clean up the file list - remove empty lines and ensure uniqueness
+		var files []string
+		uniqueFiles := make(map[string]bool)
+
+		for _, line := range fileLines {
+			// Skip empty lines
+			trimmedLine := strings.TrimSpace(line)
+			if trimmedLine == "" {
+				continue
+			}
+
+			// Only add each file once
+			if !uniqueFiles[trimmedLine] {
+				uniqueFiles[trimmedLine] = true
+				files = append(files, trimmedLine)
+			}
+		}
+
+		fmt.Printf("Found %d unique files to transfer for job %d\n", len(files), jobID)
 
 		var transferErrors []string
 		filesTransferred := 0
 
 		// Process each file individually
 		for _, file := range files {
-			if file == "" {
+			// Skip files that have already been processed in this execution
+			if processedFiles[file] {
+				fmt.Printf("Skipping duplicate file entry: %s (already processed in this execution)\n", file)
 				continue
 			}
 
@@ -541,6 +565,9 @@ func (s *Scheduler) executeJob(jobID uint) {
 					}
 				}
 			}
+
+			// Mark this file as processed for this execution
+			processedFiles[file] = true
 
 			// Create and save file metadata
 			metadata := &db.FileMetadata{
