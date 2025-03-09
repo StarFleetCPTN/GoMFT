@@ -161,8 +161,21 @@ func (s *Scheduler) executeJob(jobID uint) {
 		"--config", configPath,
 		"size",
 		"--include", job.Config.FilePattern,
-		fmt.Sprintf("source_%d:%s", job.Config.ID, job.Config.SourcePath),
 	}
+	
+	// Add source path with bucket for S3-compatible storage
+	var sourceSizePath string
+	if job.Config.SourceType == "s3" || job.Config.SourceType == "minio" || job.Config.SourceType == "b2" {
+		sourceSizePath = fmt.Sprintf("source_%d:%s", job.Config.ID, job.Config.SourceBucket)
+		if job.Config.SourcePath != "" && job.Config.SourcePath != "/" {
+			sourceSizePath = fmt.Sprintf("source_%d:%s/%s", job.Config.ID, job.Config.SourceBucket, job.Config.SourcePath)
+		}
+	} else {
+		sourceSizePath = fmt.Sprintf("source_%d:%s", job.Config.ID, job.Config.SourcePath)
+	}
+	
+	sizeArgs = append(sizeArgs, sourceSizePath)
+	
 	// Get the rclone path from the environment variable or use the default path
 	rclonePath := os.Getenv("RCLONE_PATH")
 	if rclonePath == "" {
@@ -202,8 +215,20 @@ func (s *Scheduler) executeJob(jobID uint) {
 			"--config", configPath,
 			"lsf",
 			"--include", job.Config.FilePattern,
-			fmt.Sprintf("source_%d:%s", job.Config.ID, job.Config.SourcePath),
 		}
+		
+		// Add source path with bucket for S3-compatible storage
+		var sourceLsPath string
+		if job.Config.SourceType == "s3" || job.Config.SourceType == "minio" || job.Config.SourceType == "b2" {
+			sourceLsPath = fmt.Sprintf("source_%d:%s", job.Config.ID, job.Config.SourceBucket)
+			if job.Config.SourcePath != "" && job.Config.SourcePath != "/" {
+				sourceLsPath = fmt.Sprintf("source_%d:%s/%s", job.Config.ID, job.Config.SourceBucket, job.Config.SourcePath)
+			}
+		} else {
+			sourceLsPath = fmt.Sprintf("source_%d:%s", job.Config.ID, job.Config.SourcePath)
+		}
+		
+		listArgs = append(listArgs, sourceLsPath)
 		
 		fmt.Printf("Listing files for job %d: rclone %s\n", jobID, strings.Join(listArgs, " "))
 		// Get the rclone path from the environment variable or use the default path
@@ -247,8 +272,26 @@ func (s *Scheduler) executeJob(jobID uint) {
 			}
 			
 			// Source and destination paths
-			sourcePath := fmt.Sprintf("source_%d:%s/%s", job.Config.ID, job.Config.SourcePath, file)
-			destPath := fmt.Sprintf("dest_%d:%s/%s", job.Config.ID, job.Config.DestinationPath, file)
+			var sourcePath, destPath string
+			
+			// For S3, MinIO, and B2, include the bucket in the path
+			if job.Config.SourceType == "s3" || job.Config.SourceType == "minio" || job.Config.SourceType == "b2" {
+				sourcePath = fmt.Sprintf("source_%d:%s/%s", job.Config.ID, job.Config.SourceBucket, file)
+				if job.Config.SourcePath != "" && job.Config.SourcePath != "/" {
+					sourcePath = fmt.Sprintf("source_%d:%s/%s/%s", job.Config.ID, job.Config.SourceBucket, job.Config.SourcePath, file)
+				}
+			} else {
+				sourcePath = fmt.Sprintf("source_%d:%s/%s", job.Config.ID, job.Config.SourcePath, file)
+			}
+			
+			if job.Config.DestinationType == "s3" || job.Config.DestinationType == "minio" || job.Config.DestinationType == "b2" {
+				destPath = fmt.Sprintf("dest_%d:%s/%s", job.Config.ID, job.Config.DestBucket, file)
+				if job.Config.DestinationPath != "" && job.Config.DestinationPath != "/" {
+					destPath = fmt.Sprintf("dest_%d:%s/%s/%s", job.Config.ID, job.Config.DestBucket, job.Config.DestinationPath, file)
+				}
+			} else {
+				destPath = fmt.Sprintf("dest_%d:%s/%s", job.Config.ID, job.Config.DestinationPath, file)
+			}
 			
 			// Add output filename pattern if specified
 			if job.Config.OutputPattern != "" {
@@ -299,8 +342,17 @@ func (s *Scheduler) executeJob(jobID uint) {
 						"--config", configPath,
 						"copyto",
 						sourcePath,
-						fmt.Sprintf("source_%d:%s/%s", job.Config.ID, job.Config.ArchivePath, file),
 					}
+					
+					// Construct archive path with bucket if needed
+					var archiveDest string
+					if job.Config.SourceType == "s3" || job.Config.SourceType == "minio" || job.Config.SourceType == "b2" {
+						archiveDest = fmt.Sprintf("source_%d:%s/%s/%s", job.Config.ID, job.Config.SourceBucket, job.Config.ArchivePath, file)
+					} else {
+						archiveDest = fmt.Sprintf("source_%d:%s/%s", job.Config.ID, job.Config.ArchivePath, file)
+					}
+					
+					archiveArgs = append(archiveArgs, archiveDest)
 					
 					fmt.Printf("Executing rclone archive command for job %d, file %s: rclone %s\n", 
 						jobID, file, strings.Join(archiveArgs, " "))
@@ -318,8 +370,6 @@ func (s *Scheduler) executeJob(jobID uint) {
 					// Check if file was successfully transferred
 					if archiveErr != nil {
 						fmt.Printf("Warning: Error archiving file %s for job %d: %v\n", file, jobID, archiveErr)
-						transferErrors = append(transferErrors, 
-							fmt.Sprintf("Archive error for file %s: %v", file, archiveErr))
 						transferErrors = append(transferErrors, 
 							fmt.Sprintf("Archive error for file %s: %v", file, archiveErr))
 					}

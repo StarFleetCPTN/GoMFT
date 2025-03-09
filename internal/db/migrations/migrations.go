@@ -6,10 +6,11 @@ import (
 )
 
 // InitMigrations initializes the migrations
-func InitMigrations() *gormigrate.Gormigrate {
+func InitMigrations(db *gorm.DB) *gormigrate.Gormigrate {
 	migrations := []*gormigrate.Migration{
 		// ... existing migrations
 		AddDeleteAfterTransferColumn(),
+		AddCloudStorageFields(),
 	}
 	
 	return gormigrate.New(db, gormigrate.DefaultOptions, migrations)
