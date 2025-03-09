@@ -1,0 +1,105 @@
+package source
+
+templ FTPSourceForm() {
+	<div class="sm:col-span-6 space-y-6">
+		<div class="sm:col-span-4">
+			<label for="source_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Host</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-server text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="source_host"
+					id="source_host"
+					x-model="sourceHost"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="ftp.example.com"/>
+			</div>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="source_port" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Port</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-plug text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="number"
+					name="source_port"
+					id="source_port"
+					x-model="sourcePort"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="21"/>
+			</div>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="source_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Remote Path</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-folder text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="source_path"
+					id="source_path"
+					x-model="sourcePath"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="/path/to/files"/>
+			</div>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="source_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="source_user"
+					id="source_user"
+					x-model="sourceUser"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
+			</div>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="source_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="password"
+					name="source_password"
+					id="source_password"
+					x-model="sourcePassword"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="Password"/>
+			</div>
+			<input type="hidden" name="source_password" :value="sourcePassword"/>
+		</div>
+
+		<div class="flex items-start mb-4">
+			<div class="flex items-center h-5">
+				<input 
+					id="source_passive_mode" 
+					name="source_passive_mode" 
+					type="checkbox" 
+					x-model="sourcePassiveMode"
+					class="focus:ring-primary-500 h-4 w-4 text-primary-600 border-secondary-300 dark:border-secondary-700 rounded">
+			</div>
+			<div class="ml-3 text-sm">
+				<label for="source_passive_mode" class="font-medium text-secondary-700 dark:text-secondary-300">Use Passive Mode</label>
+				<p class="text-secondary-500 dark:text-secondary-400">Enable passive mode for FTP connection</p>
+			</div>
+		</div>
+	</div>
+} 

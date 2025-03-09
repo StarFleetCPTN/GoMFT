@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"github.com/starfleetcptn/gomft/internal/db"
 	"context"
+	"github.com/starfleetcptn/gomft/components/providers/source"
+	"github.com/starfleetcptn/gomft/components/providers/destination"
+	"github.com/starfleetcptn/gomft/components/providers/common"
 )
 
 type ConfigFormData struct {
@@ -19,6 +22,7 @@ func getConfigFormTitle(isNew bool) string {
 }
 
 func getInitialData(config *db.TransferConfig) string {
+	// Default values for a new configuration
 	name := ""
 	sourceType := "local"
 	sourcePath := ""
@@ -27,24 +31,23 @@ func getInitialData(config *db.TransferConfig) string {
 	sourceUser := ""
 	sourcePassword := ""
 	sourceKeyFile := ""
-	// S3 fields
+	sourceAuthType := "password"
 	sourceBucket := ""
 	sourceRegion := ""
 	sourceAccessKey := ""
 	sourceSecretKey := ""
 	sourceEndpoint := ""
-	// SMB fields
 	sourceShare := ""
 	sourceDomain := ""
-	// FTP fields
-	sourcePassiveMode := true
-	// OneDrive and Google Drive fields
+	sourcePassiveMode := false
 	sourceClientId := ""
 	sourceClientSecret := ""
 	sourceDriveId := ""
 	sourceTeamDrive := ""
-	filePattern := "*"
-	outputPattern := ""
+	
+	filePattern := ""
+	outputPattern := "${filename}"
+	
 	destinationType := "local"
 	destinationPath := ""
 	destHost := ""
@@ -52,27 +55,26 @@ func getInitialData(config *db.TransferConfig) string {
 	destUser := ""
 	destPassword := ""
 	destKeyFile := ""
-	// S3 fields
+	destAuthType := "password"
 	destBucket := ""
 	destRegion := ""
 	destAccessKey := ""
 	destSecretKey := ""
 	destEndpoint := ""
-	// SMB fields
 	destShare := ""
 	destDomain := ""
-	// FTP fields
-	destPassiveMode := true
-	// OneDrive and Google Drive fields
+	destPassiveMode := false
 	destClientId := ""
 	destClientSecret := ""
 	destDriveId := ""
 	destTeamDrive := ""
+	
 	archivePath := ""
 	archiveEnabled := false
 	deleteAfterTransfer := false
 	rcloneFlags := ""
 
+	// If editing an existing config, populate with those values
 	if config != nil {
 		name = config.Name
 		sourceType = config.SourceType
@@ -82,24 +84,25 @@ func getInitialData(config *db.TransferConfig) string {
 		sourceUser = config.SourceUser
 		sourcePassword = config.SourcePassword
 		sourceKeyFile = config.SourceKeyFile
-		// S3 fields
+		if sourceKeyFile != "" && sourcePassword == "" {
+			sourceAuthType = "key"
+		}
 		sourceBucket = config.SourceBucket
 		sourceRegion = config.SourceRegion
 		sourceAccessKey = config.SourceAccessKey
 		sourceSecretKey = config.SourceSecretKey
 		sourceEndpoint = config.SourceEndpoint
-		// SMB fields
 		sourceShare = config.SourceShare
 		sourceDomain = config.SourceDomain
-		// FTP fields
 		sourcePassiveMode = config.SourcePassiveMode
-		// OneDrive and Google Drive fields
 		sourceClientId = config.SourceClientID
 		sourceClientSecret = config.SourceClientSecret
 		sourceDriveId = config.SourceDriveID
 		sourceTeamDrive = config.SourceTeamDrive
+		
 		filePattern = config.FilePattern
 		outputPattern = config.OutputPattern
+		
 		destinationType = config.DestinationType
 		destinationPath = config.DestinationPath
 		destHost = config.DestHost
@@ -107,28 +110,29 @@ func getInitialData(config *db.TransferConfig) string {
 		destUser = config.DestUser
 		destPassword = config.DestPassword
 		destKeyFile = config.DestKeyFile
-		// S3 fields
+		if destKeyFile != "" && destPassword == "" {
+			destAuthType = "key"
+		}
 		destBucket = config.DestBucket
 		destRegion = config.DestRegion
 		destAccessKey = config.DestAccessKey
 		destSecretKey = config.DestSecretKey
 		destEndpoint = config.DestEndpoint
-		// SMB fields
 		destShare = config.DestShare
 		destDomain = config.DestDomain
-		// FTP fields
 		destPassiveMode = config.DestPassiveMode
-		// OneDrive and Google Drive fields
 		destClientId = config.DestClientID
 		destClientSecret = config.DestClientSecret
 		destDriveId = config.DestDriveID
 		destTeamDrive = config.DestTeamDrive
+		
 		archivePath = config.ArchivePath
 		archiveEnabled = config.ArchiveEnabled
 		deleteAfterTransfer = config.DeleteAfterTransfer
 		rcloneFlags = config.RcloneFlags
 	}
 
+	// Return the JSON-formatted string with all the data
 	return fmt.Sprintf(`{
 		name: '%s',
 		sourceType: '%s',
@@ -138,6 +142,7 @@ func getInitialData(config *db.TransferConfig) string {
 		sourceUser: '%s',
 		sourcePassword: '%s',
 		sourceKeyFile: '%s',
+		sourceAuthType: '%s',
 		sourceBucket: '%s',
 		sourceRegion: '%s',
 		sourceAccessKey: '%s',
@@ -150,8 +155,10 @@ func getInitialData(config *db.TransferConfig) string {
 		sourceClientSecret: '%s',
 		sourceDriveId: '%s',
 		sourceTeamDrive: '%s',
+		
 		filePattern: '%s',
 		outputPattern: '%s',
+		
 		destinationType: '%s',
 		destinationPath: '%s',
 		destHost: '%s',
@@ -159,1825 +166,180 @@ func getInitialData(config *db.TransferConfig) string {
 		destUser: '%s',
 		destPassword: '%s',
 		destKeyFile: '%s',
-		// S3 fields
+		destAuthType: '%s',
 		destBucket: '%s',
 		destRegion: '%s',
 		destAccessKey: '%s',
 		destSecretKey: '%s',
 		destEndpoint: '%s',
-		// SMB fields
 		destShare: '%s',
 		destDomain: '%s',
-		// FTP fields
 		destPassiveMode: %v,
-		// OneDrive and Google Drive fields
 		destClientId: '%s',
 		destClientSecret: '%s',
 		destDriveId: '%s',
 		destTeamDrive: '%s',
-		// Existing fields
+		
 		archivePath: '%s',
 		archiveEnabled: %v,
 		deleteAfterTransfer: %v,
 		rcloneFlags: '%s',
-		loading: false,
-		
-		validate() {
-			if (this.sourceType === 'sftp') {
-				if (!this.sourceHost || !this.sourceUser || (!this.sourcePassword && !this.sourceKeyFile)) {
-					return false;
-				}
-			} else if (this.sourceType === 's3') {
-				if (!this.sourceBucket || !this.sourceRegion || !this.sourceAccessKey || !this.sourceSecretKey) {
-					return false;
-				}
-			} else if (this.sourceType === 'minio') {
-				if (!this.sourceBucket || !this.sourceEndpoint || !this.sourceAccessKey || !this.sourceSecretKey) {
-					return false;
-				}
-			} else if (this.sourceType === 'b2') {
-				if (!this.sourceBucket || !this.sourceAccessKey || !this.sourceSecretKey) {
-					return false;
-				}
-			} else if (this.sourceType === 'smb') {
-				if (!this.sourceHost || !this.sourceShare || !this.sourceUser || !this.sourcePassword) {
-					return false;
-				}
-			} else if (this.sourceType === 'ftp') {
-				if (!this.sourceHost || !this.sourceUser || !this.sourcePassword) {
-					return false;
-				}
-			} else if (this.sourceType === 'webdav') {
-				if (!this.sourceHost || !this.sourceUser || !this.sourcePassword) {
-					return false;
-				}
-			} else if (this.sourceType === 'nextcloud') {
-				if (!this.sourceHost || !this.sourceUser || !this.sourcePassword) {
-					return false;
-				}
-			} else if (this.sourceType === 'onedrive') {
-				if (!this.sourceClientId || !this.sourceClientSecret) {
-					return false;
-				}
-			} else if (this.sourceType === 'google_drive') {
-				if (!this.sourceClientId || !this.sourceClientSecret) {
-					return false;
-				}
-			}
-			
-			if (this.destinationType === 'sftp') {
-				if (!this.destHost || !this.destUser || (!this.destPassword && !this.destKeyFile)) {
-					return false;
-				}
-			} else if (this.destinationType === 's3') {
-				if (!this.destBucket || !this.destRegion || !this.destAccessKey || !this.destSecretKey) {
-					return false;
-				}
-			} else if (this.destinationType === 'minio') {
-				if (!this.destBucket || !this.destEndpoint || !this.destAccessKey || !this.destSecretKey) {
-					return false;
-				}
-			} else if (this.destinationType === 'b2') {
-				if (!this.destBucket || !this.destAccessKey || !this.destSecretKey) {
-					return false;
-				}
-			} else if (this.destinationType === 'smb') {
-				if (!this.destHost || !this.destShare || !this.destUser || !this.destPassword) {
-					return false;
-				}
-			} else if (this.destinationType === 'ftp') {
-				if (!this.destHost || !this.destUser || !this.destPassword) {
-					return false;
-				}
-			} else if (this.destinationType === 'webdav') {
-				if (!this.destHost || !this.destUser || !this.destPassword) {
-					return false;
-				}
-			} else if (this.destinationType === 'nextcloud') {
-				if (!this.destHost || !this.destUser || !this.destPassword) {
-					return false;
-				}
-			} else if (this.destinationType === 'onedrive') {
-				if (!this.destClientId || !this.destClientSecret) {
-					return false;
-				}
-			} else if (this.destinationType === 'google_drive') {
-				if (!this.destClientId || !this.destClientSecret) {
-					return false;
-				}
-			}
-			return this.name && this.sourcePath && this.filePattern && this.destinationPath && (!this.archiveEnabled || this.archivePath);
-		}
-	}`, name, sourceType, sourcePath, sourceHost, sourcePort, sourceUser, sourcePassword, sourceKeyFile,
-		sourceBucket, sourceRegion, sourceAccessKey, sourceSecretKey, sourceEndpoint,
-		sourceShare, sourceDomain, sourcePassiveMode,
-		sourceClientId, sourceClientSecret, sourceDriveId, sourceTeamDrive,
-		filePattern, outputPattern, destinationType, destinationPath, destHost, destPort, destUser, destPassword, destKeyFile,
-		destBucket, destRegion, destAccessKey, destSecretKey, destEndpoint,
-		destShare, destDomain, destPassiveMode,
-		destClientId, destClientSecret, destDriveId, destTeamDrive,
-		archivePath, archiveEnabled, deleteAfterTransfer, rcloneFlags)
+	}`, 
+	name, sourceType, sourcePath, sourceHost, sourcePort, sourceUser, sourcePassword, sourceKeyFile, sourceAuthType,
+	sourceBucket, sourceRegion, sourceAccessKey, sourceSecretKey, sourceEndpoint, sourceShare, sourceDomain, sourcePassiveMode,
+	sourceClientId, sourceClientSecret, sourceDriveId, sourceTeamDrive,
+	filePattern, outputPattern,
+	destinationType, destinationPath, destHost, destPort, destUser, destPassword, destKeyFile, destAuthType,
+	destBucket, destRegion, destAccessKey, destSecretKey, destEndpoint, destShare, destDomain, destPassiveMode,
+	destClientId, destClientSecret, destDriveId, destTeamDrive,
+	archivePath, archiveEnabled, deleteAfterTransfer, rcloneFlags)
 }
 
 templ ConfigForm(ctx context.Context, data ConfigFormData) {
 	@LayoutWithContext(getConfigFormTitle(data.IsNew), ctx) {
-		<div class="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-secondary-50 dark:bg-secondary-900">
-			<div class="max-w-4xl w-full">
-				<div class="card overflow-hidden shadow-lg">
-					<div class="p-8">
-						<div class="text-center mb-8">
-							<div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary-100 dark:bg-primary-900 mb-4">
-								<i class="fas fa-cog text-primary-600 dark:text-primary-400 text-3xl"></i>
-							</div>
-							<h2 class="text-3xl font-bold text-secondary-900 dark:text-secondary-100">
-								if data.IsNew {
-									Create New Configuration
-								} else {
-									Edit Configuration: { data.Config.Name }
-								}
-							</h2>
-							<p class="mt-2 text-secondary-600 dark:text-secondary-400">Set up your file transfer configuration</p>
-						</div>
-						
-						<form 
-							class="space-y-8 divide-y divide-gray-200"
-							if data.IsNew {
-								hx-post="/configs"
-							} else {
-								hx-post={ fmt.Sprintf("/configs/%d", data.Config.ID) }
-							}
-							hx-target="body"
-							hx-boost="true"
-							x-data={ getInitialData(data.Config) }
-							@htmx:before-request="loading = true"
-							@htmx:after-request="loading = false">
-							<div class="space-y-8 divide-y divide-gray-200">
-								<div class="pt-4">
-									<div class="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-										<div class="sm:col-span-4">
-											<label for="name" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Name</label>
-											<div class="relative">
-												<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-													<i class="fas fa-tag text-secondary-400 dark:text-secondary-600"></i>
-												</div>
-												<input 
-													type="text" 
-													name="name" 
-													id="name"
-													x-model="name"
-													required
-													class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
-											</div>
-										</div>
-
-										<div class="sm:col-span-3">
-											<label for="source_type" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Source Type</label>
-											<div class="relative">
-												<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-													<i class="fas fa-server text-secondary-400 dark:text-secondary-600"></i>
-												</div>
-												<select 
-													id="source_type" 
-													name="source_type"
-													x-model="sourceType"
-													class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500">
-													<option value="local">Local</option>
-													<option value="sftp">SFTP</option>
-													<option value="s3">S3</option>
-													<option value="minio">MinIO</option>
-													<option value="b2">Backblaze B2</option>
-													<option value="smb">SMB</option>
-													<option value="ftp">FTP</option>
-													<option value="webdav">WebDAV</option>
-													<option value="nextcloud">NextCloud</option>
-													//<option value="onedrive">OneDrive</option>
-													//<option value="google_drive">Google Drive</option>
-												</select>
-											</div>
-										</div>
-
-										<template x-if="sourceType === 'sftp'">
-											<div class="sm:col-span-6 space-y-6">
-												<div class="sm:col-span-4">
-													<label for="source_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Host</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-globe text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_host"
-															id="source_host"
-															x-model="sourceHost"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="sftp.example.com"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-2">
-													<label for="source_port" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Port</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-plug text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="number"
-															name="source_port"
-															id="source_port"
-															x-model="sourcePort"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="22"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="source_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_user"
-															id="source_user"
-															x-model="sourceUser"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="source_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="password"
-															name="source_password"
-															id="source_password"
-															x-model="sourcePassword"
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="Password"/>
-													</div>
-													<input type="hidden" name="source_password" :value="sourcePassword"/>
-													<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">Either password or key file is required</p>
-												</div>
-
-												<div class="sm:col-span-6">
-													<label for="source_key_file" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Key File Path</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-file-alt text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_key_file"
-															id="source_key_file"
-															x-model="sourceKeyFile"
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="/path/to/id_rsa"/>
-													</div>
-												</div>
-											</div>
-										</template>
-
-										<template x-if="sourceType === 's3'">
-											<div class="sm:col-span-6 space-y-6">
-												<div class="sm:col-span-4">
-													<label for="source_bucket" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Bucket</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-cloud text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_bucket"
-															id="source_bucket"
-															x-model="sourceBucket"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="my-bucket"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-2">
-													<label for="source_region" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Region</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-globe text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_region"
-															id="source_region"
-															x-model="sourceRegion"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="us-east-1"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="source_access_key" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Access Key</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_access_key"
-															id="source_access_key"
-															x-model="sourceAccessKey"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="source_secret_key" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Secret Key</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_secret_key"
-															id="source_secret_key"
-															x-model="sourceSecretKey"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-6">
-													<label for="source_endpoint" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Endpoint</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-globe text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_endpoint"
-															id="source_endpoint"
-															x-model="sourceEndpoint"
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="https://s3.amazonaws.com"/>
-													</div>
-												</div>
-											</div>
-										</template>
-
-										<template x-if="sourceType === 'minio'">
-											<div class="sm:col-span-6 space-y-6">
-												<div class="sm:col-span-4">
-													<label for="source_bucket" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Bucket</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-cloud text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_bucket"
-															id="source_bucket"
-															x-model="sourceBucket"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="my-bucket"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-2">
-													<label for="source_endpoint" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Endpoint</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-globe text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_endpoint"
-															id="source_endpoint"
-															x-model="sourceEndpoint"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="https://s3.amazonaws.com"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="source_access_key" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Access Key</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_access_key"
-															id="source_access_key"
-															x-model="sourceAccessKey"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="source_secret_key" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Secret Key</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_secret_key"
-															id="source_secret_key"
-															x-model="sourceSecretKey"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
-													</div>
-												</div>
-											</div>
-										</template>
-
-										<template x-if="sourceType === 'b2'">
-											<div class="sm:col-span-6 space-y-6">
-												<div class="sm:col-span-4">
-													<label for="source_bucket" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Bucket</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-cloud text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_bucket"
-															id="source_bucket"
-															x-model="sourceBucket"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="my-bucket"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="source_access_key" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Access Key</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_access_key"
-															id="source_access_key"
-															x-model="sourceAccessKey"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="source_secret_key" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Secret Key</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_secret_key"
-															id="source_secret_key"
-															x-model="sourceSecretKey"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
-													</div>
-												</div>
-											</div>
-										</template>
-
-										<template x-if="sourceType === 'smb'">
-											<div class="sm:col-span-6 space-y-6">
-												<div class="sm:col-span-4">
-													<label for="source_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Host</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-globe text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_host"
-															id="source_host"
-															x-model="sourceHost"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="smb.example.com"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-2">
-													<label for="source_share" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Share</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-folder text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_share"
-															id="source_share"
-															x-model="sourceShare"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="share"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="source_domain" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Domain</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-globe text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_domain"
-															id="source_domain"
-															x-model="sourceDomain"
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="domain"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="source_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_user"
-															id="source_user"
-															x-model="sourceUser"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="source_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="password"
-															name="source_password"
-															id="source_password"
-															x-model="sourcePassword"
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="Password"/>
-													</div>
-													<input type="hidden" name="source_password" :value="sourcePassword"/>
-													<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">Either password or key file is required</p>
-												</div>
-											</div>
-										</template>
-
-										<template x-if="sourceType === 'ftp'">
-											<div class="sm:col-span-6 space-y-6">
-												<div class="sm:col-span-4">
-													<label for="source_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Host</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-globe text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_host"
-															id="source_host"
-															x-model="sourceHost"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="ftp.example.com"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-2">
-													<label for="source_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_user"
-															id="source_user"
-															x-model="sourceUser"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="source_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="password"
-															name="source_password"
-															id="source_password"
-															x-model="sourcePassword"
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="Password"/>
-													</div>
-													<input type="hidden" name="source_password" :value="sourcePassword"/>
-													<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">Either password or key file is required</p>
-												</div>
-											</div>
-										</template>
-
-										<template x-if="sourceType === 'webdav'">
-											<div class="sm:col-span-6 space-y-6">
-												<div class="sm:col-span-4">
-													<label for="source_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">WebDAV URL</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-globe text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_host"
-															id="source_host"
-															x-model="sourceHost"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="https://webdav.example.com/remote.php/webdav/"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="source_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_user"
-															id="source_user"
-															x-model="sourceUser"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="source_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="password"
-															name="source_password"
-															id="source_password"
-															x-model="sourcePassword"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="Password"/>
-													</div>
-													<input type="hidden" name="source_password" :value="sourcePassword"/>
-												</div>
-											</div>
-										</template>
-
-										<template x-if="sourceType === 'nextcloud'">
-											<div class="sm:col-span-6 space-y-6">
-												<div class="sm:col-span-4">
-													<label for="source_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">NextCloud URL</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-cloud text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_host"
-															id="source_host"
-															x-model="sourceHost"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="https://nextcloud.example.com"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="source_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="source_user"
-															id="source_user"
-															x-model="sourceUser"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="source_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password or App Password</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="password"
-															name="source_password"
-															id="source_password"
-															x-model="sourcePassword"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="Password"/>
-													</div>
-													<input type="hidden" name="source_password" :value="sourcePassword"/>
-													<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">Using an app password is recommended for security</p>
-												</div>
-											</div>
-										</template>
-
-										// <template x-if="sourceType === 'onedrive'">
-										// 	<div class="sm:col-span-6 space-y-6">
-										// 		<div class="relative p-4 border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/30 dark:border-yellow-700 rounded-lg mb-4">
-										// 			<div class="flex">
-										// 				<div class="flex-shrink-0">
-										// 					<i class="fas fa-info-circle text-yellow-400"></i>
-										// 				</div>
-										// 				<div class="ml-3">
-										// 					<h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-300">OneDrive Authentication</h3>
-										// 					<div class="mt-2 text-sm text-yellow-700 dark:text-yellow-400">
-										// 						<p>OneDrive requires OAuth authentication. You'll need to:</p>
-										// 						<ol class="list-decimal ml-4 mt-1 space-y-1">
-										// 							<li>Register an application in the Microsoft Azure portal</li>
-										// 							<li>Add redirect URI: http://localhost:53682/</li>
-										// 							<li>Save the application details below</li>
-										// 						</ol>
-										// 					</div>
-										// 				</div>
-										// 			</div>
-										// 		</div>
-
-										// 		<div class="sm:col-span-4">
-										// 			<label for="source_client_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client ID</label>
-										// 			<div class="relative">
-										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-										// 					<i class="fas fa-id-card text-secondary-400 dark:text-secondary-600"></i>
-										// 				</div>
-										// 				<input
-										// 					type="text"
-										// 					name="source_client_id"
-										// 					id="source_client_id"
-										// 					x-model="sourceClientId"
-										// 					required
-										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-										// 					placeholder="Azure application client ID"/>
-										// 			</div>
-										// 		</div>
-
-										// 		<div class="sm:col-span-4">
-										// 			<label for="source_client_secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client Secret</label>
-										// 			<div class="relative">
-										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-										// 					<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-										// 				</div>
-										// 				<input
-										// 					type="password"
-										// 					name="source_client_secret"
-										// 					id="source_client_secret"
-										// 					x-model="sourceClientSecret"
-										// 					required
-										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-										// 					placeholder="Azure application client secret"/>
-										// 			</div>
-										// 			<input type="hidden" name="source_client_secret" :value="sourceClientSecret"/>
-										// 		</div>
-
-										// 		<div class="sm:col-span-4">
-										// 			<label for="source_drive_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Drive ID (Optional)</label>
-										// 			<div class="relative">
-										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-										// 					<i class="fas fa-hdd text-secondary-400 dark:text-secondary-600"></i>
-										// 				</div>
-										// 				<input
-										// 					type="text"
-										// 					name="source_drive_id"
-										// 					id="source_drive_id"
-										// 					x-model="sourceDriveId"
-										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-										// 					placeholder="OneDrive drive ID (leave empty for default)"/>
-										// 			</div>
-										// 			<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">For shared or business drives</p>
-										// 		</div>
-										// 	</div>
-										// </template>
-
-										// <template x-if="sourceType === 'google_drive'">
-										// 	<div class="sm:col-span-6 space-y-6">
-										// 		<div class="relative p-4 border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/30 dark:border-yellow-700 rounded-lg mb-4">
-										// 			<div class="flex">
-										// 				<div class="flex-shrink-0">
-										// 					<i class="fas fa-info-circle text-yellow-400"></i>
-										// 				</div>
-										// 				<div class="ml-3">
-										// 					<h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-300">Google Drive Authentication</h3>
-										// 					<div class="mt-2 text-sm text-yellow-700 dark:text-yellow-400">
-										// 						<p>Google Drive requires OAuth authentication. You'll need to:</p>
-										// 						<ol class="list-decimal ml-4 mt-1 space-y-1">
-										// 							<li>Create a project in Google Cloud Console</li>
-										// 							<li>Enable Google Drive API</li>
-										// 							<li>Create OAuth credentials</li>
-										// 							<li>Add redirect URI: http://localhost:53682/</li>
-										// 							<li>Save the client details below</li>
-										// 						</ol>
-										// 					</div>
-										// 				</div>
-										// 			</div>
-										// 		</div>
-
-										// 		<div class="sm:col-span-4">
-										// 			<label for="source_client_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client ID</label>
-										// 			<div class="relative">
-										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-										// 					<i class="fas fa-id-card text-secondary-400 dark:text-secondary-600"></i>
-										// 				</div>
-										// 				<input
-										// 					type="text"
-										// 					name="source_client_id"
-										// 					id="source_client_id"
-										// 					x-model="sourceClientId"
-										// 					required
-										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-										// 					placeholder="Google OAuth client ID"/>
-										// 			</div>
-										// 		</div>
-
-										// 		<div class="sm:col-span-4">
-										// 			<label for="source_client_secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client Secret</label>
-										// 			<div class="relative">
-										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-										// 					<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-										// 				</div>
-										// 				<input
-										// 					type="password"
-										// 					name="source_client_secret"
-										// 					id="source_client_secret"
-										// 					x-model="sourceClientSecret"
-										// 					required
-										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-										// 					placeholder="Google OAuth client secret"/>
-										// 			</div>
-										// 			<input type="hidden" name="source_client_secret" :value="sourceClientSecret"/>
-										// 		</div>
-
-										// 		<div class="sm:col-span-4">
-										// 			<label for="source_team_drive" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Team Drive ID (Optional)</label>
-										// 			<div class="relative">
-										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-										// 					<i class="fas fa-users text-secondary-400 dark:text-secondary-600"></i>
-										// 				</div>
-										// 				<input
-										// 					type="text"
-										// 					name="source_team_drive"
-										// 					id="source_team_drive"
-										// 					x-model="sourceTeamDrive"
-										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-										// 					placeholder="Team Drive ID (leave empty for personal drive)"/>
-										// 			</div>
-										// 		</div>
-										// 	</div>
-										// </template>
-
-										<div class="sm:col-span-6">
-											<label for="source_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Source Path</label>
-											<div class="relative">
-												<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-													<i class="fas fa-folder text-secondary-400 dark:text-secondary-600"></i>
-												</div>
-												<input
-													type="text"
-													name="source_path"
-													id="source_path"
-													x-model="sourcePath"
-													required
-													class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-													:placeholder="sourceType === 'sftp' ? '/remote/path' : '/local/path'"/>
-											</div>
-										</div>
-
-										<div class="sm:col-span-4">
-											<label for="file_pattern" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">File Pattern</label>
-											<div class="relative">
-												<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-													<i class="fas fa-file-code text-secondary-400 dark:text-secondary-600"></i>
-												</div>
-												<input
-													type="text"
-													name="file_pattern"
-													id="file_pattern"
-													x-model="filePattern"
-													required
-													class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-													placeholder="*.txt"/>
-											</div>
-											<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">Pattern to match files for transfer (e.g., *.txt, *.csv)</p>
-										</div>
-
-										<div class="sm:col-span-4">
-											<label for="output_pattern" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Output Filename Pattern</label>
-											<div class="relative">
-												<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-													<i class="fas fa-file-export text-secondary-400 dark:text-secondary-600"></i>
-												</div>
-												<input
-													type="text"
-													name="output_pattern"
-													id="output_pattern"
-													x-model="outputPattern"
-													class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-													placeholder="filename_2006-01-02.ext"/>
-											</div>
-											<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
-												Pattern for output filenames. Available variables:
-												<br/>
-												<code>{`${filename}`}</code> - Original filename without extension (e.g., "report")
-												<br/>
-												<code>{`${ext}`}</code> - Original file extension (e.g., ".csv")
-												<br/>
-												<code>{`${date:format}`}</code> - Current date using Go's time format:
-												<br/>
-												<span class="ml-4">2006-01-02 → YYYY-MM-DD</span>
-												<br/>
-												<span class="ml-4">20060102 → YYYYMMDD</span>
-												<br/>
-												<span class="ml-4">2006-01-02_15:04:05 → YYYY-MM-DD_HH:MM:SS</span>
-												<br/>
-												<span class="ml-4">Example: <code>{`${filename}_[date:2006-01-02]_${ext}`}</code> → "report_2025-03-01.csv"</span>
-											</p>
-										</div>
-
-										<div class="sm:col-span-3">
-											<label for="destination_type" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Destination Type</label>
-											<div class="relative">
-												<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-													<i class="fas fa-server text-secondary-400 dark:text-secondary-600"></i>
-												</div>
-												<select 
-													id="destination_type" 
-													name="destination_type"
-													x-model="destinationType"
-													class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500">
-													<option value="local">Local</option>
-													<option value="sftp">SFTP</option>
-													<option value="s3">S3</option>
-													<option value="minio">MinIO</option>
-													<option value="b2">Backblaze B2</option>
-													<option value="smb">SMB</option>
-													<option value="ftp">FTP</option>
-													<option value="webdav">WebDAV</option>
-													<option value="nextcloud">NextCloud</option>
-													// <option value="onedrive">OneDrive</option>
-													// <option value="google_drive">Google Drive</option>
-												</select>
-											</div>
-										</div>
-
-										<template x-if="destinationType === 'sftp'">
-											<div class="sm:col-span-6 space-y-6">
-												<div class="sm:col-span-4">
-													<label for="dest_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Host</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-globe text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_host"
-															id="dest_host"
-															x-model="destHost"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="sftp.example.com"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-2">
-													<label for="dest_port" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Port</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-plug text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="number"
-															name="dest_port"
-															id="dest_port"
-															x-model="destPort"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="22"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="dest_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_user"
-															id="dest_user"
-															x-model="destUser"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="dest_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="password"
-															name="dest_password"
-															id="dest_password"
-															x-model="destPassword"
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="Password"/>
-													</div>
-													<input type="hidden" name="dest_password" :value="destPassword"/>
-													<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">Either password or key file is required</p>
-												</div>
-
-												<div class="sm:col-span-6">
-													<label for="dest_key_file" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Key File Path</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-file-alt text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_key_file"
-															id="dest_key_file"
-															x-model="destKeyFile"
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="/path/to/id_rsa"/>
-													</div>
-												</div>
-											</div>
-										</template>
-
-										<template x-if="destinationType === 's3'">
-											<div class="sm:col-span-6 space-y-6">
-												<div class="sm:col-span-4">
-													<label for="dest_bucket" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Bucket</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-cloud text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_bucket"
-															id="dest_bucket"
-															x-model="destBucket"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="my-bucket"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-2">
-													<label for="dest_region" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Region</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-globe text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_region"
-															id="dest_region"
-															x-model="destRegion"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="us-east-1"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="dest_access_key" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Access Key</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_access_key"
-															id="dest_access_key"
-															x-model="destAccessKey"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="dest_secret_key" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Secret Key</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_secret_key"
-															id="dest_secret_key"
-															x-model="destSecretKey"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-6">
-													<label for="dest_endpoint" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Endpoint</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-globe text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_endpoint"
-															id="dest_endpoint"
-															x-model="destEndpoint"
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="https://s3.amazonaws.com"/>
-													</div>
-												</div>
-											</div>
-										</template>
-
-										<template x-if="destinationType === 'minio'">
-											<div class="sm:col-span-6 space-y-6">
-												<div class="sm:col-span-4">
-													<label for="dest_bucket" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Bucket</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-cloud text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_bucket"
-															id="dest_bucket"
-															x-model="destBucket"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="my-bucket"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-2">
-													<label for="dest_endpoint" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Endpoint</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-globe text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_endpoint"
-															id="dest_endpoint"
-															x-model="destEndpoint"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="https://s3.amazonaws.com"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="dest_access_key" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Access Key</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_access_key"
-															id="dest_access_key"
-															x-model="destAccessKey"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="dest_secret_key" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Secret Key</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_secret_key"
-															id="dest_secret_key"
-															x-model="destSecretKey"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
-													</div>
-												</div>
-											</div>
-										</template>
-
-										<template x-if="destinationType === 'b2'">
-											<div class="sm:col-span-6 space-y-6">
-												<div class="sm:col-span-4">
-													<label for="dest_bucket" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Bucket</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-cloud text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_bucket"
-															id="dest_bucket"
-															x-model="destBucket"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="my-bucket"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="dest_access_key" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Access Key</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_access_key"
-															id="dest_access_key"
-															x-model="destAccessKey"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="dest_secret_key" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Secret Key</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_secret_key"
-															id="dest_secret_key"
-															x-model="destSecretKey"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
-													</div>
-												</div>
-											</div>
-										</template>
-
-										<template x-if="destinationType === 'smb'">
-											<div class="sm:col-span-6 space-y-6">
-												<div class="sm:col-span-4">
-													<label for="dest_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Host</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-globe text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_host"
-															id="dest_host"
-															x-model="destHost"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="smb.example.com"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-2">
-													<label for="dest_share" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Share</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-folder text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_share"
-															id="dest_share"
-															x-model="destShare"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="share"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="dest_domain" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Domain</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-globe text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_domain"
-															id="dest_domain"
-															x-model="destDomain"
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="domain"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="dest_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_user"
-															id="dest_user"
-															x-model="destUser"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="dest_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="password"
-															name="dest_password"
-															id="dest_password"
-															x-model="destPassword"
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="Password"/>
-													</div>
-													<input type="hidden" name="dest_password" :value="destPassword"/>
-													<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">Either password or key file is required</p>
-												</div>
-											</div>
-										</template>
-
-										<template x-if="destinationType === 'ftp'">
-											<div class="sm:col-span-6 space-y-6">
-												<div class="sm:col-span-4">
-													<label for="dest_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Host</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-globe text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_host"
-															id="dest_host"
-															x-model="destHost"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="ftp.example.com"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-2">
-													<label for="dest_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_user"
-															id="dest_user"
-															x-model="destUser"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="dest_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="password"
-															name="dest_password"
-															id="dest_password"
-															x-model="destPassword"
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="Password"/>
-													</div>
-													<input type="hidden" name="dest_password" :value="destPassword"/>
-													<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">Either password or key file is required</p>
-												</div>
-											</div>
-										</template>
-
-										<template x-if="destinationType === 'webdav'">
-											<div class="sm:col-span-6 space-y-6">
-												<div class="sm:col-span-4">
-													<label for="dest_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">WebDAV URL</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-globe text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_host"
-															id="dest_host"
-															x-model="destHost"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="https://webdav.example.com/remote.php/webdav/"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="dest_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_user"
-															id="dest_user"
-															x-model="destUser"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="dest_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="password"
-															name="dest_password"
-															id="dest_password"
-															x-model="destPassword"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="Password"/>
-													</div>
-													<input type="hidden" name="dest_password" :value="destPassword"/>
-												</div>
-											</div>
-										</template>
-
-										<template x-if="destinationType === 'nextcloud'">
-											<div class="sm:col-span-6 space-y-6">
-												<div class="sm:col-span-4">
-													<label for="dest_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">NextCloud URL</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-cloud text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_host"
-															id="dest_host"
-															x-model="destHost"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="https://nextcloud.example.com"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="dest_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="text"
-															name="dest_user"
-															id="dest_user"
-															x-model="destUser"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
-													</div>
-												</div>
-
-												<div class="sm:col-span-4">
-													<label for="dest_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password or App Password</label>
-													<div class="relative">
-														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-														</div>
-														<input
-															type="password"
-															name="dest_password"
-															id="dest_password"
-															x-model="destPassword"
-															required
-															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-															placeholder="Password"/>
-													</div>
-													<input type="hidden" name="dest_password" :value="destPassword"/>
-													<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">Using an app password is recommended for security</p>
-												</div>
-											</div>
-										</template>
-
-										// <template x-if="destinationType === 'onedrive'">
-										// 	<div class="sm:col-span-6 space-y-6">
-										// 		<div class="relative p-4 border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/30 dark:border-yellow-700 rounded-lg mb-4">
-										// 			<div class="flex">
-										// 				<div class="flex-shrink-0">
-										// 					<i class="fas fa-info-circle text-yellow-400"></i>
-										// 				</div>
-										// 				<div class="ml-3">
-										// 					<h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-300">OneDrive Authentication</h3>
-										// 					<div class="mt-2 text-sm text-yellow-700 dark:text-yellow-400">
-										// 						<p>OneDrive requires OAuth authentication. You'll need to:</p>
-										// 						<ol class="list-decimal ml-4 mt-1 space-y-1">
-										// 							<li>Register an application in the Microsoft Azure portal</li>
-										// 							<li>Add redirect URI: http://localhost:53682/</li>
-										// 							<li>Save the application details below</li>
-										// 						</ol>
-										// 					</div>
-										// 				</div>
-										// 			</div>
-										// 		</div>
-
-										// 		<div class="sm:col-span-4">
-										// 			<label for="dest_client_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client ID</label>
-										// 			<div class="relative">
-										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-										// 					<i class="fas fa-id-card text-secondary-400 dark:text-secondary-600"></i>
-										// 				</div>
-										// 				<input
-										// 					type="text"
-										// 					name="dest_client_id"
-										// 					id="dest_client_id"
-										// 					x-model="destClientId"
-										// 					required
-										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-										// 					placeholder="Azure application client ID"/>
-										// 			</div>
-										// 		</div>
-
-										// 		<div class="sm:col-span-4">
-										// 			<label for="dest_client_secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client Secret</label>
-										// 			<div class="relative">
-										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-										// 					<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-										// 				</div>
-										// 				<input
-										// 					type="password"
-										// 					name="dest_client_secret"
-										// 					id="dest_client_secret"
-										// 					x-model="destClientSecret"
-										// 					required
-										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-										// 					placeholder="Azure application client secret"/>
-										// 			</div>
-										// 			<input type="hidden" name="dest_client_secret" :value="destClientSecret"/>
-										// 		</div>
-
-										// 		<div class="sm:col-span-4">
-										// 			<label for="dest_drive_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Drive ID (Optional)</label>
-										// 			<div class="relative">
-										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-										// 					<i class="fas fa-hdd text-secondary-400 dark:text-secondary-600"></i>
-										// 				</div>
-										// 				<input
-										// 					type="text"
-										// 					name="dest_drive_id"
-										// 					id="dest_drive_id"
-										// 					x-model="destDriveId"
-										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-										// 					placeholder="OneDrive drive ID (leave empty for default)"/>
-										// 			</div>
-										// 			<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">For shared or business drives</p>
-										// 		</div>
-										// 	</div>
-										// </template>
-
-										// <template x-if="destinationType === 'google_drive'">
-										// 	<div class="sm:col-span-6 space-y-6">
-										// 		<div class="relative p-4 border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/30 dark:border-yellow-700 rounded-lg mb-4">
-										// 			<div class="flex">
-										// 				<div class="flex-shrink-0">
-										// 					<i class="fas fa-info-circle text-yellow-400"></i>
-										// 				</div>
-										// 				<div class="ml-3">
-										// 					<h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-300">Google Drive Authentication</h3>
-										// 					<div class="mt-2 text-sm text-yellow-700 dark:text-yellow-400">
-										// 						<p>Google Drive requires OAuth authentication. You'll need to:</p>
-										// 						<ol class="list-decimal ml-4 mt-1 space-y-1">
-										// 							<li>Create a project in Google Cloud Console</li>
-										// 							<li>Enable Google Drive API</li>
-										// 							<li>Create OAuth credentials</li>
-										// 							<li>Add redirect URI: http://localhost:53682/</li>
-										// 							<li>Save the client details below</li>
-										// 						</ol>
-										// 					</div>
-										// 				</div>
-										// 			</div>
-										// 		</div>
-
-										// 		<div class="sm:col-span-4">
-										// 			<label for="dest_client_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client ID</label>
-										// 			<div class="relative">
-										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-										// 					<i class="fas fa-id-card text-secondary-400 dark:text-secondary-600"></i>
-										// 				</div>
-										// 				<input
-										// 					type="text"
-										// 					name="dest_client_id"
-										// 					id="dest_client_id"
-										// 					x-model="destClientId"
-										// 					required
-										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-										// 					placeholder="Google OAuth client ID"/>
-										// 			</div>
-										// 		</div>
-
-										// 		<div class="sm:col-span-4">
-										// 			<label for="dest_client_secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Client Secret</label>
-										// 			<div class="relative">
-										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-										// 					<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-										// 				</div>
-										// 				<input
-										// 					type="password"
-										// 					name="dest_client_secret"
-										// 					id="dest_client_secret"
-										// 					x-model="destClientSecret"
-										// 					required
-										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-										// 					placeholder="Google OAuth client secret"/>
-										// 			</div>
-										// 			<input type="hidden" name="dest_client_secret" :value="destClientSecret"/>
-										// 		</div>
-
-										// 		<div class="sm:col-span-4">
-										// 			<label for="dest_team_drive" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Team Drive ID (Optional)</label>
-										// 			<div class="relative">
-										// 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-										// 					<i class="fas fa-users text-secondary-400 dark:text-secondary-600"></i>
-										// 				</div>
-										// 				<input
-										// 					type="text"
-										// 					name="dest_team_drive"
-										// 					id="dest_team_drive"
-										// 					x-model="destTeamDrive"
-										// 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-										// 					placeholder="Team Drive ID (leave empty for personal drive)"/>
-										// 			</div>
-										// 		</div>
-										// 	</div>
-										// </template>
-
-										<div class="sm:col-span-6">
-											<label for="destination_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Destination Path</label>
-											<div class="relative">
-												<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-													<i class="fas fa-folder-open text-secondary-400 dark:text-secondary-600"></i>
-												</div>
-												<input
-													type="text"
-													name="destination_path"
-													id="destination_path"
-													x-model="destinationPath"
-													required
-													class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-													:placeholder="destinationType === 'sftp' ? '/remote/path' : '/local/path'"/>
-											</div>
-										</div>
-
-										<div class="sm:col-span-6">
-											<div class="flex items-center">
-												<input
-													type="checkbox"
-													id="archive_enabled"
-													x-model="archiveEnabled"
-													class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
-												<input type="hidden" name="archive_enabled" :value="archiveEnabled.toString()"/>
-												<label for="archive_enabled" class="ml-2 block text-sm text-secondary-700 dark:text-secondary-300">
-													Archive files after transfer
-												</label>
-											</div>
-											<div class="mt-4" x-show="archiveEnabled">
-												<label for="archive_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Archive Path</label>
-												<div class="relative">
-													<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-														<i class="fas fa-archive text-secondary-400 dark:text-secondary-600"></i>
-													</div>
-													<input
-														type="text"
-														name="archive_path"
-														id="archive_path"
-														x-model="archivePath"
-														:required="archiveEnabled"
-														class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-														placeholder="/path/to/archive"/>
-												</div>
-											</div>
-										</div>
-
-										<div class="sm:col-span-6 mt-4">
-											<div class="flex items-center">
-												<input
-													type="checkbox"
-													id="delete_after_transfer"
-													x-model="deleteAfterTransfer"
-													class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
-												<input type="hidden" name="delete_after_transfer" :value="deleteAfterTransfer.toString()"/>
-												<label for="delete_after_transfer" class="ml-2 block text-sm text-secondary-700 dark:text-secondary-300">
-													Delete files from source after transfer
-												</label>
-											</div>
-											<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
-												<i class="fas fa-exclamation-triangle text-yellow-500 mr-1"></i>
-												Original files will be permanently deleted from source after successful transfer
-												<span x-show="archiveEnabled">and archiving</span>
-											</p>
-										</div>
-
-										<div class="sm:col-span-6">
-											<label for="rclone_flags" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Rclone Flags</label>
-											<div class="relative">
-												<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-													<i class="fas fa-flag text-secondary-400 dark:text-secondary-600"></i>
-												</div>
-												<input 
-													type="text" 
-													name="rclone_flags" 
-													id="rclone_flags"
-													x-model="rcloneFlags"
-													class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-													placeholder="--transfers 4 --checkers 8"/>
-											</div>
-										</div>
-									</div>
-								</div>
-							</div>
-
-							<div class="pt-6">
-								<div class="flex justify-end">
-									<a href="/configs" class="btn-secondary mr-4 px-6 py-3 rounded-lg flex items-center">
-										<i class="fas fa-times mr-2"></i>
-										Cancel
-									</a>
-									<button 
-										type="submit" 
-										class="btn-primary px-6 py-3 rounded-lg flex items-center"
-										x-bind:disabled="!validate() || loading">
-										<span x-show="!loading" class="flex items-center">
-											<i class="fas fa-save mr-2"></i>
-											if data.IsNew {
-												Create Configuration
-											} else {
-												Save Changes
-											}
-										</span>
-										<span x-show="loading" class="flex items-center">
-											<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-												<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-												<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-											</svg>
-											Processing...
-										</span>
-									</button>
-								</div>
-							</div>
-						</form>
-					</div>
-					
-					<div class="px-8 py-4 bg-secondary-50 dark:bg-secondary-800 border-t border-secondary-200 dark:border-secondary-700 text-center">
-						<p class="text-sm text-secondary-600 dark:text-secondary-400">
-							<i class="fas fa-info-circle mr-1"></i>
-							Configure your file transfer settings carefully for optimal performance
-						</p>
-					</div>
+	<div class="flex flex-col items-center justify-center min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+		<div class="max-w-3xl w-full bg-white rounded-lg shadow-md p-8">
+			<div class="flex justify-center mb-6">
+				<div class="p-4 bg-blue-100 rounded-full">
+					<i class="fas fa-cog text-blue-500 text-2xl"></i>
 				</div>
 			</div>
+			
+			<h1 class="mt-2 text-center text-3xl font-extrabold text-gray-900">
+				{ getConfigFormTitle(data.IsNew) }
+			</h1>
+			<p class="mt-2 text-center text-sm text-gray-600">
+				Set up your file transfer configuration
+			</p>
+			
+			<form 
+				class="space-y-8"
+				if data.IsNew {
+					hx-post="/configs"
+				} else {
+					hx-post={ fmt.Sprintf("/configs/%d", data.Config.ID) }
+				}
+				hx-target="body"
+				hx-redirect="/configs"
+				hx-boost="true"
+				x-data={ getInitialData(data.Config) }
+				@submit.prevent="if (validateForm()) { loading = true; $el.submit(); } else { loading = false; }"
+				>
+				
+				<!-- Name field -->
+				@common.NameField()
+				
+				<!-- Source section -->
+				@common.SourceSelection()
+				
+				<!-- Source type specific forms -->
+				<template x-if="sourceType === 'local'">
+					@source.LocalSourceForm()
+				</template>
+				
+				<template x-if="sourceType === 'sftp'">
+					@source.SFTPSourceForm()
+				</template>
+
+				<template x-if="sourceType === 'ftp'">
+					@source.FTPSourceForm()
+				</template>
+				
+				<template x-if="sourceType === 's3'">
+					@source.S3SourceForm()
+				</template>
+				
+				<template x-if="sourceType === 'minio'">
+					@source.MinIOSourceForm()
+				</template>
+
+				<template x-if="sourceType === 'smb'">
+					@source.SMBSourceForm()
+				</template>
+				
+				<template x-if="sourceType === 'webdav'">
+					@source.WebDAVSourceForm()
+				</template>
+				
+				<template x-if="sourceType === 'nextcloud'">
+					@source.NextCloudSourceForm()
+				</template>
+
+				
+				<!-- File pattern fields -->
+				@common.FilePatternFields()
+				
+				<!-- Destination section -->
+				@common.DestinationSelection()
+				
+				<!-- Destination type specific forms -->
+				<template x-if="destinationType === 'local'">
+					@destination.LocalDestinationForm()
+				</template>
+				
+				<template x-if="destinationType === 'sftp'">
+					@destination.SFTPDestinationForm()
+				</template>
+
+				<template x-if="destinationType === 'ftp'">
+					@destination.FTPDestinationForm()
+				</template>
+				
+				<template x-if="destinationType === 's3'">
+					@destination.S3DestinationForm()
+				</template>
+				
+				<template x-if="destinationType === 'minio'">
+					@destination.MinIODestinationForm()
+				</template>
+				
+				<template x-if="destinationType === 'smb'">
+					@destination.SMBDestinationForm()
+				</template>	
+
+				<template x-if="destinationType === 'nextcloud'">
+					@destination.NextCloudDestinationForm()
+				</template>
+
+				<template x-if="destinationType === 'webdav'">
+					@destination.WebDAVDestinationForm()
+				</template>
+				
+				
+				<!-- Archive options -->
+				@common.ArchiveOptions()
+				
+				<!-- Rclone flags -->
+				@common.RcloneFlags()
+				
+				<!-- Form actions -->
+				<div class="flex justify-end mt-8">
+					<a href="/configs" 
+						class="btn-secondary mr-4 px-6 py-3 rounded-lg flex items-center0">
+						Cancel
+					</a>
+					<button 
+						type="submit" 
+						class="btn-primary px-6 py-3 rounded-lg flex items-center"
+						>
+						<span class="flex items-center">
+							<template>
+								<i class="fas fa-save mr-2"></i>
+							</template>
+							if data.IsNew {
+								Create Configuration
+							} else {
+								Save Changes
+							}
+						</span>
+					</button>
+				</div>
+			</form>
 		</div>
+		
+		<div class="mt-6 text-center text-xs text-gray-500">
+			<p>Configure your file transfer settings carefully for optimal performance</p>
+		</div>
+	</div>
 	}
-}
+} 

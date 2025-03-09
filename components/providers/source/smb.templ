@@ -1,0 +1,111 @@
+package source
+
+templ SMBSourceForm() {
+	<div class="sm:col-span-6 space-y-6">
+		<div class="sm:col-span-4">
+			<label for="source_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Server</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-server text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="source_host"
+					id="source_host"
+					x-model="sourceHost"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="server.example.com"/>
+			</div>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="source_share" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Share Name</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-share-alt text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="source_share"
+					id="source_share"
+					x-model="sourceShare"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="share_name"/>
+			</div>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="source_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Path</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-folder text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="source_path"
+					id="source_path"
+					x-model="sourcePath"
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="path\to\files"/>
+			</div>
+			<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+				Optional. Subdirectory within the share.
+			</p>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="source_domain" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Domain</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-building text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="source_domain"
+					id="source_domain"
+					x-model="sourceDomain"
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="DOMAIN"/>
+			</div>
+			<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+				Optional. Windows domain for authentication.
+			</p>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="source_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="source_user"
+					id="source_user"
+					x-model="sourceUser"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
+			</div>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="source_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="password"
+					name="source_password"
+					id="source_password"
+					x-model="sourcePassword"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="Password"/>
+			</div>
+			<input type="hidden" name="source_password" :value="sourcePassword"/>
+		</div>
+	</div>
+} 

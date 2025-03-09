@@ -1,0 +1,135 @@
+package source
+
+templ SFTPSourceForm() {
+	<div class="sm:col-span-6 space-y-6">
+		<div class="sm:col-span-4">
+			<label for="source_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Host</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-server text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="source_host"
+					id="source_host"
+					x-model="sourceHost"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="sftp.example.com"/>
+			</div>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="source_port" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Port</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-plug text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="number"
+					name="source_port"
+					id="source_port"
+					x-model="sourcePort"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="22"/>
+			</div>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="source_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Remote Path</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-folder text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="source_path"
+					id="source_path"
+					x-model="sourcePath"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="/path/to/files"/>
+			</div>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="source_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="source_user"
+					id="source_user"
+					x-model="sourceUser"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
+			</div>
+		</div>
+
+		<div class="flex space-x-4">
+			<div class="flex items-center h-5">
+				<input 
+					id="source_use_password" 
+					type="radio" 
+					name="source_auth_type" 
+					value="password" 
+					x-model="sourceAuthType"
+					class="focus:ring-primary-500 h-4 w-4 text-primary-600 border-secondary-300 dark:border-secondary-700" 
+					checked>
+			</div>
+			<label for="source_use_password" class="ml-2 block text-sm text-secondary-700 dark:text-secondary-300">Use Password</label>
+			<div class="flex items-center h-5 ml-4">
+				<input 
+					id="source_use_key" 
+					type="radio" 
+					name="source_auth_type" 
+					value="key"
+					x-model="sourceAuthType" 
+					class="focus:ring-primary-500 h-4 w-4 text-primary-600 border-secondary-300 dark:border-secondary-700">
+			</div>
+			<label for="source_use_key" class="ml-2 block text-sm text-secondary-700 dark:text-secondary-300">Use Key File</label>
+		</div>
+
+		<template x-if="sourceAuthType === 'password'">
+			<div class="sm:col-span-4">
+				<label for="source_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password</label>
+				<div class="relative">
+					<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+						<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+					</div>
+					<input
+						type="password"
+						name="source_password"
+						id="source_password"
+						x-model="sourcePassword"
+						x-bind:required="sourceAuthType === 'password'"
+						class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+						placeholder="Password"/>
+				</div>
+				<input type="hidden" name="source_password" :value="sourcePassword"/>
+			</div>
+		</template>
+
+		<template x-if="sourceAuthType === 'key'">
+			<div class="sm:col-span-4">
+				<label for="source_key_file" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Key File</label>
+				<div class="relative">
+					<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+						<i class="fas fa-file-alt text-secondary-400 dark:text-secondary-600"></i>
+					</div>
+					<input
+						type="text"
+						name="source_key_file"
+						id="source_key_file"
+						x-model="sourceKeyFile"
+						x-bind:required="sourceAuthType === 'key'"
+						class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+						placeholder="/path/to/key"/>
+				</div>
+			</div>
+		</template>
+	</div>
+} 

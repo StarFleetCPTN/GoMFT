@@ -1,0 +1,75 @@
+package destination
+
+templ WebDAVDestinationForm() {
+	<div class="sm:col-span-6 space-y-6">
+		<div class="sm:col-span-4">
+			<label for="dest_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">WebDAV URL</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-globe text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="dest_host"
+					id="dest_host"
+					x-model="destHost"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="https://webdav.example.com/remote.php/webdav/"/>
+			</div>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="destination_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Remote Path</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-folder text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="destination_path"
+					id="destination_path"
+					x-model="destinationPath"
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="/path/to/destination"/>
+			</div>
+			<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+				Optional. Relative to the WebDAV URL.
+			</p>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="dest_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="dest_user"
+					id="dest_user"
+					x-model="destUser"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
+			</div>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="dest_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="password"
+					name="dest_password"
+					id="dest_password"
+					x-model="destPassword"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="Password"/>
+			</div>
+			<input type="hidden" name="dest_password" :value="destPassword"/>
+		</div>
+	</div>
+} 

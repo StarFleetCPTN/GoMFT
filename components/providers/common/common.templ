@@ -1,0 +1,170 @@
+package common
+
+templ NameField() {
+<div class="space-y-6">
+	<div class="sm:col-span-4">
+		<label for="name" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Name</label>
+		<div class="relative">
+			<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+				<i class="fas fa-tag text-secondary-400 dark:text-secondary-600"></i>
+			</div>
+			<input type="text" name="name" id="name" x-model="name" required
+				class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+				placeholder="Transfer configuration name" />
+		</div>
+	</div>
+</div>
+}
+
+templ FilePatternFields() {
+<div class="space-y-6">
+	<div class="sm:col-span-4">
+		<label for="file_pattern" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">File
+			Pattern</label>
+		<div class="relative">
+			<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+				<i class="fas fa-filter text-secondary-400 dark:text-secondary-600"></i>
+			</div>
+			<input type="text" name="file_pattern" id="file_pattern" x-model="filePattern"
+				class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+				placeholder="*.txt, *.csv" />
+		</div>
+		<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+			Glob pattern for files to transfer. Leave empty to transfer all files.
+		</p>
+	</div>
+
+	<div class="sm:col-span-4">
+		<label for="output_pattern"
+			class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Output Pattern</label>
+		<div class="relative">
+			<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+				<i class="fas fa-file-export text-secondary-400 dark:text-secondary-600"></i>
+			</div>
+			<input type="text" name="output_pattern" id="output_pattern" x-model="outputPattern"
+				class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+				placeholder="${filename}" />
+		</div>
+		<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+			Pattern for output filename. Use variables like ${`filename`}, ${`timestamp`}, ${`date`}
+		</p>
+		<div>
+			<p class="mt-1 text-xs text-gray-500">
+				Pattern for filenames. Available variables:<br />
+				${`filename`} - Original filename without extension (e.g., "report")<br />
+				${`ext`} - Original file extension (e.g., "csv")<br />
+				${`date:format`} - Current date using Go's time format:<br />
+				• 2006-01-02 → YYYY-MM-DD<br />
+				• 20060102 → YYYYMMDD<br />
+				• 2006-01-02 15:04:05 → YYYY-MM-DD_HH:MM:SS<br />
+				Example: ${`filename`}_${`date:2006-01-02`}_${`ext`} → "report_2023-03-01.csv"
+			</p>
+		</div>
+	</div>
+</div>
+}
+
+templ ArchiveOptions() {
+<div class="space-y-6">
+	<div class="flex items-start mb-4">
+		<div class="flex items-center h-5">
+			<input id="archive_enabled" name="archive_enabled" type="checkbox" x-model="archiveEnabled"
+				class="focus:ring-primary-500 h-4 w-4 text-primary-600 border-secondary-300 dark:border-secondary-700 rounded">
+		</div>
+		<div class="ml-3 text-sm">
+			<label for="archive_enabled" class="font-medium text-secondary-700 dark:text-secondary-300">Enable
+				Archiving</label>
+			<p class="text-secondary-500 dark:text-secondary-400">Archive files after successful transfer</p>
+		</div>
+	</div>
+
+	<div x-show="archiveEnabled" class="sm:col-span-4">
+		<label for="archive_path"
+			class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Archive Path</label>
+		<div class="relative">
+			<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+				<i class="fas fa-archive text-secondary-400 dark:text-secondary-600"></i>
+			</div>
+			<input type="text" name="archive_path" id="archive_path" x-model="archivePath"
+				x-bind:required="archiveEnabled"
+				class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+				placeholder="/path/to/archive" />
+		</div>
+	</div>
+
+	<div class="flex items-start mb-4">
+		<div class="flex items-center h-5">
+			<input id="delete_after_transfer" name="delete_after_transfer" type="checkbox" x-model="deleteAfterTransfer"
+				class="focus:ring-primary-500 h-4 w-4 text-primary-600 border-secondary-300 dark:border-secondary-700 rounded">
+		</div>
+		<div class="ml-3 text-sm">
+			<label for="delete_after_transfer" class="font-medium text-secondary-700 dark:text-secondary-300">Delete
+				After Transfer</label>
+			<p class="text-secondary-500 dark:text-secondary-400">Delete source files after successful transfer</p>
+		</div>
+	</div>
+</div>
+}
+
+templ RcloneFlags() {
+<div>
+	<label for="rclone_flags" class="block text-sm font-medium text-gray-700">Rclone Flags</label>
+	<div class="mt-1 relative rounded-md shadow-sm">
+		<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+			<i class="fas fa-flag text-gray-400"></i>
+		</div>
+		<input type="text" name="rclone_flags" id="rclone_flags" x-model="rcloneFlags"
+			class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+			placeholder="--transfers 4 --checkers 8" />
+	</div>
+	<p class="mt-1 text-xs text-gray-500">
+		Optional: Additional rclone flags for fine-tuning the transfer.
+	</p>
+</div>
+}
+
+templ SourceSelection() {
+<div class="sm:col-span-3">
+	<label for="source_type" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Source
+		Type</label>
+	<div class="relative">
+		<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+			<i class="fas fa-server text-secondary-400 dark:text-secondary-600"></i>
+		</div>
+		<select id="source_type" name="source_type" x-model="sourceType"
+			class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500">
+			<option value="local">Local</option>
+			<option value="sftp">SFTP</option>
+			<option value="ftp">FTP</option>
+			<option value="s3">S3</option>
+			<option value="minio">MinIO</option>
+			<option value="smb">SMB</option>
+			<option value="nextcloud">NextCloud</option>
+			<option value="webdav">WebDAV</option>
+		</select>
+	</div>
+</div>
+}
+
+templ DestinationSelection() {
+<div class="sm:col-span-3">
+	<label for="destination_type"
+		class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Destination Type</label>
+	<div class="relative">
+		<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+			<i class="fas fa-server text-secondary-400 dark:text-secondary-600"></i>
+		</div>
+		<select id="destination_type" name="destination_type" x-model="destinationType"
+			class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500">
+			<option value="local">Local</option>
+			<option value="sftp">SFTP</option>
+			<option value="ftp">FTP</option>
+			<option value="s3">S3</option>
+			<option value="minio">MinIO</option>
+			<option value="smb">SMB</option>
+			<option value="nextcloud">NextCloud</option>
+			<option value="webdav">WebDAV</option>
+		</select>
+	</div>
+</div>
+}

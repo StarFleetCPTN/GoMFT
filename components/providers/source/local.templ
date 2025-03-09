@@ -1,0 +1,23 @@
+package source
+
+templ LocalSourceForm() {
+	<div class="sm:col-span-6 space-y-6">
+		<div class="sm:col-span-4">
+			<label for="source_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Local Path</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-folder text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="source_path"
+					id="source_path"
+					x-model="sourcePath"
+					required
+					x-bind:class="{'border-red-500 focus:border-red-500 focus:ring-red-500': errors.sourcePath}"
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="/path/to/source"/>
+			</div>
+		</div>
+	</div>
+} 
