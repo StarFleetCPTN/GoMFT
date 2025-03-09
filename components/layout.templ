@@ -300,6 +300,9 @@ templ LayoutWithContext(title string, ctx context.Context) {
 									<a href="/history" class="nav-link">
 										<i class="fas fa-history mr-1"></i> History
 									</a>
+									<a href="/files" class="nav-link">
+										<i class="fas fa-file-alt mr-1"></i> Files
+									</a>
 									if isAdmin(ctx) {
 										<a href="/admin/users" class="nav-link">
 											<i class="fas fa-users mr-1"></i> Users
@@ -393,6 +396,9 @@ templ LayoutWithContext(title string, ctx context.Context) {
 						<a href="/history" class="block px-3 py-2 rounded-md text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-primary-50 dark:hover:bg-secondary-700 hover:text-primary-600 dark:hover:text-primary-400">
 							<i class="fas fa-history mr-2"></i> History
 						</a>
+						<a href="/files" class="block px-3 py-2 rounded-md text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-primary-50 dark:hover:bg-secondary-700 hover:text-primary-600 dark:hover:text-primary-400">
+							<i class="fas fa-file-alt mr-2"></i> Files
+						</a>
 						if isAdmin(ctx) {
 							<a href="/admin/users" class="block px-3 py-2 rounded-md text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-primary-50 dark:hover:bg-secondary-700 hover:text-primary-600 dark:hover:text-primary-400">
 								<i class="fas fa-users mr-2"></i> Users
@@ -445,6 +451,10 @@ templ LayoutWithContext(title string, ctx context.Context) {
 						<a href="/history" class="flex flex-col items-center justify-center text-secondary-500 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400">
 							<i class="fas fa-history text-lg"></i>
 							<span class="text-xs mt-1">History</span>
+						</a>
+						<a href="/files" class="flex flex-col items-center justify-center text-secondary-500 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400">
+							<i class="fas fa-file-alt text-lg"></i>
+							<span class="text-xs mt-1">Files</span>
 						</a>
 						<button 
 							type="button" 

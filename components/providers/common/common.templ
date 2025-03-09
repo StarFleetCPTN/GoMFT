@@ -65,45 +65,63 @@ templ FilePatternFields() {
 }
 
 templ ArchiveOptions() {
-<div class="space-y-6">
-	<div class="flex items-start mb-4">
-		<div class="flex items-center h-5">
-			<input id="archive_enabled" name="archive_enabled" type="checkbox" x-model="archiveEnabled"
-				class="focus:ring-primary-500 h-4 w-4 text-primary-600 border-secondary-300 dark:border-secondary-700 rounded">
+	<div class="border border-gray-200 rounded-lg p-6 bg-gray-50 shadow-sm">
+		<h3 class="text-lg font-medium text-gray-900 mb-4">Archive &amp; Delete Options</h3>
+		
+		<div class="mb-4">
+			<label for="archive_enabled" class="flex items-center cursor-pointer">
+				<div class="relative">
+					<input id="archive_enabled" name="archive_enabled" type="checkbox" x-model="archiveEnabled"
+						class="sr-only"
+						:value="archiveEnabled ? 'true' : 'false'"
+					/>
+					<div class="block bg-gray-200 w-14 h-8 rounded-full"></div>
+					<div class="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"
+						:class="archiveEnabled ? 'transform translate-x-6 bg-primary-500' : ''"></div>
+				</div>
+				<div class="ml-3 text-gray-700 font-medium">
+					Enable archiving
+				</div>
+			</label>
 		</div>
-		<div class="ml-3 text-sm">
-			<label for="archive_enabled" class="font-medium text-secondary-700 dark:text-secondary-300">Enable
-				Archiving</label>
-			<p class="text-secondary-500 dark:text-secondary-400">Archive files after successful transfer</p>
-		</div>
-	</div>
-
-	<div x-show="archiveEnabled" class="sm:col-span-4">
-		<label for="archive_path"
-			class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Archive Path</label>
-		<div class="relative">
-			<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-				<i class="fas fa-archive text-secondary-400 dark:text-secondary-600"></i>
+		
+		<div class="mb-4" x-show="archiveEnabled">
+			<label for="archive_path" class="block text-sm font-medium text-gray-700 mb-1">Archive Path</label>
+			<div class="relative">
+				<span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-folder text-gray-400"></i>
+				</span>
+				<input id="archive_path" name="archive_path" type="text" 
+					class="pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm"
+					placeholder="Path to archive files"
+					x-model="archivePath"
+				/>
 			</div>
-			<input type="text" name="archive_path" id="archive_path" x-model="archivePath"
-				x-bind:required="archiveEnabled"
-				class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-				placeholder="/path/to/archive" />
+			<p class="mt-1 text-xs text-gray-500">
+				Files will be moved here after successful transfer
+			</p>
+		</div>
+		
+		<div class="mb-4">
+			<label for="delete_after_transfer" class="flex items-center cursor-pointer">
+				<div class="relative">
+					<input id="delete_after_transfer" name="delete_after_transfer" type="checkbox" x-model="deleteAfterTransfer"
+						class="sr-only"
+						:value="deleteAfterTransfer ? 'true' : 'false'"
+					/>
+					<div class="block bg-gray-200 w-14 h-8 rounded-full"></div>
+					<div class="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"
+						:class="deleteAfterTransfer ? 'transform translate-x-6 bg-red-500' : ''"></div>
+				</div>
+				<div class="ml-3 text-gray-700 font-medium">
+					Delete source files after transfer
+				</div>
+			</label>
+			<p class="mt-1 ml-14 text-xs text-red-500" x-show="deleteAfterTransfer">
+				<i class="fas fa-exclamation-triangle mr-1"></i> Warning: This will permanently delete the original files
+			</p>
 		</div>
 	</div>
-
-	<div class="flex items-start mb-4">
-		<div class="flex items-center h-5">
-			<input id="delete_after_transfer" name="delete_after_transfer" type="checkbox" x-model="deleteAfterTransfer"
-				class="focus:ring-primary-500 h-4 w-4 text-primary-600 border-secondary-300 dark:border-secondary-700 rounded">
-		</div>
-		<div class="ml-3 text-sm">
-			<label for="delete_after_transfer" class="font-medium text-secondary-700 dark:text-secondary-300">Delete
-				After Transfer</label>
-			<p class="text-secondary-500 dark:text-secondary-400">Delete source files after successful transfer</p>
-		</div>
-	</div>
-</div>
 }
 
 templ RcloneFlags() {

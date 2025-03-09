@@ -1,3 +1,4 @@
+
 // AuthMiddleware is a middleware function that checks if the request has a valid JWT token
 func (m *Middleware) AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -41,4 +42,4 @@ func (m *Middleware) AuthMiddleware() gin.HandlerFunc {
 
 		c.Next()
 	}
-} 
+}

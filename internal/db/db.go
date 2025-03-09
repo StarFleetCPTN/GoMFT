@@ -7,23 +7,23 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/starfleetcptn/gomft/internal/auth"
 	"github.com/glebarez/sqlite"
+	"github.com/starfleetcptn/gomft/internal/auth"
 	"gorm.io/gorm"
 )
 
 type User struct {
-	ID                 uint   `gorm:"primarykey"`
-	Email              string `gorm:"unique;not null"`
-	PasswordHash       string `gorm:"not null"`
-	IsAdmin            bool   `gorm:"default:false"`
-	LastPasswordChange time.Time
-	FailedLoginAttempts int    `gorm:"default:0"`
-	AccountLocked      bool   `gorm:"default:false"`
-	LockoutUntil       *time.Time
-	Theme              string `gorm:"default:'light'"`
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	ID                  uint   `gorm:"primarykey"`
+	Email               string `gorm:"unique;not null"`
+	PasswordHash        string `gorm:"not null"`
+	IsAdmin             bool   `gorm:"default:false"`
+	LastPasswordChange  time.Time
+	FailedLoginAttempts int  `gorm:"default:0"`
+	AccountLocked       bool `gorm:"default:false"`
+	LockoutUntil        *time.Time
+	Theme               string `gorm:"default:'light'"`
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 type PasswordHistory struct {
@@ -46,31 +46,31 @@ type PasswordResetToken struct {
 }
 
 type TransferConfig struct {
-	ID              uint   `gorm:"primarykey"`
-	Name            string `gorm:"not null" form:"name"`
-	SourceType      string `gorm:"not null" form:"source_type"`
-	SourcePath      string `gorm:"not null" form:"source_path"`
-	SourceHost      string `form:"source_host"`
-	SourcePort      int    `gorm:"default:22" form:"source_port"`
-	SourceUser      string `form:"source_user"`
-	SourcePassword  string `form:"source_password" gorm:"-"` // Not stored in DB, only used for form
-	SourceKeyFile   string `form:"source_key_file"`
+	ID             uint   `gorm:"primarykey"`
+	Name           string `gorm:"not null" form:"name"`
+	SourceType     string `gorm:"not null" form:"source_type"`
+	SourcePath     string `gorm:"not null" form:"source_path"`
+	SourceHost     string `form:"source_host"`
+	SourcePort     int    `gorm:"default:22" form:"source_port"`
+	SourceUser     string `form:"source_user"`
+	SourcePassword string `form:"source_password" gorm:"-"` // Not stored in DB, only used for form
+	SourceKeyFile  string `form:"source_key_file"`
 	// S3 source fields
-	SourceBucket     string `form:"source_bucket"`
-	SourceRegion     string `form:"source_region"`
-	SourceAccessKey  string `form:"source_access_key"`
-	SourceSecretKey  string `form:"source_secret_key" gorm:"-"` // Not stored in DB, only used for form
-	SourceEndpoint   string `form:"source_endpoint"`
+	SourceBucket    string `form:"source_bucket"`
+	SourceRegion    string `form:"source_region"`
+	SourceAccessKey string `form:"source_access_key"`
+	SourceSecretKey string `form:"source_secret_key" gorm:"-"` // Not stored in DB, only used for form
+	SourceEndpoint  string `form:"source_endpoint"`
 	// SMB source fields
-	SourceShare      string `form:"source_share"`
-	SourceDomain     string `form:"source_domain"`
+	SourceShare  string `form:"source_share"`
+	SourceDomain string `form:"source_domain"`
 	// FTP source fields
-	SourcePassiveMode bool   `gorm:"default:true" form:"source_passive_mode"`
+	SourcePassiveMode bool `gorm:"default:true" form:"source_passive_mode"`
 	// OneDrive and Google Drive source fields
 	SourceClientID     string `form:"source_client_id"`
 	SourceClientSecret string `form:"source_client_secret" gorm:"-"` // Not stored in DB, only used for form
-	SourceDriveID      string `form:"source_drive_id"`       // For OneDrive
-	SourceTeamDrive    string `form:"source_team_drive"`     // For Google Drive
+	SourceDriveID      string `form:"source_drive_id"`               // For OneDrive
+	SourceTeamDrive    string `form:"source_team_drive"`             // For Google Drive
 	// General fields
 	FilePattern     string `gorm:"default:'*'" form:"file_pattern"`
 	OutputPattern   string `form:"output_pattern"` // Pattern for output filenames with date variables
@@ -82,30 +82,30 @@ type TransferConfig struct {
 	DestPassword    string `form:"dest_password" gorm:"-"` // Not stored in DB, only used for form
 	DestKeyFile     string `form:"dest_key_file"`
 	// S3 destination fields
-	DestBucket     string `form:"dest_bucket"`
-	DestRegion     string `form:"dest_region"`
-	DestAccessKey  string `form:"dest_access_key"`
-	DestSecretKey  string `form:"dest_secret_key" gorm:"-"` // Not stored in DB, only used for form
-	DestEndpoint   string `form:"dest_endpoint"`
+	DestBucket    string `form:"dest_bucket"`
+	DestRegion    string `form:"dest_region"`
+	DestAccessKey string `form:"dest_access_key"`
+	DestSecretKey string `form:"dest_secret_key" gorm:"-"` // Not stored in DB, only used for form
+	DestEndpoint  string `form:"dest_endpoint"`
 	// SMB destination fields
-	DestShare      string `form:"dest_share"`
-	DestDomain     string `form:"dest_domain"`
+	DestShare  string `form:"dest_share"`
+	DestDomain string `form:"dest_domain"`
 	// FTP destination fields
-	DestPassiveMode bool   `gorm:"default:true" form:"dest_passive_mode"`
+	DestPassiveMode bool `gorm:"default:true" form:"dest_passive_mode"`
 	// OneDrive and Google Drive destination fields
 	DestClientID     string `form:"dest_client_id"`
 	DestClientSecret string `form:"dest_client_secret" gorm:"-"` // Not stored in DB, only used for form
-	DestDriveID      string `form:"dest_drive_id"`      // For OneDrive
-	DestTeamDrive    string `form:"dest_team_drive"`    // For Google Drive
+	DestDriveID      string `form:"dest_drive_id"`               // For OneDrive
+	DestTeamDrive    string `form:"dest_team_drive"`             // For Google Drive
 	// General fields
-	ArchivePath     string `form:"archive_path"`
-	ArchiveEnabled  bool   `gorm:"default:false" form:"archive_enabled"`
-	RcloneFlags     string `form:"rclone_flags"`
+	ArchivePath         string `form:"archive_path"`
+	ArchiveEnabled      bool   `gorm:"default:false" form:"archive_enabled"`
+	RcloneFlags         string `form:"rclone_flags"`
 	DeleteAfterTransfer bool   `gorm:"default:false" form:"delete_after_transfer"`
-	CreatedBy       uint
-	User            User `gorm:"foreignkey:CreatedBy"`
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	CreatedBy           uint
+	User                User `gorm:"foreignkey:CreatedBy"`
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 type Job struct {
@@ -135,6 +135,25 @@ type JobHistory struct {
 	ErrorMessage     string
 }
 
+// FileMetadata stores information about processed files
+type FileMetadata struct {
+	ID              uint   `gorm:"primarykey"`
+	JobID           uint   `gorm:"not null;index"`
+	Job             Job    `gorm:"foreignkey:JobID"`
+	FileName        string `gorm:"not null"`
+	OriginalPath    string `gorm:"not null"`
+	FileSize        int64  `gorm:"not null"`
+	FileHash        string `gorm:"index"` // MD5 or other hash for file identity
+	CreationTime    time.Time
+	ModTime         time.Time
+	ProcessedTime   time.Time `gorm:"not null"`
+	DestinationPath string    `gorm:"not null"`
+	Status          string    `gorm:"not null"` // processed, archived, deleted, etc.
+	ErrorMessage    string
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
 type DB struct {
 	*gorm.DB
 }
@@ -153,7 +172,7 @@ func Initialize(dbPath string) (*DB, error) {
 	}
 
 	// Auto migrate the schema
-	err = db.AutoMigrate(&User{}, &auth.PasswordHistory{}, &PasswordResetToken{}, &TransferConfig{}, &Job{}, &JobHistory{})
+	err = db.AutoMigrate(&User{}, &auth.PasswordHistory{}, &PasswordResetToken{}, &TransferConfig{}, &Job{}, &JobHistory{}, &FileMetadata{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %v", err)
 	}
@@ -302,12 +321,63 @@ func (db *DB) UpdateJobHistory(history *JobHistory) error {
 }
 
 func (db *DB) GetJobHistory(jobID uint) ([]JobHistory, error) {
-	var history []JobHistory
-	err := db.Where("job_id = ?", jobID).Order("start_time desc").Find(&history).Error
-	return history, err
+	var histories []JobHistory
+	err := db.Where("job_id = ?", jobID).Order("start_time desc").Find(&histories).Error
+	return histories, err
 }
 
-// Helper functions
+// CreateFileMetadata creates a new file metadata record
+func (db *DB) CreateFileMetadata(metadata *FileMetadata) error {
+	return db.Create(metadata).Error
+}
+
+// GetFileMetadata retrieves file metadata by ID
+func (db *DB) GetFileMetadata(id uint) (*FileMetadata, error) {
+	var metadata FileMetadata
+	err := db.First(&metadata, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &metadata, nil
+}
+
+// GetFileMetadataByJobAndName retrieves file metadata by job ID and filename
+func (db *DB) GetFileMetadataByJobAndName(jobID uint, fileName string) (*FileMetadata, error) {
+	var metadata FileMetadata
+	err := db.Where("job_id = ? AND file_name = ?", jobID, fileName).First(&metadata).Error
+	if err != nil {
+		return nil, err
+	}
+	return &metadata, nil
+}
+
+// GetFileMetadataByHash retrieves file metadata by file hash
+func (db *DB) GetFileMetadataByHash(fileHash string) (*FileMetadata, error) {
+	var metadata FileMetadata
+	err := db.Where("file_hash = ?", fileHash).First(&metadata).Error
+	if err != nil {
+		return nil, err
+	}
+	return &metadata, nil
+}
+
+// UpdateFileMetadata updates an existing file metadata record
+func (db *DB) UpdateFileMetadata(metadata *FileMetadata) error {
+	return db.Save(metadata).Error
+}
+
+// GetFileMetadataForJob retrieves all file metadata for a job
+func (db *DB) GetFileMetadataForJob(jobID uint) ([]FileMetadata, error) {
+	var metadata []FileMetadata
+	err := db.Where("job_id = ?", jobID).Find(&metadata).Error
+	return metadata, err
+}
+
+// DeleteFileMetadata deletes file metadata by ID
+func (db *DB) DeleteFileMetadata(id uint) error {
+	return db.Delete(&FileMetadata{}, id).Error
+}
+
 func (db *DB) GetConfigRclonePath(config *TransferConfig) string {
 	return filepath.Join("configs", fmt.Sprintf("config_%d.conf", config.ID))
 }
@@ -345,7 +415,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 		if config.SourceKeyFile != "" {
 			args = append(args, "key_file", config.SourceKeyFile)
 		}
-		
+
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create source config: %v\nOutput: %s", err, output)
@@ -362,11 +432,11 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--config", configPath,
 			"--log-level", "ERROR",
 		}
-		
+
 		if config.SourceEndpoint != "" {
 			args = append(args, "endpoint", config.SourceEndpoint)
 		}
-		
+
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create source config: %v\nOutput: %s", err, output)
@@ -383,7 +453,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--config", configPath,
 			"--log-level", "ERROR",
 		}
-		
+
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create source config: %v\nOutput: %s", err, output)
@@ -397,7 +467,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--config", configPath,
 			"--log-level", "ERROR",
 		}
-		
+
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create source config: %v\nOutput: %s", err, output)
@@ -412,11 +482,11 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--config", configPath,
 			"--log-level", "ERROR",
 		}
-		
+
 		if config.SourceDomain != "" {
 			args = append(args, "domain", config.SourceDomain)
 		}
-		
+
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create source config: %v\nOutput: %s", err, output)
@@ -431,11 +501,11 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--config", configPath,
 			"--log-level", "ERROR",
 		}
-		
+
 		if config.SourcePassiveMode {
 			args = append(args, "passive", "true")
 		}
-		
+
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create source config: %v\nOutput: %s", err, output)
@@ -450,7 +520,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--config", configPath,
 			"--log-level", "ERROR",
 		}
-		
+
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create source config: %v\nOutput: %s", err, output)
@@ -466,7 +536,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--config", configPath,
 			"--log-level", "ERROR",
 		}
-		
+
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create source config: %v\nOutput: %s", err, output)
@@ -480,11 +550,11 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--config", configPath,
 			"--log-level", "ERROR",
 		}
-		
+
 		if config.SourceDriveID != "" {
 			args = append(args, "drive_id", config.SourceDriveID)
 		}
-		
+
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create source config: %v\nOutput: %s", err, output)
@@ -498,11 +568,11 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--config", configPath,
 			"--log-level", "ERROR",
 		}
-		
+
 		if config.SourceTeamDrive != "" {
 			args = append(args, "team_drive", config.SourceTeamDrive)
 		}
-		
+
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create source config: %v\nOutput: %s", err, output)
@@ -533,7 +603,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 		if config.DestKeyFile != "" {
 			args = append(args, "key_file", config.DestKeyFile)
 		}
-		
+
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create destination config: %v\nOutput: %s", err, output)
@@ -550,11 +620,11 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--config", configPath,
 			"--log-level", "ERROR",
 		}
-		
+
 		if config.DestEndpoint != "" {
 			args = append(args, "endpoint", config.DestEndpoint)
 		}
-		
+
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create destination config: %v\nOutput: %s", err, output)
@@ -571,7 +641,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--config", configPath,
 			"--log-level", "ERROR",
 		}
-		
+
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create destination config: %v\nOutput: %s", err, output)
@@ -585,7 +655,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--config", configPath,
 			"--log-level", "ERROR",
 		}
-		
+
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create destination config: %v\nOutput: %s", err, output)
@@ -600,11 +670,11 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--config", configPath,
 			"--log-level", "ERROR",
 		}
-		
+
 		if config.DestDomain != "" {
 			args = append(args, "domain", config.DestDomain)
 		}
-		
+
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create destination config: %v\nOutput: %s", err, output)
@@ -619,11 +689,11 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--config", configPath,
 			"--log-level", "ERROR",
 		}
-		
+
 		if config.DestPassiveMode {
 			args = append(args, "passive", "true")
 		}
-		
+
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create destination config: %v\nOutput: %s", err, output)
@@ -638,7 +708,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--config", configPath,
 			"--log-level", "ERROR",
 		}
-		
+
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create destination config: %v\nOutput: %s", err, output)
@@ -654,7 +724,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--config", configPath,
 			"--log-level", "ERROR",
 		}
-		
+
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create destination config: %v\nOutput: %s", err, output)
@@ -668,11 +738,11 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--config", configPath,
 			"--log-level", "ERROR",
 		}
-		
+
 		if config.DestDriveID != "" {
 			args = append(args, "drive_id", config.DestDriveID)
 		}
-		
+
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create destination config: %v\nOutput: %s", err, output)
@@ -686,11 +756,11 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--config", configPath,
 			"--log-level", "ERROR",
 		}
-		
+
 		if config.DestTeamDrive != "" {
 			args = append(args, "team_drive", config.DestTeamDrive)
 		}
-		
+
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create destination config: %v\nOutput: %s", err, output)

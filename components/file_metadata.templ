@@ -1,0 +1,587 @@
+package components
+
+import (
+	"context"
+	"strconv"
+	"fmt"
+	"github.com/starfleetcptn/gomft/internal/db"
+)
+
+// FileMetadataFilter represents filter parameters for file metadata queries
+type FileMetadataFilter struct {
+	Status    string
+	JobID     string
+	FileName  string
+	Hash      string
+	StartDate string
+	EndDate   string
+}
+
+// FileMetadataListData contains data for the file metadata list template
+type FileMetadataListData struct {
+	Files      []db.FileMetadata
+	TotalCount int64
+	Page       int
+	Limit      int
+	TotalPages int
+	Job        *db.Job // Optional: if viewing files for a specific job
+	Filter     FileMetadataFilter
+}
+
+// FileMetadataDetailsData contains data for the file metadata details template
+type FileMetadataDetailsData struct {
+	File db.FileMetadata
+}
+
+// FileMetadataSearchData contains data for the file metadata search template
+type FileMetadataSearchData struct {
+	Files      []db.FileMetadata
+	TotalCount int64
+	Page       int
+	Limit      int
+	TotalPages int
+	Filter     FileMetadataFilter
+}
+
+// getStatusBadgeClass returns the appropriate CSS class for a file status badge
+func getStatusBadgeClass(status string) string {
+	switch status {
+	case "processed":
+		return "badge-success"
+	case "archived":
+		return "badge-info"
+	case "deleted":
+		return "badge-warning"
+	case "archived_and_deleted":
+		return "badge-warning"
+	case "error":
+		return "badge-danger"
+	default:
+		return "badge-secondary"
+	}
+}
+
+// formatFileSize formats a file size in bytes to a human-readable string
+func formatFileSize(size int64) string {
+	if size < 1024 {
+		return fmt.Sprintf("%d B", size)
+	} else if size < 1024*1024 {
+		return fmt.Sprintf("%.2f KB", float64(size)/1024)
+	} else if size < 1024*1024*1024 {
+		return fmt.Sprintf("%.2f MB", float64(size)/(1024*1024))
+	} else {
+		return fmt.Sprintf("%.2f GB", float64(size)/(1024*1024*1024))
+	}
+}
+
+// FileMetadataList renders a list of file metadata with pagination and filters
+templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
+	@LayoutWithContext("File Metadata", ctx) {
+		<div class="container mx-auto px-4 py-8 animate-fadeIn">
+			<div class="flex justify-between items-center mb-6">
+				<h1 class="text-2xl font-bold text-secondary-800 dark:text-secondary-200">
+					if data.Job != nil {
+						Files for Job: { data.Job.Name }
+					} else {
+						File Metadata
+					}
+				</h1>
+				<div class="flex space-x-2">
+					<a href="/files/search" class="btn-primary">
+						<i class="fas fa-search mr-2"></i> Advanced Search
+					</a>
+				</div>
+			</div>
+			
+			<!-- Filter Form -->
+			<div class="card mb-6">
+				<div class="card-header">
+					<h2 class="text-lg font-semibold">Filter Files</h2>
+				</div>
+				<div class="card-body">
+					<form method="GET" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+						if data.Job == nil {
+							<div>
+								<label for="job_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Job</label>
+								<input type="text" id="job_id" name="job_id" value={ data.Filter.JobID } placeholder="Job ID" 
+									class="form-input w-full" />
+							</div>
+						}
+						<div>
+							<label for="status" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Status</label>
+							<select id="status" name="status" class="form-input w-full">
+								<option value="">All Statuses</option>
+								<option value="processed" selected?={ data.Filter.Status == "processed" }>Processed</option>
+								<option value="archived" selected?={ data.Filter.Status == "archived" }>Archived</option>
+								<option value="deleted" selected?={ data.Filter.Status == "deleted" }>Deleted</option>
+								<option value="archived_and_deleted" selected?={ data.Filter.Status == "archived_and_deleted" }>Archived & Deleted</option>
+								<option value="error" selected?={ data.Filter.Status == "error" }>Error</option>
+							</select>
+						</div>
+						<div>
+							<label for="filename" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Filename</label>
+							<input type="text" id="filename" name="filename" value={ data.Filter.FileName } placeholder="Filename or partial match" 
+								class="form-input w-full" />
+						</div>
+						<div class="md:col-span-3 flex justify-end">
+							<button type="submit" class="btn-primary">
+								<i class="fas fa-filter mr-2"></i> Apply Filters
+							</button>
+						</div>
+					</form>
+				</div>
+			</div>
+			
+			<!-- Results -->
+			<div class="card">
+				<div class="card-header flex justify-between items-center">
+					<h2 class="text-lg font-semibold">Files ({ strconv.FormatInt(data.TotalCount, 10) })</h2>
+					<div class="text-sm text-secondary-600 dark:text-secondary-400">
+						Page { strconv.Itoa(data.Page) } of { strconv.Itoa(data.TotalPages) }
+					</div>
+				</div>
+				<div class="overflow-x-auto">
+					if len(data.Files) > 0 {
+						<table class="table w-full">
+							<thead>
+								<tr>
+									<th>ID</th>
+									<th>Filename</th>
+									<th>Size</th>
+									<th>Processed</th>
+									<th>Status</th>
+									if data.Job == nil {
+										<th>Job</th>
+									}
+									<th>Actions</th>
+								</tr>
+							</thead>
+							<tbody>
+								for _, file := range data.Files {
+									<tr class="hover:bg-secondary-50 dark:hover:bg-secondary-800 transition-colors duration-150">
+										<td>{ strconv.FormatUint(uint64(file.ID), 10) }</td>
+										<td class="text-primary-600 dark:text-primary-400">
+											<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="hover:underline">
+												{ file.FileName }
+											</a>
+										</td>
+										<td>{ formatFileSize(file.FileSize) }</td>
+										<td>{ file.ProcessedTime.Format("2006-01-02 15:04:05") }</td>
+										<td>
+											<span class={ "badge", getStatusBadgeClass(file.Status) }>
+												{ file.Status }
+											</span>
+										</td>
+										if data.Job == nil && file.Job.ID > 0 {
+											<td>
+												<a href={ templ.SafeURL(fmt.Sprintf("/files/job/%d", file.Job.ID)) } class="hover:underline text-primary-600 dark:text-primary-400">
+													{ file.Job.Name }
+												</a>
+											</td>
+										}
+										<td class="flex space-x-2">
+											<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">
+												<i class="fas fa-eye"></i>
+											</a>
+											<button
+												class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+												hx-delete={ fmt.Sprintf("/files/%d", file.ID) }
+												hx-confirm="Are you sure you want to delete this file metadata record? This cannot be undone."
+												hx-target="body">
+												<i class="fas fa-trash"></i>
+											</button>
+										</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+						
+						<!-- Pagination -->
+						if data.TotalPages > 1 {
+							<div class="flex justify-center items-center py-4 bg-secondary-50 dark:bg-secondary-800">
+								<div class="flex space-x-1">
+									if data.Page > 1 {
+										<a href={ templ.SafeURL(buildPaginationURL(data, data.Page - 1)) } class="btn-secondary">
+											<i class="fas fa-chevron-left"></i>
+										</a>
+									}
+									
+									for i := 1; i <= data.TotalPages; i++ {
+										if i == data.Page {
+											<span class="px-3 py-2 bg-primary-600 text-white rounded">{ strconv.Itoa(i) }</span>
+										} else if i == 1 || i == data.TotalPages || (i >= data.Page-2 && i <= data.Page+2) {
+											<a href={ templ.SafeURL(buildPaginationURL(data, i)) } class="px-3 py-2 bg-secondary-200 text-secondary-800 hover:bg-secondary-300 rounded dark:bg-secondary-700 dark:text-secondary-200 dark:hover:bg-secondary-600">
+												{ strconv.Itoa(i) }
+											</a>
+										} else if i == data.Page-3 || i == data.Page+3 {
+											<span class="px-3 py-2">...</span>
+										}
+									}
+									
+									if data.Page < data.TotalPages {
+										<a href={ templ.SafeURL(buildPaginationURL(data, data.Page + 1)) } class="btn-secondary">
+											<i class="fas fa-chevron-right"></i>
+										</a>
+									}
+								</div>
+							</div>
+						}
+					} else {
+						<div class="p-6 text-center text-secondary-600 dark:text-secondary-400">
+							<i class="fas fa-file-alt text-5xl mb-3"></i>
+							<p>No file metadata found matching your criteria.</p>
+						</div>
+					}
+				</div>
+			</div>
+		</div>
+	}
+}
+
+// buildPaginationURL builds a URL for pagination links
+func buildPaginationURL(data FileMetadataListData, page int) string {
+	baseURL := "/files"
+	if data.Job != nil {
+		baseURL = fmt.Sprintf("/files/job/%d", data.Job.ID)
+	}
+	
+	url := fmt.Sprintf("%s?page=%d&limit=%d", baseURL, page, data.Limit)
+	
+	if data.Filter.Status != "" {
+		url += "&status=" + data.Filter.Status
+	}
+	
+	if data.Filter.FileName != "" {
+		url += "&filename=" + data.Filter.FileName
+	}
+	
+	if data.Filter.JobID != "" && data.Job == nil {
+		url += "&job_id=" + data.Filter.JobID
+	}
+	
+	return url
+}
+
+// FileMetadataDetails renders detailed information about a file
+templ FileMetadataDetails(ctx context.Context, data FileMetadataDetailsData) {
+	@LayoutWithContext("File Details", ctx) {
+		<div class="container mx-auto px-4 py-8 animate-fadeIn">
+			<div class="mb-6">
+				<a href="/files" class="text-primary-600 dark:text-primary-400 hover:underline">
+					<i class="fas fa-arrow-left mr-2"></i> Back to Files
+				</a>
+			</div>
+			
+			<div class="card">
+				<div class="card-header">
+					<h1 class="text-2xl font-bold text-secondary-800 dark:text-secondary-200">
+						File: { data.File.FileName }
+					</h1>
+				</div>
+				<div class="card-body">
+					<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+						<div>
+							<h2 class="text-lg font-semibold mb-4 text-secondary-800 dark:text-secondary-200">File Information</h2>
+							<table class="w-full">
+								<tbody>
+									<tr class="border-b border-secondary-200 dark:border-secondary-700">
+										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">ID</td>
+										<td class="py-2">{ strconv.FormatUint(uint64(data.File.ID), 10) }</td>
+									</tr>
+									<tr class="border-b border-secondary-200 dark:border-secondary-700">
+										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Filename</td>
+										<td class="py-2">{ data.File.FileName }</td>
+									</tr>
+									<tr class="border-b border-secondary-200 dark:border-secondary-700">
+										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Size</td>
+										<td class="py-2">{ formatFileSize(data.File.FileSize) }</td>
+									</tr>
+									<tr class="border-b border-secondary-200 dark:border-secondary-700">
+										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Hash</td>
+										<td class="py-2 break-all">
+											if data.File.FileHash != "" {
+												{ data.File.FileHash }
+											} else {
+												<span class="text-secondary-500 dark:text-secondary-500 italic">Not available</span>
+											}
+										</td>
+									</tr>
+									<tr class="border-b border-secondary-200 dark:border-secondary-700">
+										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Status</td>
+										<td class="py-2">
+											<span class={ "badge", getStatusBadgeClass(data.File.Status) }>
+												{ data.File.Status }
+											</span>
+										</td>
+									</tr>
+									<tr class="border-b border-secondary-200 dark:border-secondary-700">
+										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Original Path</td>
+										<td class="py-2 break-all">{ data.File.OriginalPath }</td>
+									</tr>
+									<tr class="border-b border-secondary-200 dark:border-secondary-700">
+										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Destination Path</td>
+										<td class="py-2 break-all">{ data.File.DestinationPath }</td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+						
+						<div>
+							<h2 class="text-lg font-semibold mb-4 text-secondary-800 dark:text-secondary-200">Processing Information</h2>
+							<table class="w-full">
+								<tbody>
+									<tr class="border-b border-secondary-200 dark:border-secondary-700">
+										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Job</td>
+										<td class="py-2">
+											<a href={ templ.SafeURL(fmt.Sprintf("/files/job/%d", data.File.JobID)) } class="text-primary-600 dark:text-primary-400 hover:underline">
+												{ data.File.Job.Name }
+											</a>
+										</td>
+									</tr>
+									<tr class="border-b border-secondary-200 dark:border-secondary-700">
+										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Processed Time</td>
+										<td class="py-2">{ data.File.ProcessedTime.Format("2006-01-02 15:04:05") }</td>
+									</tr>
+									<tr class="border-b border-secondary-200 dark:border-secondary-700">
+										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Creation Time</td>
+										<td class="py-2">{ data.File.CreationTime.Format("2006-01-02 15:04:05") }</td>
+									</tr>
+									<tr class="border-b border-secondary-200 dark:border-secondary-700">
+										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Modification Time</td>
+										<td class="py-2">{ data.File.ModTime.Format("2006-01-02 15:04:05") }</td>
+									</tr>
+									if data.File.Status == "error" && data.File.ErrorMessage != "" {
+										<tr class="border-b border-secondary-200 dark:border-secondary-700">
+											<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Error</td>
+											<td class="py-2 text-red-600 dark:text-red-400 break-all">{ data.File.ErrorMessage }</td>
+										</tr>
+									}
+									<tr class="border-b border-secondary-200 dark:border-secondary-700">
+										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Record Created</td>
+										<td class="py-2">{ data.File.CreatedAt.Format("2006-01-02 15:04:05") }</td>
+									</tr>
+									<tr class="border-b border-secondary-200 dark:border-secondary-700">
+										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Record Updated</td>
+										<td class="py-2">{ data.File.UpdatedAt.Format("2006-01-02 15:04:05") }</td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+					</div>
+					
+					<div class="mt-8 flex justify-end space-x-4">
+						<a href="/files" class="btn-secondary">
+							<i class="fas fa-list mr-2"></i> Back to Files
+						</a>
+						<button 
+							class="btn-danger"
+							hx-delete={ fmt.Sprintf("/files/%d", data.File.ID) }
+							hx-confirm="Are you sure you want to delete this file metadata record? This cannot be undone."
+							hx-target="body">
+							<i class="fas fa-trash mr-2"></i> Delete Record
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	}
+}
+
+// FileMetadataSearch renders an advanced search form for file metadata
+templ FileMetadataSearch(ctx context.Context, data FileMetadataSearchData) {
+	@LayoutWithContext("Search Files", ctx) {
+		<div class="container mx-auto px-4 py-8 animate-fadeIn">
+			<div class="mb-6">
+				<a href="/files" class="text-primary-600 dark:text-primary-400 hover:underline">
+					<i class="fas fa-arrow-left mr-2"></i> Back to Files
+				</a>
+			</div>
+			
+			<div class="card mb-6">
+				<div class="card-header">
+					<h1 class="text-2xl font-bold text-secondary-800 dark:text-secondary-200">
+						Advanced File Search
+					</h1>
+				</div>
+				<div class="card-body">
+					<form method="GET" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+						<div>
+							<label for="job_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Job ID</label>
+							<input type="text" id="job_id" name="job_id" value={ data.Filter.JobID } placeholder="Job ID" 
+								class="form-input w-full" />
+						</div>
+						<div>
+							<label for="status" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Status</label>
+							<select id="status" name="status" class="form-input w-full">
+								<option value="">All Statuses</option>
+								<option value="processed" selected?={ data.Filter.Status == "processed" }>Processed</option>
+								<option value="archived" selected?={ data.Filter.Status == "archived" }>Archived</option>
+								<option value="deleted" selected?={ data.Filter.Status == "deleted" }>Deleted</option>
+								<option value="archived_and_deleted" selected?={ data.Filter.Status == "archived_and_deleted" }>Archived & Deleted</option>
+								<option value="error" selected?={ data.Filter.Status == "error" }>Error</option>
+							</select>
+						</div>
+						<div>
+							<label for="filename" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Filename</label>
+							<input type="text" id="filename" name="filename" value={ data.Filter.FileName } placeholder="Filename or partial match" 
+								class="form-input w-full" />
+						</div>
+						<div>
+							<label for="hash" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">File Hash</label>
+							<input type="text" id="hash" name="hash" value={ data.Filter.Hash } placeholder="MD5 hash" 
+								class="form-input w-full" />
+						</div>
+						<div>
+							<label for="start_date" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Processed After</label>
+							<input type="date" id="start_date" name="start_date" value={ data.Filter.StartDate } 
+								class="form-input w-full" />
+						</div>
+						<div>
+							<label for="end_date" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Processed Before</label>
+							<input type="date" id="end_date" name="end_date" value={ data.Filter.EndDate } 
+								class="form-input w-full" />
+						</div>
+						<div class="md:col-span-2 flex justify-end">
+							<button type="submit" class="btn-primary">
+								<i class="fas fa-search mr-2"></i> Search Files
+							</button>
+						</div>
+					</form>
+				</div>
+			</div>
+			
+			<!-- Results -->
+			if data.TotalCount > 0 || (data.Filter.FileName != "" || data.Filter.JobID != "" || data.Filter.Status != "" || 
+				data.Filter.Hash != "" || data.Filter.StartDate != "" || data.Filter.EndDate != "") {
+				<div class="card">
+					<div class="card-header flex justify-between items-center">
+						<h2 class="text-lg font-semibold">Search Results ({ strconv.FormatInt(data.TotalCount, 10) })</h2>
+						<div class="text-sm text-secondary-600 dark:text-secondary-400">
+							Page { strconv.Itoa(data.Page) } of { strconv.Itoa(data.TotalPages) }
+						</div>
+					</div>
+					<div class="overflow-x-auto">
+						if len(data.Files) > 0 {
+							<table class="table w-full">
+								<thead>
+									<tr>
+										<th>ID</th>
+										<th>Filename</th>
+										<th>Size</th>
+										<th>Processed</th>
+										<th>Status</th>
+										<th>Job</th>
+										<th>Actions</th>
+									</tr>
+								</thead>
+								<tbody>
+									for _, file := range data.Files {
+										<tr class="hover:bg-secondary-50 dark:hover:bg-secondary-800 transition-colors duration-150">
+											<td>{ strconv.FormatUint(uint64(file.ID), 10) }</td>
+											<td class="text-primary-600 dark:text-primary-400">
+												<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="hover:underline">
+													{ file.FileName }
+												</a>
+											</td>
+											<td>{ formatFileSize(file.FileSize) }</td>
+											<td>{ file.ProcessedTime.Format("2006-01-02 15:04:05") }</td>
+											<td>
+												<span class={ "badge", getStatusBadgeClass(file.Status) }>
+													{ file.Status }
+												</span>
+											</td>
+											<td>
+												<a href={ templ.SafeURL(fmt.Sprintf("/files/job/%d", file.Job.ID)) } class="hover:underline text-primary-600 dark:text-primary-400">
+													{ file.Job.Name }
+												</a>
+											</td>
+											<td class="flex space-x-2">
+												<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">
+													<i class="fas fa-eye"></i>
+												</a>
+												<button
+													class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
+													hx-delete={ fmt.Sprintf("/files/%d", file.ID) }
+													hx-confirm="Are you sure you want to delete this file metadata record? This cannot be undone."
+													hx-target="body">
+													<i class="fas fa-trash"></i>
+												</button>
+											</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+							
+							<!-- Pagination -->
+							if data.TotalPages > 1 {
+								<div class="flex justify-center items-center py-4 bg-secondary-50 dark:bg-secondary-800">
+									<div class="flex space-x-1">
+										if data.Page > 1 {
+											<a href={ templ.SafeURL(buildSearchPaginationURL(data, data.Page - 1)) } class="btn-secondary">
+												<i class="fas fa-chevron-left"></i>
+											</a>
+										}
+										
+										for i := 1; i <= data.TotalPages; i++ {
+											if i == data.Page {
+												<span class="px-3 py-2 bg-primary-600 text-white rounded">{ strconv.Itoa(i) }</span>
+											} else if i == 1 || i == data.TotalPages || (i >= data.Page-2 && i <= data.Page+2) {
+												<a href={ templ.SafeURL(buildSearchPaginationURL(data, i)) } class="px-3 py-2 bg-secondary-200 text-secondary-800 hover:bg-secondary-300 rounded dark:bg-secondary-700 dark:text-secondary-200 dark:hover:bg-secondary-600">
+													{ strconv.Itoa(i) }
+												</a>
+											} else if i == data.Page-3 || i == data.Page+3 {
+												<span class="px-3 py-2">...</span>
+											}
+										}
+										
+										if data.Page < data.TotalPages {
+											<a href={ templ.SafeURL(buildSearchPaginationURL(data, data.Page + 1)) } class="btn-secondary">
+												<i class="fas fa-chevron-right"></i>
+											</a>
+										}
+									</div>
+								</div>
+							}
+						} else {
+							<div class="p-6 text-center text-secondary-600 dark:text-secondary-400">
+								<i class="fas fa-search text-5xl mb-3"></i>
+								<p>No files found matching your search criteria.</p>
+							</div>
+						}
+					</div>
+				</div>
+			}
+		</div>
+	}
+}
+
+// buildSearchPaginationURL builds a URL for search pagination links
+func buildSearchPaginationURL(data FileMetadataSearchData, page int) string {
+	url := fmt.Sprintf("/files/search?page=%d&limit=%d", page, data.Limit)
+	
+	if data.Filter.Status != "" {
+		url += "&status=" + data.Filter.Status
+	}
+	
+	if data.Filter.FileName != "" {
+		url += "&filename=" + data.Filter.FileName
+	}
+	
+	if data.Filter.JobID != "" {
+		url += "&job_id=" + data.Filter.JobID
+	}
+	
+	if data.Filter.Hash != "" {
+		url += "&hash=" + data.Filter.Hash
+	}
+	
+	if data.Filter.StartDate != "" {
+		url += "&start_date=" + data.Filter.StartDate
+	}
+	
+	if data.Filter.EndDate != "" {
+		url += "&end_date=" + data.Filter.EndDate
+	}
+	
+	return url
+} 

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"strconv"
 	"net/url"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/starfleetcptn/gomft/components"
@@ -15,13 +15,13 @@ import (
 // HandleHistory handles the GET /history route
 func (h *Handlers) HandleHistory(c *gin.Context) {
 	userID := c.GetUint("userID")
-	
+
 	// Get pagination parameters
 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if err != nil || page < 1 {
 		page = 1
 	}
-	
+
 	pageSize, err := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
 	if err != nil {
 		pageSize = 10
@@ -30,47 +30,47 @@ func (h *Handlers) HandleHistory(c *gin.Context) {
 	if pageSize != 10 && pageSize != 25 && pageSize != 50 && pageSize != 100 {
 		pageSize = 10
 	}
-	
+
 	// Get search term
 	searchTerm := c.Query("search")
-	
+
 	// Build the query
 	query := h.DB.Model(&db.JobHistory{}).
 		Joins("JOIN jobs ON jobs.id = job_histories.job_id").
 		Joins("JOIN transfer_configs ON transfer_configs.id = jobs.config_id").
 		Where("jobs.created_by = ?", userID)
-	
+
 	// Apply search if provided
 	if searchTerm != "" {
-		query = query.Where("transfer_configs.name LIKE ? OR job_histories.status LIKE ?", 
+		query = query.Where("transfer_configs.name LIKE ? OR job_histories.status LIKE ?",
 			"%"+searchTerm+"%", "%"+searchTerm+"%")
 	}
-	
+
 	// Count total matching records for pagination
 	var total int64
 	query.Count(&total)
-	
+
 	// Calculate total pages
 	totalPages := int(math.Ceil(float64(total) / float64(pageSize)))
 	if totalPages == 0 {
 		totalPages = 1
 	}
-	
+
 	// Ensure page is within bounds
 	if page > totalPages {
 		page = totalPages
 	}
-	
+
 	// Get paginated results
 	var history []db.JobHistory
 	offset := (page - 1) * pageSize
-	
+
 	query.Offset(offset).
 		Limit(pageSize).
 		Preload("Job.Config").
 		Order("start_time desc").
 		Find(&history)
-	
+
 	// If we got no results and we're not on page 1, redirect to page 1
 	// Only do this for non-HTMX requests to avoid navigation issues
 	isHtmxRequest := c.GetHeader("HX-Request") == "true"
@@ -82,7 +82,7 @@ func (h *Handlers) HandleHistory(c *gin.Context) {
 		c.Redirect(http.StatusFound, redirectURL)
 		return
 	}
-	
+
 	data := components.HistoryData{
 		History:     history,
 		CurrentPage: page,
@@ -160,10 +160,10 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 	// Protected routes
 	authorized := router.Group("/")
 	authorized.Use(h.AuthMiddleware())
-	
+
 	// Password change route - only accessed from profile page
 	authorized.POST("/change-password", h.HandleChangePassword)
-	
+
 	{
 		authorized.GET("/dashboard", h.HandleDashboard)
 		authorized.GET("/configs", h.HandleConfigs)
@@ -186,12 +186,16 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 		authorized.GET("/profile", h.HandleProfile)
 		authorized.POST("/profile/theme", h.HandleUpdateTheme)
 		authorized.POST("/logout", h.HandleLogout)
-		
+
+		// File metadata routes
+		fileMetadataHandler := &FileMetadataHandler{DB: h.DB}
+		fileMetadataHandler.Register(authorized)
+
 		// AJAX routes for dashboard
 		authorized.GET("/dashboard/data", h.HandleDashboardData)
 		authorized.GET("/dashboard/jobs", h.HandleDashboardJobsData)
 		authorized.GET("/dashboard/history", h.HandleDashboardHistoryData)
-		
+
 		// Test connection routes
 		authorized.POST("/test-connection", h.HandleTestConnection)
 		authorized.POST("/test-sftp-connection", h.HandleTestSFTPConnection)
@@ -208,7 +212,7 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 		admin.DELETE("/users/:id", h.HandleDeleteUser)
 		admin.GET("/register", h.HandleRegisterPage)
 		admin.POST("/register", h.HandleRegister)
-		
+
 		// Admin tools routes
 		admin.GET("/tools", h.HandleAdminTools)
 		admin.POST("/backup-database", h.HandleBackupDatabase)
@@ -222,12 +226,12 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 		admin.DELETE("/delete-backup/:filename", h.HandleDeleteBackup)
 		admin.GET("/refresh-backups", h.HandleRefreshBackups)
 	}
-	
+
 	// API routes
 	api := router.Group("/api")
 	{
 		api.POST("/login", h.HandleAPILogin)
-		
+
 		// Protected API routes
 		apiAuthorized := api.Group("/")
 		apiAuthorized.Use(h.APIAuthMiddleware())
@@ -238,7 +242,7 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 			apiAuthorized.POST("/configs", h.HandleAPICreateConfig)
 			apiAuthorized.PUT("/configs/:id", h.HandleAPIUpdateConfig)
 			apiAuthorized.DELETE("/configs/:id", h.HandleAPIDeleteConfig)
-			
+
 			// Job endpoints
 			apiAuthorized.GET("/jobs", h.HandleAPIJobs)
 			apiAuthorized.GET("/jobs/:id", h.HandleAPIJob)
@@ -246,11 +250,11 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 			apiAuthorized.PUT("/jobs/:id", h.HandleAPIUpdateJob)
 			apiAuthorized.DELETE("/jobs/:id", h.HandleAPIDeleteJob)
 			apiAuthorized.POST("/jobs/:id/run", h.HandleAPIRunJob)
-			
+
 			// History endpoints
 			apiAuthorized.GET("/history", h.HandleAPIHistory)
 			apiAuthorized.GET("/job-runs/:id", h.HandleAPIJobRun)
-			
+
 			// Admin-only API routes
 			apiAdmin := apiAuthorized.Group("/admin")
 			apiAdmin.Use(h.APIAdminMiddleware())

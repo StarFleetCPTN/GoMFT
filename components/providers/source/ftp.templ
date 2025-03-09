@@ -94,6 +94,7 @@ templ FTPSourceForm() {
 					name="source_passive_mode" 
 					type="checkbox" 
 					x-model="sourcePassiveMode"
+					:value="sourcePassiveMode ? 'true' : 'false'"
 					class="focus:ring-primary-500 h-4 w-4 text-primary-600 border-secondary-300 dark:border-secondary-700 rounded">
 			</div>
 			<div class="ml-3 text-sm">

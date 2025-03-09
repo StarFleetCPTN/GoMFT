@@ -94,6 +94,7 @@ templ FTPDestinationForm() {
 					name="dest_passive_mode" 
 					type="checkbox" 
 					x-model="destPassiveMode"
+					:value="destPassiveMode ? 'true' : 'false'"
 					class="focus:ring-primary-500 h-4 w-4 text-primary-600 border-secondary-300 dark:border-secondary-700 rounded">
 			</div>
 			<div class="ml-3 text-sm">
