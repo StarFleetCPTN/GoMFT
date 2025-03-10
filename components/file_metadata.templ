@@ -1000,7 +1000,7 @@ templ FileMetadataSearch(ctx context.Context, data FileMetadataSearchData) {
 				</div>
 				<div class="card-body">
 					<form 
-						hx-get="/files/search"
+						hx-get="/files/search/partial"
 						hx-target="#search-results-container" 
 						hx-swap="innerHTML"
 						hx-indicator="#search-form-loading"
@@ -1158,7 +1158,7 @@ templ FileMetadataSearchContent(data FileMetadataSearchData) {
 		<div class="flex justify-center items-center py-4 bg-secondary-50 dark:bg-secondary-800 rounded-lg">
 			<div class="flex gap-2">
 				if data.Page > 1 {
-					<a hx-get={ fmt.Sprintf("/files/search?page=%d&limit=%d&status=%s&filename=%s&job_id=%s&hash=%s&start_date=%s&end_date=%s", data.Page - 1, data.Limit, data.Filter.Status, data.Filter.FileName, data.Filter.JobID, data.Filter.Hash, data.Filter.StartDate, data.Filter.EndDate) }
+					<a hx-get={ fmt.Sprintf("/files/search/partial?page=%d&limit=%d&status=%s&filename=%s&job_id=%s&hash=%s&start_date=%s&end_date=%s", data.Page - 1, data.Limit, data.Filter.Status, data.Filter.FileName, data.Filter.JobID, data.Filter.Hash, data.Filter.StartDate, data.Filter.EndDate) }
 					   hx-target="#search-results-container"
 					   hx-swap="innerHTML"
 					   hx-headers='{"X-HX-Request": "true"}'
@@ -1177,7 +1177,7 @@ templ FileMetadataSearchContent(data FileMetadataSearchData) {
 							{ strconv.Itoa(i) }
 						</span>
 					} else if i == 1 || i == data.TotalPages || (i >= data.Page-2 && i <= data.Page+2) {
-						<a hx-get={ fmt.Sprintf("/files/search?page=%d&limit=%d&status=%s&filename=%s&job_id=%s&hash=%s&start_date=%s&end_date=%s", i, data.Limit, data.Filter.Status, data.Filter.FileName, data.Filter.JobID, data.Filter.Hash, data.Filter.StartDate, data.Filter.EndDate) }
+						<a hx-get={ fmt.Sprintf("/files/search/partial?page=%d&limit=%d&status=%s&filename=%s&job_id=%s&hash=%s&start_date=%s&end_date=%s", i, data.Limit, data.Filter.Status, data.Filter.FileName, data.Filter.JobID, data.Filter.Hash, data.Filter.StartDate, data.Filter.EndDate) }
 						   hx-target="#search-results-container"
 						   hx-swap="innerHTML"
 						   hx-headers='{"X-HX-Request": "true"}'
@@ -1190,7 +1190,7 @@ templ FileMetadataSearchContent(data FileMetadataSearchData) {
 				}
 				
 				if data.Page < data.TotalPages {
-					<a hx-get={ fmt.Sprintf("/files/search?page=%d&limit=%d&status=%s&filename=%s&job_id=%s&hash=%s&start_date=%s&end_date=%s", data.Page + 1, data.Limit, data.Filter.Status, data.Filter.FileName, data.Filter.JobID, data.Filter.Hash, data.Filter.StartDate, data.Filter.EndDate) }
+					<a hx-get={ fmt.Sprintf("/files/search/partial?page=%d&limit=%d&status=%s&filename=%s&job_id=%s&hash=%s&start_date=%s&end_date=%s", data.Page + 1, data.Limit, data.Filter.Status, data.Filter.FileName, data.Filter.JobID, data.Filter.Hash, data.Filter.StartDate, data.Filter.EndDate) }
 					   hx-target="#search-results-container"
 					   hx-swap="innerHTML"
 					   hx-headers='{"X-HX-Request": "true"}'
