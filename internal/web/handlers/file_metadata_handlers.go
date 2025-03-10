@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -24,6 +25,7 @@ func (h *FileMetadataHandler) Register(router *gin.RouterGroup) {
 	fileGroup.GET("/job/:job_id", h.GetFileMetadataForJob)
 	fileGroup.GET("/search", h.SearchFileMetadata)
 	fileGroup.DELETE("/:id", h.DeleteFileMetadata)
+	fileGroup.GET("/partial", h.HandleFileMetadataPartial)
 }
 
 // ListFileMetadata displays a list of file metadata with pagination and filtering options
@@ -104,8 +106,18 @@ func (h *FileMetadataHandler) ListFileMetadata(c *gin.Context) {
 		data.TotalPages++
 	}
 
+	// Check if this is an HTMX request
+	isHtmxRequest := c.GetHeader("HX-Request") == "true" || c.Query("htmx") == "true"
+
 	c.Header("Content-Type", "text/html")
-	components.FileMetadataList(ctx, data).Render(ctx, c.Writer)
+
+	if isHtmxRequest {
+		// For HTMX requests, render just the partial template
+		components.FileMetadataListPartial(data).Render(ctx, c.Writer)
+	} else {
+		// For full page requests, render the complete template
+		components.FileMetadataList(ctx, data).Render(ctx, c.Writer)
+	}
 }
 
 // GetFileMetadataDetails displays detailed information about a specific file
@@ -237,8 +249,18 @@ func (h *FileMetadataHandler) GetFileMetadataForJob(c *gin.Context) {
 		data.TotalPages++
 	}
 
+	// Check if this is an HTMX request
+	isHtmxRequest := c.GetHeader("HX-Request") == "true" || c.Query("htmx") == "true"
+
 	c.Header("Content-Type", "text/html")
-	components.FileMetadataList(ctx, data).Render(ctx, c.Writer)
+
+	if isHtmxRequest {
+		// For HTMX requests, render just the partial template
+		components.FileMetadataListPartial(data).Render(ctx, c.Writer)
+	} else {
+		// For full page requests, render the complete template
+		components.FileMetadataList(ctx, data).Render(ctx, c.Writer)
+	}
 }
 
 // SearchFileMetadata searches file metadata based on various criteria
@@ -337,8 +359,21 @@ func (h *FileMetadataHandler) SearchFileMetadata(c *gin.Context) {
 		data.TotalPages++
 	}
 
+	// Add HTMX request checking and conditional rendering
+	ctx = context.WithValue(c.Request.Context(), "userID", userID)
+
+	// Check if this is an HTMX request
+	isHtmxRequest := c.GetHeader("HX-Request") == "true" || c.Query("htmx") == "true"
+
 	c.Header("Content-Type", "text/html")
-	components.FileMetadataSearch(ctx, data).Render(ctx, c.Writer)
+
+	if isHtmxRequest {
+		// For HTMX requests, render just the partial template
+		components.FileMetadataSearchContent(data).Render(ctx, c.Writer)
+	} else {
+		// For full page requests, render the complete template
+		components.FileMetadataSearch(ctx, data).Render(ctx, c.Writer)
+	}
 }
 
 // DeleteFileMetadata deletes a file metadata record
@@ -388,4 +423,97 @@ func (h *FileMetadataHandler) DeleteFileMetadata(c *gin.Context) {
 		// For regular browser requests, redirect to the file list
 		c.Redirect(http.StatusFound, "/files")
 	}
+}
+
+// HandleFileMetadataPartial handles partial updates for file metadata list pagination
+func (h *FileMetadataHandler) HandleFileMetadataPartial(c *gin.Context) {
+	userID := c.GetUint("userID")
+
+	// Query parameters for pagination and filtering
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if page < 1 {
+		page = 1
+	}
+
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "50"))
+	if limit < 1 || limit > 100 {
+		limit = 50
+	}
+
+	status := c.Query("status")
+	jobIDStr := c.Query("job_id")
+	fileName := c.Query("filename")
+
+	// Base query
+	query := h.DB.DB.Model(&db.FileMetadata{}).Joins("JOIN jobs ON file_metadata.job_id = jobs.id")
+
+	// Apply filters
+	if jobIDStr != "" {
+		jobID, _ := strconv.ParseUint(jobIDStr, 10, 64)
+		query = query.Where("file_metadata.job_id = ?", jobID)
+	} else {
+		// Only show files from jobs created by the current user
+		query = query.Where("jobs.created_by = ?", userID)
+	}
+
+	if status != "" {
+		query = query.Where("file_metadata.status = ?", status)
+	}
+
+	if fileName != "" {
+		query = query.Where("file_metadata.file_name LIKE ?", "%"+fileName+"%")
+	}
+
+	// Count total records for pagination
+	var totalCount int64
+	query.Count(&totalCount)
+
+	// Retrieve file metadata with pagination
+	var fileMetadata []db.FileMetadata
+	offset := (page - 1) * limit
+	err := query.Preload("Job").Preload("Job.Config").
+		Order("file_metadata.processed_time DESC").
+		Offset(offset).Limit(limit).
+		Find(&fileMetadata).Error
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve file metadata"})
+		return
+	}
+
+	// Create context for template
+	ctx := components.CreateTemplateContext(c)
+
+	// Prepare job pointer if needed
+	var job *db.Job
+	if jobIDStr != "" {
+		jobID, _ := strconv.ParseUint(jobIDStr, 10, 64)
+		var jobRecord db.Job
+		if err := h.DB.DB.First(&jobRecord, jobID).Error; err == nil {
+			job = &jobRecord
+		}
+	}
+
+	// Render the file metadata list template
+	data := components.FileMetadataListData{
+		Files:      fileMetadata,
+		TotalCount: totalCount,
+		Page:       page,
+		Limit:      limit,
+		TotalPages: int(totalCount) / limit,
+		Job:        job,
+		Filter: components.FileMetadataFilter{
+			Status:   status,
+			JobID:    jobIDStr,
+			FileName: fileName,
+		},
+	}
+
+	// If total count is not exactly divisible by limit, add one more page
+	if int(totalCount)%limit > 0 {
+		data.TotalPages++
+	}
+
+	c.Header("Content-Type", "text/html")
+	components.FileMetadataListPartial(data).Render(ctx, c.Writer)
 }
