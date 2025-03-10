@@ -128,12 +128,23 @@ func (s *Scheduler) executeJob(jobID uint) {
 		return
 	}
 
-	fmt.Printf("Loaded job %d with config: source=%s:%s, dest=%s:%s\n",
+	// Add explicit database reload of the config to ensure we have the latest values
+	var config db.TransferConfig
+	if err := s.db.First(&config, job.Config.ID).Error; err != nil {
+		fmt.Printf("Error loading config %d: %v\n", job.Config.ID, err)
+		return
+	}
+	// Replace the job's config with the freshly loaded one
+	job.Config = config
+
+	// Now the rest of your code will use the correct value
+	fmt.Printf("Loaded job %d with config: source=%s:%s, dest=%s:%s, skipProcessedFiles=%v\n",
 		jobID,
 		job.Config.SourceType,
 		job.Config.SourcePath,
 		job.Config.DestinationType,
 		job.Config.DestinationPath,
+		job.Config.SkipProcessedFiles,
 	)
 
 	// Create job history entry
@@ -155,6 +166,12 @@ func (s *Scheduler) executeJob(jobID uint) {
 	job.LastRun = &history.StartTime
 	if err := s.db.UpdateJobStatus(&job); err != nil {
 		fmt.Printf("Error updating job last run time for job %d: %v\n", jobID, err)
+	}
+
+	// Reload the job from the database to get the latest values
+	if err := s.db.Preload("Config").First(&job, jobID).Error; err != nil {
+		fmt.Printf("Error reloading job %d: %v\n", jobID, err)
+		return
 	}
 
 	// Track files already processed in this job execution to prevent duplicates
@@ -317,6 +334,8 @@ func (s *Scheduler) executeJob(jobID uint) {
 				}
 			}
 
+			skipFiles := job.Config.SkipProcessedFiles
+
 			// Check if this file has been processed before (by hash)
 			if fileHash != "" {
 				processed, prevMetadata, _ := s.hasFileBeenProcessed(jobID, fileHash)
@@ -324,13 +343,22 @@ func (s *Scheduler) executeJob(jobID uint) {
 					fmt.Printf("File %s has been processed before (hash: %s, previous file: %s)\n",
 						fileName, fileHash, prevMetadata.FileName)
 
-					// Skip previously processed files with the same hash if they were processed successfully
-					if prevMetadata.Status == "processed" ||
-						prevMetadata.Status == "archived" ||
-						prevMetadata.Status == "deleted" ||
-						prevMetadata.Status == "archived_and_deleted" {
+					// Determine if we should skip this file
+					shouldSkip := false
+					if skipFiles {
+						if prevMetadata.Status == "processed" ||
+							prevMetadata.Status == "archived" ||
+							prevMetadata.Status == "deleted" ||
+							prevMetadata.Status == "archived_and_deleted" {
+							shouldSkip = true
+						}
+					}
+
+					if shouldSkip {
 						fmt.Printf("Skipping unchanged file %s (hash matches previous processing)\n", fileName)
 						continue
+					} else {
+						fmt.Printf("Re-processing file %s despite previous processing (skipProcessedFiles=%v)\n", fileName, skipFiles)
 					}
 				}
 			}
@@ -341,17 +369,23 @@ func (s *Scheduler) executeJob(jobID uint) {
 				fmt.Printf("File %s was previously processed on %s with status: %s\n",
 					fileName, prevMetadata.ProcessedTime.Format(time.RFC3339), prevMetadata.Status)
 
-				// If the file was previously processed successfully and the hash hasn't changed,
-				// we could skip processing
-				if prevMetadata.Status == "processed" ||
-					prevMetadata.Status == "archived" ||
-					prevMetadata.Status == "deleted" ||
-					prevMetadata.Status == "archived_and_deleted" {
-					if fileHash != "" && fileHash == prevMetadata.FileHash {
-						fmt.Printf("Skipping unchanged file %s (hash matches previous processing)\n", fileName)
-						// Skip this file and continue to the next one
-						continue
+				// Determine if we should skip this file based on name+hash match
+				shouldSkip := false
+				if skipFiles && fileHash != "" && fileHash == prevMetadata.FileHash {
+					if prevMetadata.Status == "processed" ||
+						prevMetadata.Status == "archived" ||
+						prevMetadata.Status == "deleted" ||
+						prevMetadata.Status == "archived_and_deleted" {
+						shouldSkip = true
 					}
+				}
+
+				if shouldSkip {
+					fmt.Printf("Skipping unchanged file %s (hash matches previous processing)\n", fileName)
+					// Skip this file and continue to the next one
+					continue
+				} else if fileHash != "" && fileHash == prevMetadata.FileHash {
+					fmt.Printf("Re-processing file %s despite matching hash (skipProcessedFiles=%v)\n", fileName, skipFiles)
 				}
 			}
 

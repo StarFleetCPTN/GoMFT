@@ -121,6 +121,26 @@ templ ArchiveOptions() {
 				<i class="fas fa-exclamation-triangle mr-1"></i> Warning: This will permanently delete the original files
 			</p>
 		</div>
+		
+		<div class="mb-4">
+			<label for="skip_processed_files" class="flex items-center cursor-pointer">
+				<div class="relative">
+					<input id="skip_processed_files" name="skip_processed_files" type="checkbox" x-model="skipProcessedFiles"
+						class="sr-only"
+						:value="skipProcessedFiles ? 'true' : 'false'"
+					/>
+					<div class="block bg-gray-200 w-14 h-8 rounded-full"></div>
+					<div class="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"
+						:class="skipProcessedFiles ? 'transform translate-x-6 bg-primary-500' : ''"></div>
+				</div>
+				<div class="ml-3 text-gray-700 font-medium">
+					Skip files that have already been processed
+				</div>
+			</label>
+			<p class="mt-1 ml-14 text-xs text-gray-500">
+				Files with the same hash that have been successfully processed before will be skipped
+			</p>
+		</div>
 	</div>
 }
 

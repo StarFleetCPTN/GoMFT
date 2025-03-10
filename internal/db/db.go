@@ -102,6 +102,7 @@ type TransferConfig struct {
 	ArchiveEnabled      bool   `gorm:"default:false" form:"archive_enabled"`
 	RcloneFlags         string `form:"rclone_flags"`
 	DeleteAfterTransfer bool   `gorm:"default:false" form:"delete_after_transfer"`
+	SkipProcessedFiles  bool   `gorm:"default:true" form:"skip_processed_files"`
 	CreatedBy           uint
 	User                User `gorm:"foreignkey:CreatedBy"`
 	CreatedAt           time.Time
@@ -378,8 +379,19 @@ func (db *DB) DeleteFileMetadata(id uint) error {
 	return db.Delete(&FileMetadata{}, id).Error
 }
 
+// GetConfigRclonePath returns the path to the rclone config file for a given transfer config
 func (db *DB) GetConfigRclonePath(config *TransferConfig) string {
 	return filepath.Join("configs", fmt.Sprintf("config_%d.conf", config.ID))
+}
+
+// GetSkipProcessedFilesValue gets the current value of SkipProcessedFiles for a config
+func (db *DB) GetSkipProcessedFilesValue(configID uint) (bool, error) {
+	var value bool
+	err := db.Model(&TransferConfig{}).
+		Where("id = ?", configID).
+		Select("skip_processed_files").
+		Scan(&value).Error
+	return value, err
 }
 
 func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {

@@ -58,6 +58,10 @@ components/providers/common/*.go
 # Ignore the data directory
 data/
 
+# Ignore .env files
+.env
+*.env
+
 # Ignore the tmp directory
 tmp/ 
 

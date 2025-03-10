@@ -11,7 +11,8 @@ func InitMigrations(db *gorm.DB) *gormigrate.Gormigrate {
 		// ... existing migrations
 		AddDeleteAfterTransferColumn(),
 		AddCloudStorageFields(),
+		AddSkipProcessedFilesColumn(),
 	}
-	
+
 	return gormigrate.New(db, gormigrate.DefaultOptions, migrations)
-} 
+}

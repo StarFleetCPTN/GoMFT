@@ -72,6 +72,7 @@ func getInitialData(config *db.TransferConfig) string {
 	archivePath := ""
 	archiveEnabled := false
 	deleteAfterTransfer := false
+	skipProcessedFiles := true
 	rcloneFlags := ""
 
 	// If editing an existing config, populate with those values
@@ -129,6 +130,7 @@ func getInitialData(config *db.TransferConfig) string {
 		archivePath = config.ArchivePath
 		archiveEnabled = config.ArchiveEnabled
 		deleteAfterTransfer = config.DeleteAfterTransfer
+		skipProcessedFiles = config.SkipProcessedFiles
 		rcloneFlags = config.RcloneFlags
 	}
 
@@ -183,6 +185,7 @@ func getInitialData(config *db.TransferConfig) string {
 		archivePath: '%s',
 		archiveEnabled: %v,
 		deleteAfterTransfer: %v,
+		skipProcessedFiles: %v,
 		rcloneFlags: '%s',
 	}`, 
 	name, sourceType, sourcePath, sourceHost, sourcePort, sourceUser, sourcePassword, sourceKeyFile, sourceAuthType,
@@ -192,7 +195,7 @@ func getInitialData(config *db.TransferConfig) string {
 	destinationType, destinationPath, destHost, destPort, destUser, destPassword, destKeyFile, destAuthType,
 	destBucket, destRegion, destAccessKey, destSecretKey, destEndpoint, destShare, destDomain, destPassiveMode,
 	destClientId, destClientSecret, destDriveId, destTeamDrive,
-	archivePath, archiveEnabled, deleteAfterTransfer, rcloneFlags)
+	archivePath, archiveEnabled, deleteAfterTransfer, skipProcessedFiles, rcloneFlags)
 }
 
 templ ConfigForm(ctx context.Context, data ConfigFormData) {
