@@ -185,6 +185,28 @@ templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
 				console.log("Notyf initialized:", window.notyf);
 			}
 
+			// HTMX indicator styles
+			document.addEventListener('DOMContentLoaded', function() {
+				// Add CSS for HTMX loading indicators
+				if (!document.getElementById('htmx-indicator-style')) {
+					const style = document.createElement('style');
+					style.id = 'htmx-indicator-style';
+					style.textContent = `
+						.htmx-indicator {
+							opacity: 0;
+							transition: opacity 200ms ease-in;
+						}
+						.htmx-request .htmx-indicator {
+							opacity: 1;
+						}
+						.htmx-request.htmx-indicator {
+							opacity: 1;
+						}
+					`;
+					document.head.appendChild(style);
+				}
+			});
+
 			// Track all HTMX events for debugging
 			document.addEventListener('htmx:beforeRequest', function(event) {
 				// Check if this is a DELETE request by examining the URL and method
@@ -303,7 +325,12 @@ templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
 					<h2 class="text-lg font-semibold">Filter Files</h2>
 				</div>
 				<div class="card-body">
-					<form method="GET" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+					<form 
+						hx-get="/files?htmx=true" 
+						hx-target="#file-list-results" 
+						hx-swap="innerHTML"
+						hx-indicator="#filter-loading"
+						class="grid grid-cols-1 md:grid-cols-3 gap-4">
 						if data.Job == nil {
 							<div>
 								<label for="job_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Job</label>
@@ -331,6 +358,9 @@ templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
 							<button type="submit" class="btn-primary">
 								<i class="fas fa-filter mr-2"></i> Apply Filters
 							</button>
+							<div id="filter-loading" class="htmx-indicator ml-2 flex items-center">
+								<i class="fas fa-circle-notch fa-spin text-primary-600"></i>
+							</div>
 						</div>
 					</form>
 				</div>
@@ -344,115 +374,8 @@ templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
 						Page { strconv.Itoa(data.Page) } of { strconv.Itoa(data.TotalPages) }
 					</div>
 				</div>
-				<div class="overflow-x-auto">
-					if len(data.Files) > 0 {
-						<!-- Store file IDs for dialogs -->
-						<div id="dialog-container">
-							<!-- Dialogs will be rendered at the bottom of the container, outside the table -->
-							for _, file := range data.Files {
-								@FileMetadataDialog(
-									fmt.Sprintf("delete-file-dialog-%d", file.ID),
-									"Delete File Metadata",
-									fmt.Sprintf("Are you sure you want to delete the metadata for '%s'? This cannot be undone.", file.FileName),
-									"btn-danger",
-									"Delete",
-									"delete",
-									file.ID,
-									file.FileName,
-									"list",
-								)
-							}
-						</div>
-						<table class="table w-full">
-							<thead>
-								<tr>
-									<th>ID</th>
-									<th>Filename</th>
-									<th>Size</th>
-									<th>Processed</th>
-									<th>Status</th>
-									if data.Job == nil {
-										<th>Job</th>
-									}
-									<th>Actions</th>
-								</tr>
-							</thead>
-							<tbody>
-								for _, file := range data.Files {
-									<tr id={ fmt.Sprintf("file-row-%d", file.ID) } class="hover:bg-secondary-50 dark:hover:bg-secondary-800 transition-colors duration-150">
-										<td>{ strconv.FormatUint(uint64(file.ID), 10) }</td>
-										<td class="text-primary-600 dark:text-primary-400">
-											<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="hover:underline">
-												{ file.FileName }
-											</a>
-										</td>
-										<td>{ formatFileSize(file.FileSize) }</td>
-										<td>{ file.ProcessedTime.Format("2006-01-02 15:04:05") }</td>
-										<td>
-											<span class={ "badge", getStatusBadgeClass(file.Status) }>
-												{ file.Status }
-											</span>
-										</td>
-										if data.Job == nil && file.Job.ID > 0 {
-											<td>
-												<a href={ templ.SafeURL(fmt.Sprintf("/files/job/%d", file.Job.ID)) } class="hover:underline text-primary-600 dark:text-primary-400">
-													{ file.Job.Name }
-												</a>
-											</td>
-										}
-										<td class="flex space-x-2">
-											<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">
-												<i class="fas fa-eye"></i>
-											</a>
-											<!-- Delete button that triggers the dialog -->
-											<button 
-												type="button"
-												onclick={ showFileDialog(fmt.Sprintf("delete-file-dialog-%d", file.ID)) }
-												class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
-												<i class="fas fa-trash"></i>
-											</button>
-										</td>
-									</tr>
-								}
-							</tbody>
-						</table>
-						
-						<!-- Pagination -->
-						if data.TotalPages > 1 {
-							<div class="flex justify-center items-center py-4 bg-secondary-50 dark:bg-secondary-800">
-								<div class="flex space-x-1">
-									if data.Page > 1 {
-										<a href={ templ.SafeURL(buildPaginationURL(data, data.Page - 1)) } class="btn-secondary">
-											<i class="fas fa-chevron-left"></i>
-										</a>
-									}
-									
-									for i := 1; i <= data.TotalPages; i++ {
-										if i == data.Page {
-											<span class="px-3 py-2 bg-primary-600 text-white rounded">{ strconv.Itoa(i) }</span>
-										} else if i == 1 || i == data.TotalPages || (i >= data.Page-2 && i <= data.Page+2) {
-											<a href={ templ.SafeURL(buildPaginationURL(data, i)) } class="px-3 py-2 bg-secondary-200 text-secondary-800 hover:bg-secondary-300 rounded dark:bg-secondary-700 dark:text-secondary-200 dark:hover:bg-secondary-600">
-												{ strconv.Itoa(i) }
-											</a>
-										} else if i == data.Page-3 || i == data.Page+3 {
-											<span class="px-3 py-2">...</span>
-										}
-									}
-									
-									if data.Page < data.TotalPages {
-										<a href={ templ.SafeURL(buildPaginationURL(data, data.Page + 1)) } class="btn-secondary">
-											<i class="fas fa-chevron-right"></i>
-										</a>
-									}
-								</div>
-							</div>
-						}
-					} else {
-						<div class="p-6 text-center text-secondary-600 dark:text-secondary-400">
-							<i class="fas fa-file-alt text-5xl mb-3"></i>
-							<p>No file metadata found matching your criteria.</p>
-						</div>
-					}
+				<div id="file-list-results" class="overflow-x-auto">
+					@FileMetadataListPartial(data)
 				</div>
 			</div>
 		</div>
@@ -466,7 +389,7 @@ func buildPaginationURL(data FileMetadataListData, page int) string {
 		baseURL = fmt.Sprintf("/files/job/%d", data.Job.ID)
 	}
 	
-	url := fmt.Sprintf("%s?page=%d&limit=%d", baseURL, page, data.Limit)
+	url := fmt.Sprintf("%s?page=%d&limit=%d&htmx=true", baseURL, page, data.Limit)
 	
 	if data.Filter.Status != "" {
 		url += "&status=" + data.Filter.Status
@@ -791,6 +714,28 @@ templ FileMetadataSearch(ctx context.Context, data FileMetadataSearchData) {
 				console.log("Notyf initialized:", window.notyf);
 			}
 
+			// HTMX indicator styles
+			document.addEventListener('DOMContentLoaded', function() {
+				// Add CSS for HTMX loading indicators
+				if (!document.getElementById('htmx-indicator-style')) {
+					const style = document.createElement('style');
+					style.id = 'htmx-indicator-style';
+					style.textContent = `
+						.htmx-indicator {
+							opacity: 0;
+							transition: opacity 200ms ease-in;
+						}
+						.htmx-request .htmx-indicator {
+							opacity: 1;
+						}
+						.htmx-request.htmx-indicator {
+							opacity: 1;
+						}
+					`;
+					document.head.appendChild(style);
+				}
+			});
+
 			// Track all HTMX events for debugging
 			document.addEventListener('htmx:beforeRequest', function(event) {
 				// Check if this is a DELETE request by examining the URL and method
@@ -903,7 +848,12 @@ templ FileMetadataSearch(ctx context.Context, data FileMetadataSearchData) {
 					</h1>
 				</div>
 				<div class="card-body">
-					<form method="GET" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+					<form 
+						hx-get="/files/search?htmx=true" 
+						hx-target="#file-search-results" 
+						hx-swap="innerHTML"
+						hx-indicator="#search-form-loading"
+						class="grid grid-cols-1 md:grid-cols-2 gap-6">
 						<div>
 							<label for="job_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Job ID</label>
 							<input type="text" id="job_id" name="job_id" value={ data.Filter.JobID } placeholder="Job ID" 
@@ -944,6 +894,9 @@ templ FileMetadataSearch(ctx context.Context, data FileMetadataSearchData) {
 							<button type="submit" class="btn-primary">
 								<i class="fas fa-search mr-2"></i> Search Files
 							</button>
+							<div id="search-form-loading" class="htmx-indicator ml-2 flex items-center">
+								<i class="fas fa-circle-notch fa-spin text-primary-600"></i>
+							</div>
 						</div>
 					</form>
 				</div>
@@ -959,111 +912,8 @@ templ FileMetadataSearch(ctx context.Context, data FileMetadataSearchData) {
 							Page { strconv.Itoa(data.Page) } of { strconv.Itoa(data.TotalPages) }
 						</div>
 					</div>
-					<div class="overflow-x-auto">
-						if len(data.Files) > 0 {
-							<!-- Store file IDs for dialogs -->
-							<div id="search-dialog-container">
-								<!-- Dialogs will be rendered at the bottom of the container, outside the table -->
-								for _, file := range data.Files {
-									@FileMetadataDialog(
-										fmt.Sprintf("delete-file-dialog-%d", file.ID),
-										"Delete File Metadata",
-										fmt.Sprintf("Are you sure you want to delete the metadata for '%s'? This cannot be undone.", file.FileName),
-										"btn-danger",
-										"Delete",
-										"delete",
-										file.ID,
-										file.FileName,
-										"list",
-									)
-								}
-							</div>
-							<table class="table w-full">
-								<thead>
-									<tr>
-										<th>ID</th>
-										<th>Filename</th>
-										<th>Size</th>
-										<th>Processed</th>
-										<th>Status</th>
-										<th>Job</th>
-										<th>Actions</th>
-									</tr>
-								</thead>
-								<tbody>
-									for _, file := range data.Files {
-										<tr id={ fmt.Sprintf("file-row-%d", file.ID) } class="hover:bg-secondary-50 dark:hover:bg-secondary-800 transition-colors duration-150">
-											<td>{ strconv.FormatUint(uint64(file.ID), 10) }</td>
-											<td class="text-primary-600 dark:text-primary-400">
-												<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="hover:underline">
-													{ file.FileName }
-												</a>
-											</td>
-											<td>{ formatFileSize(file.FileSize) }</td>
-											<td>{ file.ProcessedTime.Format("2006-01-02 15:04:05") }</td>
-											<td>
-												<span class={ "badge", getStatusBadgeClass(file.Status) }>
-													{ file.Status }
-												</span>
-											</td>
-											<td>
-												<a href={ templ.SafeURL(fmt.Sprintf("/files/job/%d", file.Job.ID)) } class="hover:underline text-primary-600 dark:text-primary-400">
-													{ file.Job.Name }
-												</a>
-											</td>
-											<td class="flex space-x-2">
-												<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">
-													<i class="fas fa-eye"></i>
-												</a>
-												<!-- Delete button only - dialog moved outside table -->
-												<button 
-													type="button"
-													onclick={ showFileDialog(fmt.Sprintf("delete-file-dialog-%d", file.ID)) }
-													class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
-													<i class="fas fa-trash"></i>
-												</button>
-											</td>
-										</tr>
-									}
-								</tbody>
-							</table>
-							
-							<!-- Pagination -->
-							if data.TotalPages > 1 {
-								<div class="flex justify-center items-center py-4 bg-secondary-50 dark:bg-secondary-800">
-									<div class="flex space-x-1">
-										if data.Page > 1 {
-											<a href={ templ.SafeURL(buildSearchPaginationURL(data, data.Page - 1)) } class="btn-secondary">
-												<i class="fas fa-chevron-left"></i>
-											</a>
-										}
-										
-										for i := 1; i <= data.TotalPages; i++ {
-											if i == data.Page {
-												<span class="px-3 py-2 bg-primary-600 text-white rounded">{ strconv.Itoa(i) }</span>
-											} else if i == 1 || i == data.TotalPages || (i >= data.Page-2 && i <= data.Page+2) {
-												<a href={ templ.SafeURL(buildSearchPaginationURL(data, i)) } class="px-3 py-2 bg-secondary-200 text-secondary-800 hover:bg-secondary-300 rounded dark:bg-secondary-700 dark:text-secondary-200 dark:hover:bg-secondary-600">
-													{ strconv.Itoa(i) }
-												</a>
-											} else if i == data.Page-3 || i == data.Page+3 {
-												<span class="px-3 py-2">...</span>
-											}
-										}
-										
-										if data.Page < data.TotalPages {
-											<a href={ templ.SafeURL(buildSearchPaginationURL(data, data.Page + 1)) } class="btn-secondary">
-												<i class="fas fa-chevron-right"></i>
-											</a>
-										}
-									</div>
-								</div>
-							}
-						} else {
-							<div class="p-6 text-center text-secondary-600 dark:text-secondary-400">
-								<i class="fas fa-search text-5xl mb-3"></i>
-								<p>No files found matching your search criteria.</p>
-							</div>
-						}
+					<div id="file-search-results" class="overflow-x-auto">
+						@FileMetadataSearchPartial(data)
 					</div>
 				</div>
 			}
@@ -1073,7 +923,7 @@ templ FileMetadataSearch(ctx context.Context, data FileMetadataSearchData) {
 
 // buildSearchPaginationURL builds a URL for search pagination links
 func buildSearchPaginationURL(data FileMetadataSearchData, page int) string {
-	url := fmt.Sprintf("/files/search?page=%d&limit=%d", page, data.Limit)
+	url := fmt.Sprintf("/files/search?page=%d&limit=%d&htmx=true", page, data.Limit)
 	
 	if data.Filter.Status != "" {
 		url += "&status=" + data.Filter.Status
@@ -1100,4 +950,282 @@ func buildSearchPaginationURL(data FileMetadataSearchData, page int) string {
 	}
 	
 	return url
+}
+
+// FileMetadataListPartial renders just the list content for HTMX requests
+templ FileMetadataListPartial(data FileMetadataListData) {
+	if len(data.Files) > 0 {
+		<!-- Store file IDs for dialogs -->
+		<div id="dialog-container">
+			<!-- Dialogs will be rendered at the bottom of the container, outside the table -->
+			for _, file := range data.Files {
+				@FileMetadataDialog(
+					fmt.Sprintf("delete-file-dialog-%d", file.ID),
+					"Delete File Metadata",
+					fmt.Sprintf("Are you sure you want to delete the metadata for '%s'? This cannot be undone.", file.FileName),
+					"btn-danger",
+					"Delete",
+					"delete",
+					file.ID,
+					file.FileName,
+					"list",
+				)
+			}
+		</div>
+		<table class="table w-full">
+			<thead>
+				<tr>
+					<th>ID</th>
+					<th>Filename</th>
+					<th>Size</th>
+					<th>Processed</th>
+					<th>Status</th>
+					if data.Job == nil {
+						<th>Job</th>
+					}
+					<th>Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, file := range data.Files {
+					<tr id={ fmt.Sprintf("file-row-%d", file.ID) } class="hover:bg-secondary-50 dark:hover:bg-secondary-800 transition-colors duration-150">
+						<td>{ strconv.FormatUint(uint64(file.ID), 10) }</td>
+						<td class="text-primary-600 dark:text-primary-400">
+							<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="hover:underline">
+								{ file.FileName }
+							</a>
+						</td>
+						<td>{ formatFileSize(file.FileSize) }</td>
+						<td>{ file.ProcessedTime.Format("2006-01-02 15:04:05") }</td>
+						<td>
+							<span class={ "badge", getStatusBadgeClass(file.Status) }>
+								{ file.Status }
+							</span>
+						</td>
+						if data.Job == nil && file.Job.ID > 0 {
+							<td>
+								<a href={ templ.SafeURL(fmt.Sprintf("/files/job/%d", file.Job.ID)) } class="hover:underline text-primary-600 dark:text-primary-400">
+									{ file.Job.Name }
+								</a>
+							</td>
+						}
+						<td class="flex space-x-2">
+							<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">
+								<i class="fas fa-eye"></i>
+							</a>
+							<!-- Delete button that triggers the dialog -->
+							<button 
+								type="button"
+								onclick={ showFileDialog(fmt.Sprintf("delete-file-dialog-%d", file.ID)) }
+								class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
+								<i class="fas fa-trash"></i>
+							</button>
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+		
+		<!-- Pagination -->
+		if data.TotalPages > 1 {
+			<div class="flex justify-center items-center py-4 bg-secondary-50 dark:bg-secondary-800 rounded-lg">
+				<div class="flex gap-2">
+					if data.Page > 1 {
+						<a 
+							hx-get={ buildPaginationURL(data, data.Page - 1) }
+							hx-target="#file-list-results"
+							hx-swap="innerHTML"
+							hx-indicator="#pagination-loading"
+							class="w-10 h-10 flex items-center justify-center bg-secondary-200 text-secondary-800 hover:bg-secondary-300 rounded dark:bg-secondary-700 dark:text-secondary-200 dark:hover:bg-secondary-600">
+							<i class="fas fa-chevron-left"></i>
+						</a>
+					} else {
+						<span class="w-10 h-10 flex items-center justify-center bg-secondary-100 text-secondary-300 rounded dark:bg-secondary-800 dark:text-secondary-600 cursor-not-allowed">
+							<i class="fas fa-chevron-left"></i>
+						</span>
+					}
+					
+					for i := 1; i <= data.TotalPages; i++ {
+						if i == data.Page {
+							<span class="w-10 h-10 flex items-center justify-center bg-primary-600 text-white rounded">
+								{ strconv.Itoa(i) }
+							</span>
+						} else if i == 1 || i == data.TotalPages || (i >= data.Page-2 && i <= data.Page+2) {
+							<a 
+								hx-get={ buildPaginationURL(data, i) }
+								hx-target="#file-list-results"
+								hx-swap="innerHTML"
+								hx-indicator="#pagination-loading"
+								class="w-10 h-10 flex items-center justify-center bg-secondary-200 text-secondary-800 hover:bg-secondary-300 rounded dark:bg-secondary-700 dark:text-secondary-200 dark:hover:bg-secondary-600">
+								{ strconv.Itoa(i) }
+							</a>
+						} else if i == data.Page-3 || i == data.Page+3 {
+							<span class="w-10 h-10 flex items-center justify-center">...</span>
+						}
+					}
+					
+					if data.Page < data.TotalPages {
+						<a 
+							hx-get={ buildPaginationURL(data, data.Page + 1) }
+							hx-target="#file-list-results"
+							hx-swap="innerHTML"
+							hx-indicator="#pagination-loading"
+							class="w-10 h-10 flex items-center justify-center bg-secondary-200 text-secondary-800 hover:bg-secondary-300 rounded dark:bg-secondary-700 dark:text-secondary-200 dark:hover:bg-secondary-600">
+							<i class="fas fa-chevron-right"></i>
+						</a>
+					} else {
+						<span class="w-10 h-10 flex items-center justify-center bg-secondary-100 text-secondary-300 rounded dark:bg-secondary-800 dark:text-secondary-600 cursor-not-allowed">
+							<i class="fas fa-chevron-right"></i>
+						</span>
+					}
+				</div>
+				<!-- Add loading indicator for HTMX requests -->
+				<div id="pagination-loading" class="htmx-indicator ml-2">
+					<i class="fas fa-circle-notch fa-spin text-primary-600"></i>
+				</div>
+			</div>
+		}
+	} else {
+		<div class="p-6 text-center text-secondary-600 dark:text-secondary-400">
+			<i class="fas fa-file-alt text-5xl mb-3"></i>
+			<p>No file metadata found matching your criteria.</p>
+		</div>
+	}
+}
+
+// FileMetadataSearchPartial renders just the search results content for HTMX requests
+templ FileMetadataSearchPartial(data FileMetadataSearchData) {
+	if len(data.Files) > 0 {
+		<!-- Store file IDs for dialogs -->
+		<div id="search-dialog-container">
+			<!-- Dialogs will be rendered at the bottom of the container, outside the table -->
+			for _, file := range data.Files {
+				@FileMetadataDialog(
+					fmt.Sprintf("delete-file-dialog-%d", file.ID),
+					"Delete File Metadata",
+					fmt.Sprintf("Are you sure you want to delete the metadata for '%s'? This cannot be undone.", file.FileName),
+					"btn-danger",
+					"Delete",
+					"delete",
+					file.ID,
+					file.FileName,
+					"list",
+				)
+			}
+		</div>
+		<table class="table w-full">
+			<thead>
+				<tr>
+					<th>ID</th>
+					<th>Filename</th>
+					<th>Size</th>
+					<th>Processed</th>
+					<th>Status</th>
+					<th>Job</th>
+					<th>Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, file := range data.Files {
+					<tr id={ fmt.Sprintf("file-row-%d", file.ID) } class="hover:bg-secondary-50 dark:hover:bg-secondary-800 transition-colors duration-150">
+						<td>{ strconv.FormatUint(uint64(file.ID), 10) }</td>
+						<td class="text-primary-600 dark:text-primary-400">
+							<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="hover:underline">
+								{ file.FileName }
+							</a>
+						</td>
+						<td>{ formatFileSize(file.FileSize) }</td>
+						<td>{ file.ProcessedTime.Format("2006-01-02 15:04:05") }</td>
+						<td>
+							<span class={ "badge", getStatusBadgeClass(file.Status) }>
+								{ file.Status }
+							</span>
+						</td>
+						<td>
+							<a href={ templ.SafeURL(fmt.Sprintf("/files/job/%d", file.Job.ID)) } class="hover:underline text-primary-600 dark:text-primary-400">
+								{ file.Job.Name }
+							</a>
+						</td>
+						<td class="flex space-x-2">
+							<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">
+								<i class="fas fa-eye"></i>
+							</a>
+							<!-- Delete button only - dialog moved outside table -->
+							<button 
+								type="button"
+								onclick={ showFileDialog(fmt.Sprintf("delete-file-dialog-%d", file.ID)) }
+								class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
+								<i class="fas fa-trash"></i>
+							</button>
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+		
+		<!-- Pagination -->
+		if data.TotalPages > 1 {
+			<div class="flex justify-center items-center py-4 bg-secondary-50 dark:bg-secondary-800 rounded-lg">
+				<div class="flex gap-2">
+					if data.Page > 1 {
+						<a 
+							hx-get={ buildSearchPaginationURL(data, data.Page - 1) }
+							hx-target="#file-search-results"
+							hx-swap="innerHTML"
+							hx-indicator="#search-pagination-loading"
+							class="w-10 h-10 flex items-center justify-center bg-secondary-200 text-secondary-800 hover:bg-secondary-300 rounded dark:bg-secondary-700 dark:text-secondary-200 dark:hover:bg-secondary-600">
+							<i class="fas fa-chevron-left"></i>
+						</a>
+					} else {
+						<span class="w-10 h-10 flex items-center justify-center bg-secondary-100 text-secondary-300 rounded dark:bg-secondary-800 dark:text-secondary-600 cursor-not-allowed">
+							<i class="fas fa-chevron-left"></i>
+						</span>
+					}
+					
+					for i := 1; i <= data.TotalPages; i++ {
+						if i == data.Page {
+							<span class="w-10 h-10 flex items-center justify-center bg-primary-600 text-white rounded">
+								{ strconv.Itoa(i) }
+							</span>
+						} else if i == 1 || i == data.TotalPages || (i >= data.Page-2 && i <= data.Page+2) {
+							<a 
+								hx-get={ buildSearchPaginationURL(data, i) }
+								hx-target="#file-search-results"
+								hx-swap="innerHTML"
+								hx-indicator="#search-pagination-loading"
+								class="w-10 h-10 flex items-center justify-center bg-secondary-200 text-secondary-800 hover:bg-secondary-300 rounded dark:bg-secondary-700 dark:text-secondary-200 dark:hover:bg-secondary-600">
+								{ strconv.Itoa(i) }
+							</a>
+						} else if i == data.Page-3 || i == data.Page+3 {
+							<span class="w-10 h-10 flex items-center justify-center">...</span>
+						}
+					}
+					
+					if data.Page < data.TotalPages {
+						<a 
+							hx-get={ buildSearchPaginationURL(data, data.Page + 1) }
+							hx-target="#file-search-results"
+							hx-swap="innerHTML"
+							hx-indicator="#search-pagination-loading"
+							class="w-10 h-10 flex items-center justify-center bg-secondary-200 text-secondary-800 hover:bg-secondary-300 rounded dark:bg-secondary-700 dark:text-secondary-200 dark:hover:bg-secondary-600">
+							<i class="fas fa-chevron-right"></i>
+						</a>
+					} else {
+						<span class="w-10 h-10 flex items-center justify-center bg-secondary-100 text-secondary-300 rounded dark:bg-secondary-800 dark:text-secondary-600 cursor-not-allowed">
+							<i class="fas fa-chevron-right"></i>
+						</span>
+					}
+				</div>
+				<!-- Add loading indicator for HTMX requests -->
+				<div id="search-pagination-loading" class="htmx-indicator ml-2">
+					<i class="fas fa-circle-notch fa-spin text-primary-600"></i>
+				</div>
+			</div>
+		}
+	} else {
+		<div class="p-6 text-center text-secondary-600 dark:text-secondary-400">
+			<i class="fas fa-search text-5xl mb-3"></i>
+			<p>No files found matching your search criteria.</p>
+		</div>
+	}
 } 
