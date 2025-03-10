@@ -74,9 +74,213 @@ func formatFileSize(size int64) string {
 	}
 }
 
+// Dialog component for confirmation dialogs
+templ FileMetadataDialog(id string, title string, message string, confirmClass string, confirmText string, action string, fileID uint, fileName string, section string) {
+	<div id={ id } class="hidden fixed inset-0 bg-secondary-900/50 dark:bg-secondary-900/80 backdrop-blur-sm z-50 flex items-center justify-center">
+		<div class="bg-white dark:bg-secondary-800 rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden">
+			<div class="px-6 pt-5 pb-3 text-center">
+				<div class="flex justify-center mb-2">
+					<i class="fas fa-exclamation-triangle text-yellow-400 text-3xl"></i>
+				</div>
+				<h3 class="text-xl font-medium text-secondary-900 dark:text-secondary-100">
+					{ title }
+				</h3>
+			</div>
+			<div class="px-6 py-4 text-center">
+				<p class="text-secondary-700 dark:text-secondary-300">
+					{ message }
+				</p>
+			</div>
+			<div class="px-6 py-4 flex justify-end space-x-3">
+				<button type="button" class="btn-secondary" onclick={ hideFileDialog(id) }>
+					Cancel
+				</button>
+				if section == "list" {
+					<button 
+						type="button" 
+						class={ confirmClass }
+						hx-delete={ fmt.Sprintf("/files/%d", fileID) }
+						hx-target={ fmt.Sprintf("#file-row-%d", fileID) }
+						hx-swap="delete"
+						data-file-name={ fileName }
+						data-file-id={ fmt.Sprint(fileID) }
+						id={ fmt.Sprintf("delete-file-btn-%d", fileID) }
+						onclick={ triggerFileDelete(id, fileID, fileName) }>
+						{ confirmText }
+					</button>
+				} else {
+					<button 
+						type="button" 
+						class={ confirmClass }
+						hx-delete={ fmt.Sprintf("/files/%d", fileID) }
+						hx-redirect="/files"
+						data-file-name={ fileName }
+						data-file-id={ fmt.Sprint(fileID) }
+						id={ fmt.Sprintf("delete-file-btn-%d", fileID) }
+						onclick={ triggerFileDelete(id, fileID, fileName) }>
+						{ confirmText }
+					</button>
+				}
+			</div>
+		</div>
+	</div>
+}
+
+script hideFileDialog(id string) {
+	document.getElementById(id).classList.add("hidden");
+}
+
+script showFileDialog(id string) {
+	document.getElementById(id).classList.remove("hidden");
+}
+
+script triggerFileDelete(dialogId string, fileID uint, fileName string) {
+	// Hide the dialog
+	document.getElementById(dialogId).classList.add("hidden");
+		
+	// Store data in a way that's accessible to event handlers
+	window.lastDeletedFile = {
+		id: fileID,
+		name: fileName
+	};
+
+	// Add custom marker to track this deletion
+	window.currentlyDeletingFile = true;
+}
+
 // FileMetadataList renders a list of file metadata with pagination and filters
 templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
 	@LayoutWithContext("File Metadata", ctx) {
+		<script>
+			// Debug notification system
+			console.log("File Metadata template loaded, setting up notification system");
+			
+			// Create a global notyf instance if it doesn't exist yet
+			if (!window.notyf) {
+				window.notyf = new Notyf({
+					duration: 3000,
+					position: {
+						x: 'right',
+						y: 'top',
+					},
+					types: [
+						{
+							type: 'success',
+							background: '#38c172',
+							icon: {
+								className: 'fas fa-check-circle',
+								tagName: 'i'
+							}
+						},
+						{
+							type: 'error',
+							background: '#e3342f',
+							icon: {
+								className: 'fas fa-exclamation-circle',
+								tagName: 'i'
+							}
+						}
+					]
+				});
+				console.log("Notyf initialized:", window.notyf);
+			}
+
+			// Track all HTMX events for debugging
+			document.addEventListener('htmx:beforeRequest', function(event) {
+				// Check if this is a DELETE request by examining the URL and method
+				const path = event.detail.path;
+				const method = event.detail.verb;
+								
+				// Pattern match for file deletions (e.g., /files/123)
+				if (path && method === 'DELETE' && path.match(/^\/files\/\d+$/)) {
+					// This is definitely a delete request - store this information
+					window.isFileDeleteRequest = true;
+				}
+			});
+
+			// Track HTMX after-request events for file deletion
+			document.addEventListener('htmx:afterRequest', function(event) {
+				// Check for file deletion multiple ways
+				const isDeleteRequest = 
+					// Check global flag from the triggerFileDelete function
+					window.currentlyDeletingFile ||
+					// Check flag from beforeRequest handler
+					window.isFileDeleteRequest ||
+					// Check URL pattern directly from this event
+					(event.detail.pathInfo && event.detail.pathInfo.requestPath && 
+					 event.detail.pathInfo.requestPath.match(/^\/files\/\d+$/) && 
+					 event.detail.verb === 'DELETE');
+				
+				// If this is a successful delete request, show notification
+				if (isDeleteRequest && event.detail.successful) {
+					let fileName = "Unknown";
+					
+					// Try multiple sources for file name
+					if (event.detail.elt && event.detail.elt.getAttribute) {
+						fileName = event.detail.elt.getAttribute('data-file-name') || fileName;
+					}
+					
+					if (fileName === "Unknown" && window.lastDeletedFile) {
+						// Fallback to our stored file info
+						fileName = window.lastDeletedFile.name;
+					}
+					
+					window.notyf.success(`File "${fileName}" deleted successfully`);
+					
+					// Clear flags
+					window.currentlyDeletingFile = false;
+					window.isFileDeleteRequest = false;
+					window.lastDeletedFile = null;
+					
+				}
+			});
+			
+			// Track HTMX error events for file deletion
+			document.addEventListener('htmx:responseError', function(event) {
+				// Similar logic as success but for errors
+				const isDeleteRequest = 
+					window.currentlyDeletingFile ||
+					window.isFileDeleteRequest ||
+					(event.detail.pathInfo && event.detail.pathInfo.requestPath && 
+					 event.detail.pathInfo.requestPath.match(/^\/files\/\d+$/) && 
+					 event.detail.verb === 'DELETE');
+				
+				if (isDeleteRequest) {
+					let fileName = "Unknown";
+					
+					// Try multiple sources for file name
+					if (event.detail.elt && event.detail.elt.getAttribute) {
+						fileName = event.detail.elt.getAttribute('data-file-name') || fileName;
+					}
+					
+					if (fileName === "Unknown" && window.lastDeletedFile) {
+						// Fallback to our stored file info
+						fileName = window.lastDeletedFile.name;
+					}
+					
+					let errorMsg = `Failed to delete file "${fileName}"`;
+					
+					if (event.detail.xhr && event.detail.xhr.responseText) {
+						errorMsg = event.detail.xhr.responseText
+						// error message is a json object
+						try {
+							const error = JSON.parse(errorMsg);
+							errorMsg = `Error: ${error.error}`;
+						} catch(e) {
+							// Not JSON, use as is
+						}
+					}
+					
+					window.notyf.error(errorMsg);
+					
+					// Clear flags
+					window.currentlyDeletingFile = false;
+					window.isFileDeleteRequest = false;
+					window.lastDeletedFile = null;
+				}
+			});
+		</script>
+		
 		<div class="container mx-auto px-4 py-8 animate-fadeIn">
 			<div class="flex justify-between items-center mb-6">
 				<h1 class="text-2xl font-bold text-secondary-800 dark:text-secondary-200">
@@ -142,6 +346,23 @@ templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
 				</div>
 				<div class="overflow-x-auto">
 					if len(data.Files) > 0 {
+						<!-- Store file IDs for dialogs -->
+						<div id="dialog-container">
+							<!-- Dialogs will be rendered at the bottom of the container, outside the table -->
+							for _, file := range data.Files {
+								@FileMetadataDialog(
+									fmt.Sprintf("delete-file-dialog-%d", file.ID),
+									"Delete File Metadata",
+									fmt.Sprintf("Are you sure you want to delete the metadata for '%s'? This cannot be undone.", file.FileName),
+									"btn-danger",
+									"Delete",
+									"delete",
+									file.ID,
+									file.FileName,
+									"list",
+								)
+							}
+						</div>
 						<table class="table w-full">
 							<thead>
 								<tr>
@@ -158,7 +379,7 @@ templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
 							</thead>
 							<tbody>
 								for _, file := range data.Files {
-									<tr class="hover:bg-secondary-50 dark:hover:bg-secondary-800 transition-colors duration-150">
+									<tr id={ fmt.Sprintf("file-row-%d", file.ID) } class="hover:bg-secondary-50 dark:hover:bg-secondary-800 transition-colors duration-150">
 										<td>{ strconv.FormatUint(uint64(file.ID), 10) }</td>
 										<td class="text-primary-600 dark:text-primary-400">
 											<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="hover:underline">
@@ -183,11 +404,11 @@ templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
 											<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">
 												<i class="fas fa-eye"></i>
 											</a>
-											<button
-												class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
-												hx-delete={ fmt.Sprintf("/files/%d", file.ID) }
-												hx-confirm="Are you sure you want to delete this file metadata record? This cannot be undone."
-												hx-target="body">
+											<!-- Delete button that triggers the dialog -->
+											<button 
+												type="button"
+												onclick={ showFileDialog(fmt.Sprintf("delete-file-dialog-%d", file.ID)) }
+												class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
 												<i class="fas fa-trash"></i>
 											</button>
 										</td>
@@ -265,6 +486,140 @@ func buildPaginationURL(data FileMetadataListData, page int) string {
 // FileMetadataDetails renders detailed information about a file
 templ FileMetadataDetails(ctx context.Context, data FileMetadataDetailsData) {
 	@LayoutWithContext("File Details", ctx) {
+		<script>
+			// Debug notification system
+			console.log("File Details template loaded, setting up notification system");
+			
+			// Create a global notyf instance if it doesn't exist yet
+			if (!window.notyf) {
+				window.notyf = new Notyf({
+					duration: 3000,
+					position: {
+						x: 'right',
+						y: 'top',
+					},
+					types: [
+						{
+							type: 'success',
+							background: '#38c172',
+							icon: {
+								className: 'fas fa-check-circle',
+								tagName: 'i'
+							}
+						},
+						{
+							type: 'error',
+							background: '#e3342f',
+							icon: {
+								className: 'fas fa-exclamation-circle',
+								tagName: 'i'
+							}
+						}
+					]
+				});
+				console.log("Notyf initialized:", window.notyf);
+			}
+
+			// Track all HTMX events for debugging
+			document.addEventListener('htmx:beforeRequest', function(event) {
+				// Check if this is a DELETE request by examining the URL and method
+				const path = event.detail.path;
+				const method = event.detail.verb;
+								
+				// Pattern match for file deletions (e.g., /files/123)
+				if (path && method === 'DELETE' && path.match(/^\/files\/\d+$/)) {
+					// This is definitely a delete request - store this information
+					window.isFileDeleteRequest = true;
+				}
+			});
+
+			// Track HTMX after-request events for file deletion
+			document.addEventListener('htmx:afterRequest', function(event) {
+				// Check for file deletion multiple ways
+				const isDeleteRequest = 
+					// Check global flag from the triggerFileDelete function
+					window.currentlyDeletingFile ||
+					// Check flag from beforeRequest handler
+					window.isFileDeleteRequest ||
+					// Check URL pattern directly from this event
+					(event.detail.pathInfo && event.detail.pathInfo.requestPath && 
+					 event.detail.pathInfo.requestPath.match(/^\/files\/\d+$/) && 
+					 event.detail.verb === 'DELETE');
+				
+				// If this is a successful delete request, show notification and redirect
+				if (isDeleteRequest && event.detail.successful) {
+					let fileName = "Unknown";
+					
+					// Try multiple sources for file name
+					if (event.detail.elt && event.detail.elt.getAttribute) {
+						fileName = event.detail.elt.getAttribute('data-file-name') || fileName;
+					}
+					
+					if (fileName === "Unknown" && window.lastDeletedFile) {
+						// Fallback to our stored file info
+						fileName = window.lastDeletedFile.name;
+					}
+					
+					window.notyf.success(`File "${fileName}" deleted successfully`);
+					
+					// Clear flags
+					window.currentlyDeletingFile = false;
+					window.isFileDeleteRequest = false;
+					window.lastDeletedFile = null;
+					
+					// Redirect to files list after successful deletion
+					setTimeout(function() {
+						window.location.href = "/files";
+					}, 1000);
+				}
+			});
+			
+			// Track HTMX error events for file deletion
+			document.addEventListener('htmx:responseError', function(event) {
+				// Similar logic as success but for errors
+				const isDeleteRequest = 
+					window.currentlyDeletingFile ||
+					window.isFileDeleteRequest ||
+					(event.detail.pathInfo && event.detail.pathInfo.requestPath && 
+					 event.detail.pathInfo.requestPath.match(/^\/files\/\d+$/) && 
+					 event.detail.verb === 'DELETE');
+				
+				if (isDeleteRequest) {
+					let fileName = "Unknown";
+					
+					// Try multiple sources for file name
+					if (event.detail.elt && event.detail.elt.getAttribute) {
+						fileName = event.detail.elt.getAttribute('data-file-name') || fileName;
+					}
+					
+					if (fileName === "Unknown" && window.lastDeletedFile) {
+						// Fallback to our stored file info
+						fileName = window.lastDeletedFile.name;
+					}
+					
+					let errorMsg = `Failed to delete file "${fileName}"`;
+					
+					if (event.detail.xhr && event.detail.xhr.responseText) {
+						errorMsg = event.detail.xhr.responseText
+						// error message is a json object
+						try {
+							const error = JSON.parse(errorMsg);
+							errorMsg = `Error: ${error.error}`;
+						} catch(e) {
+							// Not JSON, use as is
+						}
+					}
+					
+					window.notyf.error(errorMsg);
+					
+					// Clear flags
+					window.currentlyDeletingFile = false;
+					window.isFileDeleteRequest = false;
+					window.lastDeletedFile = null;
+				}
+			});
+		</script>
+		
 		<div class="container mx-auto px-4 py-8 animate-fadeIn">
 			<div class="mb-6">
 				<a href="/files" class="text-primary-600 dark:text-primary-400 hover:underline">
@@ -373,11 +728,23 @@ templ FileMetadataDetails(ctx context.Context, data FileMetadataDetailsData) {
 						<a href="/files" class="btn-secondary">
 							<i class="fas fa-list mr-2"></i> Back to Files
 						</a>
+						
+						<!-- Add dialog for the file -->
+						@FileMetadataDialog(
+							fmt.Sprintf("delete-file-dialog-%d", data.File.ID),
+							"Delete File Metadata",
+							fmt.Sprintf("Are you sure you want to delete the metadata for '%s'? This cannot be undone.", data.File.FileName),
+							"btn-danger",
+							"Delete",
+							"delete",
+							data.File.ID,
+							data.File.FileName,
+							"details",
+						)
 						<button 
-							class="btn-danger"
-							hx-delete={ fmt.Sprintf("/files/%d", data.File.ID) }
-							hx-confirm="Are you sure you want to delete this file metadata record? This cannot be undone."
-							hx-target="body">
+							type="button"
+							onclick={ showFileDialog(fmt.Sprintf("delete-file-dialog-%d", data.File.ID)) }
+							class="btn-danger">
 							<i class="fas fa-trash mr-2"></i> Delete Record
 						</button>
 					</div>
@@ -390,6 +757,138 @@ templ FileMetadataDetails(ctx context.Context, data FileMetadataDetailsData) {
 // FileMetadataSearch renders an advanced search form for file metadata
 templ FileMetadataSearch(ctx context.Context, data FileMetadataSearchData) {
 	@LayoutWithContext("Search Files", ctx) {
+		<script>
+			// Debug notification system
+			console.log("File Search template loaded, setting up notification system");
+			
+			// Create a global notyf instance if it doesn't exist yet
+			if (!window.notyf) {
+				window.notyf = new Notyf({
+					duration: 3000,
+					position: {
+						x: 'right',
+						y: 'top',
+					},
+					types: [
+						{
+							type: 'success',
+							background: '#38c172',
+							icon: {
+								className: 'fas fa-check-circle',
+								tagName: 'i'
+							}
+						},
+						{
+							type: 'error',
+							background: '#e3342f',
+							icon: {
+								className: 'fas fa-exclamation-circle',
+								tagName: 'i'
+							}
+						}
+					]
+				});
+				console.log("Notyf initialized:", window.notyf);
+			}
+
+			// Track all HTMX events for debugging
+			document.addEventListener('htmx:beforeRequest', function(event) {
+				// Check if this is a DELETE request by examining the URL and method
+				const path = event.detail.path;
+				const method = event.detail.verb;
+								
+				// Pattern match for file deletions (e.g., /files/123)
+				if (path && method === 'DELETE' && path.match(/^\/files\/\d+$/)) {
+					// This is definitely a delete request - store this information
+					window.isFileDeleteRequest = true;
+				}
+			});
+
+			// Track HTMX after-request events for file deletion
+			document.addEventListener('htmx:afterRequest', function(event) {
+				// Check for file deletion multiple ways
+				const isDeleteRequest = 
+					// Check global flag from the triggerFileDelete function
+					window.currentlyDeletingFile ||
+					// Check flag from beforeRequest handler
+					window.isFileDeleteRequest ||
+					// Check URL pattern directly from this event
+					(event.detail.pathInfo && event.detail.pathInfo.requestPath && 
+					 event.detail.pathInfo.requestPath.match(/^\/files\/\d+$/) && 
+					 event.detail.verb === 'DELETE');
+				
+				// If this is a successful delete request, show notification
+				if (isDeleteRequest && event.detail.successful) {
+					let fileName = "Unknown";
+					
+					// Try multiple sources for file name
+					if (event.detail.elt && event.detail.elt.getAttribute) {
+						fileName = event.detail.elt.getAttribute('data-file-name') || fileName;
+					}
+					
+					if (fileName === "Unknown" && window.lastDeletedFile) {
+						// Fallback to our stored file info
+						fileName = window.lastDeletedFile.name;
+					}
+					
+					window.notyf.success(`File "${fileName}" deleted successfully`);
+					
+					// Clear flags
+					window.currentlyDeletingFile = false;
+					window.isFileDeleteRequest = false;
+					window.lastDeletedFile = null;
+					
+					// Reload the page to update the file list
+					window.location.reload();
+				}
+			});
+			
+			// Track HTMX error events for file deletion
+			document.addEventListener('htmx:responseError', function(event) {
+				// Similar logic as success but for errors
+				const isDeleteRequest = 
+					window.currentlyDeletingFile ||
+					window.isFileDeleteRequest ||
+					(event.detail.pathInfo && event.detail.pathInfo.requestPath && 
+					 event.detail.pathInfo.requestPath.match(/^\/files\/\d+$/) && 
+					 event.detail.verb === 'DELETE');
+				
+				if (isDeleteRequest) {
+					let fileName = "Unknown";
+					
+					// Try multiple sources for file name
+					if (event.detail.elt && event.detail.elt.getAttribute) {
+						fileName = event.detail.elt.getAttribute('data-file-name') || fileName;
+					}
+					
+					if (fileName === "Unknown" && window.lastDeletedFile) {
+						// Fallback to our stored file info
+						fileName = window.lastDeletedFile.name;
+					}
+					
+					let errorMsg = `Failed to delete file "${fileName}"`;
+					
+					if (event.detail.xhr && event.detail.xhr.responseText) {
+						errorMsg = event.detail.xhr.responseText
+						// error message is a json object
+						try {
+							const error = JSON.parse(errorMsg);
+							errorMsg = `Error: ${error.error}`;
+						} catch(e) {
+							// Not JSON, use as is
+						}
+					}
+					
+					window.notyf.error(errorMsg);
+					
+					// Clear flags
+					window.currentlyDeletingFile = false;
+					window.isFileDeleteRequest = false;
+					window.lastDeletedFile = null;
+				}
+			});
+		</script>
+		
 		<div class="container mx-auto px-4 py-8 animate-fadeIn">
 			<div class="mb-6">
 				<a href="/files" class="text-primary-600 dark:text-primary-400 hover:underline">
@@ -462,6 +961,23 @@ templ FileMetadataSearch(ctx context.Context, data FileMetadataSearchData) {
 					</div>
 					<div class="overflow-x-auto">
 						if len(data.Files) > 0 {
+							<!-- Store file IDs for dialogs -->
+							<div id="search-dialog-container">
+								<!-- Dialogs will be rendered at the bottom of the container, outside the table -->
+								for _, file := range data.Files {
+									@FileMetadataDialog(
+										fmt.Sprintf("delete-file-dialog-%d", file.ID),
+										"Delete File Metadata",
+										fmt.Sprintf("Are you sure you want to delete the metadata for '%s'? This cannot be undone.", file.FileName),
+										"btn-danger",
+										"Delete",
+										"delete",
+										file.ID,
+										file.FileName,
+										"list",
+									)
+								}
+							</div>
 							<table class="table w-full">
 								<thead>
 									<tr>
@@ -476,7 +992,7 @@ templ FileMetadataSearch(ctx context.Context, data FileMetadataSearchData) {
 								</thead>
 								<tbody>
 									for _, file := range data.Files {
-										<tr class="hover:bg-secondary-50 dark:hover:bg-secondary-800 transition-colors duration-150">
+										<tr id={ fmt.Sprintf("file-row-%d", file.ID) } class="hover:bg-secondary-50 dark:hover:bg-secondary-800 transition-colors duration-150">
 											<td>{ strconv.FormatUint(uint64(file.ID), 10) }</td>
 											<td class="text-primary-600 dark:text-primary-400">
 												<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="hover:underline">
@@ -499,11 +1015,11 @@ templ FileMetadataSearch(ctx context.Context, data FileMetadataSearchData) {
 												<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">
 													<i class="fas fa-eye"></i>
 												</a>
-												<button
-													class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300"
-													hx-delete={ fmt.Sprintf("/files/%d", file.ID) }
-													hx-confirm="Are you sure you want to delete this file metadata record? This cannot be undone."
-													hx-target="body">
+												<!-- Delete button only - dialog moved outside table -->
+												<button 
+													type="button"
+													onclick={ showFileDialog(fmt.Sprintf("delete-file-dialog-%d", file.ID)) }
+													class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
 													<i class="fas fa-trash"></i>
 												</button>
 											</td>

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -344,6 +345,8 @@ func (h *FileMetadataHandler) SearchFileMetadata(c *gin.Context) {
 func (h *FileMetadataHandler) DeleteFileMetadata(c *gin.Context) {
 	userID := c.GetUint("userID")
 
+	fmt.Println("Deleting file metadata")
+
 	// Get file ID from URL parameter
 	fileID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -373,6 +376,16 @@ func (h *FileMetadataHandler) DeleteFileMetadata(c *gin.Context) {
 		return
 	}
 
-	// Redirect to the file list
-	c.Redirect(http.StatusFound, "/files")
+	fmt.Println("File deleted successfully")
+
+	// Check if this is an HTMX request
+	isHtmxRequest := c.GetHeader("HX-Request") == "true"
+
+	if isHtmxRequest {
+		// For HTMX requests, just return a 200 status - client will handle UI updates
+		c.Status(http.StatusOK)
+	} else {
+		// For regular browser requests, redirect to the file list
+		c.Redirect(http.StatusFound, "/files")
+	}
 }
