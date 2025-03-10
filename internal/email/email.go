@@ -26,12 +26,12 @@ func NewService(cfg *config.Config) *Service {
 func (s *Service) SendPasswordResetEmail(toEmail, username, resetToken string) error {
 	if !s.Config.Email.Enabled {
 		// If email is not enabled, just log it (you can redirect to the default logging logic)
-		return fmt.Errorf("email service is disabled, reset link would be: %s/reset-password?token=%s", 
+		return fmt.Errorf("email service is disabled, reset link would be: %s/reset-password?token=%s",
 			s.Config.BaseURL, resetToken)
 	}
 
 	resetLink := fmt.Sprintf("%s/reset-password?token=%s", s.Config.BaseURL, resetToken)
-	
+
 	// Create email data for template
 	data := map[string]interface{}{
 		"Username":     username,
@@ -124,7 +124,7 @@ func (s *Service) generatePasswordResetEmailHTML(data map[string]interface{}) (s
             text-align: center;
         }
         .btn:hover {
-            background-color: #4338ca;
+            background-color:rgb(55, 113, 236);
         }
         .reset-link {
             margin: 20px 0;
@@ -210,7 +210,7 @@ func (s *Service) sendEmail(toEmail, subject, htmlContent string) error {
 	headers["Subject"] = subject
 	headers["MIME-Version"] = "1.0"
 	headers["Content-Type"] = "text/html; charset=UTF-8"
-	
+
 	if s.Config.Email.ReplyTo != "" {
 		headers["Reply-To"] = s.Config.Email.ReplyTo
 	}
@@ -224,7 +224,7 @@ func (s *Service) sendEmail(toEmail, subject, htmlContent string) error {
 
 	// Set up the SMTP server address
 	addr := fmt.Sprintf("%s:%d", s.Config.Email.Host, s.Config.Email.Port)
-	
+
 	// Check if authentication is required
 	if s.Config.Email.RequireAuth {
 		// Use authenticated SMTP
@@ -237,7 +237,7 @@ func (s *Service) sendEmail(toEmail, subject, htmlContent string) error {
 			return fmt.Errorf("failed to connect to SMTP server: %v", err)
 		}
 		defer client.Close()
-		
+
 		// Set up TLS if enabled
 		if s.Config.Email.EnableTLS {
 			if err := client.StartTLS(nil); err != nil {
@@ -252,7 +252,7 @@ func (s *Service) sendEmail(toEmail, subject, htmlContent string) error {
 		if err := client.Rcpt(toEmail); err != nil {
 			return fmt.Errorf("failed to set recipient: %v", err)
 		}
-		
+
 		// Send the email body
 		w, err := client.Data()
 		if err != nil {
@@ -266,7 +266,7 @@ func (s *Service) sendEmail(toEmail, subject, htmlContent string) error {
 		if err != nil {
 			return fmt.Errorf("failed to close data writer: %v", err)
 		}
-		
+
 		return client.Quit()
 	}
-} 
+}

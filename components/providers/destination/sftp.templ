@@ -1,0 +1,118 @@
+package destination
+
+templ SFTPDestinationForm() {
+	<div class="sm:col-span-6 space-y-6">
+		<div class="sm:col-span-4">
+			<label for="dest_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Host</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-server text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="dest_host"
+					id="dest_host"
+					x-model="destHost"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="sftp.example.com"/>
+			</div>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="dest_port" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Port</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-plug text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="number"
+					name="dest_port"
+					id="dest_port"
+					x-model="destPort"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="22"/>
+			</div>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="dest_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="dest_user"
+					id="dest_user"
+					x-model="destUser"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
+			</div>
+		</div>
+
+		<div class="flex space-x-4">
+			<div class="flex items-center h-5">
+				<input 
+					id="dest_use_password" 
+					type="radio" 
+					name="dest_auth_type" 
+					value="password" 
+					x-model="destAuthType"
+					class="focus:ring-primary-500 h-4 w-4 text-primary-600 border-secondary-300 dark:border-secondary-700" 
+					checked>
+			</div>
+			<label for="dest_use_password" class="ml-2 block text-sm text-secondary-700 dark:text-secondary-300">Use Password</label>
+			<div class="flex items-center h-5 ml-4">
+				<input 
+					id="dest_use_key" 
+					type="radio" 
+					name="dest_auth_type" 
+					value="key"
+					x-model="destAuthType" 
+					class="focus:ring-primary-500 h-4 w-4 text-primary-600 border-secondary-300 dark:border-secondary-700">
+			</div>
+			<label for="dest_use_key" class="ml-2 block text-sm text-secondary-700 dark:text-secondary-300">Use Key File</label>
+		</div>
+
+		<template x-if="destAuthType === 'password'">
+			<div class="sm:col-span-4">
+				<label for="dest_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password</label>
+				<div class="relative">
+					<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+						<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+					</div>
+					<input
+						type="password"
+						name="dest_password"
+						id="dest_password"
+						x-model="destPassword"
+						x-bind:required="destAuthType === 'password'"
+						class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+						placeholder="Password"/>
+				</div>
+				<input type="hidden" name="dest_password" :value="destPassword"/>
+			</div>
+		</template>
+
+		<template x-if="destAuthType === 'key'">
+			<div class="sm:col-span-4">
+				<label for="dest_key_file" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Key File</label>
+				<div class="relative">
+					<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+						<i class="fas fa-file-alt text-secondary-400 dark:text-secondary-600"></i>
+					</div>
+					<input
+						type="text"
+						name="dest_key_file"
+						id="dest_key_file"
+						x-model="destKeyFile"
+						x-bind:required="destAuthType === 'key'"
+						class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+						placeholder="/path/to/key"/>
+				</div>
+			</div>
+		</template>
+	</div>
+} 

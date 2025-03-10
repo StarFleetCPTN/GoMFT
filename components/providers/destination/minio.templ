@@ -1,0 +1,91 @@
+package destination
+
+templ MinIODestinationForm() {
+	<div class="sm:col-span-6 space-y-6">
+		<div class="sm:col-span-4">
+			<label for="dest_endpoint" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Endpoint URL</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-server text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="dest_endpoint"
+					id="dest_endpoint"
+					x-model="destEndpoint"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="https://minio.example.com"/>
+			</div>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="dest_bucket" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Bucket Name</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-database text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="dest_bucket"
+					id="dest_bucket"
+					x-model="destBucket"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="my-bucket"/>
+			</div>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="destination_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Path Prefix</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-folder text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="destination_path"
+					id="destination_path"
+					x-model="destinationPath"
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="path/prefix/"/>
+			</div>
+			<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+				Optional. If specified, files will be uploaded to this path in the bucket.
+			</p>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="dest_access_key" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Access Key</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="dest_access_key"
+					id="dest_access_key"
+					x-model="destAccessKey"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
+			</div>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="dest_secret_key" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Secret Key</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-lock text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="password"
+					name="dest_secret_key"
+					id="dest_secret_key"
+					x-model="destSecretKey"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
+			</div>
+			<input type="hidden" name="dest_secret_key" :value="destSecretKey"/>
+		</div>
+	</div>
+} 

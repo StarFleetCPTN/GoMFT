@@ -1,0 +1,111 @@
+package destination
+
+templ SMBDestinationForm() {
+	<div class="sm:col-span-6 space-y-6">
+		<div class="sm:col-span-4">
+			<label for="dest_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Server</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-server text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="dest_host"
+					id="dest_host"
+					x-model="destHost"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="server.example.com"/>
+			</div>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="dest_share" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Share Name</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-share-alt text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="dest_share"
+					id="dest_share"
+					x-model="destShare"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="share_name"/>
+			</div>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="destination_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Path</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-folder text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="destination_path"
+					id="destination_path"
+					x-model="destinationPath"
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="path\to\destination"/>
+			</div>
+			<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+				Optional. Subdirectory within the share.
+			</p>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="dest_domain" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Domain</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-building text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="dest_domain"
+					id="dest_domain"
+					x-model="destDomain"
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="DOMAIN"/>
+			</div>
+			<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+				Optional. Windows domain for authentication.
+			</p>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="dest_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="text"
+					name="dest_user"
+					id="dest_user"
+					x-model="destUser"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
+			</div>
+		</div>
+
+		<div class="sm:col-span-4">
+			<label for="dest_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<input
+					type="password"
+					name="dest_password"
+					id="dest_password"
+					x-model="destPassword"
+					required
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="Password"/>
+			</div>
+			<input type="hidden" name="dest_password" :value="destPassword"/>
+		</div>
+	</div>
+} 

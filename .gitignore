@@ -46,8 +46,21 @@ Thumbs.db
 components/*.go
 !components/components.go
 
+components/providers/source/*.go
+!components/providers/source/source.go
+
+components/providers/destination/*.go
+!components/providers/destination/destination.go
+
+components/providers/common/*.go
+!components/providers/common/common.go
+
 # Ignore the data directory
 data/
+
+# Ignore .env files
+.env
+*.env
 
 # Ignore the tmp directory
 tmp/ 
@@ -56,9 +69,10 @@ tmp/
 configs/
 
 # Ignore Dirs
-source/
-destination/
-archive/
+/source/
+/destination/
+
+/archive/
 
 # Ignore binaries
 gomft

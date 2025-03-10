@@ -19,6 +19,10 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
 ![Job Scheduling](screenshots/new.job.gomft.png)
 *Scheduling transfers with flexible cron expressions*
 
+### File Metadata
+![File Metadata](screenshots/file.metadata.gomft.png)
+*Track and manage file metadata with detailed information about transferred files*
+
 ### User Management
 ![User Management](screenshots/user.management.gomft.png)
 *Create user accounts and manage them*
@@ -29,7 +33,6 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
 - **Multiple Storage Support**: Leverage rclone's extensive support for cloud storage providers:
   - Amazon S3
   - MinIO
-  - Backblaze B2
   - NextCloud
   - WebDAV
   - SFTP
@@ -39,6 +42,16 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
   - And more via rclone
 - **Scheduled Transfers**: Configure transfers using cron expressions with flexible scheduling options
 - **Transfer Monitoring**: Real-time status updates and detailed transfer logs with bytes and files transferred statistics
+- **File Metadata Tracking**: Complete history and status of all transferred files with detailed information:
+  - Process status (processed, archived, deleted)
+  - File size and hash information
+  - Advanced search and filtering capabilities
+  - Metadata retention for compliance and auditing
+  - Detailed file view with processing timestamps and job association
+  - Powerful filtering by status, filename, job, and date ranges
+  - Advanced search interface with multiple criteria
+  - Bulk management and record deletion capabilities
+  - Responsive design with mobile-friendly interface
 - **Web Interface**: User-friendly interface for managing transfers, built with Templ components
 - **File Pattern Matching**: Support for file patterns to filter files during transfers
 - **File Output Patterns**: Dynamic naming of destination files using patterns with date variables
@@ -100,7 +113,7 @@ docker run -d \
 
 #### Docker Compose Example
 
-For production deployments, you can use Docker Compose:
+For production deployments, you can use Docker Compose with environment variables:
 
 ```yaml
 version: '3'
@@ -116,6 +129,39 @@ services:
       - ./backups:/app/data/gomft/backups
     environment:
       - TZ=UTC
+      - SERVER_ADDRESS=:8080
+      - DATA_DIR=/app/data/gomft
+      - BACKUP_DIR=/app/data/gomft/backups
+      - JWT_SECRET=change_this_to_a_secure_random_string
+      - BASE_URL=http://localhost:8080
+      - EMAIL_ENABLED=true
+      - EMAIL_HOST=smtp.example.com
+      - EMAIL_PORT=587
+      - EMAIL_FROM_EMAIL=gomft@example.com
+      - EMAIL_FROM_NAME=GoMFT
+      - EMAIL_ENABLE_TLS=true
+      - EMAIL_REQUIRE_AUTH=true
+      - EMAIL_USERNAME=smtp_username
+      - EMAIL_PASSWORD=smtp_password
+```
+
+Alternatively, you can mount your own .env file to the container:
+
+```yaml
+version: '3'
+services:
+  gomft:
+    image: starfleetcptn/gomft:latest
+    container_name: gomft
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+      - ./backups:/app/data/gomft/backups
+      - ./.env:/app/.env
+    environment:
+      - TZ=UTC
 ```
 
 Save this as `docker-compose.yml` and run:
@@ -128,48 +174,46 @@ For more information and available tags, visit the [GoMFT Docker Hub page](https
 
 ## Configuration
 
-GoMFT uses a configuration file located at `./data/gomft/config.json`. On first run, a default configuration will be created:
+GoMFT uses an environment file located at `.env` in the root directory of the application. On first run, a default configuration will be created:
 
-```json
-{
-  "server_address": ":8080",
-  "data_dir": "./data/gomft",
-  "backup_dir": "./data/gomft/backups",
-  "jwt_secret": "your-secret-key",
-  "base_url": "http://localhost:8080",
-  "email": {
-    "enabled": false,
-    "host": "smtp.example.com",
-    "port": 587,
-    "username": "user@example.com",
-    "password": "your-password",
-    "from_email": "gomft@example.com",
-    "from_name": "GoMFT",
-    "reply_to": "",
-    "enable_tls": true,
-    "require_auth": true
-  }
-}
+```
+SERVER_ADDRESS=:8080
+DATA_DIR=./data/gomft
+BACKUP_DIR=./data/gomft/backups
+JWT_SECRET=change_this_to_a_secure_random_string
+BASE_URL=http://localhost:8080
+
+# Email configuration
+EMAIL_ENABLED=true
+EMAIL_HOST=smtp.example.com
+EMAIL_PORT=587
+EMAIL_FROM_EMAIL=gomft@example.com
+EMAIL_FROM_NAME=GoMFT
+EMAIL_REPLY_TO=
+EMAIL_ENABLE_TLS=true
+EMAIL_REQUIRE_AUTH=true
+EMAIL_USERNAME=smtp_username
+EMAIL_PASSWORD=smtp_password
 ```
 
 ### Configuration Options
 
-- `server_address`: The address and port to run the server on
-- `data_dir`: Directory for storing application data
-- `backup_dir`: Directory for storing database backups
-- `jwt_secret`: Secret key for JWT token generation
-- `base_url`: Base URL for generating links in emails (e.g., password reset links)
-- `email`: Email configuration settings for system notifications and password resets
-  - `enabled`: Set to `true` to enable email functionality
-  - `host`: SMTP server hostname
-  - `port`: SMTP server port (usually 587 for TLS, 465 for SSL, or 25 for non-secure)
-  - `username`: Username for SMTP authentication
-  - `password`: Password for SMTP authentication
-  - `from_email`: Email address used as sender
-  - `from_name`: Name displayed as the sender
-  - `reply_to`: Optional reply-to email address
-  - `enable_tls`: Set to `true` to use TLS for secure email transmission
-  - `require_auth`: Set to `true` to require authentication for SMTP connections, or `false` for servers that don't need authentication
+- `SERVER_ADDRESS`: The address and port to run the server on
+- `DATA_DIR`: Directory for storing application data
+- `BACKUP_DIR`: Directory for storing database backups
+- `JWT_SECRET`: Secret key for JWT token generation
+- `BASE_URL`: Base URL for generating links in emails (e.g., password reset links)
+- Email configuration settings for system notifications and password resets:
+  - `EMAIL_ENABLED`: Set to `true` to enable email functionality
+  - `EMAIL_HOST`: SMTP server hostname
+  - `EMAIL_PORT`: SMTP server port (usually 587 for TLS, 465 for SSL, or 25 for non-secure)
+  - `EMAIL_USERNAME`: Username for SMTP authentication
+  - `EMAIL_PASSWORD`: Password for SMTP authentication
+  - `EMAIL_FROM_EMAIL`: Email address used as sender
+  - `EMAIL_FROM_NAME`: Name displayed as the sender
+  - `EMAIL_REPLY_TO`: Optional reply-to email address
+  - `EMAIL_ENABLE_TLS`: Set to `true` to use TLS for secure email transmission
+  - `EMAIL_REQUIRE_AUTH`: Set to `true` to require authentication for SMTP connections, or `false` for servers that don't need authentication
 
 ## Usage
 
@@ -200,6 +244,14 @@ GoMFT uses a configuration file located at `./data/gomft/config.json`. On first 
    - View active and completed transfers on the Dashboard
    - Check detailed transfer history with performance metrics
    - View job run details including any error messages
+
+7. Manage file metadata:
+   - Navigate to the "Files" section to view all processed files
+   - Use filters to quickly find files by status, job ID, or filename
+   - Click on any file to view detailed metadata including timestamps, size, and hash
+   - Use the advanced search page for complex queries with multiple criteria
+   - Delete file metadata records when no longer needed
+   - View files associated with specific jobs by navigating from the job details
 
 ### User Management
 
@@ -262,9 +314,9 @@ GoMFT supports email notifications for various features:
 
 To configure email functionality:
 
-1. Edit the `config.json` file and provide your SMTP server details
-2. Set `"enabled": true` in the email configuration section
-3. Ensure the `base_url` setting is configured correctly for your deployment
+1. Edit the `.env` file and provide your SMTP server details
+2. Set `EMAIL_ENABLED=true` in the email configuration section
+3. Ensure the `BASE_URL` setting is configured correctly for your deployment
 
 ## Development
 

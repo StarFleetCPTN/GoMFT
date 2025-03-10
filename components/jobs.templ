@@ -288,12 +288,10 @@ templ Jobs(ctx context.Context, data JobsData) {
 														</p>
 														if job.Enabled {
 															<span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300">
-																<i class="fas fa-check-circle mr-1"></i>
 																Active
 															</span>
 														} else {
 															<span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-secondary-100 dark:bg-secondary-700 text-secondary-800 dark:text-secondary-300">
-																<i class="fas fa-pause-circle mr-1"></i>
 																Inactive
 															</span>
 														}
