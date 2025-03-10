@@ -19,6 +19,10 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
 ![Job Scheduling](screenshots/new.job.gomft.png)
 *Scheduling transfers with flexible cron expressions*
 
+### File Metadata
+![File Metadata](screenshots/file.metadata.gomft.png)
+*Track and manage file metadata with detailed information about transferred files*
+
 ### User Management
 ![User Management](screenshots/user.management.gomft.png)
 *Create user accounts and manage them*
@@ -39,6 +43,16 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
   - And more via rclone
 - **Scheduled Transfers**: Configure transfers using cron expressions with flexible scheduling options
 - **Transfer Monitoring**: Real-time status updates and detailed transfer logs with bytes and files transferred statistics
+- **File Metadata Tracking**: Complete history and status of all transferred files with detailed information:
+  - Process status (processed, archived, deleted)
+  - File size and hash information
+  - Advanced search and filtering capabilities
+  - Metadata retention for compliance and auditing
+  - Detailed file view with processing timestamps and job association
+  - Powerful filtering by status, filename, job, and date ranges
+  - Advanced search interface with multiple criteria
+  - Bulk management and record deletion capabilities
+  - Responsive design with mobile-friendly interface
 - **Web Interface**: User-friendly interface for managing transfers, built with Templ components
 - **File Pattern Matching**: Support for file patterns to filter files during transfers
 - **File Output Patterns**: Dynamic naming of destination files using patterns with date variables
@@ -200,6 +214,14 @@ GoMFT uses a configuration file located at `./data/gomft/config.json`. On first 
    - View active and completed transfers on the Dashboard
    - Check detailed transfer history with performance metrics
    - View job run details including any error messages
+
+7. Manage file metadata:
+   - Navigate to the "Files" section to view all processed files
+   - Use filters to quickly find files by status, job ID, or filename
+   - Click on any file to view detailed metadata including timestamps, size, and hash
+   - Use the advanced search page for complex queries with multiple criteria
+   - Delete file metadata records when no longer needed
+   - View files associated with specific jobs by navigating from the job details
 
 ### User Management
 

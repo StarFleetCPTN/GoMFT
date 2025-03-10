@@ -29,7 +29,7 @@ templ Layout(title string) {
 
 templ LayoutWithContext(title string, ctx context.Context) {
 	<!DOCTYPE html>
-	<html lang="en" class="light h-full">
+	<html lang="en" class="light h-full p-0 m-0">
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
@@ -128,6 +128,14 @@ templ LayoutWithContext(title string, ctx context.Context) {
 				}
 			</script>
 			<style type="text/tailwindcss">
+				/* Reset default browser margins and padding */
+				html, body {
+					margin: 0;
+					padding: 0;
+					overflow-x: hidden; /* Prevent horizontal scrolling */
+					width: 100%;
+				}
+				
 				@layer components {
 					.btn-primary {
 						@apply px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-all duration-200 shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
@@ -277,9 +285,9 @@ templ LayoutWithContext(title string, ctx context.Context) {
 			</style>
 			<link rel="stylesheet" href="https://rsms.me/inter/inter.css">
 		</head>
-		<body class="min-h-screen flex flex-col bg-secondary-50 dark:bg-secondary-900 h-full">
+		<body class="min-h-screen flex flex-col bg-secondary-50 dark:bg-secondary-900 h-full p-0 m-0">
 			if isLoggedIn(ctx) {
-				<nav class="bg-white dark:bg-secondary-800 shadow-sm sticky top-0 z-10">
+				<nav class="bg-white dark:bg-secondary-800 shadow-sm sticky top-0 z-10 w-full">
 					<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 						<div class="flex justify-between h-16">
 							<div class="flex">
@@ -381,9 +389,9 @@ templ LayoutWithContext(title string, ctx context.Context) {
 					x-transition:leave="transition ease-in duration-150"
 					x-transition:leave-start="opacity-100 transform translate-y-0"
 					x-transition:leave-end="opacity-0 transform -translate-y-2"
-					class="sm:hidden bg-white dark:bg-secondary-800 shadow-md"
+					class="sm:hidden bg-white dark:bg-secondary-800 shadow-md w-full left-0 right-0"
 				>
-					<div class="px-2 pt-2 pb-3 space-y-1">
+					<div class="max-w-7xl mx-auto px-2 pt-2 pb-3 space-y-1">
 						<a href="/dashboard" class="block px-3 py-2 rounded-md text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-primary-50 dark:hover:bg-secondary-700 hover:text-primary-600 dark:hover:text-primary-400">
 							<i class="fas fa-tachometer-alt mr-2"></i> Dashboard
 						</a>
@@ -434,8 +442,8 @@ templ LayoutWithContext(title string, ctx context.Context) {
 			
 			if isLoggedIn(ctx) {
 				<!-- Mobile Bottom Navigation -->
-				<div class="sm:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-secondary-800 border-t border-secondary-200 dark:border-secondary-700 shadow-lg mobile-nav-container z-10">
-					<div class="grid grid-cols-5 h-16">
+				<div class="sm:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-secondary-800 border-t border-secondary-200 dark:border-secondary-700 shadow-lg w-full p-0 m-0">
+					<div class="grid grid-cols-6 h-16">
 						<a href="/dashboard" class="flex flex-col items-center justify-center text-secondary-500 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400">
 							<i class="fas fa-tachometer-alt text-lg"></i>
 							<span class="text-xs mt-1">Dashboard</span>

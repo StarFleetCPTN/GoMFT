@@ -50,15 +50,15 @@ templ HistoryContent(ctx context.Context, data HistoryData) {
 									<p class="text-sm font-medium text-primary-600 dark:text-primary-400 truncate">{ history.Job.Config.Name }</p>
 									if history.Status == "completed" {
 										<span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300">
-											<i class="fas fa-check mr-1"></i> Completed
+											Completed
 										</span>
 									} else if history.Status == "failed" {
 										<span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-300">
-											<i class="fas fa-times mr-1"></i> Failed
+											Failed
 										</span>
 									} else {
 										<span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300">
-											<i class="fas fa-sync-alt mr-1"></i> { history.Status }
+											{ history.Status }
 										</span>
 									}
 								</div>
