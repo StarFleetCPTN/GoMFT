@@ -68,11 +68,14 @@ tmp/
 # Ignore the configs directory
 configs/
 
+# Ignore the backups directory
+backups/
+
 # Ignore Dirs
 /source/
 /destination/
-
 /archive/
+
 
 # Ignore binaries
 gomft

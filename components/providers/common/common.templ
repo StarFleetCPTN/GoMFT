@@ -141,6 +141,21 @@ templ ArchiveOptions() {
 				Files with the same hash that have been successfully processed before will be skipped
 			</p>
 		</div>
+
+		<div class="mb-4">
+			<label for="max_concurrent_transfers" class="block text-sm font-medium text-gray-700 mb-1">Concurrent Transfers</label>
+			<div class="flex items-center">
+				<input type="range" id="max_concurrent_transfers" name="max_concurrent_transfers" 
+					class="form-range w-2/3 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+					min="1" max="20" step="1"
+					x-model="maxConcurrentTransfers" 
+				/>
+				<span class="ml-4 text-gray-700" x-text="maxConcurrentTransfers"></span>
+			</div>
+			<p class="mt-1 text-xs text-gray-500">
+				Number of files to transfer simultaneously (higher values may improve performance but increase resource usage)
+			</p>
+		</div>
 	</div>
 }
 

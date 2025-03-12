@@ -2,7 +2,6 @@ package config
 
 import (
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -35,8 +34,8 @@ func Load() (*Config, error) {
 	// Default configuration
 	cfg := &Config{
 		ServerAddress: ":8080",
-		DataDir:       filepath.Join("./data", "gomft"),
-		BackupDir:     filepath.Join("./data", "gomft", "backups"),
+		DataDir:       "./data",
+		BackupDir:     "./backups",
 		JWTSecret:     "change_this_to_a_secure_random_string",
 		BaseURL:       "http://localhost:8080",
 		Email: EmailConfig{

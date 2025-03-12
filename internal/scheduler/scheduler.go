@@ -7,76 +7,250 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/robfig/cron/v3"
 	"github.com/starfleetcptn/gomft/internal/db"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
+
+// LogLevel represents the verbosity level of logging
+type LogLevel int
+
+const (
+	// LogLevelError only logs errors
+	LogLevelError LogLevel = iota
+	// LogLevelInfo logs info and errors
+	LogLevelInfo
+	// LogLevelDebug logs everything including debug messages
+	LogLevelDebug
+)
+
+// String returns the string representation of a log level
+func (l LogLevel) String() string {
+	switch l {
+	case LogLevelError:
+		return "error"
+	case LogLevelInfo:
+		return "info"
+	case LogLevelDebug:
+		return "debug"
+	default:
+		return "unknown"
+	}
+}
+
+// ParseLogLevel parses a string into a LogLevel
+func ParseLogLevel(level string) LogLevel {
+	switch strings.ToLower(level) {
+	case "error":
+		return LogLevelError
+	case "info":
+		return LogLevelInfo
+	case "debug":
+		return LogLevelDebug
+	default:
+		return LogLevelInfo // Default to info level
+	}
+}
+
+// Logger handles log output to file and console
+type Logger struct {
+	Info     *log.Logger
+	Error    *log.Logger
+	Debug    *log.Logger
+	file     *lumberjack.Logger
+	logLevel LogLevel
+}
+
+// LogInfo logs an info message if the log level allows it
+func (l *Logger) LogInfo(format string, v ...interface{}) {
+	if l.logLevel >= LogLevelInfo {
+		l.Info.Printf(format, v...)
+	}
+}
+
+// LogError logs an error message if the log level allows it
+func (l *Logger) LogError(format string, v ...interface{}) {
+	if l.logLevel >= LogLevelError {
+		l.Error.Printf(format, v...)
+	}
+}
+
+// LogDebug logs a debug message if the log level allows it
+func (l *Logger) LogDebug(format string, v ...interface{}) {
+	if l.logLevel >= LogLevelDebug {
+		l.Debug.Printf(format, v...)
+	}
+}
+
+// NewLogger creates a new logger that writes to both file and console
+func NewLogger() *Logger {
+	// Get data directory from environment or use default
+	dataDir := os.Getenv("DATA_DIR")
+	if dataDir == "" {
+		dataDir = "./data"
+	}
+
+	// Ensure logs directory exists
+	logsDir := filepath.Join(dataDir, "logs")
+	if envLogsDir := os.Getenv("GOMFT_LOGS_DIR"); envLogsDir != "" {
+		logsDir = envLogsDir
+	}
+
+	if err := os.MkdirAll(logsDir, 0755); err != nil {
+		fmt.Printf("Error creating logs directory: %v\n", err)
+	}
+
+	// Get log rotation settings from environment or use defaults
+	maxSize := 10 // Default: 10MB
+	if envSize := os.Getenv("GOMFT_LOG_MAX_SIZE"); envSize != "" {
+		if size, err := strconv.Atoi(envSize); err == nil && size > 0 {
+			maxSize = size
+		}
+	}
+
+	maxBackups := 5 // Default: keep 5 backups
+	if envBackups := os.Getenv("GOMFT_LOG_MAX_BACKUPS"); envBackups != "" {
+		if backups, err := strconv.Atoi(envBackups); err == nil && backups >= 0 {
+			maxBackups = backups
+		}
+	}
+
+	maxAge := 30 // Default: 30 days
+	if envAge := os.Getenv("GOMFT_LOG_MAX_AGE"); envAge != "" {
+		if age, err := strconv.Atoi(envAge); err == nil && age >= 0 {
+			maxAge = age
+		}
+	}
+
+	compress := true // Default: compress logs
+	if envCompress := os.Getenv("GOMFT_LOG_COMPRESS"); envCompress == "false" {
+		compress = false
+	}
+
+	// Get log level from environment or use default
+	logLevel := LogLevelInfo // Default to info level
+	if envLogLevel := os.Getenv("GOMFT_LOG_LEVEL"); envLogLevel != "" {
+		logLevel = ParseLogLevel(envLogLevel)
+	}
+
+	// Setup log rotation
+	logFile := &lumberjack.Logger{
+		Filename:   filepath.Join(logsDir, "scheduler.log"),
+		MaxSize:    maxSize,
+		MaxBackups: maxBackups,
+		MaxAge:     maxAge,
+		Compress:   compress,
+	}
+
+	// Create multi-writer for both file and console
+	consoleAndFile := io.MultiWriter(os.Stdout, logFile)
+
+	// Create loggers with different prefixes
+	logger := &Logger{
+		Info:     log.New(consoleAndFile, "INFO: ", log.Ldate|log.Ltime),
+		Error:    log.New(consoleAndFile, "ERROR: ", log.Ldate|log.Ltime),
+		Debug:    log.New(consoleAndFile, "DEBUG: ", log.Ldate|log.Ltime),
+		file:     logFile,
+		logLevel: logLevel,
+	}
+
+	// Log rotation settings and log level
+	if logLevel >= LogLevelInfo {
+		logger.Info.Printf("Log rotation configured: file=%s, maxSize=%dMB, maxBackups=%d, maxAge=%d days, compress=%v, logLevel=%s",
+			filepath.Join(logsDir, "scheduler.log"), maxSize, maxBackups, maxAge, compress, logLevel.String())
+	}
+
+	return logger
+}
+
+// Close closes the log file
+func (l *Logger) Close() {
+	if l.file != nil {
+		l.file.Close()
+	}
+}
+
+// RotateLogs manually triggers log rotation
+func (l *Logger) RotateLogs() error {
+	if l.file != nil {
+		return l.file.Rotate()
+	}
+	return nil
+}
 
 type Scheduler struct {
 	cron     *cron.Cron
 	db       *db.DB
 	jobMutex sync.Mutex
 	jobs     map[uint]cron.EntryID
+	log      *Logger
 }
 
 func New(database *db.DB) *Scheduler {
-	scheduler := &Scheduler{
-		cron: cron.New(cron.WithSeconds()),
-		db:   database,
-		jobs: make(map[uint]cron.EntryID),
+	// Create a new logger
+	logger := NewLogger()
+
+	logger.Info.Println("Initializing scheduler")
+	c := cron.New(cron.WithSeconds(), cron.WithChain(cron.Recover(cron.DefaultLogger)))
+	c.Start()
+
+	s := &Scheduler{
+		cron:     c,
+		db:       database,
+		jobMutex: sync.Mutex{},
+		jobs:     make(map[uint]cron.EntryID),
+		log:      logger,
 	}
 
-	// Start the cron scheduler
-	scheduler.cron.Start()
+	// Load existing jobs
+	s.loadJobs()
 
-	// Load existing jobs from database
-	scheduler.loadJobs()
-
-	return scheduler
+	return s
 }
 
 func (s *Scheduler) loadJobs() {
-	var jobs []db.Job
-	if err := s.db.Preload("Config").Find(&jobs).Error; err != nil {
-		fmt.Printf("Error loading jobs: %v\n", err)
+	s.log.LogInfo("Loading scheduled jobs")
+
+	jobs, err := s.db.GetActiveJobs()
+	if err != nil {
+		s.log.LogError("Error loading jobs: %v", err)
 		return
 	}
 
-	fmt.Printf("Loading %d jobs from database\n", len(jobs))
 	for _, job := range jobs {
-		if job.Enabled {
-			if err := s.ScheduleJob(&job); err != nil {
-				fmt.Printf("Error scheduling job %d: %v\n", job.ID, err)
-				continue
-			}
-			fmt.Printf("Scheduled job %d with cron expression: %s\n", job.ID, job.Schedule)
+		if err := s.ScheduleJob(&job); err != nil {
+			s.log.LogError("Error scheduling job %d: %v", job.ID, err)
+		} else {
+			s.log.LogInfo("Loaded job %d: %s", job.ID, job.Name)
 		}
 	}
+
+	s.log.LogInfo("Loaded %d jobs", len(jobs))
 }
 
 func (s *Scheduler) ScheduleJob(job *db.Job) error {
-	s.jobMutex.Lock()
-	defer s.jobMutex.Unlock()
-
-	fmt.Printf("Scheduling job %d (enabled: %v, schedule: %s)\n", job.ID, job.Enabled, job.Schedule)
+	s.log.LogInfo("Scheduling job %d: %s with schedule %s", job.ID, job.Name, job.Schedule)
 
 	// Remove existing job if it exists
 	if entryID, exists := s.jobs[job.ID]; exists {
-		fmt.Printf("Removing existing schedule for job %d\n", job.ID)
+		s.log.LogInfo("Removing existing schedule for job %d", job.ID)
 		s.cron.Remove(entryID)
 		delete(s.jobs, job.ID)
 	}
 
 	// Only schedule if job is enabled
 	if !job.Enabled {
-		fmt.Printf("Job %d is disabled, skipping scheduling\n", job.ID)
+		s.log.LogInfo("Job %d is disabled, skipping scheduling", job.ID)
 		return nil
 	}
 
@@ -93,58 +267,65 @@ func (s *Scheduler) ScheduleJob(job *db.Job) error {
 		return fmt.Errorf("invalid cron expression '%s': %w", job.Schedule, err)
 	}
 
-	// Schedule new job
-	entryID, err := s.cron.AddFunc(schedule, func() {
-		fmt.Printf("Executing job %d at %s\n", job.ID, time.Now().Format(time.RFC3339))
+	// Schedule the job
+	entryID, err := s.cron.AddFunc(job.Schedule, func() {
 		s.executeJob(job.ID)
 	})
+
 	if err != nil {
-		return fmt.Errorf("failed to schedule job: %w", err)
+		s.log.LogError("Error scheduling job %d: %v", job.ID, err)
+		return err
 	}
 
+	// Store mapping of job ID to cron entry ID
+	s.jobMutex.Lock()
 	s.jobs[job.ID] = entryID
-	fmt.Printf("Successfully scheduled job %d with entry ID %v\n", job.ID, entryID)
+	s.jobMutex.Unlock()
 
-	// Calculate and log next run time
-	if entry := s.cron.Entry(entryID); entry.ID != 0 {
-		fmt.Printf("Next run time for job %d: %s\n", job.ID, entry.Next.Format(time.RFC3339))
+	// Get next run time
+	entry := s.cron.Entry(entryID)
+	job.NextRun = &entry.Next
+	if err := s.db.UpdateJobStatus(job); err != nil {
+		s.log.LogError("Error updating job status for job %d: %v", job.ID, err)
+		return err
 	}
 
 	return nil
 }
 
 func (s *Scheduler) executeJob(jobID uint) {
-	fmt.Printf("Starting execution of job %d\n", jobID)
+	s.log.LogInfo("Starting execution of job %d", jobID)
 
 	// Get job details
 	var job db.Job
 	if err := s.db.Preload("Config").First(&job, jobID).Error; err != nil {
-		fmt.Printf("Error loading job %d: %v\n", jobID, err)
+		s.log.LogError("Error loading job %d: %v", jobID, err)
 		return
 	}
 
 	if job.Config.ID == 0 {
-		fmt.Printf("Error: job %d has no associated config\n", jobID)
+		s.log.LogError("Error: job %d has no associated config", jobID)
 		return
 	}
 
 	// Add explicit database reload of the config to ensure we have the latest values
 	var config db.TransferConfig
 	if err := s.db.First(&config, job.Config.ID).Error; err != nil {
-		fmt.Printf("Error loading config %d: %v\n", job.Config.ID, err)
+		s.log.LogError("Error loading config %d: %v", job.Config.ID, err)
 		return
 	}
 	// Replace the job's config with the freshly loaded one
 	job.Config = config
 
 	// Now the rest of your code will use the correct value
-	fmt.Printf("Loaded job %d with config: source=%s:%s, dest=%s:%s, skipProcessedFiles=%v\n",
+	s.log.LogInfo("Loaded job %d with config: source=%s:%s, dest=%s:%s, skipProcessedFiles=%v, maxConcurrentTransfers=%d",
 		jobID,
 		job.Config.SourceType,
 		job.Config.SourcePath,
 		job.Config.DestinationType,
 		job.Config.DestinationPath,
 		job.Config.SkipProcessedFiles,
+		job.Config.MaxConcurrentTransfers,
 	)
 
 	// Create job history entry
@@ -158,19 +339,19 @@ func (s *Scheduler) executeJob(jobID uint) {
 		ErrorMessage:     "",
 	}
 	if err := s.db.CreateJobHistory(history); err != nil {
-		fmt.Printf("Error creating job history for job %d: %v\n", jobID, err)
+		s.log.LogError("Error creating job history for job %d: %v", jobID, err)
 		return
 	}
 
 	// Update job last run time
 	job.LastRun = &history.StartTime
 	if err := s.db.UpdateJobStatus(&job); err != nil {
-		fmt.Printf("Error updating job last run time for job %d: %v\n", jobID, err)
+		s.log.LogError("Error updating job last run time for job %d: %v", jobID, err)
 	}
 
 	// Reload the job from the database to get the latest values
 	if err := s.db.Preload("Config").First(&job, jobID).Error; err != nil {
-		fmt.Printf("Error reloading job %d: %v\n", jobID, err)
+		s.log.LogError("Error reloading job %d: %v", jobID, err)
 		return
 	}
 
@@ -193,13 +374,13 @@ func (s *Scheduler) executeJob(jobID uint) {
 		// Create a temporary filter file for complex patterns
 		filterFile, err := createRcloneFilterFile(job.Config.FilePattern)
 		if err != nil {
-			fmt.Printf("Error creating filter file for job %d: %v\n", jobID, err)
+			s.log.LogError("Error creating filter file for job %d: %v", jobID, err)
 			history.Status = "failed"
 			history.ErrorMessage = fmt.Sprintf("Filter Creation Error: %v", err)
 			endTime := time.Now()
 			history.EndTime = &endTime
 			if err := s.db.UpdateJobHistory(history); err != nil {
-				fmt.Printf("Error updating job history for job %d: %v\n", jobID, err)
+				s.log.LogError("Error updating job history for job %d: %v", jobID, err)
 			}
 			return
 		}
@@ -221,7 +402,7 @@ func (s *Scheduler) executeJob(jobID uint) {
 	listArgs = append(listArgs, sourceListPath)
 
 	// Execute lsjson command
-	fmt.Printf("Listing files with metadata for job %d: rclone %s\n", jobID, strings.Join(listArgs, " "))
+	s.log.LogInfo("Listing files with metadata for job %d: rclone %s", jobID, strings.Join(listArgs, " "))
 	rclonePath := os.Getenv("RCLONE_PATH")
 	if rclonePath == "" {
 		rclonePath = "rclone"
@@ -230,13 +411,14 @@ func (s *Scheduler) executeJob(jobID uint) {
 	listOutput, listErr := listCmd.CombinedOutput()
 
 	if listErr != nil {
-		fmt.Printf("Error listing files for job %d: %v\n", jobID, listErr)
+		s.log.LogError("Error listing files for job %d: %v", jobID, listErr)
+		// s.log.Debug.Printf("Output: %s", string(listOutput))
 		history.Status = "failed"
 		history.ErrorMessage = fmt.Sprintf("File Listing Error: %v\nOutput: %s", listErr, string(listOutput))
 		endTime := time.Now()
 		history.EndTime = &endTime
 		if err := s.db.UpdateJobHistory(history); err != nil {
-			fmt.Printf("Error updating job history for job %d: %v\n", jobID, err)
+			s.log.LogError("Error updating job history for job %d: %v", jobID, err)
 		}
 		return
 	}
@@ -244,13 +426,13 @@ func (s *Scheduler) executeJob(jobID uint) {
 	// Parse JSON output to get file information
 	var fileEntries []map[string]interface{}
 	if err := json.Unmarshal(listOutput, &fileEntries); err != nil {
-		fmt.Printf("Error parsing file list JSON for job %d: %v\n", jobID, err)
+		s.log.LogError("Error parsing file list JSON for job %d: %v", jobID, err)
 		history.Status = "failed"
 		history.ErrorMessage = fmt.Sprintf("JSON Parsing Error: %v", err)
 		endTime := time.Now()
 		history.EndTime = &endTime
 		if err := s.db.UpdateJobHistory(history); err != nil {
-			fmt.Printf("Error updating job history for job %d: %v\n", jobID, err)
+			s.log.LogError("Error updating job history for job %d: %v", jobID, err)
 		}
 		return
 	}
@@ -273,19 +455,35 @@ func (s *Scheduler) executeJob(jobID uint) {
 		}
 	}
 
-	fmt.Printf("Found %d files totaling %d bytes to transfer for job %d\n", len(files), totalSize, jobID)
+	s.log.LogInfo("Found %d files totaling %d bytes to transfer for job %d", len(files), totalSize, jobID)
 
 	// Update history with size information
 	history.BytesTransferred = totalSize
 
 	if len(files) == 0 {
-		fmt.Printf("No files to transfer for job %d\n", jobID)
+		s.log.LogInfo("No files to transfer for job %d", jobID)
 		history.Status = "completed"
 		history.ErrorMessage = ""
 		history.FilesTransferred = 0
 	} else {
 		var transferErrors []string
 		filesTransferred := 0
+
+		// Use mutex for thread-safe access to shared variables
+		var mutex sync.Mutex
+
+		// Determine number of concurrent transfers
+		maxConcurrent := job.Config.MaxConcurrentTransfers
+		if maxConcurrent < 1 {
+			maxConcurrent = 1 // Default to 1 if not set
+		}
+		s.log.LogInfo("Using %d concurrent transfers for job %d", maxConcurrent, jobID)
+
+		// Create wait group for concurrent processing
+		var wg sync.WaitGroup
+
+		// Create channel to limit concurrency
+		concurrencySemaphore := make(chan struct{}, maxConcurrent)
 
 		// Process each file individually
 		for _, fileEntry := range files {
@@ -296,69 +494,52 @@ func (s *Scheduler) executeJob(jobID uint) {
 
 			// Skip files that have already been processed in this execution
 			if processedFiles[fileName] {
-				fmt.Printf("Skipping duplicate file entry: %s (already processed in this execution)\n", fileName)
+				s.log.LogDebug("Skipping duplicate file entry: %s (already processed in this execution)", fileName)
 				continue
 			}
 
-			// Extract file metadata from the JSON entry
-			var fileSize int64
+			// Extract hash from the file entry
+			fileHash := ""
+			if hash, ok := fileEntry["Hashes"].(map[string]interface{}); ok {
+				// Try several hash algorithms in order of preference
+				for _, hashType := range []string{"SHA-1", "MD5"} {
+					if hashValue, found := hash[hashType]; found {
+						if hashStr, ok := hashValue.(string); ok {
+							fileHash = hashStr
+							break
+						}
+					}
+				}
+			}
+
+			// Extract size from the file entry
+			fileSize := int64(0)
 			if size, ok := fileEntry["Size"].(float64); ok {
 				fileSize = int64(size)
 			}
 
-			// Extract modification time
-			modTime := time.Now()
-			if modTimeStr, ok := fileEntry["ModTime"].(string); ok {
-				if parsedTime, err := time.Parse(time.RFC3339, modTimeStr); err == nil {
-					modTime = parsedTime
-				}
-			}
-
-			// Create time is usually not available for remote files, so we'll use modTime
-			createTime := modTime
-
-			// Extract hash if available
-			var fileHash string
-			if hashes, ok := fileEntry["Hashes"].(map[string]interface{}); ok {
-				if md5, ok := hashes["md5"].(string); ok {
-					fileHash = md5
-				}
-			}
-
-			// For local files, calculate hash if not available
-			if fileHash == "" && job.Config.SourceType == "local" {
-				localFilePath := filepath.Join(job.Config.SourcePath, fileName)
-				calculatedHash, hashErr := calculateFileHash(localFilePath)
-				if hashErr == nil {
-					fileHash = calculatedHash
-				}
-			}
-
+			// Skip files that have already been processed based on hash
 			skipFiles := job.Config.SkipProcessedFiles
+			if skipFiles && fileHash != "" {
+				alreadyProcessed, prevMetadata, err := s.hasFileBeenProcessed(jobID, fileHash)
+				if err == nil && alreadyProcessed {
+					s.log.LogDebug("File %s with hash %s was previously processed on %s with status: %s",
+						fileName, fileHash, prevMetadata.ProcessedTime.Format(time.RFC3339), prevMetadata.Status)
 
-			// Check if this file has been processed before (by hash)
-			if fileHash != "" {
-				processed, prevMetadata, _ := s.hasFileBeenProcessed(jobID, fileHash)
-				if processed {
-					fmt.Printf("File %s has been processed before (hash: %s, previous file: %s)\n",
-						fileName, fileHash, prevMetadata.FileName)
-
-					// Determine if we should skip this file
+					// Determine if we should skip this file based on status
 					shouldSkip := false
-					if skipFiles {
-						if prevMetadata.Status == "processed" ||
-							prevMetadata.Status == "archived" ||
-							prevMetadata.Status == "deleted" ||
-							prevMetadata.Status == "archived_and_deleted" {
-							shouldSkip = true
-						}
+					if prevMetadata.Status == "processed" ||
+						prevMetadata.Status == "archived" ||
+						prevMetadata.Status == "deleted" ||
+						prevMetadata.Status == "archived_and_deleted" {
+						shouldSkip = true
 					}
 
 					if shouldSkip {
-						fmt.Printf("Skipping unchanged file %s (hash matches previous processing)\n", fileName)
+						s.log.LogInfo("Skipping unchanged file %s (hash matches previous processing)", fileName)
 						continue
 					} else {
-						fmt.Printf("Re-processing file %s despite previous processing (skipProcessedFiles=%v)\n", fileName, skipFiles)
+						s.log.LogInfo("Re-processing file %s despite previous processing (skipProcessedFiles=%v)", fileName, skipFiles)
 					}
 				}
 			}
@@ -366,7 +547,7 @@ func (s *Scheduler) executeJob(jobID uint) {
 			// Also check the processing history for this specific file name
 			prevMetadata, histErr := s.checkFileProcessingHistory(jobID, fileName)
 			if histErr == nil {
-				fmt.Printf("File %s was previously processed on %s with status: %s\n",
+				s.log.LogDebug("File %s was previously processed on %s with status: %s",
 					fileName, prevMetadata.ProcessedTime.Format(time.RFC3339), prevMetadata.Status)
 
 				// Determine if we should skip this file based on name+hash match
@@ -381,211 +562,257 @@ func (s *Scheduler) executeJob(jobID uint) {
 				}
 
 				if shouldSkip {
-					fmt.Printf("Skipping unchanged file %s (hash matches previous processing)\n", fileName)
+					s.log.LogInfo("Skipping unchanged file %s (hash matches previous processing)", fileName)
 					// Skip this file and continue to the next one
 					continue
 				} else if fileHash != "" && fileHash == prevMetadata.FileHash {
-					fmt.Printf("Re-processing file %s despite matching hash (skipProcessedFiles=%v)\n", fileName, skipFiles)
+					s.log.LogInfo("Re-processing file %s despite matching hash (skipProcessedFiles=%v)", fileName, skipFiles)
 				}
 			}
 
-			// Prepare moveto command for transfer
-			transferArgs := []string{
-				"--config", configPath,
-				"copyto",
-				"--progress",
-				"--stats-one-line",
-				"--verbose",
-				"--stats", "1s",
-			}
-
-			// Source and destination paths
-			var sourcePath, destPath string
-
-			// For S3, MinIO, and B2, include the bucket in the path
-			if job.Config.SourceType == "s3" || job.Config.SourceType == "minio" || job.Config.SourceType == "b2" {
-				sourcePath = fmt.Sprintf("source_%d:%s/%s", job.Config.ID, job.Config.SourceBucket, fileName)
-				if job.Config.SourcePath != "" && job.Config.SourcePath != "/" {
-					sourcePath = fmt.Sprintf("source_%d:%s/%s/%s", job.Config.ID, job.Config.SourceBucket, job.Config.SourcePath, fileName)
-				}
-			} else {
-				sourcePath = fmt.Sprintf("source_%d:%s/%s", job.Config.ID, job.Config.SourcePath, fileName)
-			}
-
-			var destFile string = fileName
-
-			if job.Config.DestinationType == "s3" || job.Config.DestinationType == "minio" || job.Config.DestinationType == "b2" {
-				destPath = fmt.Sprintf("dest_%d:%s/%s", job.Config.ID, job.Config.DestBucket, fileName)
-				if job.Config.DestinationPath != "" && job.Config.DestinationPath != "/" {
-					destPath = fmt.Sprintf("dest_%d:%s/%s/%s", job.Config.ID, job.Config.DestBucket, job.Config.DestinationPath, fileName)
-				}
-			} else {
-				destPath = fmt.Sprintf("dest_%d:%s/%s", job.Config.ID, job.Config.DestinationPath, fileName)
-			}
-
-			// Add output filename pattern if specified
-			if job.Config.OutputPattern != "" {
-				// Process the output pattern for this specific file
-				destFile = ProcessOutputPattern(job.Config.OutputPattern, fileName)
-
-				if job.Config.DestinationType == "s3" || job.Config.DestinationType == "minio" || job.Config.DestinationType == "b2" {
-					destPath = fmt.Sprintf("dest_%d:%s/%s", job.Config.ID, job.Config.DestBucket, destFile)
-					if job.Config.DestinationPath != "" && job.Config.DestinationPath != "/" {
-						destPath = fmt.Sprintf("dest_%d:%s/%s/%s", job.Config.ID, job.Config.DestBucket, job.Config.DestinationPath, destFile)
-					}
-				} else {
-					destPath = fmt.Sprintf("dest_%d:%s/%s", job.Config.ID, job.Config.DestinationPath, destFile)
-				}
-
-				fmt.Printf("Renaming file from %s to %s for job %d\n", fileName, destFile, jobID)
-			}
-
-			// Add custom flags if specified
-			if job.Config.RcloneFlags != "" {
-				customFlags := strings.Split(job.Config.RcloneFlags, " ")
-				transferArgs = append(transferArgs, customFlags...)
-				fmt.Printf("Added custom flags for job %d: %v\n", jobID, customFlags)
-			}
-
-			// Add source and destination to the command
-			transferArgs = append(transferArgs, sourcePath, destPath)
-
-			// Execute transfer for this file
-			fmt.Printf("Executing rclone transfer command for job %d, file %s: rclone %s\n",
-				jobID, fileName, strings.Join(transferArgs, " "))
-			// Get the rclone path from the environment variable or use the default path
-			rclonePath := os.Getenv("RCLONE_PATH")
-			if rclonePath == "" {
-				rclonePath = "rclone"
-			}
-			cmd := exec.Command(rclonePath, transferArgs...)
-			fileOutput, fileErr := cmd.CombinedOutput()
-
-			// Print the output
-			fmt.Printf("Output for file %s: %s\n", fileName, string(fileOutput))
-
-			// Create file metadata record
-			fileStatus := "processed"
-			var fileErrorMsg string
-			var destPathForDB string
-
-			// Check if file was successfully transferred
-			if fileErr != nil {
-				fmt.Printf("Error transferring file %s for job %d: %v\n", fileName, jobID, fileErr)
-				transferErrors = append(transferErrors, fmt.Sprintf("File %s: %v", fileName, fileErr))
-				fileStatus = "error"
-				fileErrorMsg = fileErr.Error()
-			} else {
-				filesTransferred++
-				fmt.Printf("Successfully transferred file %s for job %d\n", fileName, jobID)
-
-				// Extract the actual destination path (without rclone remote prefix)
-				if job.Config.DestinationType == "local" {
-					destPathForDB = filepath.Join(job.Config.DestinationPath, destFile)
-				} else {
-					// For remote destinations, store the path format
-					if job.Config.DestinationType == "s3" || job.Config.DestinationType == "minio" || job.Config.DestinationType == "b2" {
-						if job.Config.DestinationPath != "" && job.Config.DestinationPath != "/" {
-							destPathForDB = fmt.Sprintf("%s/%s/%s", job.Config.DestBucket, job.Config.DestinationPath, destFile)
-						} else {
-							destPathForDB = fmt.Sprintf("%s/%s", job.Config.DestBucket, destFile)
-						}
-					} else {
-						destPathForDB = fmt.Sprintf("%s/%s", job.Config.DestinationPath, destFile)
-					}
-				}
-
-				// If archiving is enabled and transfer was successful, move files to archive
-				if job.Config.ArchiveEnabled && job.Config.ArchivePath != "" {
-					fmt.Printf("Archiving file %s for job %d\n", fileName, jobID)
-
-					// We don't need to move the file since we used moveto, but we can copy it to archive
-					archiveArgs := []string{
-						"--config", configPath,
-						"copyto",
-						sourcePath,
-					}
-
-					// Construct archive path with bucket if needed
-					var archiveDest string
-					if job.Config.SourceType == "s3" || job.Config.SourceType == "minio" || job.Config.SourceType == "b2" {
-						archiveDest = fmt.Sprintf("source_%d:%s/%s/%s", job.Config.ID, job.Config.SourceBucket, job.Config.ArchivePath, fileName)
-					} else {
-						archiveDest = fmt.Sprintf("source_%d:%s/%s", job.Config.ID, job.Config.ArchivePath, fileName)
-					}
-
-					archiveArgs = append(archiveArgs, archiveDest)
-
-					fmt.Printf("Executing rclone archive command for job %d, file %s: rclone %s\n",
-						jobID, fileName, strings.Join(archiveArgs, " "))
-					// Get the rclone path from the environment variable or use the default path
-					rclonePath := os.Getenv("RCLONE_PATH")
-					if rclonePath == "" {
-						rclonePath = "rclone"
-					}
-					archiveCmd := exec.Command(rclonePath, archiveArgs...)
-					archiveOutput, archiveErr := archiveCmd.CombinedOutput()
-
-					// Print the output
-					fmt.Printf("Output for file %s: %s\n", fileName, string(archiveOutput))
-
-					// Check if file was successfully transferred
-					if archiveErr != nil {
-						fmt.Printf("Warning: Error archiving file %s for job %d: %v\n", fileName, jobID, archiveErr)
-						transferErrors = append(transferErrors,
-							fmt.Sprintf("Archive error for file %s: %v", fileName, archiveErr))
-					} else {
-						fileStatus = "archived"
-					}
-				}
-
-				if job.Config.DeleteAfterTransfer {
-					fmt.Printf("Deleting file %s for job %d\n", fileName, jobID)
-					deleteArgs := []string{
-						"--config", configPath,
-						"deletefile",
-						sourcePath}
-					deleteCmd := exec.Command(rclonePath, deleteArgs...)
-					deleteOutput, deleteErr := deleteCmd.CombinedOutput()
-					fmt.Printf("Output for file %s: %s\n", fileName, string(deleteOutput))
-					if deleteErr != nil {
-						fmt.Printf("Error deleting file %s for job %d: %v\n", fileName, jobID, deleteErr)
-						transferErrors = append(transferErrors,
-							fmt.Sprintf("Delete error for file %s: %v", fileName, deleteErr))
-					} else {
-						if fileStatus == "archived" {
-							fileStatus = "archived_and_deleted"
-						} else {
-							fileStatus = "deleted"
-						}
-					}
-				}
-			}
-
-			// Mark this file as processed for this execution
+			// Mark this file as processed for this execution before launching goroutine
+			// to prevent duplicate processing
 			processedFiles[fileName] = true
 
-			// Create and save file metadata
-			metadata := &db.FileMetadata{
-				JobID:           jobID,
-				FileName:        fileName,
-				OriginalPath:    job.Config.SourcePath,
-				FileSize:        fileSize,
-				FileHash:        fileHash,
-				CreationTime:    createTime,
-				ModTime:         modTime,
-				ProcessedTime:   time.Now(),
-				DestinationPath: destPathForDB,
-				Status:          fileStatus,
-				ErrorMessage:    fileErrorMsg,
+			// Add to wait group before starting goroutine
+			wg.Add(1)
+
+			// Get creation time and mod time for the file metadata
+			createTime := time.Now()
+			modTime := time.Now()
+			if creationTimeStr, ok := fileEntry["ModTime"].(string); ok {
+				if t, err := time.Parse(time.RFC3339Nano, creationTimeStr); err == nil {
+					modTime = t
+					createTime = t
+				}
 			}
 
-			if err := s.db.CreateFileMetadata(metadata); err != nil {
-				fmt.Printf("Error creating file metadata for %s: %v\n", fileName, err)
-			} else {
-				fmt.Printf("Created file metadata record for %s (ID: %d)\n", fileName, metadata.ID)
-			}
+			// Capture current file information for goroutine
+			currentFileName := fileName
+			currentFileHash := fileHash
+			currentFileSize := fileSize
+			currentCreateTime := createTime
+			currentModTime := modTime
+
+			// Start goroutine for concurrent processing
+			go func() {
+				// Acquire semaphore
+				concurrencySemaphore <- struct{}{}
+				defer func() {
+					// Release semaphore and mark work as done
+					<-concurrencySemaphore
+					wg.Done()
+				}()
+
+				// Prepare moveto command for transfer
+				transferArgs := []string{
+					"--config", configPath,
+					"copyto",
+					"--progress",
+					"--stats-one-line",
+					"--verbose",
+					"--stats", "1s",
+				}
+
+				// Source and destination paths
+				var sourcePath, destPath string
+
+				// For S3, MinIO, and B2, include the bucket in the path
+				if job.Config.SourceType == "s3" || job.Config.SourceType == "minio" || job.Config.SourceType == "b2" {
+					sourcePath = fmt.Sprintf("source_%d:%s/%s", job.Config.ID, job.Config.SourceBucket, currentFileName)
+					if job.Config.SourcePath != "" && job.Config.SourcePath != "/" {
+						sourcePath = fmt.Sprintf("source_%d:%s/%s/%s", job.Config.ID, job.Config.SourceBucket, job.Config.SourcePath, currentFileName)
+					}
+				} else {
+					sourcePath = fmt.Sprintf("source_%d:%s/%s", job.Config.ID, job.Config.SourcePath, currentFileName)
+				}
+
+				var destFile string = currentFileName
+
+				if job.Config.DestinationType == "s3" || job.Config.DestinationType == "minio" || job.Config.DestinationType == "b2" {
+					destPath = fmt.Sprintf("dest_%d:%s/%s", job.Config.ID, job.Config.DestBucket, currentFileName)
+					if job.Config.DestinationPath != "" && job.Config.DestinationPath != "/" {
+						destPath = fmt.Sprintf("dest_%d:%s/%s/%s", job.Config.ID, job.Config.DestBucket, job.Config.DestinationPath, currentFileName)
+					}
+				} else {
+					destPath = fmt.Sprintf("dest_%d:%s/%s", job.Config.ID, job.Config.DestinationPath, currentFileName)
+				}
+
+				// Add output filename pattern if specified
+				if job.Config.OutputPattern != "" {
+					// Process the output pattern for this specific file
+					destFile = ProcessOutputPattern(job.Config.OutputPattern, currentFileName)
+
+					if job.Config.DestinationType == "s3" || job.Config.DestinationType == "minio" || job.Config.DestinationType == "b2" {
+						destPath = fmt.Sprintf("dest_%d:%s/%s", job.Config.ID, job.Config.DestBucket, destFile)
+						if job.Config.DestinationPath != "" && job.Config.DestinationPath != "/" {
+							destPath = fmt.Sprintf("dest_%d:%s/%s/%s", job.Config.ID, job.Config.DestBucket, job.Config.DestinationPath, destFile)
+						}
+					} else {
+						destPath = fmt.Sprintf("dest_%d:%s/%s", job.Config.ID, job.Config.DestinationPath, destFile)
+					}
+
+					s.log.LogDebug("Renaming file from %s to %s for job %d", currentFileName, destFile, jobID)
+				}
+
+				// Add custom flags if specified
+				if job.Config.RcloneFlags != "" {
+					customFlags := strings.Split(job.Config.RcloneFlags, " ")
+					transferArgs = append(transferArgs, customFlags...)
+					s.log.LogDebug("Added custom flags for job %d: %v", jobID, customFlags)
+				}
+
+				// Add source and destination to the command
+				transferArgs = append(transferArgs, sourcePath, destPath)
+
+				// Execute transfer for this file
+				s.log.LogInfo("Executing rclone transfer command for job %d, file %s: rclone %s",
+					jobID, currentFileName, strings.Join(transferArgs, " "))
+				// Get the rclone path from the environment variable or use the default path
+				rclonePath := os.Getenv("RCLONE_PATH")
+				if rclonePath == "" {
+					rclonePath = "rclone"
+				}
+				cmd := exec.Command(rclonePath, transferArgs...)
+				fileOutput, fileErr := cmd.CombinedOutput()
+
+				// Print the output
+				s.log.LogDebug("Output for file %s: %s", currentFileName, string(fileOutput))
+
+				// Create file metadata record
+				fileStatus := "processed"
+				var fileErrorMsg string
+				var destPathForDB string
+
+				// Check if file was successfully transferred
+				if fileErr != nil {
+					s.log.LogError("Error transferring file %s for job %d: %v", currentFileName, jobID, fileErr)
+					mutex.Lock()
+					transferErrors = append(transferErrors, fmt.Sprintf("File %s: %v", currentFileName, fileErr))
+					mutex.Unlock()
+					fileStatus = "error"
+					fileErrorMsg = fileErr.Error()
+				} else {
+					mutex.Lock()
+					filesTransferred++
+					mutex.Unlock()
+					s.log.LogInfo("Successfully transferred file %s for job %d", currentFileName, jobID)
+
+					// Extract the actual destination path (without rclone remote prefix)
+					if job.Config.DestinationType == "local" {
+						destPathForDB = filepath.Join(job.Config.DestinationPath, destFile)
+					} else {
+						// For remote destinations, store the path format
+						if job.Config.DestinationType == "s3" || job.Config.DestinationType == "minio" || job.Config.DestinationType == "b2" {
+							if job.Config.DestinationPath != "" && job.Config.DestinationPath != "/" {
+								destPathForDB = fmt.Sprintf("%s/%s/%s", job.Config.DestBucket, job.Config.DestinationPath, destFile)
+							} else {
+								destPathForDB = fmt.Sprintf("%s/%s", job.Config.DestBucket, destFile)
+							}
+						} else {
+							destPathForDB = fmt.Sprintf("%s/%s", job.Config.DestinationPath, destFile)
+						}
+					}
+
+					// If archiving is enabled and transfer was successful, move files to archive
+					if job.Config.ArchiveEnabled && job.Config.ArchivePath != "" {
+						s.log.LogInfo("Archiving file %s for job %d", currentFileName, jobID)
+
+						// We don't need to move the file since we used moveto, but we can copy it to archive
+						archiveArgs := []string{
+							"--config", configPath,
+							"copyto",
+							sourcePath,
+						}
+
+						// Construct archive path with bucket if needed
+						var archiveDest string
+						if job.Config.SourceType == "s3" || job.Config.SourceType == "minio" || job.Config.SourceType == "b2" {
+							archiveDest = fmt.Sprintf("source_%d:%s/%s/%s", job.Config.ID, job.Config.SourceBucket, job.Config.ArchivePath, currentFileName)
+						} else {
+							archiveDest = fmt.Sprintf("source_%d:%s/%s", job.Config.ID, job.Config.ArchivePath, currentFileName)
+						}
+
+						archiveArgs = append(archiveArgs, archiveDest)
+
+						s.log.LogInfo("Executing rclone archive command for job %d, file %s: rclone %s",
+							jobID, currentFileName, strings.Join(archiveArgs, " "))
+						// Get the rclone path from the environment variable or use the default path
+						rclonePath := os.Getenv("RCLONE_PATH")
+						if rclonePath == "" {
+							rclonePath = "rclone"
+						}
+						archiveCmd := exec.Command(rclonePath, archiveArgs...)
+						archiveOutput, archiveErr := archiveCmd.CombinedOutput()
+
+						// Print the output
+						s.log.LogDebug("Output for file %s: %s", currentFileName, string(archiveOutput))
+
+						// Check if file was successfully transferred
+						if archiveErr != nil {
+							s.log.LogError("Warning: Error archiving file %s for job %d: %v", currentFileName, jobID, archiveErr)
+							mutex.Lock()
+							transferErrors = append(transferErrors,
+								fmt.Sprintf("Archive error for file %s: %v", currentFileName, archiveErr))
+							mutex.Unlock()
+						} else {
+							fileStatus = "archived"
+						}
+					}
+
+					if job.Config.DeleteAfterTransfer {
+						s.log.LogInfo("Deleting file %s for job %d", currentFileName, jobID)
+						deleteArgs := []string{
+							"--config", configPath,
+							"deletefile",
+							sourcePath}
+						deleteCmd := exec.Command(rclonePath, deleteArgs...)
+						deleteOutput, deleteErr := deleteCmd.CombinedOutput()
+						s.log.LogDebug("Output for file %s: %s", currentFileName, string(deleteOutput))
+						if deleteErr != nil {
+							s.log.LogError("Error deleting file %s for job %d: %v", currentFileName, jobID, deleteErr)
+							mutex.Lock()
+							transferErrors = append(transferErrors,
+								fmt.Sprintf("Delete error for file %s: %v", currentFileName, deleteErr))
+							mutex.Unlock()
+						} else {
+							if fileStatus == "archived" {
+								fileStatus = "archived_and_deleted"
+							} else {
+								fileStatus = "deleted"
+							}
+						}
+					}
+				}
+
+				// Create and save file metadata
+				metadata := &db.FileMetadata{
+					JobID:           jobID,
+					FileName:        currentFileName,
+					OriginalPath:    job.Config.SourcePath,
+					FileSize:        currentFileSize,
+					FileHash:        currentFileHash,
+					CreationTime:    currentCreateTime,
+					ModTime:         currentModTime,
+					ProcessedTime:   time.Now(),
+					DestinationPath: destPathForDB,
+					Status:          fileStatus,
+					ErrorMessage:    fileErrorMsg,
+				}
+
+				if err := s.db.CreateFileMetadata(metadata); err != nil {
+					s.log.LogError("Error creating file metadata for %s: %v", currentFileName, err)
+				} else {
+					s.log.LogDebug("Created file metadata record for %s (ID: %d)", currentFileName, metadata.ID)
+				}
+			}()
 		}
+
+		// Wait for all transfers to complete
+		wg.Wait()
+
+		// Clean up concurrency semaphore
+		close(concurrencySemaphore)
 
 		// Update job history with transfer results
 		history.FilesTransferred = filesTransferred
@@ -611,16 +838,16 @@ func (s *Scheduler) executeJob(jobID uint) {
 	}
 
 	if err := s.db.UpdateJobHistory(history); err != nil {
-		fmt.Printf("Error updating job history for job %d: %v\n", jobID, err)
+		s.log.LogError("Error updating job history for job %d: %v", jobID, err)
 	}
 
 	// Update next run time if job is still scheduled
 	if entry := s.cron.Entry(s.jobs[jobID]); entry.ID != 0 {
 		job.NextRun = &entry.Next
 		if err := s.db.UpdateJobStatus(&job); err != nil {
-			fmt.Printf("Error updating next run time for job %d: %v\n", jobID, err)
+			s.log.LogError("Error updating next run time for job %d: %v", jobID, err)
 		} else {
-			fmt.Printf("Next run time for job %d: %s\n", jobID, entry.Next.Format(time.RFC3339))
+			s.log.LogInfo("Next run time for job %d: %s", jobID, entry.Next.Format(time.RFC3339))
 		}
 	}
 }
@@ -701,9 +928,15 @@ func (s *Scheduler) UnscheduleJob(jobID uint) {
 }
 
 func (s *Scheduler) Stop() {
-	if s.cron != nil {
-		s.cron.Stop()
-	}
+	s.log.LogInfo("Stopping scheduler")
+	s.cron.Stop()
+	s.log.Close()
+}
+
+// RotateLogs manually triggers log rotation
+func (s *Scheduler) RotateLogs() error {
+	s.log.LogInfo("Manually rotating logs")
+	return s.log.RotateLogs()
 }
 
 func (s *Scheduler) RunJobNow(jobID uint) error {

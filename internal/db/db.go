@@ -98,15 +98,16 @@ type TransferConfig struct {
 	DestDriveID      string `form:"dest_drive_id"`               // For OneDrive
 	DestTeamDrive    string `form:"dest_team_drive"`             // For Google Drive
 	// General fields
-	ArchivePath         string `form:"archive_path"`
-	ArchiveEnabled      bool   `gorm:"default:false" form:"archive_enabled"`
-	RcloneFlags         string `form:"rclone_flags"`
-	DeleteAfterTransfer bool   `gorm:"default:false" form:"delete_after_transfer"`
-	SkipProcessedFiles  bool   `gorm:"default:true" form:"skip_processed_files"`
-	CreatedBy           uint
-	User                User `gorm:"foreignkey:CreatedBy"`
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
+	ArchivePath            string `form:"archive_path"`
+	ArchiveEnabled         bool   `gorm:"default:false" form:"archive_enabled"`
+	RcloneFlags            string `form:"rclone_flags"`
+	DeleteAfterTransfer    bool   `gorm:"default:false" form:"delete_after_transfer"`
+	SkipProcessedFiles     bool   `gorm:"default:true" form:"skip_processed_files"`
+	MaxConcurrentTransfers int    `gorm:"default:4" form:"max_concurrent_transfers"` // Number of concurrent file transfers
+	CreatedBy              uint
+	User                   User `gorm:"foreignkey:CreatedBy"`
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
 }
 
 type Job struct {
@@ -381,7 +382,14 @@ func (db *DB) DeleteFileMetadata(id uint) error {
 
 // GetConfigRclonePath returns the path to the rclone config file for a given transfer config
 func (db *DB) GetConfigRclonePath(config *TransferConfig) string {
-	return filepath.Join("configs", fmt.Sprintf("config_%d.conf", config.ID))
+	// Get data directory from environment or use default
+	dataDir := os.Getenv("DATA_DIR")
+	if dataDir == "" {
+		dataDir = "./data"
+	}
+
+	// Store configs in the data directory
+	return filepath.Join(dataDir, "configs", fmt.Sprintf("config_%d.conf", config.ID))
 }
 
 // GetSkipProcessedFilesValue gets the current value of SkipProcessedFiles for a config
@@ -397,8 +405,11 @@ func (db *DB) GetSkipProcessedFilesValue(configID uint) (bool, error) {
 func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 	configPath := db.GetConfigRclonePath(config)
 
+	// Get the directory part of the path
+	configDir := filepath.Dir(configPath)
+
 	// Ensure configs directory exists
-	if err := os.MkdirAll("configs", 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0755); err != nil {
 		return fmt.Errorf("failed to create configs directory: %v", err)
 	}
 
@@ -791,4 +802,10 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 	}
 
 	return nil
+}
+
+func (db *DB) GetActiveJobs() ([]Job, error) {
+	var jobs []Job
+	err := db.Preload("Config").Where("enabled = ?", true).Find(&jobs).Error
+	return jobs, err
 }

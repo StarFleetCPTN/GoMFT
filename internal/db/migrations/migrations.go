@@ -12,6 +12,7 @@ func InitMigrations(db *gorm.DB) *gormigrate.Gormigrate {
 		AddDeleteAfterTransferColumn(),
 		AddCloudStorageFields(),
 		AddSkipProcessedFilesColumn(),
+		AddMaxConcurrentTransfersColumn(),
 	}
 
 	return gormigrate.New(db, gormigrate.DefaultOptions, migrations)

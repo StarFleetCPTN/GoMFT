@@ -52,6 +52,12 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
   - Advanced search interface with multiple criteria
   - Bulk management and record deletion capabilities
   - Responsive design with mobile-friendly interface
+- **Multi-threaded File Transfers**: Significantly improve performance with concurrent file processing:
+  - Configurable number of concurrent transfers (1-32) per job
+  - Automatic queue management to prevent system overload
+  - Independent configuration for each transfer job
+  - Optimized for both high-volume small files and large file transfers
+  - Maximizes bandwidth utilization for cloud storage providers
 - **Web Interface**: User-friendly interface for managing transfers, built with Templ components
 - **File Pattern Matching**: Support for file patterns to filter files during transfers
 - **File Output Patterns**: Dynamic naming of destination files using patterns with date variables
@@ -106,6 +112,7 @@ docker run -d \
   --name gomft \
   -p 8080:8080 \
   -v /path/to/data:/app/data \
+  -v /path/to/backups:/app/backups \
   starfleetcptn/gomft:latest
 ```
 
@@ -126,12 +133,12 @@ services:
       - "8080:8080"
     volumes:
       - ./data:/app/data
-      - ./backups:/app/data/gomft/backups
+      - ./backups:/app/backups
     environment:
       - TZ=UTC
       - SERVER_ADDRESS=:8080
-      - DATA_DIR=/app/data/gomft
-      - BACKUP_DIR=/app/data/gomft/backups
+      - DATA_DIR=/app/data
+      - BACKUP_DIR=/app/backups
       - JWT_SECRET=change_this_to_a_secure_random_string
       - BASE_URL=http://localhost:8080
       - EMAIL_ENABLED=true
@@ -143,6 +150,13 @@ services:
       - EMAIL_REQUIRE_AUTH=true
       - EMAIL_USERNAME=smtp_username
       - EMAIL_PASSWORD=smtp_password
+      # Logging configuration
+      - GOMFT_LOGS_DIR=/app/data/logs
+      - GOMFT_LOG_MAX_SIZE=10
+      - GOMFT_LOG_MAX_BACKUPS=5
+      - GOMFT_LOG_MAX_AGE=30
+      - GOMFT_LOG_COMPRESS=true
+      - GOMFT_LOG_LEVEL=info
 ```
 
 Alternatively, you can mount your own .env file to the container:
@@ -158,7 +172,7 @@ services:
       - "8080:8080"
     volumes:
       - ./data:/app/data
-      - ./backups:/app/data/gomft/backups
+      - ./backups:/app/backups
       - ./.env:/app/.env
     environment:
       - TZ=UTC
@@ -178,8 +192,8 @@ GoMFT uses an environment file located at `.env` in the root directory of the ap
 
 ```
 SERVER_ADDRESS=:8080
-DATA_DIR=./data/gomft
-BACKUP_DIR=./data/gomft/backups
+DATA_DIR=/app/data
+BACKUP_DIR=/app/backups
 JWT_SECRET=change_this_to_a_secure_random_string
 BASE_URL=http://localhost:8080
 
@@ -199,7 +213,7 @@ EMAIL_PASSWORD=smtp_password
 ### Configuration Options
 
 - `SERVER_ADDRESS`: The address and port to run the server on
-- `DATA_DIR`: Directory for storing application data
+- `DATA_DIR`: Directory for storing application data (database and configs)
 - `BACKUP_DIR`: Directory for storing database backups
 - `JWT_SECRET`: Secret key for JWT token generation
 - `BASE_URL`: Base URL for generating links in emails (e.g., password reset links)
@@ -214,6 +228,22 @@ EMAIL_PASSWORD=smtp_password
   - `EMAIL_REPLY_TO`: Optional reply-to email address
   - `EMAIL_ENABLE_TLS`: Set to `true` to use TLS for secure email transmission
   - `EMAIL_REQUIRE_AUTH`: Set to `true` to require authentication for SMTP connections, or `false` for servers that don't need authentication
+
+### Logging Configuration
+
+GoMFT provides configurable logging with rotation support through the following environment variables:
+
+- `GOMFT_LOGS_DIR`: Directory where log files are stored (default: `./data/logs`)
+- `GOMFT_LOG_MAX_SIZE`: Maximum size in megabytes for each log file before rotation (default: `10`)
+- `GOMFT_LOG_MAX_BACKUPS`: Number of old log files to retain (default: `5`)
+- `GOMFT_LOG_MAX_AGE`: Maximum number of days to retain old log files (default: `30`)
+- `GOMFT_LOG_COMPRESS`: Whether to compress rotated log files (default: `true`)
+- `GOMFT_LOG_LEVEL`: Controls verbosity level of logging (values: `error`, `info`, `debug`, default: `info`)
+  - `error`: Only show errors and critical issues
+  - `info`: Show errors and general operational information (default)
+  - `debug`: Show all messages including detailed debugging information
+
+Log files contain detailed information about file transfers, job execution, and system operations, which can be useful for troubleshooting and auditing.
 
 ## Usage
 
@@ -233,6 +263,11 @@ EMAIL_PASSWORD=smtp_password
    - Navigate to "Transfer Configs" section
    - Configure source and destination locations with connection details
    - Set file patterns and archive options as needed
+   - Configure performance settings:
+     - Set "Concurrent Transfers" slider to optimize throughput
+     - Use higher values (8-16) for many small files or fast networks
+     - Use lower values (1-4) for large files or limited bandwidth
+     - Consider source/destination system capabilities when setting
 
 5. Create jobs using your configurations:
    - Navigate to "Jobs" section
@@ -294,8 +329,17 @@ User management features:
    - File patterns for filtering (e.g., `*.txt`, `data_*.csv`)
    - Output patterns for dynamic naming
    - Archive options for transferred files
+   - Skip already processed files to avoid duplicates
+   - Concurrent file transfers (configurable per job)
 
-4. **Schedule Options**:
+4. **Performance Options**:
+   - **Multi-threaded File Transfers**: Process multiple files simultaneously for higher throughput
+   - Configurable concurrency level (1-32 concurrent transfers)
+   - Per-job concurrency settings to optimize for different storage types
+   - Automatic transfer queue management to prevent overloading systems
+   - Adaptive processing based on source/destination capabilities
+
+5. **Schedule Options**:
    - Cron expressions for flexible scheduling
    - Manual execution
    - Enable/disable schedules
@@ -379,3 +423,23 @@ air
 ## License
 
 MIT License - see LICENSE file for details
+
+## Directory Structure
+
+GoMFT uses the following directory structure:
+
+- `/app/data`: Main application data directory
+  - Contains the SQLite database (`gomft.db`)
+  - Contains rclone configurations in `/app/data/configs`
+  - Contains log files in `/app/data/logs`
+- `/app/backups`: Database backup directory
+
+When using Docker, you should mount volumes to these locations:
+
+```yaml
+volumes:
+  - /host/path/data:/app/data         # For all application data
+  - /host/path/backups:/app/backups   # For database backups
+```
+
+These paths can be customized using the environment variables `DATA_DIR`, `BACKUP_DIR`, and `GOMFT_LOGS_DIR`.
