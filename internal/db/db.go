@@ -333,16 +333,6 @@ func (db *DB) CreateFileMetadata(metadata *FileMetadata) error {
 	return db.Create(metadata).Error
 }
 
-// GetFileMetadata retrieves file metadata by ID
-func (db *DB) GetFileMetadata(id uint) (*FileMetadata, error) {
-	var metadata FileMetadata
-	err := db.First(&metadata, id).Error
-	if err != nil {
-		return nil, err
-	}
-	return &metadata, nil
-}
-
 // GetFileMetadataByJobAndName retrieves file metadata by job ID and filename
 func (db *DB) GetFileMetadataByJobAndName(jobID uint, fileName string) (*FileMetadata, error) {
 	var metadata FileMetadata
@@ -363,18 +353,6 @@ func (db *DB) GetFileMetadataByHash(fileHash string) (*FileMetadata, error) {
 	return &metadata, nil
 }
 
-// UpdateFileMetadata updates an existing file metadata record
-func (db *DB) UpdateFileMetadata(metadata *FileMetadata) error {
-	return db.Save(metadata).Error
-}
-
-// GetFileMetadataForJob retrieves all file metadata for a job
-func (db *DB) GetFileMetadataForJob(jobID uint) ([]FileMetadata, error) {
-	var metadata []FileMetadata
-	err := db.Where("job_id = ?", jobID).Find(&metadata).Error
-	return metadata, err
-}
-
 // DeleteFileMetadata deletes file metadata by ID
 func (db *DB) DeleteFileMetadata(id uint) error {
 	return db.Delete(&FileMetadata{}, id).Error
@@ -390,16 +368,6 @@ func (db *DB) GetConfigRclonePath(config *TransferConfig) string {
 
 	// Store configs in the data directory
 	return filepath.Join(dataDir, "configs", fmt.Sprintf("config_%d.conf", config.ID))
-}
-
-// GetSkipProcessedFilesValue gets the current value of SkipProcessedFiles for a config
-func (db *DB) GetSkipProcessedFilesValue(configID uint) (bool, error) {
-	var value bool
-	err := db.Model(&TransferConfig{}).
-		Where("id = ?", configID).
-		Select("skip_processed_files").
-		Scan(&value).Error
-	return value, err
 }
 
 func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {

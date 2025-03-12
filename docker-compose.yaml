@@ -18,8 +18,8 @@ services:
       - TZ=UTC
       - DATA_DIR=/app/data
       - BACKUP_DIR=/app/backups
-      - GOMFT_LOGS_DIR=/app/data/logs
-      # - GOMFT_LOG_LEVEL=info
+      - LOGS_DIR=/app/data/logs
+      # - LOG_LEVEL=info
     networks:
       - gomft-network
 

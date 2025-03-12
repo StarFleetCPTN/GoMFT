@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"fmt"
+	"math"
 	"net/http"
-	"time"
+	"net/url"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/starfleetcptn/gomft/components"
@@ -11,96 +14,161 @@ import (
 
 // HandleDashboard handles the GET /dashboard route
 func (h *Handlers) HandleDashboard(c *gin.Context) {
-	
+
 	// Get recent job history
 	var recentHistory []db.JobHistory
 	h.DB.Order("start_time DESC").Limit(5).Find(&recentHistory)
-	
+
 	// Get job statistics
 	var totalJobs int64
 	h.DB.Model(&db.JobHistory{}).Where("job_histories.status = 'running' AND job_histories.end_time IS NULL").Count(&totalJobs)
-	
+
 	var completedJobs int64
 	h.DB.Model(&db.JobHistory{}).Where("status = ?", "completed").Count(&completedJobs)
-	
+
 	var failedJobs int64
 	h.DB.Model(&db.JobHistory{}).Where("status = ?", "failed").Count(&failedJobs)
-	
+
 	data := components.DashboardData{
 		RecentJobs:      recentHistory,
 		ActiveTransfers: int(totalJobs),
 		CompletedToday:  int(completedJobs),
 		FailedTransfers: int(failedJobs),
 	}
-	
+
 	components.Dashboard(components.CreateTemplateContext(c), data).Render(c, c.Writer)
 }
 
-// HandleDashboardStats handles the dashboard stats API request
-func (h *Handlers) HandleDashboardStats(c *gin.Context) {
+// HandleHistory handles the GET /history route
+func (h *Handlers) HandleHistory(c *gin.Context) {
 	userID := c.GetUint("userID")
 
-	// Get job statistics
-	var activeJobCount int64
-	var completedJobCount int64
-	var failedJobCount int64
-
-	h.DB.Model(&db.Job{}).Where("created_by = ? AND status = ?", userID, "running").Count(&activeJobCount)
-	h.DB.Model(&db.Job{}).Where("created_by = ? AND status = ?", userID, "completed").Count(&completedJobCount)
-	h.DB.Model(&db.Job{}).Where("created_by = ? AND status = ?", userID, "failed").Count(&failedJobCount)
-
-	// Get transfer statistics for the last 7 days
-	var dailyStats []struct {
-		Date      string `json:"date"`
-		Completed int64  `json:"completed"`
-		Failed    int64  `json:"failed"`
+	// Get pagination parameters
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if err != nil || page < 1 {
+		page = 1
 	}
 
-	for i := 6; i >= 0; i-- {
-		date := time.Now().AddDate(0, 0, -i)
-		startOfDay := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.Local)
-		endOfDay := time.Date(date.Year(), date.Month(), date.Day(), 23, 59, 59, 999999999, time.Local)
+	pageSize, err := strconv.Atoi(c.DefaultQuery("pageSize", "10"))
+	if err != nil {
+		pageSize = 10
+	}
+	// Limit page size options
+	if pageSize != 10 && pageSize != 25 && pageSize != 50 && pageSize != 100 {
+		pageSize = 10
+	}
 
-		var completed int64
-		var failed int64
+	// Get search term
+	searchTerm := c.Query("search")
 
-		h.DB.Model(&db.Job{}).
-			Where("created_by = ? AND status = ? AND last_run BETWEEN ? AND ?", userID, "completed", startOfDay, endOfDay).
-			Count(&completed)
+	// Build the query
+	query := h.DB.Model(&db.JobHistory{}).
+		Joins("JOIN jobs ON jobs.id = job_histories.job_id").
+		Joins("JOIN transfer_configs ON transfer_configs.id = jobs.config_id").
+		Where("jobs.created_by = ?", userID)
 
-		h.DB.Model(&db.Job{}).
-			Where("created_by = ? AND status = ? AND last_run BETWEEN ? AND ?", userID, "failed", startOfDay, endOfDay).
-			Count(&failed)
+	// Apply search if provided
+	if searchTerm != "" {
+		query = query.Where("transfer_configs.name LIKE ? OR job_histories.status LIKE ?",
+			"%"+searchTerm+"%", "%"+searchTerm+"%")
+	}
 
-		dailyStats = append(dailyStats, struct {
-			Date      string `json:"date"`
-			Completed int64  `json:"completed"`
-			Failed    int64  `json:"failed"`
-		}{
-			Date:      startOfDay.Format("2006-01-02"),
-			Completed: completed,
-			Failed:    failed,
-		})
+	// Count total matching records for pagination
+	var total int64
+	query.Count(&total)
+
+	// Calculate total pages
+	totalPages := int(math.Ceil(float64(total) / float64(pageSize)))
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	// Ensure page is within bounds
+	if page > totalPages {
+		page = totalPages
+	}
+
+	// Get paginated results
+	var history []db.JobHistory
+	offset := (page - 1) * pageSize
+
+	query.Offset(offset).
+		Limit(pageSize).
+		Preload("Job.Config").
+		Order("start_time desc").
+		Find(&history)
+
+	// If we got no results and we're not on page 1, redirect to page 1
+	// Only do this for non-HTMX requests to avoid navigation issues
+	isHtmxRequest := c.GetHeader("HX-Request") == "true"
+	if len(history) == 0 && page > 1 && total > 0 && !isHtmxRequest {
+		redirectURL := fmt.Sprintf("/history?page=1&pageSize=%d", pageSize)
+		if searchTerm != "" {
+			redirectURL += fmt.Sprintf("&search=%s", url.QueryEscape(searchTerm))
+		}
+		c.Redirect(http.StatusFound, redirectURL)
+		return
+	}
+
+	data := components.HistoryData{
+		History:     history,
+		CurrentPage: page,
+		TotalPages:  totalPages,
+		SearchTerm:  searchTerm,
+		PageSize:    pageSize,
+		Total:       int(total),
+	}
+
+	// If this is an HTMX request, only render the history content component
+	if isHtmxRequest {
+		components.HistoryContent(c, data).Render(c, c.Writer)
+	} else {
+		components.History(c, data).Render(c, c.Writer)
+	}
+}
+
+// HandleDashboardData handles the GET /dashboard/data route
+func (h *Handlers) HandleDashboardData(c *gin.Context) {
+	// Get recent job runs
+	var recentRuns []db.JobHistory
+	if err := h.DB.Preload("Job").Order("start_time desc").Limit(5).Find(&recentRuns).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve recent runs"})
+		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"activeJobs":     activeJobCount,
-		"completedJobs":  completedJobCount,
-		"failedJobs":     failedJobCount,
-		"dailyStats":     dailyStats,
-		"uptime":         time.Since(h.StartTime).String(),
-		"uptimeSeconds":  int64(time.Since(h.StartTime).Seconds()),
+		"recent_runs": recentRuns,
 	})
 }
 
-// HandleRecentJobs handles the recent jobs API request
-func (h *Handlers) HandleRecentJobs(c *gin.Context) {
-	userID := c.GetUint("userID")
-
-	var recentJobs []db.Job
-	h.DB.Where("created_by = ?", userID).Order("created_at DESC").Limit(5).Find(&recentJobs)
+// HandleDashboardJobsData handles the GET /dashboard/jobs route
+func (h *Handlers) HandleDashboardJobsData(c *gin.Context) {
+	// Get active jobs
+	var activeJobs []db.Job
+	if err := h.DB.Where("enabled = ?", true).Find(&activeJobs).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve active jobs"})
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"recentJobs": recentJobs,
+		"active_jobs": activeJobs,
+	})
+}
+
+// HandleDashboardHistoryData handles the GET /dashboard/history route
+func (h *Handlers) HandleDashboardHistoryData(c *gin.Context) {
+	// Get job history stats
+	var successCount int64
+	var failureCount int64
+	var pendingCount int64
+
+	h.DB.Model(&db.JobHistory{}).Where("status = ?", "success").Count(&successCount)
+	h.DB.Model(&db.JobHistory{}).Where("status = ?", "failure").Count(&failureCount)
+	h.DB.Model(&db.JobHistory{}).Where("status = ?", "pending").Count(&pendingCount)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success_count": successCount,
+		"failure_count": failureCount,
+		"pending_count": pendingCount,
 	})
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -23,6 +24,7 @@ func (h *Handlers) HandleAdminTools(c *gin.Context) {
 		SystemUptime: h.getSystemUptime(),
 		DatabasePath: h.DBPath,
 		BackupPath:   h.BackupDir,
+		LogFiles:     h.getLogFiles(),
 	}
 
 	// Get database size
@@ -295,17 +297,28 @@ func (h *Handlers) HandleRestoreDatabaseByFilename(c *gin.Context) {
 func (h *Handlers) HandleRefreshBackups(c *gin.Context) {
 	// Get list of backup files
 	backupFiles := h.getBackupFiles()
-	
+
 	// Create data structure for the template
 	data := components.AdminToolsData{
 		BackupFiles: backupFiles,
 	}
-	
+
 	// Get last backup time and backup count
 	data.LastBackupTime, data.BackupCount = h.getBackupInfo()
-	
+
 	// Render just the BackupsList component
 	components.BackupsList(data).Render(c, c.Writer)
+}
+
+// HandleRefreshLogs refreshes the log files list
+func (h *Handlers) HandleRefreshLogs(c *gin.Context) {
+	// Get system statistics
+	data := components.AdminToolsData{
+		LogFiles: h.getLogFiles(),
+	}
+
+	// Render only the log viewer component
+	components.AdminLogViewer(data).Render(c, c.Writer)
 }
 
 // Helper functions
@@ -576,5 +589,169 @@ func (h *Handlers) HandleDownloadBackup(c *gin.Context) {
 	c.Header("Content-Type", "application/octet-stream")
 
 	// Serve the file
+	c.File(filePath)
+}
+
+// formatSize converts bytes to human-readable sizes
+func formatSize(bytes float64) string {
+	const (
+		KB = 1024
+		MB = KB * 1024
+		GB = MB * 1024
+		TB = GB * 1024
+	)
+
+	switch {
+	case bytes >= TB:
+		return fmt.Sprintf("%.2f TB", bytes/TB)
+	case bytes >= GB:
+		return fmt.Sprintf("%.2f GB", bytes/GB)
+	case bytes >= MB:
+		return fmt.Sprintf("%.2f MB", bytes/MB)
+	case bytes >= KB:
+		return fmt.Sprintf("%.2f KB", bytes/KB)
+	default:
+		return fmt.Sprintf("%.0f B", bytes)
+	}
+}
+
+// Helper function to get log files
+func (h *Handlers) getLogFiles() []components.LogFile {
+	// Determine logs directory
+	logsDir := os.Getenv("LOGS_DIR")
+	if logsDir == "" {
+		dataDir := os.Getenv("DATA_DIR")
+		if dataDir == "" {
+			dataDir = "./data"
+		}
+		logsDir = filepath.Join(dataDir, "logs")
+	}
+
+	// Try to read directory
+	files, err := ioutil.ReadDir(logsDir)
+	if err != nil {
+		return []components.LogFile{}
+	}
+
+	// Process files
+	var logFiles []components.LogFile
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		// Only include .log files
+		if !strings.HasSuffix(strings.ToLower(file.Name()), ".log") {
+			continue
+		}
+
+		size := formatSize(float64(file.Size()))
+		logFiles = append(logFiles, components.LogFile{
+			Name:    file.Name(),
+			Size:    size,
+			ModTime: file.ModTime(),
+			Path:    filepath.Join(logsDir, file.Name()),
+		})
+	}
+
+	// Sort by modification time (newest first)
+	sort.Slice(logFiles, func(i, j int) bool {
+		return logFiles[i].ModTime.After(logFiles[j].ModTime)
+	})
+
+	return logFiles
+}
+
+// HandleViewLog displays the contents of a log file
+func (h *Handlers) HandleViewLog(c *gin.Context) {
+	fileName := c.Param("fileName")
+	if fileName == "" {
+		c.String(http.StatusBadRequest, "No file name provided")
+		return
+	}
+
+	// Sanitize the filename to prevent directory traversal
+	fileName = filepath.Base(fileName)
+
+	// Determine logs directory
+	logsDir := os.Getenv("LOGS_DIR")
+	if logsDir == "" {
+		dataDir := os.Getenv("DATA_DIR")
+		if dataDir == "" {
+			dataDir = "./data"
+		}
+		logsDir = filepath.Join(dataDir, "logs")
+	}
+
+	filePath := filepath.Join(logsDir, fileName)
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		c.String(http.StatusNotFound, "Log file not found")
+		return
+	}
+
+	// Read file contents
+	content, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		c.String(http.StatusInternalServerError, "Error reading log file: "+err.Error())
+		return
+	}
+
+	// Ensure content is large enough to trigger scrollbar (add padding)
+	logContent := string(content)
+
+	// Add padding at the end to ensure scrollbar is visible even for small logs
+	if len(logContent) < 2000 {
+		paddingNeeded := 100 - strings.Count(logContent, "\n")
+		if paddingNeeded > 0 {
+			for i := 0; i < paddingNeeded; i++ {
+				logContent += "\n "
+			}
+		}
+	}
+
+	data := components.AdminToolsData{
+		CurrentLogFile: fileName,
+		LogContent:     logContent,
+	}
+
+	// Render the template using the templ package
+	components.AdminLogContent(data).Render(c, c.Writer)
+}
+
+// HandleDownloadLog allows downloading a log file
+func (h *Handlers) HandleDownloadLog(c *gin.Context) {
+	fileName := c.Param("fileName")
+	if fileName == "" {
+		c.String(http.StatusBadRequest, "No file name provided")
+		return
+	}
+
+	// Sanitize the filename to prevent directory traversal
+	fileName = filepath.Base(fileName)
+
+	// Determine logs directory
+	logsDir := os.Getenv("LOGS_DIR")
+	if logsDir == "" {
+		dataDir := os.Getenv("DATA_DIR")
+		if dataDir == "" {
+			dataDir = "./data"
+		}
+		logsDir = filepath.Join(dataDir, "logs")
+	}
+
+	filePath := filepath.Join(logsDir, fileName)
+
+	// Check if file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		c.String(http.StatusNotFound, "Log file not found")
+		return
+	}
+
+	// Set headers for file download
+	c.Header("Content-Description", "File Transfer")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
+	c.Header("Content-Type", "text/plain")
 	c.File(filePath)
 }

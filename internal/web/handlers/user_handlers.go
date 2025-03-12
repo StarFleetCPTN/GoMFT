@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -40,34 +38,34 @@ func (h *Handlers) HandleCreateUser(c *gin.Context) {
 	email := c.PostForm("email")
 	password := c.PostForm("password")
 	isAdmin := c.PostForm("is_admin") == "on"
-	
+
 	// Check if email already exists
 	var existingUser db.User
 	if err := h.DB.Where("email = ?", email).First(&existingUser).Error; err == nil {
 		c.String(http.StatusBadRequest, "Email already exists")
 		return
 	}
-	
+
 	// Hash the password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		c.String(http.StatusInternalServerError, "Failed to hash password")
 		return
 	}
-	
+
 	// Create the user
 	user := db.User{
 		Email:              email,
 		PasswordHash:       string(hashedPassword),
-		IsAdmin:           isAdmin,
+		IsAdmin:            isAdmin,
 		LastPasswordChange: time.Now(),
 	}
-	
+
 	if err := h.DB.Create(&user).Error; err != nil {
 		c.String(http.StatusInternalServerError, "Failed to create user")
 		return
 	}
-	
+
 	c.Redirect(http.StatusSeeOther, "/admin/users")
 }
 
@@ -78,20 +76,20 @@ func (h *Handlers) HandleDeleteUser(c *gin.Context) {
 		c.String(http.StatusBadRequest, "Invalid user ID")
 		return
 	}
-	
+
 	// Don't allow deleting the current user
 	currentUserID := c.GetUint("userID")
 	if uint(userID) == currentUserID {
 		c.String(http.StatusBadRequest, "Cannot delete your own account")
 		return
 	}
-	
+
 	// Delete the user
 	if err := h.DB.Delete(&db.User{}, userID).Error; err != nil {
 		c.String(http.StatusInternalServerError, "Failed to delete user")
 		return
 	}
-	
+
 	c.Redirect(http.StatusSeeOther, "/admin/users")
 }
 
@@ -100,13 +98,13 @@ func (h *Handlers) HandleRegisterPage(c *gin.Context) {
 	// Check if any users exist
 	var count int64
 	h.DB.Model(&db.User{}).Count(&count)
-	
+
 	// If users exist, don't allow registration
 	if count > 0 {
 		c.Redirect(http.StatusSeeOther, "/")
 		return
 	}
-	
+
 	components.Register(c.Request.Context(), "").Render(c, c.Writer)
 }
 
@@ -115,23 +113,23 @@ func (h *Handlers) HandleRegister(c *gin.Context) {
 	// Check if any users exist
 	var count int64
 	h.DB.Model(&db.User{}).Count(&count)
-	
+
 	// If users exist, don't allow registration
 	if count > 0 {
 		c.Redirect(http.StatusSeeOther, "/")
 		return
 	}
-	
+
 	email := c.PostForm("email")
 	password := c.PostForm("password")
-	
+
 	// Hash the password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		c.String(http.StatusInternalServerError, "Failed to hash password")
 		return
 	}
-	
+
 	// Create the admin user
 	user := db.User{
 		Email:              email,
@@ -139,178 +137,21 @@ func (h *Handlers) HandleRegister(c *gin.Context) {
 		IsAdmin:            true,
 		LastPasswordChange: time.Now(),
 	}
-	
+
 	if err := h.DB.Create(&user).Error; err != nil {
 		c.String(http.StatusInternalServerError, "Failed to create user")
 		return
 	}
-	
+
 	// Generate JWT
 	token, err := h.GenerateJWT(user.ID, user.Email, user.IsAdmin)
 	if err != nil {
 		c.String(http.StatusInternalServerError, "Failed to generate token")
 		return
 	}
-	
+
 	// Set cookie
 	c.SetCookie("jwt", token, 60*60*24, "/", "", false, true)
-	
+
 	c.Redirect(http.StatusSeeOther, "/dashboard")
-}
-
-// HandleEditUser handles the edit user page request
-func (h *Handlers) HandleEditUser(c *gin.Context) {
-	// Only admin users can access this page
-	isAdmin, exists := c.Get("isAdmin")
-	if !exists || isAdmin != true {
-		c.Redirect(http.StatusFound, "/dashboard")
-		return
-	}
-
-	id := c.Param("id")
-	var user db.User
-	if err := h.DB.First(&user, id).Error; err != nil {
-		c.Redirect(http.StatusFound, "/users")
-		return
-	}
-
-	data := components.UserFormData{
-		IsNew:        false,
-		ErrorMessage: "",
-	}
-	components.UserForm(c.Request.Context(), data).Render(c, c.Writer)
-}
-
-// HandleUpdateUser handles the update user form submission
-func (h *Handlers) HandleUpdateUser(c *gin.Context) {
-	// Only admin users can update users
-	isAdmin, exists := c.Get("isAdmin")
-	if !exists || isAdmin != true {
-		c.String(http.StatusForbidden, "Only administrators can update users")
-		return
-	}
-
-	id := c.Param("id")
-	var user db.User
-	if err := h.DB.First(&user, id).Error; err != nil {
-		log.Printf("Error finding user: %v", err)
-		c.String(http.StatusNotFound, "User not found")
-		return
-	}
-
-	// Get the old user values for comparison
-	oldUser := user
-
-	// Bind form data to user
-	if err := c.ShouldBind(&user); err != nil {
-		log.Printf("Error binding user form: %v", err)
-		c.String(http.StatusBadRequest, fmt.Sprintf("Invalid form data: %v", err))
-		return
-	}
-
-	// Check if email already exists for a different user
-	var existingUser db.User
-	if user.Email != oldUser.Email {
-		if err := h.DB.Where("email = ? AND id != ?", user.Email, user.ID).First(&existingUser).Error; err == nil {
-			c.String(http.StatusBadRequest, "Email already in use")
-			return
-		}
-	}
-
-	// Get password from form
-	password := c.PostForm("password")
-	
-	// Only update password if provided
-	if password != "" {
-		// Validate password complexity
-		if !h.validatePasswordComplexity(password) {
-			c.String(http.StatusBadRequest, "Password does not meet complexity requirements")
-			return
-		}
-
-		// Hash password
-		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-		if err != nil {
-			log.Printf("Error hashing password: %v", err)
-			c.String(http.StatusInternalServerError, "Failed to hash password")
-			return
-		}
-		user.PasswordHash = string(hashedPassword)
-		user.LastPasswordChange = time.Now()
-	} else {
-		// Preserve the old password if not updating
-		user.PasswordHash = oldUser.PasswordHash
-		user.LastPasswordChange = oldUser.LastPasswordChange
-	}
-
-	// Preserve fields that shouldn't be updated
-	user.CreatedAt = oldUser.CreatedAt
-	user.FailedLoginAttempts = oldUser.FailedLoginAttempts
-	user.AccountLocked = oldUser.AccountLocked
-	user.LockoutUntil = oldUser.LockoutUntil
-
-	// Update admin status
-	user.IsAdmin = c.PostForm("is_admin") == "on"
-
-	if err := h.DB.Save(&user).Error; err != nil {
-		log.Printf("Error updating user: %v", err)
-		c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to update user: %v", err))
-		return
-	}
-
-	c.Redirect(http.StatusFound, "/users")
-}
-
-// HandleUnlockUser handles the unlock user request
-func (h *Handlers) HandleUnlockUser(c *gin.Context) {
-	// Only admin users can unlock users
-	isAdmin, exists := c.Get("isAdmin")
-	if !exists || isAdmin != true {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only administrators can unlock users"})
-		return
-	}
-
-	id := c.Param("id")
-	var user db.User
-	if err := h.DB.First(&user, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-		return
-	}
-
-	// Unlock user
-	user.AccountLocked = false
-	user.FailedLoginAttempts = 0
-	user.LockoutUntil = nil
-
-	if err := h.DB.Save(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to unlock user: %v", err)})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "User unlocked successfully"})
-}
-
-// validatePasswordComplexity validates that a password meets complexity requirements
-func (h *Handlers) validatePasswordComplexity(password string) bool {
-	// Password must be at least 8 characters long
-	if len(password) < 8 {
-		return false
-	}
-
-	// Check for at least one uppercase letter, one lowercase letter, and one number
-	hasUpper := false
-	hasLower := false
-	hasNumber := false
-
-	for _, char := range password {
-		if char >= 'A' && char <= 'Z' {
-			hasUpper = true
-		} else if char >= 'a' && char <= 'z' {
-			hasLower = true
-		} else if char >= '0' && char <= '9' {
-			hasNumber = true
-		}
-	}
-
-	return hasUpper && hasLower && hasNumber
 }

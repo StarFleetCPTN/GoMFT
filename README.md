@@ -151,12 +151,12 @@ services:
       - EMAIL_USERNAME=smtp_username
       - EMAIL_PASSWORD=smtp_password
       # Logging configuration
-      - GOMFT_LOGS_DIR=/app/data/logs
-      - GOMFT_LOG_MAX_SIZE=10
-      - GOMFT_LOG_MAX_BACKUPS=5
-      - GOMFT_LOG_MAX_AGE=30
-      - GOMFT_LOG_COMPRESS=true
-      - GOMFT_LOG_LEVEL=info
+      - LOGS_DIR=/app/data/logs
+      - LOG_MAX_SIZE=10
+      - LOG_MAX_BACKUPS=5
+      - LOG_MAX_AGE=30
+      - LOG_COMPRESS=true
+      - LOG_LEVEL=info
 ```
 
 Alternatively, you can mount your own .env file to the container:
@@ -233,12 +233,12 @@ EMAIL_PASSWORD=smtp_password
 
 GoMFT provides configurable logging with rotation support through the following environment variables:
 
-- `GOMFT_LOGS_DIR`: Directory where log files are stored (default: `./data/logs`)
-- `GOMFT_LOG_MAX_SIZE`: Maximum size in megabytes for each log file before rotation (default: `10`)
-- `GOMFT_LOG_MAX_BACKUPS`: Number of old log files to retain (default: `5`)
-- `GOMFT_LOG_MAX_AGE`: Maximum number of days to retain old log files (default: `30`)
-- `GOMFT_LOG_COMPRESS`: Whether to compress rotated log files (default: `true`)
-- `GOMFT_LOG_LEVEL`: Controls verbosity level of logging (values: `error`, `info`, `debug`, default: `info`)
+- `LOGS_DIR`: Directory where log files are stored (default: `./data/logs`)
+- `LOG_MAX_SIZE`: Maximum size in megabytes for each log file before rotation (default: `10`)
+- `LOG_MAX_BACKUPS`: Number of old log files to retain (default: `5`)
+- `LOG_MAX_AGE`: Maximum number of days to retain old log files (default: `30`)
+- `LOG_COMPRESS`: Whether to compress rotated log files (default: `true`)
+- `LOG_LEVEL`: Controls verbosity level of logging (values: `error`, `info`, `debug`, default: `info`)
   - `error`: Only show errors and critical issues
   - `info`: Show errors and general operational information (default)
   - `debug`: Show all messages including detailed debugging information
@@ -442,4 +442,4 @@ volumes:
   - /host/path/backups:/app/backups   # For database backups
 ```
 
-These paths can be customized using the environment variables `DATA_DIR`, `BACKUP_DIR`, and `GOMFT_LOGS_DIR`.
+These paths can be customized using the environment variables `DATA_DIR`, `BACKUP_DIR`, and `LOGS_DIR`.

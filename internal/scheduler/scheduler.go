@@ -1,8 +1,6 @@
 package scheduler
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -102,7 +100,7 @@ func NewLogger() *Logger {
 
 	// Ensure logs directory exists
 	logsDir := filepath.Join(dataDir, "logs")
-	if envLogsDir := os.Getenv("GOMFT_LOGS_DIR"); envLogsDir != "" {
+	if envLogsDir := os.Getenv("LOGS_DIR"); envLogsDir != "" {
 		logsDir = envLogsDir
 	}
 
@@ -112,34 +110,34 @@ func NewLogger() *Logger {
 
 	// Get log rotation settings from environment or use defaults
 	maxSize := 10 // Default: 10MB
-	if envSize := os.Getenv("GOMFT_LOG_MAX_SIZE"); envSize != "" {
+	if envSize := os.Getenv("LOG_MAX_SIZE"); envSize != "" {
 		if size, err := strconv.Atoi(envSize); err == nil && size > 0 {
 			maxSize = size
 		}
 	}
 
 	maxBackups := 5 // Default: keep 5 backups
-	if envBackups := os.Getenv("GOMFT_LOG_MAX_BACKUPS"); envBackups != "" {
+	if envBackups := os.Getenv("LOG_MAX_BACKUPS"); envBackups != "" {
 		if backups, err := strconv.Atoi(envBackups); err == nil && backups >= 0 {
 			maxBackups = backups
 		}
 	}
 
 	maxAge := 30 // Default: 30 days
-	if envAge := os.Getenv("GOMFT_LOG_MAX_AGE"); envAge != "" {
+	if envAge := os.Getenv("LOG_MAX_AGE"); envAge != "" {
 		if age, err := strconv.Atoi(envAge); err == nil && age >= 0 {
 			maxAge = age
 		}
 	}
 
 	compress := true // Default: compress logs
-	if envCompress := os.Getenv("GOMFT_LOG_COMPRESS"); envCompress == "false" {
+	if envCompress := os.Getenv("LOG_COMPRESS"); envCompress == "false" {
 		compress = false
 	}
 
 	// Get log level from environment or use default
 	logLevel := LogLevelInfo // Default to info level
-	if envLogLevel := os.Getenv("GOMFT_LOG_LEVEL"); envLogLevel != "" {
+	if envLogLevel := os.Getenv("LOG_LEVEL"); envLogLevel != "" {
 		logLevel = ParseLogLevel(envLogLevel)
 	}
 
@@ -201,7 +199,7 @@ func New(database *db.DB) *Scheduler {
 	logger := NewLogger()
 
 	logger.Info.Println("Initializing scheduler")
-	c := cron.New(cron.WithSeconds(), cron.WithChain(cron.Recover(cron.DefaultLogger)))
+	c := cron.New(cron.WithChain(cron.Recover(cron.DefaultLogger)))
 	c.Start()
 
 	s := &Scheduler{
@@ -944,39 +942,6 @@ func (s *Scheduler) RunJobNow(jobID uint) error {
 	return nil
 }
 
-// calculateFileHash computes an MD5 hash for the given file path
-func calculateFileHash(filePath string) (string, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return "", fmt.Errorf("error opening file: %v", err)
-	}
-	defer file.Close()
-
-	hash := md5.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return "", fmt.Errorf("error calculating hash: %v", err)
-	}
-
-	return hex.EncodeToString(hash.Sum(nil)), nil
-}
-
-// getFileInfo retrieves file stats like size, creation time, and modification time
-func getFileInfo(filePath string) (int64, time.Time, time.Time, error) {
-	info, err := os.Stat(filePath)
-	if err != nil {
-		return 0, time.Time{}, time.Time{}, fmt.Errorf("error getting file info: %v", err)
-	}
-
-	size := info.Size()
-	modTime := info.ModTime()
-
-	// Get creation time (this is platform-specific)
-	// For simplicity, we'll use modification time as a fallback
-	createTime := modTime
-
-	return size, createTime, modTime, nil
-}
-
 // hasFileBeenProcessed checks if a file with the same hash has been processed before
 func (s *Scheduler) hasFileBeenProcessed(jobID uint, fileHash string) (bool, *db.FileMetadata, error) {
 	if fileHash == "" {
@@ -1001,83 +966,4 @@ func (s *Scheduler) checkFileProcessingHistory(jobID uint, fileName string) (*db
 	}
 
 	return nil, fmt.Errorf("no history found for file %s in job %d", fileName, jobID)
-}
-
-// getRemoteFileInfo gets metadata for a remote file using rclone lsjson
-func (s *Scheduler) getRemoteFileInfo(config *db.TransferConfig, file string) (int64, time.Time, time.Time, string, error) {
-	// Get rclone config path
-	configPath := s.db.GetConfigRclonePath(config)
-
-	// Construct the appropriate source path
-	var sourcePath string
-	if config.SourceType == "s3" || config.SourceType == "minio" || config.SourceType == "b2" {
-		sourcePath = fmt.Sprintf("source_%d:%s", config.ID, config.SourceBucket)
-		if config.SourcePath != "" && config.SourcePath != "/" {
-			sourcePath = fmt.Sprintf("source_%d:%s/%s", config.ID, config.SourceBucket, config.SourcePath)
-		}
-	} else {
-		sourcePath = fmt.Sprintf("source_%d:%s", config.ID, config.SourcePath)
-	}
-
-	// Use rclone lsjson to get file details
-	rclonePath := os.Getenv("RCLONE_PATH")
-	if rclonePath == "" {
-		rclonePath = "rclone"
-	}
-
-	// Construct the full path to the file
-	fullPath := fmt.Sprintf("%s/%s", sourcePath, file)
-
-	// Run rclone lsjson command
-	args := []string{
-		"--config", configPath,
-		"lsjson",
-		"--hash",
-		fullPath,
-	}
-
-	cmd := exec.Command(rclonePath, args...)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return 0, time.Time{}, time.Time{}, "", fmt.Errorf("error getting remote file info: %v", err)
-	}
-
-	// Parse the JSON output
-	var files []map[string]interface{}
-	if err := json.Unmarshal(output, &files); err != nil {
-		return 0, time.Time{}, time.Time{}, "", fmt.Errorf("error parsing lsjson output: %v", err)
-	}
-
-	if len(files) == 0 {
-		return 0, time.Time{}, time.Time{}, "", fmt.Errorf("file not found: %s", file)
-	}
-
-	fileInfo := files[0]
-
-	// Extract file size
-	var fileSize int64
-	if size, ok := fileInfo["Size"].(float64); ok {
-		fileSize = int64(size)
-	}
-
-	// Extract modification time
-	modTime := time.Now()
-	if modTimeStr, ok := fileInfo["ModTime"].(string); ok {
-		if parsedTime, err := time.Parse(time.RFC3339, modTimeStr); err == nil {
-			modTime = parsedTime
-		}
-	}
-
-	// Create time is usually not available for remote files, so we'll use modTime
-	createTime := modTime
-
-	// Calculate hash if available
-	var md5Hash string
-	if hashes, ok := fileInfo["Hashes"].(map[string]interface{}); ok {
-		if md5, ok := hashes["md5"].(string); ok {
-			md5Hash = md5
-		}
-	}
-
-	return fileSize, createTime, modTime, md5Hash, nil
 }
