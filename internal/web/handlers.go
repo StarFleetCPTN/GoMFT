@@ -18,10 +18,10 @@ type Handler struct {
 func NewHandler(database *db.DB, scheduler *scheduler.Scheduler, jwtSecret string, dbPath string, backupDir string, cfg *config.Config) (*Handler, error) {
 	// Create email service instance
 	emailService := email.NewService(cfg)
-	
+
 	// Create handlers instance
-	handlersInstance := handlers.NewHandlers(database, scheduler, jwtSecret, dbPath, backupDir, emailService)
-	
+	handlersInstance := handlers.NewHandlers(database, scheduler, jwtSecret, dbPath, backupDir, "./logs", emailService)
+
 	return &Handler{
 		handlers: handlersInstance,
 	}, nil

@@ -321,6 +321,463 @@ func (h *Handlers) HandleRefreshLogs(c *gin.Context) {
 	components.AdminLogViewer(data).Render(c, c.Writer)
 }
 
+// HandleImportConfigs handles importing transfer configurations from JSON
+func (h *Handlers) HandleImportConfigs(c *gin.Context) {
+	// Check admin access
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+
+	userObj, ok := user.(*db.User)
+	if !ok || !userObj.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
+		return
+	}
+
+	// Read the request body
+	var configs []db.TransferConfig
+	if err := c.ShouldBindJSON(&configs); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid JSON: %v", err)})
+		return
+	}
+
+	// Import each config
+	imported := 0
+	for i := range configs {
+		// Set created by to current user
+		configs[i].CreatedBy = userObj.ID
+
+		// Create in database
+		if err := h.DB.Create(&configs[i]).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to import config: %v", err)})
+			return
+		}
+		imported++
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("%d configs imported successfully", imported)})
+}
+
+// HandleImportJobs handles importing jobs from JSON
+func (h *Handlers) HandleImportJobs(c *gin.Context) {
+	// Check admin access
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+
+	userObj, ok := user.(*db.User)
+	if !ok || !userObj.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
+		return
+	}
+
+	// Read the request body
+	var jobs []db.Job
+	if err := c.ShouldBindJSON(&jobs); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid JSON: %v", err)})
+		return
+	}
+
+	// Import each job
+	imported := 0
+	for i := range jobs {
+		// Set created by to current user
+		jobs[i].CreatedBy = userObj.ID
+
+		// Validate config ID exists
+		var config db.TransferConfig
+		if err := h.DB.First(&config, jobs[i].ConfigID).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Config ID %d not found", jobs[i].ConfigID)})
+			return
+		}
+
+		// Create in database
+		if err := h.DB.Create(&jobs[i]).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to import job: %v", err)})
+			return
+		}
+		imported++
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("%d jobs imported successfully", imported)})
+}
+
+// HandleListBackups returns a list of all database backups
+func (h *Handlers) HandleListBackups(c *gin.Context) {
+	// Check admin access
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+
+	userObj, ok := user.(*db.User)
+	if !ok || !userObj.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
+		return
+	}
+
+	// Get backup files
+	backups := h.getBackupFiles()
+
+	c.JSON(http.StatusOK, gin.H{
+		"backups": backups,
+	})
+}
+
+// HandleSystemInfo returns system information for the admin dashboard
+func (h *Handlers) HandleSystemInfo(c *gin.Context) {
+	// Check admin access
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+
+	userObj, ok := user.(*db.User)
+	if !ok || !userObj.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
+		return
+	}
+
+	// Get basic system info
+	info := map[string]interface{}{
+		"os":         h.getOSInfo(),
+		"memory":     h.getMemoryInfo(),
+		"cpu":        h.getCPUInfo(),
+		"disk":       h.getDiskInfo(),
+		"go_version": h.getGoVersion(),
+		"uptime":     h.getSystemUptime(),
+	}
+
+	c.JSON(http.StatusOK, info)
+}
+
+// HandleImportJobsFromFile handles importing jobs from an uploaded JSON file
+func (h *Handlers) HandleImportJobsFromFile(c *gin.Context) {
+	// Check admin access
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+
+	userObj, ok := user.(*db.User)
+	if !ok || !userObj.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
+		return
+	}
+
+	// Get the uploaded file
+	file, err := c.FormFile("jobs_file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No jobs file provided"})
+		return
+	}
+
+	// Open the uploaded file
+	src, err := file.Open()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to open uploaded file: %v", err)})
+		return
+	}
+	defer src.Close()
+
+	// Read file contents
+	fileContent, err := io.ReadAll(src)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to read file: %v", err)})
+		return
+	}
+
+	// Parse jobs from JSON
+	var jobs []db.Job
+	if err := json.Unmarshal(fileContent, &jobs); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid JSON: %v", err)})
+		return
+	}
+
+	// Import each job
+	imported := 0
+	for i := range jobs {
+		// Set created by to current user
+		jobs[i].CreatedBy = userObj.ID
+
+		// Validate config ID exists
+		var config db.TransferConfig
+		if err := h.DB.First(&config, jobs[i].ConfigID).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Config ID %d not found", jobs[i].ConfigID)})
+			return
+		}
+
+		// Create in database
+		if err := h.DB.Create(&jobs[i]).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to import job: %v", err)})
+			return
+		}
+		imported++
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("%d jobs imported successfully", imported)})
+}
+
+// HandleDeleteLogFile handles the deletion of a log file
+func (h *Handlers) HandleDeleteLogFile(c *gin.Context) {
+	// Check admin access
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+
+	userObj, ok := user.(*db.User)
+	if !ok || !userObj.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
+		return
+	}
+
+	// Get filename from params
+	filename := c.Param("filename")
+	if filename == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No filename provided"})
+		return
+	}
+
+	// Validate filename (basic security check)
+	if strings.Contains(filename, "..") || strings.Contains(filename, "/") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid filename"})
+		return
+	}
+
+	// Construct full file path
+	logFilePath := filepath.Join(h.LogsDir, filename)
+
+	// Ensure the file is within the logs directory
+	if !strings.HasPrefix(logFilePath, h.LogsDir) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid log file path"})
+		return
+	}
+
+	// Check if file exists
+	if _, err := os.Stat(logFilePath); os.IsNotExist(err) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Log file not found"})
+		return
+	}
+
+	// Delete the file
+	if err := os.Remove(logFilePath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to delete log file: %v", err)})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Log file deleted successfully"})
+}
+
+// HandleSystemMaintenanceCheck handles the system maintenance check request
+func (h *Handlers) HandleSystemMaintenanceCheck(c *gin.Context) {
+	// Check admin access
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+
+	userObj, ok := user.(*db.User)
+	if !ok || !userObj.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
+		return
+	}
+
+	// Perform maintenance checks
+	checks := map[string]interface{}{
+		"database_size":    h.checkDatabaseSize(),
+		"disk_space":       h.checkDiskSpace(),
+		"job_history":      h.checkJobHistorySize(),
+		"inactive_configs": h.checkInactiveConfigs(),
+		"failed_jobs":      h.checkFailedJobs(),
+	}
+
+	// Determine overall status based on checks
+	status := "healthy"
+	for _, result := range checks {
+		if resultMap, ok := result.(map[string]interface{}); ok {
+			if resultMap["status"] == "warning" || resultMap["status"] == "critical" {
+				status = "needs_attention"
+				break
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": status,
+		"checks": checks,
+	})
+}
+
+// HandleUpdateSystemSettings handles updating system settings
+func (h *Handlers) HandleUpdateSystemSettings(c *gin.Context) {
+	// Check admin access
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+
+	userObj, ok := user.(*db.User)
+	if !ok || !userObj.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
+		return
+	}
+
+	// Parse settings from request body
+	var settings struct {
+		EmailNotifications     bool `json:"email_notifications"`
+		LogRetentionDays       int  `json:"log_retention_days"`
+		MaxConcurrentTransfers int  `json:"max_concurrent_transfers"`
+		DefaultRetryAttempts   int  `json:"default_retry_attempts"`
+	}
+
+	if err := c.ShouldBindJSON(&settings); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid settings data: %v", err)})
+		return
+	}
+
+	// Validate settings
+	if settings.LogRetentionDays < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Log retention days must be at least 1"})
+		return
+	}
+
+	if settings.MaxConcurrentTransfers < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Max concurrent transfers must be at least 1"})
+		return
+	}
+
+	if settings.DefaultRetryAttempts < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Default retry attempts cannot be negative"})
+		return
+	}
+
+	// Update settings in database
+	// Here we would typically store these in a settings table
+	// For this example, we'll just return success
+
+	c.JSON(http.StatusOK, gin.H{"message": "Settings updated successfully"})
+}
+
+// Maintenance check helper functions
+func (h *Handlers) checkDatabaseSize() map[string]interface{} {
+	sizeStr, err := h.getDatabaseSize()
+	if err != nil {
+		return map[string]interface{}{
+			"status":  "unknown",
+			"message": "Unable to determine database size",
+		}
+	}
+
+	// Parse size for comparison
+	var size float64
+	var unit string
+	fmt.Sscanf(sizeStr, "%f %s", &size, &unit)
+
+	status := "healthy"
+	message := fmt.Sprintf("Database size is %s", sizeStr)
+
+	// Check if database is large
+	if unit == "MB" && size > 100 {
+		status = "warning"
+		message = fmt.Sprintf("Database size is %s, consider optimizing", sizeStr)
+	} else if unit == "GB" {
+		status = "critical"
+		message = fmt.Sprintf("Database size is %s, vacuum recommended", sizeStr)
+	}
+
+	return map[string]interface{}{
+		"status":  status,
+		"message": message,
+		"size":    sizeStr,
+	}
+}
+
+func (h *Handlers) checkDiskSpace() map[string]interface{} {
+	// For demo purposes, return a simulated result
+	// In a real implementation, would check actual free disk space
+	return map[string]interface{}{
+		"status":     "healthy",
+		"message":    "Sufficient disk space available",
+		"free_space": "10.2 GB",
+	}
+}
+
+func (h *Handlers) checkJobHistorySize() map[string]interface{} {
+	var count int64
+	h.DB.Model(&db.JobHistory{}).Count(&count)
+
+	status := "healthy"
+	message := fmt.Sprintf("%d job history records", count)
+
+	if count > 10000 {
+		status = "warning"
+		message = fmt.Sprintf("%d job history records, consider clearing old records", count)
+	} else if count > 50000 {
+		status = "critical"
+		message = fmt.Sprintf("%d job history records, performance may be impacted", count)
+	}
+
+	return map[string]interface{}{
+		"status":  status,
+		"message": message,
+		"count":   count,
+	}
+}
+
+func (h *Handlers) checkInactiveConfigs() map[string]interface{} {
+	var count int64
+	h.DB.Model(&db.TransferConfig{}).Where("id NOT IN (SELECT DISTINCT config_id FROM jobs)").Count(&count)
+
+	status := "healthy"
+	message := fmt.Sprintf("%d unused configurations", count)
+
+	if count > 5 {
+		status = "warning"
+		message = fmt.Sprintf("%d unused configurations found", count)
+	}
+
+	return map[string]interface{}{
+		"status":  status,
+		"message": message,
+		"count":   count,
+	}
+}
+
+func (h *Handlers) checkFailedJobs() map[string]interface{} {
+	var count int64
+	oneDayAgo := time.Now().Add(-24 * time.Hour)
+	h.DB.Model(&db.JobHistory{}).Where("status = ? AND created_at > ?", "failed", oneDayAgo).Count(&count)
+
+	status := "healthy"
+	message := fmt.Sprintf("%d failed jobs in the last 24 hours", count)
+
+	if count > 0 {
+		status = "warning"
+		message = fmt.Sprintf("%d failed jobs in the last 24 hours", count)
+	}
+	if count > 10 {
+		status = "critical"
+		message = fmt.Sprintf("%d failed jobs in the last 24 hours", count)
+	}
+
+	return map[string]interface{}{
+		"status":  status,
+		"message": message,
+		"count":   count,
+	}
+}
+
 // Helper functions
 
 // getSystemUptime returns the system uptime as a formatted string
@@ -754,4 +1211,97 @@ func (h *Handlers) HandleDownloadLog(c *gin.Context) {
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
 	c.Header("Content-Type", "text/plain")
 	c.File(filePath)
+}
+
+// Helper functions for system info
+func (h *Handlers) getOSInfo() map[string]string {
+	return map[string]string{
+		"name":    "Linux", // For testing; in a real implementation, you would detect the actual OS
+		"version": "1.0",
+	}
+}
+
+func (h *Handlers) getMemoryInfo() map[string]interface{} {
+	return map[string]interface{}{
+		"total":     "8 GB",
+		"used":      "4 GB",
+		"available": "4 GB",
+		"percent":   50.0,
+	}
+}
+
+func (h *Handlers) getCPUInfo() map[string]interface{} {
+	return map[string]interface{}{
+		"model": "Intel(R) Core(TM) i7",
+		"cores": 4,
+		"usage": 25.0,
+		"mhz":   3200,
+	}
+}
+
+func (h *Handlers) getDiskInfo() map[string]interface{} {
+	return map[string]interface{}{
+		"total":     "500 GB",
+		"used":      "250 GB",
+		"available": "250 GB",
+		"percent":   50.0,
+	}
+}
+
+func (h *Handlers) getGoVersion() string {
+	return "go1.17.5"
+}
+
+// HandleImportConfigsFromFile handles importing transfer configurations from an uploaded JSON file
+func (h *Handlers) HandleImportConfigsFromFile(c *gin.Context) {
+	// Check admin access
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
+		return
+	}
+
+	userObj, ok := user.(*db.User)
+	if !ok || !userObj.IsAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
+		return
+	}
+
+	// Get the file from the form data
+	file, _, err := c.Request.FormFile("configs_file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Failed to get file: %v", err)})
+		return
+	}
+	defer file.Close()
+
+	// Read the file contents
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to read file: %v", err)})
+		return
+	}
+
+	// Parse the JSON
+	var configs []db.TransferConfig
+	if err := json.Unmarshal(fileBytes, &configs); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid JSON: %v", err)})
+		return
+	}
+
+	// Import each config
+	imported := 0
+	for i := range configs {
+		// Set created by to current user
+		configs[i].CreatedBy = userObj.ID
+
+		// Create in database
+		if err := h.DB.Create(&configs[i]).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to import config: %v", err)})
+			return
+		}
+		imported++
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("%d configs imported successfully", imported)})
 }

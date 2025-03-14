@@ -47,7 +47,14 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 
 		// File metadata routes
 		fileMetadataHandler := &FileMetadataHandler{DB: h.DB}
-		fileMetadataHandler.Register(authorized)
+		fileGroup := authorized.Group("/files")
+		fileGroup.GET("", fileMetadataHandler.ListFileMetadata)
+		fileGroup.GET("/:id", fileMetadataHandler.GetFileMetadataDetails)
+		fileGroup.GET("/job/:job_id", fileMetadataHandler.GetFileMetadataForJob)
+		fileGroup.GET("/search", fileMetadataHandler.SearchFileMetadata)
+		fileGroup.GET("/search/partial", fileMetadataHandler.HandleFileMetadataSearchPartial)
+		fileGroup.DELETE("/:id", fileMetadataHandler.DeleteFileMetadata)
+		fileGroup.GET("/partial", fileMetadataHandler.HandleFileMetadataPartial)
 
 		// AJAX routes for dashboard
 		authorized.GET("/dashboard/data", h.HandleDashboardData)

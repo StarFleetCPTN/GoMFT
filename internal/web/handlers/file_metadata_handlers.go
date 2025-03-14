@@ -16,19 +16,6 @@ type FileMetadataHandler struct {
 	DB *db.DB
 }
 
-// Register registers the file metadata routes
-func (h *FileMetadataHandler) Register(router *gin.RouterGroup) {
-	fileGroup := router.Group("/files")
-
-	fileGroup.GET("", h.ListFileMetadata)
-	fileGroup.GET("/:id", h.GetFileMetadataDetails)
-	fileGroup.GET("/job/:job_id", h.GetFileMetadataForJob)
-	fileGroup.GET("/search", h.SearchFileMetadata)
-	fileGroup.GET("/search/partial", h.HandleFileMetadataSearchPartial)
-	fileGroup.DELETE("/:id", h.DeleteFileMetadata)
-	fileGroup.GET("/partial", h.HandleFileMetadataPartial)
-}
-
 // ListFileMetadata displays a list of file metadata with pagination and filtering options
 func (h *FileMetadataHandler) ListFileMetadata(c *gin.Context) {
 	userID := c.GetUint("userID")
