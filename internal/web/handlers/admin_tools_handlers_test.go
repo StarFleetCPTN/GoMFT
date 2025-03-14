@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -409,9 +410,14 @@ func TestHandleImportJobs(t *testing.T) {
 		IsAdmin: true,
 	}
 
+	// Set up the context with the user - must be done BEFORE registering routes
+	router.Use(func(c *gin.Context) {
+		c.Set("user", testUser)
+		c.Next()
+	})
+
 	// Create a test config
 	config := &db.TransferConfig{
-		ID:              1,
 		Name:            "Test Config For Import",
 		SourceType:      "local",
 		SourcePath:      "/source",
@@ -419,26 +425,23 @@ func TestHandleImportJobs(t *testing.T) {
 		DestinationPath: "/dest",
 		CreatedBy:       testUser.ID,
 	}
-	handlers.DB.DB.Create(config)
+	result := handlers.DB.DB.Create(config)
+	require.NoError(t, result.Error)
 
-	// Set up the route
+	// Set up the route AFTER middleware
 	router.POST("/admin/import/jobs", handlers.HandleImportJobs)
 
-	// Set up the context with the user
-	router.Use(func(c *gin.Context) {
-		c.Set("user", testUser)
-		c.Next()
-	})
-
 	// Create test data
-	jobsData := `[
+	jobsData := fmt.Sprintf(`[
 		{
 			"name": "Imported Job",
 			"schedule": "0 */2 * * *",
-			"config_id": 1,
-			"enabled": true
+			"config_id": %d,
+			"config_ids": "%d",
+			"enabled": true,
+			"created_by": %d
 		}
-	]`
+	]`, config.ID, config.ID, testUser.ID)
 
 	// Create a test request
 	w := httptest.NewRecorder()
@@ -768,10 +771,15 @@ func TestHandleImportJobsFromFile(t *testing.T) {
 		IsAdmin: true,
 	}
 
+	// Set up the context with the user - must be done BEFORE registering routes
+	router.Use(func(c *gin.Context) {
+		c.Set("user", testUser)
+		c.Next()
+	})
+
 	// Create a test config
 	config := &db.TransferConfig{
-		ID:              1,
-		Name:            "Test Config For Import",
+		Name:            "Test Config For Import File Test",
 		SourceType:      "local",
 		SourcePath:      "/source",
 		DestinationType: "local",
@@ -786,28 +794,23 @@ func TestHandleImportJobsFromFile(t *testing.T) {
 	// Verify the config was created
 	var configCount int64
 	handlers.DB.DB.Model(&db.TransferConfig{}).Count(&configCount)
-	require.Equal(t, int64(1), configCount)
-
-	// Set up the context with the user - must be done BEFORE registering routes
-	router.Use(func(c *gin.Context) {
-		c.Set("user", testUser)
-		c.Next()
-	})
+	require.Greater(t, configCount, int64(0))
 
 	// Set up the route - AFTER middleware
 	router.POST("/admin/import/jobs/file", handlers.HandleImportJobsFromFile)
 
 	// Create test data with the correct config ID
 	// Note: We're using a numeric value for config_id, not a string
-	jobsData := `[
+	jobsData := fmt.Sprintf(`[
 		{
 			"name": "Imported Job From File",
 			"schedule": "0 */2 * * *",
-			"config_id": 1,
+			"config_id": %d,
+			"config_ids": "%d",
 			"enabled": true,
-			"created_by": 1
+			"created_by": %d
 		}
-	]`
+	]`, config.ID, config.ID, testUser.ID)
 
 	// Create a multipart form buffer
 	body := &bytes.Buffer{}

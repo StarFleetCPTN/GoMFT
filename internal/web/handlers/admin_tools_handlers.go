@@ -377,33 +377,60 @@ func (h *Handlers) HandleImportJobs(c *gin.Context) {
 
 	// Read the request body
 	var jobs []db.Job
-	if err := c.ShouldBindJSON(&jobs); err != nil {
+
+	// Read the raw JSON first
+	var rawJobs []map[string]interface{}
+	if err := c.ShouldBindJSON(&rawJobs); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid JSON: %v", err)})
 		return
 	}
 
-	// Import each job
-	imported := 0
-	for i := range jobs {
-		// Set created by to current user
-		jobs[i].CreatedBy = userObj.ID
+	// Convert the raw jobs to db.Job objects
+	for _, rawJob := range rawJobs {
+		job := db.Job{
+			CreatedBy: userObj.ID,
+		}
+
+		// Set the fields from the raw job
+		if name, ok := rawJob["name"].(string); ok {
+			job.Name = name
+		}
+
+		if schedule, ok := rawJob["schedule"].(string); ok {
+			job.Schedule = schedule
+		}
+
+		if enabled, ok := rawJob["enabled"].(bool); ok {
+			job.Enabled = enabled
+		}
+
+		// Handle config_id
+		if configID, ok := rawJob["config_id"].(float64); ok {
+			job.ConfigID = uint(configID)
+		}
+
+		// Handle config_ids
+		if configIDs, ok := rawJob["config_ids"].(string); ok {
+			job.ConfigIDs = configIDs
+		}
 
 		// Validate config ID exists
 		var config db.TransferConfig
-		if err := h.DB.First(&config, jobs[i].ConfigID).Error; err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Config ID %d not found", jobs[i].ConfigID)})
+		if err := h.DB.First(&config, job.ConfigID).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Config ID %d not found", job.ConfigID)})
 			return
 		}
 
 		// Create in database
-		if err := h.DB.Create(&jobs[i]).Error; err != nil {
+		if err := h.DB.Create(&job).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to import job: %v", err)})
 			return
 		}
-		imported++
+
+		jobs = append(jobs, job)
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("%d jobs imported successfully", imported)})
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("%d jobs imported successfully", len(jobs))})
 }
 
 // HandleListBackups returns a list of all database backups
@@ -496,33 +523,60 @@ func (h *Handlers) HandleImportJobsFromFile(c *gin.Context) {
 
 	// Parse jobs from JSON
 	var jobs []db.Job
-	if err := json.Unmarshal(fileContent, &jobs); err != nil {
+
+	// Read the raw JSON first
+	var rawJobs []map[string]interface{}
+	if err := json.Unmarshal(fileContent, &rawJobs); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid JSON: %v", err)})
 		return
 	}
 
-	// Import each job
-	imported := 0
-	for i := range jobs {
-		// Set created by to current user
-		jobs[i].CreatedBy = userObj.ID
+	// Convert the raw jobs to db.Job objects
+	for _, rawJob := range rawJobs {
+		job := db.Job{
+			CreatedBy: userObj.ID,
+		}
+
+		// Set the fields from the raw job
+		if name, ok := rawJob["name"].(string); ok {
+			job.Name = name
+		}
+
+		if schedule, ok := rawJob["schedule"].(string); ok {
+			job.Schedule = schedule
+		}
+
+		if enabled, ok := rawJob["enabled"].(bool); ok {
+			job.Enabled = enabled
+		}
+
+		// Handle config_id
+		if configID, ok := rawJob["config_id"].(float64); ok {
+			job.ConfigID = uint(configID)
+		}
+
+		// Handle config_ids
+		if configIDs, ok := rawJob["config_ids"].(string); ok {
+			job.ConfigIDs = configIDs
+		}
 
 		// Validate config ID exists
 		var config db.TransferConfig
-		if err := h.DB.First(&config, jobs[i].ConfigID).Error; err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Config ID %d not found", jobs[i].ConfigID)})
+		if err := h.DB.First(&config, job.ConfigID).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Config ID %d not found", job.ConfigID)})
 			return
 		}
 
 		// Create in database
-		if err := h.DB.Create(&jobs[i]).Error; err != nil {
+		if err := h.DB.Create(&job).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to import job: %v", err)})
 			return
 		}
-		imported++
+
+		jobs = append(jobs, job)
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("%d jobs imported successfully", imported)})
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("%d jobs imported successfully", len(jobs))})
 }
 
 // HandleDeleteLogFile handles the deletion of a log file

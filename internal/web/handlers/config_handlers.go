@@ -72,6 +72,16 @@ func (h *Handlers) HandleCreateConfig(c *gin.Context) {
 	userID := c.GetUint("userID")
 	config.CreatedBy = userID
 
+	// print entire form data
+	fmt.Println("Form data:", c.Request.Form)
+
+	// Process skipProcessedFiles value (now using pointer)
+	skipProcessedValue := c.Request.FormValue("skip_processed_files") == "true"
+	config.SkipProcessedFiles = &skipProcessedValue
+
+	fmt.Println("Skip processed files:", config.SkipProcessedFiles)
+	fmt.Println("Config:", config)
+
 	if err := h.DB.Create(&config).Error; err != nil {
 		log.Printf("Error creating config: %v", err)
 		c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to create config: %v", err))
@@ -120,6 +130,10 @@ func (h *Handlers) HandleUpdateConfig(c *gin.Context) {
 		c.String(http.StatusBadRequest, fmt.Sprintf("Invalid form data: %v", err))
 		return
 	}
+
+	// Process skipProcessedFiles value (now using pointer)
+	skipProcessedValue := c.Request.FormValue("skip_processed_files") == "true"
+	config.SkipProcessedFiles = &skipProcessedValue
 
 	// Preserve fields that shouldn't be updated
 	config.CreatedBy = oldConfig.CreatedBy

@@ -250,15 +250,20 @@ func TestHandleCreateJob(t *testing.T) {
 	// Setup test environment
 	handlers, router, database, user, config := setupJobsTest(t)
 
+	// Clean up any existing jobs for this test user first to ensure a clean state
+	database.Where("created_by = ?", user.ID).Delete(&db.Job{})
+
 	// Add route
 	router.POST("/jobs", handlers.HandleCreateJob)
 
-	// Create form data
+	// Create form data with a unique job name to avoid conflicts
+	jobName := "New Test Job " + time.Now().Format("20060102150405")
 	formData := url.Values{
-		"name":      {"New Test Job"},
-		"schedule":  {"*/15 * * * *"},
-		"config_id": {strconv.Itoa(int(config.ID))},
-		"enabled":   {"true"},
+		"name":         {jobName},
+		"schedule":     {"*/15 * * * *"},
+		"config_id":    {strconv.Itoa(int(config.ID))},
+		"config_ids[]": {strconv.Itoa(int(config.ID))},
+		"enabled":      {"true"},
 	}
 
 	// Create request
@@ -273,14 +278,16 @@ func TestHandleCreateJob(t *testing.T) {
 	assert.Equal(t, http.StatusFound, resp.Code)
 	assert.Equal(t, "/jobs", resp.Header().Get("Location"))
 
-	// Verify job was created
-	var jobs []db.Job
-	database.Where("created_by = ?", user.ID).Find(&jobs)
-	assert.Equal(t, 1, len(jobs))
-	assert.Equal(t, "New Test Job", jobs[0].Name)
-	assert.Equal(t, "*/15 * * * *", jobs[0].Schedule)
-	assert.Equal(t, config.ID, jobs[0].ConfigID)
-	assert.True(t, jobs[0].Enabled)
+	// Verify job was created with a specific query matching exactly what we created
+	var job db.Job
+	result := database.Where("created_by = ? AND name = ?", user.ID, jobName).First(&job)
+	assert.NoError(t, result.Error, "Should find the newly created job")
+
+	// Verify job properties
+	assert.Equal(t, jobName, job.Name)
+	assert.Equal(t, "*/15 * * * *", job.Schedule)
+	assert.Equal(t, config.ID, job.ConfigID)
+	assert.True(t, job.Enabled)
 
 	// Test case 2: Try to use another user's config
 	otherUser := &db.User{
@@ -301,46 +308,274 @@ func TestHandleCreateJob(t *testing.T) {
 	}
 	database.Create(otherConfig)
 
+	// Create a new form with both config_id and config_ids[] for the other user's config
 	formData = url.Values{
-		"name":      {"Unauthorized Job"},
-		"schedule":  {"*/30 * * * *"},
-		"config_id": {strconv.Itoa(int(otherConfig.ID))},
-		"enabled":   {"true"},
+		"name":         {"Unauthorized Job"},
+		"schedule":     {"*/30 * * * *"},
+		"config_id":    {strconv.Itoa(int(otherConfig.ID))},
+		"config_ids[]": {strconv.Itoa(int(otherConfig.ID))},
+		"enabled":      {"true"},
 	}
 
+	// Create request
 	req, _ = http.NewRequest(http.MethodPost, "/jobs", strings.NewReader(formData.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp = httptest.NewRecorder()
+
+	// Serve request
 	router.ServeHTTP(resp, req)
 
+	// Debug info
+	t.Logf("Response code: %d", resp.Code)
+	t.Logf("Response body: %s", resp.Body.String())
+
 	// Should return forbidden
-	assert.Equal(t, http.StatusForbidden, resp.Code)
+	assert.Equal(t, http.StatusForbidden, resp.Code, "Should get 403 Forbidden when trying to use another user's config")
 	assert.Contains(t, resp.Body.String(), "You do not have permission")
+}
+
+func TestHandleCreateJobWithMultipleConfigs(t *testing.T) {
+	// Setup test environment
+	handlers, router, database, user, config := setupJobsTest(t)
+
+	// Create another config for the same user
+	config2 := &db.TransferConfig{
+		Name:            "Test Config 2",
+		SourceType:      "local",
+		SourcePath:      "/source2",
+		DestinationType: "local",
+		DestinationPath: "/dest2",
+		CreatedBy:       user.ID,
+	}
+	database.Create(config2)
+
+	// Add route
+	router.POST("/jobs", handlers.HandleCreateJob)
+
+	// Create form data with multiple configs
+	formData := url.Values{
+		"name":     {"Multi-Config Job"},
+		"schedule": {"*/15 * * * *"},
+		"config_ids[]": {
+			strconv.Itoa(int(config.ID)),
+			strconv.Itoa(int(config2.ID)),
+		},
+		"enabled": {"true"},
+	}
+
+	// Create request
+	req, _ := http.NewRequest(http.MethodPost, "/jobs", strings.NewReader(formData.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp := httptest.NewRecorder()
+
+	// Serve request
+	router.ServeHTTP(resp, req)
+
+	// Check response - should redirect to jobs list
+	assert.Equal(t, http.StatusFound, resp.Code)
+	assert.Equal(t, "/jobs", resp.Header().Get("Location"))
+
+	// Verify job was created with multiple configs
+	var jobs []db.Job
+	database.Where("created_by = ?", user.ID).Find(&jobs)
+
+	// Find the job we just created
+	var multiConfigJob *db.Job
+	for _, job := range jobs {
+		if job.Name == "Multi-Config Job" {
+			multiConfigJob = &job
+			break
+		}
+	}
+
+	assert.NotNil(t, multiConfigJob, "Multi-config job should have been created")
+	if multiConfigJob != nil {
+		// Verify primary ConfigID is set to first config
+		assert.Equal(t, config.ID, multiConfigJob.ConfigID)
+
+		// Check ConfigIDs contains both IDs
+		configIDs := multiConfigJob.GetConfigIDsList()
+		assert.Len(t, configIDs, 2)
+		assert.Contains(t, configIDs, config.ID)
+		assert.Contains(t, configIDs, config2.ID)
+
+		// Check that we can get configs for the job
+		configs, err := handlers.DB.GetConfigsForJob(multiConfigJob.ID)
+		assert.NoError(t, err)
+		assert.Len(t, configs, 2)
+	}
 }
 
 func TestHandleUpdateJob(t *testing.T) {
 	// Setup test environment
 	handlers, router, database, user, config := setupJobsTest(t)
 
-	// Create test job
+	// Clean up any existing jobs for this test user first to ensure a clean state
+	result := database.Where("created_by = ?", user.ID).Delete(&db.Job{})
+	assert.NoError(t, result.Error, "Failed to clean up existing jobs")
+
+	// Create test job with a unique name
+	jobName := "Test Job " + time.Now().Format("20060102150405")
 	job := &db.Job{
-		Name:      "Test Job",
+		Name:      jobName,
 		Schedule:  "*/5 * * * *",
 		ConfigID:  config.ID,
 		Enabled:   true,
 		CreatedBy: user.ID,
 	}
+
+	// Set the config list to include the config ID - this is critical
+	job.SetConfigIDsList([]uint{config.ID})
+	result = database.Create(job)
+	assert.NoError(t, result.Error, "Failed to create test job")
+
+	// Verify the job was created successfully
+	var createdJob db.Job
+	err := database.First(&createdJob, job.ID).Error
+	assert.NoError(t, err, "Should find the newly created job")
+	assert.Equal(t, jobName, createdJob.Name, "Created job should have the expected name")
+	assert.Equal(t, "*/5 * * * *", createdJob.Schedule, "Created job should have the expected schedule")
+	assert.True(t, createdJob.Enabled, "Created job should be enabled")
+
+	// Add route
+	router.PUT("/jobs/:id", handlers.HandleUpdateJob)
+
+	// Create form data for update with a unique updated name
+	updatedName := "Updated Job " + time.Now().Format("20060102150405")
+
+	// Include both config_id and config_ids[] parameters in the correct format
+	formData := url.Values{
+		"name":         {updatedName},
+		"schedule":     {"0 0 * * *"},
+		"config_id":    {strconv.Itoa(int(config.ID))},
+		"config_ids[]": {strconv.Itoa(int(config.ID))},
+		"enabled":      {"false"},
+	}
+
+	// Create request
+	req, _ := http.NewRequest(http.MethodPut, "/jobs/"+strconv.Itoa(int(job.ID)), strings.NewReader(formData.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp := httptest.NewRecorder()
+
+	// Serve request
+	router.ServeHTTP(resp, req)
+
+	// Debug info
+	t.Logf("Update response code: %d", resp.Code)
+	t.Logf("Update response body: %s", resp.Body.String())
+
+	// Check response - should redirect to jobs list
+	assert.Equal(t, http.StatusFound, resp.Code, "Response should redirect to jobs list")
+	assert.Equal(t, "/jobs", resp.Header().Get("Location"), "Should redirect to /jobs")
+
+	// Verify job was updated
+	var updatedJob db.Job
+	err = database.First(&updatedJob, job.ID).Error
+	assert.NoError(t, err, "Should be able to find the job after update")
+
+	// Print values for debugging
+	t.Logf("Initial job: name=%s, schedule=%s, enabled=%v",
+		jobName, "*/5 * * * *", true)
+	t.Logf("Updated job in DB: name=%s, schedule=%s, enabled=%v",
+		updatedJob.Name, updatedJob.Schedule, updatedJob.Enabled)
+
+	// Verify individual fields one by one
+	assert.Equal(t, updatedName, updatedJob.Name, "Job name should be updated")
+	assert.Equal(t, "0 0 * * *", updatedJob.Schedule, "Job schedule should be updated")
+	assert.False(t, updatedJob.Enabled, "Enabled status should be false")
+
+	// Make sure the ConfigIDs are still correct
+	configIDs := updatedJob.GetConfigIDsList()
+	assert.Len(t, configIDs, 1, "Should have 1 config ID")
+	assert.Contains(t, configIDs, config.ID, "Should contain the original config ID")
+
+	// Test case 2: Try to update another user's job
+	otherUser := &db.User{
+		Email:              "other@example.com",
+		PasswordHash:       "hashedpassword",
+		IsAdmin:            false,
+		LastPasswordChange: time.Now(),
+	}
+	result = database.Create(otherUser)
+	assert.NoError(t, result.Error, "Should create other user successfully")
+
+	// Create a job for another user
+	otherJob := &db.Job{
+		Name:      "Other User Job " + time.Now().Format("20060102150405"),
+		Schedule:  "*/15 * * * *",
+		ConfigID:  config.ID,
+		Enabled:   true,
+		CreatedBy: otherUser.ID,
+	}
+	// Make sure the other job also has a config list set
+	otherJob.SetConfigIDsList([]uint{config.ID})
+	result = database.Create(otherJob)
+	assert.NoError(t, result.Error, "Should create other user's job successfully")
+
+	// Try to update another user's job
+	req, _ = http.NewRequest(http.MethodPut, "/jobs/"+strconv.Itoa(int(otherJob.ID)), strings.NewReader(formData.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp = httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+
+	// Debug info
+	t.Logf("Unauthorized update response code: %d", resp.Code)
+	t.Logf("Unauthorized update response body: %s", resp.Body.String())
+
+	// Should return forbidden
+	assert.Equal(t, http.StatusForbidden, resp.Code, "Should get 403 Forbidden when updating another user's job")
+	assert.Contains(t, resp.Body.String(), "You do not have permission")
+}
+
+func TestHandleUpdateJobWithMultipleConfigs(t *testing.T) {
+	// Setup test environment
+	handlers, router, database, user, config := setupJobsTest(t)
+
+	// Create two additional configs
+	config2 := &db.TransferConfig{
+		Name:            "Update Test Config 2",
+		SourceType:      "local",
+		SourcePath:      "/source2",
+		DestinationType: "local",
+		DestinationPath: "/dest2",
+		CreatedBy:       user.ID,
+	}
+	database.Create(config2)
+
+	config3 := &db.TransferConfig{
+		Name:            "Update Test Config 3",
+		SourceType:      "local",
+		SourcePath:      "/source3",
+		DestinationType: "local",
+		DestinationPath: "/dest3",
+		CreatedBy:       user.ID,
+	}
+	database.Create(config3)
+
+	// Create a test job
+	job := &db.Job{
+		Name:      "Test Job for Multi-config Update",
+		Schedule:  "*/5 * * * *",
+		ConfigID:  config.ID,
+		Enabled:   true,
+		CreatedBy: user.ID,
+	}
+	// Set initial configs (just config1)
+	job.SetConfigIDsList([]uint{config.ID})
 	database.Create(job)
 
 	// Add route
 	router.PUT("/jobs/:id", handlers.HandleUpdateJob)
 
-	// Create form data for update
+	// Create form data with multiple configs
 	formData := url.Values{
-		"name":      {"Updated Job Name"},
-		"schedule":  {"0 * * * *"},
-		"config_id": {strconv.Itoa(int(config.ID))},
-		"enabled":   {"false"},
+		"name":     {"Updated Multi-Config Job"},
+		"schedule": {"0 * * * *"},
+		"config_ids[]": {
+			strconv.Itoa(int(config2.ID)),
+			strconv.Itoa(int(config3.ID)),
+		},
+		"enabled": {"true"},
 	}
 
 	// Create request
@@ -355,39 +590,28 @@ func TestHandleUpdateJob(t *testing.T) {
 	assert.Equal(t, http.StatusFound, resp.Code)
 	assert.Equal(t, "/jobs", resp.Header().Get("Location"))
 
-	// Verify job was updated
+	// Verify job was updated with new configs
 	var updatedJob db.Job
 	database.First(&updatedJob, job.ID)
-	assert.Equal(t, "Updated Job Name", updatedJob.Name)
+
+	assert.Equal(t, "Updated Multi-Config Job", updatedJob.Name)
 	assert.Equal(t, "0 * * * *", updatedJob.Schedule)
-	assert.False(t, updatedJob.Enabled)
+	assert.True(t, updatedJob.Enabled)
 
-	// Test case 2: Try to update another user's job
-	otherUser := &db.User{
-		Email:              "other@example.com",
-		PasswordHash:       "hashedpassword",
-		IsAdmin:            false,
-		LastPasswordChange: time.Now(),
-	}
-	database.Create(otherUser)
+	// The primary ConfigID should be updated to the first config in the new list
+	assert.Equal(t, config2.ID, updatedJob.ConfigID)
 
-	otherJob := &db.Job{
-		Name:      "Other User Job",
-		Schedule:  "*/15 * * * *",
-		ConfigID:  config.ID,
-		Enabled:   true,
-		CreatedBy: otherUser.ID,
-	}
-	database.Create(otherJob)
+	// Check ConfigIDs contains the new IDs
+	configIDs := updatedJob.GetConfigIDsList()
+	assert.Len(t, configIDs, 2)
+	assert.Contains(t, configIDs, config2.ID)
+	assert.Contains(t, configIDs, config3.ID)
+	assert.NotContains(t, configIDs, config.ID) // Original config should be gone
 
-	req, _ = http.NewRequest(http.MethodPut, "/jobs/"+strconv.Itoa(int(otherJob.ID)), strings.NewReader(formData.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp = httptest.NewRecorder()
-	router.ServeHTTP(resp, req)
-
-	// Should return forbidden
-	assert.Equal(t, http.StatusForbidden, resp.Code)
-	assert.Contains(t, resp.Body.String(), "You do not have permission")
+	// Check that we can get configs for the job
+	configs, err := handlers.DB.GetConfigsForJob(updatedJob.ID)
+	assert.NoError(t, err)
+	assert.Len(t, configs, 2)
 }
 
 func TestHandleDeleteJob(t *testing.T) {

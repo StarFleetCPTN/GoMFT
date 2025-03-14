@@ -14,6 +14,7 @@ func InitMigrations(db *gorm.DB) *gormigrate.Gormigrate {
 		AddSkipProcessedFilesColumn(),
 		AddMaxConcurrentTransfersColumn(),
 		AddMultiConfigSupport(),
+		UpdateSkipProcessedFilesToNullable(),
 	}
 
 	return gormigrate.New(db, gormigrate.DefaultOptions, migrations)

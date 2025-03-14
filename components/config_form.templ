@@ -131,7 +131,7 @@ func getInitialData(config *db.TransferConfig) string {
 		archivePath = config.ArchivePath
 		archiveEnabled = config.ArchiveEnabled
 		deleteAfterTransfer = config.DeleteAfterTransfer
-		skipProcessedFiles = config.SkipProcessedFiles
+		skipProcessedFiles = config.GetSkipProcessedFiles()
 		maxConcurrentTransfers = config.MaxConcurrentTransfers
 		rcloneFlags = config.RcloneFlags
 	}

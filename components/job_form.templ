@@ -28,18 +28,57 @@ func getJobTitle(isNew bool) string {
 
 // configSelected checks if a config ID is selected for a job
 func configSelected(job *db.Job, configID uint) bool {
-	// Check if the job has the config ID in its list
-	for _, id := range job.GetConfigIDsList() {
-		if id == configID {
-			return true
+	if job.ConfigIDs != "" {
+		// If ConfigIDs is populated, only check against those IDs
+		for _, id := range job.GetConfigIDsList() {
+			if id == configID {
+				return true
+			}
 		}
+		return false
+	} else {
+		// If ConfigIDs is empty, fall back to checking the primary ConfigID
+		return job.ConfigID == configID
 	}
-	// As a fallback, check the primary ConfigID
-	return job.ConfigID == configID
+}
+
+templ configSearchScript() {
+	<script>
+		document.addEventListener('DOMContentLoaded', () => {
+			// Handle search for new job form
+			const configSearch = document.getElementById('config-search');
+			if (configSearch) {
+				configSearch.addEventListener('input', (e) => {
+					const searchTerm = e.target.value.toLowerCase();
+					const configItems = document.querySelectorAll('#config-list .config-item');
+					
+					configItems.forEach(item => {
+						const name = item.getAttribute('data-name').toLowerCase();
+						item.style.display = name.includes(searchTerm) ? 'flex' : 'none';
+					});
+				});
+			}
+			
+			// Handle search for edit job form
+			const configSearchEdit = document.getElementById('config-search-edit');
+			if (configSearchEdit) {
+				configSearchEdit.addEventListener('input', (e) => {
+					const searchTerm = e.target.value.toLowerCase();
+					const configItems = document.querySelectorAll('#config-list-edit .config-item');
+					
+					configItems.forEach(item => {
+						const name = item.getAttribute('data-name').toLowerCase();
+						item.style.display = name.includes(searchTerm) ? 'flex' : 'none';
+					});
+				});
+			}
+		});
+	</script>
 }
 
 templ JobForm(ctx context.Context, data JobFormData) {
 	@LayoutWithContext(getJobFormTitle(data.IsNew), ctx) {
+		@configSearchScript()
 		<div class="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-secondary-50 dark:bg-secondary-900">
 			<div class="max-w-3xl w-full">
 				<div class="card overflow-hidden shadow-lg">
@@ -82,29 +121,46 @@ templ JobForm(ctx context.Context, data JobFormData) {
 								
 									<div>
 										<label class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Transfer Configurations</label>
-										<div class="bg-secondary-50 dark:bg-secondary-800 border border-secondary-300 dark:border-secondary-700 rounded-lg max-h-60 overflow-y-auto">
-											if len(data.Configs) > 0 {
-												for _, config := range data.Configs {
-													<div class="flex items-center p-2 hover:bg-secondary-100 dark:hover:bg-secondary-700">
-														<input 
-															type="checkbox" 
-															id={ fmt.Sprintf("new-config-%d", config.ID) }
-															name="config_ids[]" 
-															value={ fmt.Sprint(config.ID) }
-															class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
-														<label 
-															for={ fmt.Sprintf("new-config-%d", config.ID) }
-															class="ml-2 block text-sm text-secondary-700 dark:text-secondary-300 cursor-pointer w-full py-2">
-															{ config.Name }
-														</label>
+										<div class="mt-2 border border-secondary-300 dark:border-secondary-700 rounded-md overflow-hidden">
+											<!-- Search box -->
+											<div class="px-3 py-2 border-b border-secondary-200 dark:border-secondary-700 bg-secondary-50 dark:bg-secondary-800">
+												<div class="relative">
+													<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+														<i class="fas fa-search text-secondary-400 dark:text-secondary-600"></i>
+													</div>
+													<input 
+														type="text" 
+														id="config-search" 
+														placeholder="Search configurations..." 
+														class="block w-full pl-10 pr-3 py-2 border border-secondary-300 dark:border-secondary-600 rounded-md leading-5 bg-white dark:bg-secondary-800 text-secondary-900 dark:text-secondary-100 placeholder-secondary-500 dark:placeholder-secondary-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" />
+												</div>
+											</div>
+
+											<!-- Configuration checkboxes -->
+											<div class="max-h-48 overflow-y-auto py-2 px-3 bg-white dark:bg-secondary-900 divide-y divide-secondary-200 dark:divide-secondary-700" id="config-list">
+												if len(data.Configs) > 0 {
+													for _, config := range data.Configs {
+														<div class="config-item py-2 flex items-center" data-name={ config.Name }>
+															<input 
+																type="checkbox" 
+																name="config_ids[]" 
+																id={ fmt.Sprintf("config_%d", config.ID) }
+																value={ fmt.Sprint(config.ID) }
+																class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"
+															/>
+															<label for={ fmt.Sprintf("config_%d", config.ID) } class="ml-3 block font-medium text-secondary-700 dark:text-secondary-300 w-full cursor-pointer">
+																{ config.Name }
+															</label>
+														</div>
+													}
+												} else {
+													<div class="text-center py-4 text-secondary-500 dark:text-secondary-400">
+														No configurations available. <a href="/configs/new" class="text-primary-600 hover:text-primary-500">Create one</a>
 													</div>
 												}
-											} else {
-												<div class="text-center py-4 text-secondary-500 dark:text-secondary-400">
-													No configurations available. <a href="/configs/new" class="text-primary-600 hover:text-primary-500">Create one</a>
-												</div>
-											}
+											</div>
 										</div>
+
 										<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
 											<i class="fas fa-info-circle mr-1"></i>
 											Select one or more configurations to run on this schedule.
@@ -191,32 +247,49 @@ templ JobForm(ctx context.Context, data JobFormData) {
 									
 									<div>
 										<label class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Transfer Configurations</label>
-										<div class="bg-secondary-50 dark:bg-secondary-800 border border-secondary-300 dark:border-secondary-700 rounded-lg max-h-60 overflow-y-auto">
-											if len(data.Configs) > 0 {
-												for _, config := range data.Configs {
-													<div class="flex items-center p-2 hover:bg-secondary-100 dark:hover:bg-secondary-700">
-														<input 
-															type="checkbox" 
-															id={ fmt.Sprintf("config-%d", config.ID) }
-															name="config_ids[]" 
-															value={ fmt.Sprint(config.ID) } 
-															if configSelected(data.Job, config.ID) {
-																checked
-															}
-															class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
-														<label 
-															for={ fmt.Sprintf("config-%d", config.ID) }
-															class="ml-2 block text-sm text-secondary-700 dark:text-secondary-300 cursor-pointer w-full py-2">
-															{ config.Name }
-														</label>
+										<div class="mt-2 border border-secondary-300 dark:border-secondary-700 rounded-md overflow-hidden">
+											<!-- Search box -->
+											<div class="px-3 py-2 border-b border-secondary-200 dark:border-secondary-700 bg-secondary-50 dark:bg-secondary-800">
+												<div class="relative">
+													<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+														<i class="fas fa-search text-secondary-400 dark:text-secondary-600"></i>
+													</div>
+													<input 
+														type="text" 
+														id="config-search-edit" 
+														placeholder="Search configurations..." 
+														class="block w-full pl-10 pr-3 py-2 border border-secondary-300 dark:border-secondary-600 rounded-md leading-5 bg-white dark:bg-secondary-800 text-secondary-900 dark:text-secondary-100 placeholder-secondary-500 dark:placeholder-secondary-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" />
+												</div>
+											</div>
+
+											<!-- Configuration checkboxes -->
+											<div class="max-h-48 overflow-y-auto py-2 px-3 bg-white dark:bg-secondary-900 divide-y divide-secondary-200 dark:divide-secondary-700" id="config-list-edit">
+												if len(data.Configs) > 0 {
+													for _, config := range data.Configs {
+														<div class="config-item py-2 flex items-center" data-name={ config.Name }>
+															<input 
+																type="checkbox" 
+																name="config_ids[]" 
+																id={ fmt.Sprintf("config_edit_%d", config.ID) }
+																value={ fmt.Sprint(config.ID) }
+																if configSelected(data.Job, config.ID) {
+																	checked
+																}
+																class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"
+															/>
+															<label for={ fmt.Sprintf("config_edit_%d", config.ID) } class="ml-3 block font-medium text-secondary-700 dark:text-secondary-300 w-full cursor-pointer">
+																{ config.Name }
+															</label>
+														</div>
+													}
+												} else {
+													<div class="text-center py-4 text-secondary-500 dark:text-secondary-400">
+														No configurations available. <a href="/configs/new" class="text-primary-600 hover:text-primary-500">Create one</a>
 													</div>
 												}
-											} else {
-												<div class="text-center py-4 text-secondary-500 dark:text-secondary-400">
-													No configurations available. <a href="/configs/new" class="text-primary-600 hover:text-primary-500">Create one</a>
-												</div>
-											}
+											</div>
 										</div>
+
 										<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
 											<i class="fas fa-info-circle mr-1"></i>
 											Select one or more configurations to run on this schedule.

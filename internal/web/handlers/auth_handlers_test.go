@@ -292,8 +292,9 @@ func TestHandleLoginPage(t *testing.T) {
 
 	// Check response
 	assert.Equal(t, http.StatusOK, resp.Code)
-	assert.Contains(t, resp.Body.String(), "Login")
-	assert.Contains(t, resp.Body.String(), "Sign in to your account")
+	assert.Contains(t, resp.Body.String(), "Login - GoMFT")
+	assert.Contains(t, resp.Body.String(), "Sign In")
+	assert.Contains(t, resp.Body.String(), "Access your GoMFT account")
 
 	// Test case 2: Login page with message
 	req, _ = http.NewRequest(http.MethodGet, "/login?message=Password+expired", nil)
@@ -431,8 +432,8 @@ func TestHandleChangePassword(t *testing.T) {
 	// Setup database and test user
 	database := testutils.SetupTestDB(t)
 
-	// Create test user with password "oldpassword"
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("oldpassword"), bcrypt.DefaultCost)
+	// Create test user with password "OldPassword123!"
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("OldPassword123!"), bcrypt.DefaultCost)
 	user := &db.User{
 		Email:               "test@example.com",
 		PasswordHash:        string(hashedPassword),
@@ -467,9 +468,9 @@ func TestHandleChangePassword(t *testing.T) {
 
 	// Test case 1: Successful password change
 	formData := url.Values{
-		"current_password": {"oldpassword"},
-		"new_password":     {"newpassword123"},
-		"confirm_password": {"newpassword123"},
+		"current_password": {"OldPassword123!"},
+		"new_password":     {"NewPassword456@"},
+		"confirm_password": {"NewPassword456@"},
 	}
 	req, _ := http.NewRequest(http.MethodPost, "/change-password", strings.NewReader(formData.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -484,18 +485,22 @@ func TestHandleChangePassword(t *testing.T) {
 	// Should show success message
 	assert.Equal(t, http.StatusOK, resp.Code)
 	assert.Contains(t, resp.Body.String(), "Password updated successfully")
+	assert.Contains(t, resp.Body.String(), "bg-green-100")
+	assert.Contains(t, resp.Body.String(), "border-green-400")
 
 	// Verify password was updated in the database
 	var updatedUser db.User
-	database.First(&updatedUser, user.ID)
-	err := bcrypt.CompareHashAndPassword([]byte(updatedUser.PasswordHash), []byte("newpassword123"))
+	err := database.First(&updatedUser, user.ID).Error
+	assert.NoError(t, err, "Should be able to find the user")
+
+	err = bcrypt.CompareHashAndPassword([]byte(updatedUser.PasswordHash), []byte("NewPassword456@"))
 	assert.NoError(t, err, "Password should be updated in the database")
 
 	// Test case 2: Incorrect current password
 	formData = url.Values{
-		"current_password": {"wrongpassword"},
-		"new_password":     {"anotherpassword"},
-		"confirm_password": {"anotherpassword"},
+		"current_password": {"WrongPassword123!"},
+		"new_password":     {"AnotherPassword789#"},
+		"confirm_password": {"AnotherPassword789#"},
 	}
 	req, _ = http.NewRequest(http.MethodPost, "/change-password", strings.NewReader(formData.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -510,12 +515,14 @@ func TestHandleChangePassword(t *testing.T) {
 	// Should show error message
 	assert.Equal(t, http.StatusOK, resp.Code)
 	assert.Contains(t, resp.Body.String(), "Current password is incorrect")
+	assert.Contains(t, resp.Body.String(), "bg-red-100")
+	assert.Contains(t, resp.Body.String(), "border-red-400")
 
 	// Test case 3: Passwords don't match
 	formData = url.Values{
-		"current_password": {"newpassword123"}, // Using the updated password
-		"new_password":     {"diffpassword1"},
-		"confirm_password": {"diffpassword2"},
+		"current_password": {"NewPassword456@"}, // Using the updated password
+		"new_password":     {"DiffPassword123!"},
+		"confirm_password": {"DiffPassword456@"},
 	}
 	req, _ = http.NewRequest(http.MethodPost, "/change-password", strings.NewReader(formData.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -530,6 +537,8 @@ func TestHandleChangePassword(t *testing.T) {
 	// Should show error message
 	assert.Equal(t, http.StatusOK, resp.Code)
 	assert.Contains(t, resp.Body.String(), "New password and confirmation do not match")
+	assert.Contains(t, resp.Body.String(), "bg-red-100")
+	assert.Contains(t, resp.Body.String(), "border-red-400")
 }
 
 func TestHandleForgotPasswordPage(t *testing.T) {
@@ -551,8 +560,9 @@ func TestHandleForgotPasswordPage(t *testing.T) {
 
 	// Check response
 	assert.Equal(t, http.StatusOK, resp.Code)
-	assert.Contains(t, resp.Body.String(), "Forgot Password")
-	assert.Contains(t, resp.Body.String(), "Reset your password")
+	assert.Contains(t, resp.Body.String(), "Forgot Password - GoMFT")
+	assert.Contains(t, resp.Body.String(), "Password Reset")
+	assert.Contains(t, resp.Body.String(), "Enter your email to receive a reset link")
 }
 
 func TestHandleForgotPassword(t *testing.T) {

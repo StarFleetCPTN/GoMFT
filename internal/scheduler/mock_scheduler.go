@@ -4,7 +4,7 @@ import (
 	"github.com/starfleetcptn/gomft/internal/db"
 )
 
-// MockScheduler implements the Scheduler interface for testing
+// MockScheduler is a mock implementation of a scheduler for testing
 type MockScheduler struct {
 	ScheduledJobs      map[uint]bool
 	UnscheduledJobs    map[uint]bool
@@ -12,6 +12,7 @@ type MockScheduler struct {
 	ScheduleJobErr     error
 	RunJobNowErr       error
 	UnscheduleJobCalls int
+	MultiConfigJobs    map[uint][]uint // Track jobs with multiple configs (job ID -> config IDs)
 }
 
 // NewMockScheduler creates a new mock scheduler
@@ -20,6 +21,7 @@ func NewMockScheduler() *MockScheduler {
 		ScheduledJobs:   make(map[uint]bool),
 		UnscheduledJobs: make(map[uint]bool),
 		RunJobsNow:      make(map[uint]bool),
+		MultiConfigJobs: make(map[uint][]uint),
 	}
 }
 
@@ -35,6 +37,11 @@ func (m *MockScheduler) ScheduleJob(job *db.Job) error {
 	} else {
 		m.UnscheduledJobs[job.ID] = true
 		delete(m.ScheduledJobs, job.ID)
+	}
+
+	// Track jobs with multiple configurations
+	if job.ConfigIDs != "" {
+		m.MultiConfigJobs[job.ID] = job.GetConfigIDsList()
 	}
 
 	return nil
@@ -58,9 +65,26 @@ func (m *MockScheduler) UnscheduleJob(jobID uint) {
 	m.UnscheduleJobCalls++
 	m.UnscheduledJobs[jobID] = true
 	delete(m.ScheduledJobs, jobID)
+	delete(m.MultiConfigJobs, jobID)
 }
 
 // Stop mocks stopping the scheduler
 func (m *MockScheduler) Stop() {
 	// Nothing to do
+}
+
+// RotateLogs mocks log rotation
+func (m *MockScheduler) RotateLogs() error {
+	return nil
+}
+
+// IsJobWithMultipleConfigs checks if a job is scheduled with multiple configs
+func (m *MockScheduler) IsJobWithMultipleConfigs(jobID uint) bool {
+	configs, exists := m.MultiConfigJobs[jobID]
+	return exists && len(configs) > 1
+}
+
+// GetConfigsForJob returns the configs for a job
+func (m *MockScheduler) GetConfigsForJob(jobID uint) []uint {
+	return m.MultiConfigJobs[jobID]
 }

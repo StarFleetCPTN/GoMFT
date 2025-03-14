@@ -117,7 +117,7 @@ func TestHandleDashboard(t *testing.T) {
 	// Check response
 	assert.Equal(t, http.StatusOK, resp.Code)
 	assert.Contains(t, resp.Body.String(), "Dashboard")
-	assert.Contains(t, resp.Body.String(), "Recent Transfers")
+	assert.Contains(t, resp.Body.String(), "Recent Jobs")
 
 	// Check that job statistics are included
 	assert.Contains(t, resp.Body.String(), "Active Transfers")

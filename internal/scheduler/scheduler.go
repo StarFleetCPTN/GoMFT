@@ -219,21 +219,37 @@ func New(database *db.DB) *Scheduler {
 func (s *Scheduler) loadJobs() {
 	s.log.LogInfo("Loading scheduled jobs")
 
+	// Get all jobs from the database
 	jobs, err := s.db.GetActiveJobs()
 	if err != nil {
 		s.log.LogError("Error loading jobs: %v", err)
 		return
 	}
 
+	// Clear the job map to ensure we're starting fresh
+	s.jobMutex.Lock()
+	s.jobs = make(map[uint]cron.EntryID)
+	s.jobMutex.Unlock()
+
+	// Initialize job count to track successfully loaded jobs
+	loadedCount := 0
+
 	for _, job := range jobs {
+		// Skip disabled jobs
+		if !job.Enabled {
+			s.log.LogInfo("Job %d (%s) is disabled, skipping scheduling", job.ID, job.Name)
+			continue
+		}
+
 		if err := s.ScheduleJob(&job); err != nil {
 			s.log.LogError("Error scheduling job %d: %v", job.ID, err)
 		} else {
 			s.log.LogInfo("Loaded job %d: %s", job.ID, job.Name)
+			loadedCount++
 		}
 	}
 
-	s.log.LogInfo("Loaded %d jobs", len(jobs))
+	s.log.LogInfo("Loaded %d jobs", loadedCount)
 }
 
 func (s *Scheduler) ScheduleJob(job *db.Job) error {
@@ -322,47 +338,57 @@ func (s *Scheduler) executeJob(jobID uint) {
 		s.log.LogError("Error updating job last run time for job %d: %v", jobID, err)
 	}
 
-	// Process each configuration in sequence
+	// Process each configuration
 	for i, config := range configs {
-		// Create job history entry for this configuration
-		history := &db.JobHistory{
-			JobID:            jobID,
-			ConfigID:         config.ID,
-			StartTime:        time.Now(),
-			Status:           "running",
-			FilesTransferred: 0,
-			BytesTransferred: 0,
-			ErrorMessage:     "",
-		}
-		if err := s.db.CreateJobHistory(history); err != nil {
-			s.log.LogError("Error creating job history for job %d, config %d: %v", jobID, config.ID, err)
-			continue
-		}
-
-		s.log.LogInfo("Processing configuration %d (%d/%d) for job %d: source=%s:%s, dest=%s:%s",
-			config.ID,
-			i+1,
-			len(configs),
-			jobID,
-			config.SourceType,
-			config.SourcePath,
-			config.DestinationType,
-			config.DestinationPath,
-		)
-
-		// Execute the configuration transfer
-		s.executeConfigTransfer(job, config, history)
+		s.processConfiguration(&job, &config, i+1, len(configs))
 	}
 
-	// Update next run time if job is still scheduled
-	if entry := s.cron.Entry(s.jobs[jobID]); entry.ID != 0 {
-		job.NextRun = &entry.Next
+	// Update next run time after execution
+	s.jobMutex.Lock()
+	entryID, exists := s.jobs[jobID]
+	s.jobMutex.Unlock()
+
+	if exists {
+		entry := s.cron.Entry(entryID)
+		nextRun := entry.Next
+		job.NextRun = &nextRun
+		s.log.LogInfo("Next run time for job %d: %v", jobID, nextRun)
 		if err := s.db.UpdateJobStatus(&job); err != nil {
-			s.log.LogError("Error updating next run time for job %d: %v", jobID, err)
-		} else {
-			s.log.LogInfo("Next run time for job %d: %s", jobID, entry.Next.Format(time.RFC3339))
+			s.log.LogError("Error updating job next run time for job %d: %v", jobID, err)
 		}
 	}
+}
+
+// processConfiguration processes a single configuration for a job
+func (s *Scheduler) processConfiguration(job *db.Job, config *db.TransferConfig, index int, totalConfigs int) {
+	s.log.LogInfo("Processing configuration %d (%d/%d) for job %d: source=%s:%s, dest=%s:%s",
+		config.ID,
+		index,
+		totalConfigs,
+		job.ID,
+		config.SourceType,
+		config.SourcePath,
+		config.DestinationType,
+		config.DestinationPath,
+	)
+
+	// Create job history entry for this configuration
+	history := &db.JobHistory{
+		JobID:            job.ID,
+		ConfigID:         config.ID,
+		StartTime:        time.Now(),
+		Status:           "running",
+		FilesTransferred: 0,
+		BytesTransferred: 0,
+		ErrorMessage:     "",
+	}
+	if err := s.db.CreateJobHistory(history); err != nil {
+		s.log.LogError("Error creating job history for job %d, config %d: %v", job.ID, config.ID, err)
+		return
+	}
+
+	// Execute the configuration transfer
+	s.executeConfigTransfer(*job, *config, history)
 }
 
 // executeConfigTransfer performs the actual file transfer for a single configuration
@@ -544,7 +570,8 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 		}
 
 		// Skip files that have already been processed based on hash
-		skipFiles := config.SkipProcessedFiles
+		skipFiles := config.GetSkipProcessedFiles()
+
 		if skipFiles && fileHash != "" {
 			alreadyProcessed, prevMetadata, err := s.hasFileBeenProcessed(job.ID, fileHash)
 			if err == nil && alreadyProcessed {

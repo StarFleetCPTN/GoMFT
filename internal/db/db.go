@@ -104,7 +104,7 @@ type TransferConfig struct {
 	ArchiveEnabled         bool   `gorm:"default:false" form:"archive_enabled"`
 	RcloneFlags            string `form:"rclone_flags"`
 	DeleteAfterTransfer    bool   `gorm:"default:false" form:"delete_after_transfer"`
-	SkipProcessedFiles     bool   `gorm:"default:true" form:"skip_processed_files"`
+	SkipProcessedFiles     *bool  `gorm:"default:true" form:"skip_processed_files"`
 	MaxConcurrentTransfers int    `gorm:"default:4" form:"max_concurrent_transfers"` // Number of concurrent file transfers
 	CreatedBy              uint
 	User                   User `gorm:"foreignkey:CreatedBy"`
@@ -831,6 +831,9 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 }
 
 func (db *DB) GetActiveJobs() ([]Job, error) {
+	if db.DB == nil {
+		return nil, fmt.Errorf("database connection is nil")
+	}
 	var jobs []Job
 	err := db.Preload("Config").Where("enabled = ?", true).Find(&jobs).Error
 	return jobs, err
@@ -861,4 +864,17 @@ func (db *DB) GetConfigsForJob(jobID uint) ([]TransferConfig, error) {
 	}
 
 	return configs, nil
+}
+
+// GetSkipProcessedFiles returns the value of SkipProcessedFiles with a default if nil
+func (tc *TransferConfig) GetSkipProcessedFiles() bool {
+	if tc.SkipProcessedFiles == nil {
+		return true // Default to true if not set
+	}
+	return *tc.SkipProcessedFiles
+}
+
+// SetSkipProcessedFiles sets the SkipProcessedFiles field
+func (tc *TransferConfig) SetSkipProcessedFiles(value bool) {
+	tc.SkipProcessedFiles = &value
 }

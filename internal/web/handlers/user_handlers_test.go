@@ -163,25 +163,25 @@ func TestHandleDeleteUser(t *testing.T) {
 		name         string
 		userID       uint
 		expectedCode int
-		userDeleted  bool
+		expectedBody string
 	}{
 		{
 			name:         "Delete valid user",
 			userID:       userToDelete.ID,
 			expectedCode: http.StatusSeeOther,
-			userDeleted:  true,
+			expectedBody: "",
 		},
 		{
 			name:         "Cannot delete own account",
 			userID:       adminID,
 			expectedCode: http.StatusBadRequest,
-			userDeleted:  false,
+			expectedBody: "Cannot delete your own account",
 		},
 		{
 			name:         "Invalid user ID",
-			userID:       9999,                // Doesn't exist
-			expectedCode: http.StatusSeeOther, // Gorm soft delete doesn't error on non-existent IDs
-			userDeleted:  false,
+			userID:       9999,
+			expectedCode: http.StatusSeeOther,
+			expectedBody: "",
 		},
 	}
 
@@ -197,19 +197,28 @@ func TestHandleDeleteUser(t *testing.T) {
 			// Check response code
 			assert.Equal(t, tc.expectedCode, resp.Code)
 
-			// Check if the user exists in the database
-			var user db.User
-			result := database.Unscoped().Where("id = ?", tc.userID).First(&user)
+			// If we expect a specific body message, check it
+			if tc.expectedBody != "" {
+				assert.Contains(t, resp.Body.String(), tc.expectedBody)
+			}
 
-			if tc.userDeleted {
-				// For deleted users, check that they exist but are deleted
-				assert.NoError(t, result.Error)
-				// Check for deletion status using Gorm's DeletedAt field
-				assert.True(t, database.Unscoped().Where("id = ?", tc.userID).Where("deleted_at IS NOT NULL").First(&user).Error == nil)
-			} else if tc.userID != 9999 { // Skip check for non-existent user
-				// For non-deleted users, they should exist and not be soft-deleted
-				assert.NoError(t, result.Error)
-				assert.Equal(t, gorm.ErrRecordNotFound, database.Unscoped().Where("id = ?", tc.userID).Where("deleted_at IS NOT NULL").First(&user).Error)
+			// Verify database state after the action
+			if tc.name == "Delete valid user" {
+				// For the valid deletion case, verify user was deleted
+				var deletedUser db.User
+				// User should not be found with normal query after deletion
+				err := database.Where("id = ?", tc.userID).First(&deletedUser).Error
+				assert.Equal(t, gorm.ErrRecordNotFound, err, "User should be deleted and not found")
+			} else if tc.name == "Cannot delete own account" {
+				// For cannot delete own account, verify user still exists
+				var adminUser db.User
+				err := database.Where("id = ?", tc.userID).First(&adminUser).Error
+				assert.NoError(t, err, "Admin user should still exist")
+			} else if tc.name == "Invalid user ID" {
+				// For invalid user ID, just verify it doesn't exist
+				var nonExistentUser db.User
+				err := database.Where("id = ?", tc.userID).First(&nonExistentUser).Error
+				assert.Equal(t, gorm.ErrRecordNotFound, err, "Non-existent user should not be found")
 			}
 		})
 	}

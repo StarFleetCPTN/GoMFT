@@ -303,6 +303,137 @@ func TestJobCRUD(t *testing.T) {
 	assert.Error(t, err, "Getting deleted job should return an error")
 }
 
+// Helper function to test if a config ID is selected for a job
+func configSelected(job *Job, configID uint) bool {
+	// Check if the job has the config ID in its list
+	for _, id := range job.GetConfigIDsList() {
+		if id == configID {
+			return true
+		}
+	}
+	// As a fallback, check the primary ConfigID
+	return job.ConfigID == configID
+}
+
+func TestJobMultipleConfigs(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Create a test user
+	testUser := &User{
+		Email:              fmt.Sprintf("test-multi-%d@example.com", time.Now().UnixNano()),
+		PasswordHash:       "hashed_password",
+		LastPasswordChange: time.Now(),
+	}
+	err := db.CreateUser(testUser)
+	if err != nil {
+		t.Fatalf("Failed to create user: %v", err)
+	}
+
+	// Create multiple test configs
+	config1 := &TransferConfig{
+		Name:            "Test Config 1",
+		SourceType:      "local",
+		SourcePath:      "/source/path1",
+		DestinationType: "local",
+		DestinationPath: "/destination/path1",
+		CreatedBy:       testUser.ID,
+	}
+	err = db.CreateTransferConfig(config1)
+	assert.NoError(t, err)
+
+	config2 := &TransferConfig{
+		Name:            "Test Config 2",
+		SourceType:      "local",
+		SourcePath:      "/source/path2",
+		DestinationType: "local",
+		DestinationPath: "/destination/path2",
+		CreatedBy:       testUser.ID,
+	}
+	err = db.CreateTransferConfig(config2)
+	assert.NoError(t, err)
+
+	config3 := &TransferConfig{
+		Name:            "Test Config 3",
+		SourceType:      "local",
+		SourcePath:      "/source/path3",
+		DestinationType: "local",
+		DestinationPath: "/destination/path3",
+		CreatedBy:       testUser.ID,
+	}
+	err = db.CreateTransferConfig(config3)
+	assert.NoError(t, err)
+
+	// Test 1: Create job with multiple configs
+	testJob := &Job{
+		Name:      "Multi Config Job",
+		Schedule:  "0 * * * *",
+		Enabled:   true,
+		CreatedBy: testUser.ID,
+	}
+
+	// Set multiple config IDs
+	configIDs := []uint{config1.ID, config2.ID, config3.ID}
+	testJob.SetConfigIDsList(configIDs)
+
+	// Verify ConfigIDs string format
+	assert.Contains(t, testJob.ConfigIDs, fmt.Sprintf("%d", config1.ID))
+	assert.Contains(t, testJob.ConfigIDs, fmt.Sprintf("%d", config2.ID))
+	assert.Contains(t, testJob.ConfigIDs, fmt.Sprintf("%d", config3.ID))
+
+	// Verify ConfigID is set to the first config
+	assert.Equal(t, config1.ID, testJob.ConfigID)
+
+	// Save the job
+	err = db.CreateJob(testJob)
+	assert.NoError(t, err)
+
+	// Test 2: Retrieve job and check config IDs
+	retrievedJob, err := db.GetJob(testJob.ID)
+	assert.NoError(t, err)
+
+	// Verify retrieved config IDs
+	retrievedIDs := retrievedJob.GetConfigIDsList()
+	assert.Len(t, retrievedIDs, 3)
+	assert.Contains(t, retrievedIDs, config1.ID)
+	assert.Contains(t, retrievedIDs, config2.ID)
+	assert.Contains(t, retrievedIDs, config3.ID)
+
+	// Test 3: Test configSelected function
+	assert.True(t, configSelected(retrievedJob, config1.ID))
+	assert.True(t, configSelected(retrievedJob, config2.ID))
+	assert.True(t, configSelected(retrievedJob, config3.ID))
+	assert.False(t, configSelected(retrievedJob, uint(999)))
+
+	// Test 4: Get configs for job
+	configs, err := db.GetConfigsForJob(testJob.ID)
+	assert.NoError(t, err)
+	assert.Len(t, configs, 3)
+
+	// Verify config names are correct
+	configNames := make([]string, len(configs))
+	for i, config := range configs {
+		configNames[i] = config.Name
+	}
+	assert.Contains(t, configNames, "Test Config 1")
+	assert.Contains(t, configNames, "Test Config 2")
+	assert.Contains(t, configNames, "Test Config 3")
+
+	// Test 5: Update config IDs
+	updatedIDs := []uint{config1.ID, config3.ID} // Remove config2
+	retrievedJob.SetConfigIDsList(updatedIDs)
+	err = db.UpdateJob(retrievedJob)
+	assert.NoError(t, err)
+
+	// Verify update
+	updatedJob, err := db.GetJob(testJob.ID)
+	assert.NoError(t, err)
+	updatedRetrievedIDs := updatedJob.GetConfigIDsList()
+	assert.Len(t, updatedRetrievedIDs, 2)
+	assert.Contains(t, updatedRetrievedIDs, config1.ID)
+	assert.Contains(t, updatedRetrievedIDs, config3.ID)
+	assert.NotContains(t, updatedRetrievedIDs, config2.ID)
+}
+
 func TestJobHistoryCRUD(t *testing.T) {
 	db := setupTestDB(t)
 

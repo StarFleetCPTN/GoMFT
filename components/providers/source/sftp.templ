@@ -14,9 +14,13 @@ templ SFTPSourceForm() {
 					id="source_host"
 					x-model="sourceHost"
 					required
+					aria-describedby="source_host_help"
 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
 					placeholder="sftp.example.com"/>
 			</div>
+			<p id="source_host_help" class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+				Enter the SFTP server hostname or IP address.
+			</p>
 		</div>
 
 		<div class="sm:col-span-4">
@@ -31,9 +35,16 @@ templ SFTPSourceForm() {
 					id="source_port"
 					x-model="sourcePort"
 					required
+					min="1"
+					max="65535"
+					value="22"
+					aria-describedby="source_port_help"
 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
 					placeholder="22"/>
 			</div>
+			<p id="source_port_help" class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+				Default SFTP port is 22.
+			</p>
 		</div>
 
 		<div class="sm:col-span-4">
@@ -48,9 +59,13 @@ templ SFTPSourceForm() {
 					id="source_path"
 					x-model="sourcePath"
 					required
+					aria-describedby="source_path_help"
 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
 					placeholder="/path/to/files"/>
 			</div>
+			<p id="source_path_help" class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+				Absolute path to the files on the remote server.
+			</p>
 		</div>
 
 		<div class="sm:col-span-4">
@@ -65,71 +80,68 @@ templ SFTPSourceForm() {
 					id="source_user"
 					x-model="sourceUser"
 					required
+					aria-describedby="source_user_help"
 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
 			</div>
+			<p id="source_user_help" class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+				Username for SFTP authentication.
+			</p>
 		</div>
 
-		<div class="flex space-x-4">
-			<div class="flex items-center h-5">
-				<input 
-					id="source_use_password" 
-					type="radio" 
+		<div class="sm:col-span-4">
+			<label for="source_auth_type" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Authentication Type</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-lock text-secondary-400 dark:text-secondary-600"></i>
+				</div>
+				<select 
+					id="source_auth_type" 
 					name="source_auth_type" 
-					value="password" 
 					x-model="sourceAuthType"
-					class="focus:ring-primary-500 h-4 w-4 text-primary-600 border-secondary-300 dark:border-secondary-700" 
-					checked>
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500">
+					<option value="password">Password</option>
+					<option value="key_file">SSH Key File</option>
+				</select>
 			</div>
-			<label for="source_use_password" class="ml-2 block text-sm text-secondary-700 dark:text-secondary-300">Use Password</label>
-			<div class="flex items-center h-5 ml-4">
-				<input 
-					id="source_use_key" 
-					type="radio" 
-					name="source_auth_type" 
-					value="key"
-					x-model="sourceAuthType" 
-					class="focus:ring-primary-500 h-4 w-4 text-primary-600 border-secondary-300 dark:border-secondary-700">
-			</div>
-			<label for="source_use_key" class="ml-2 block text-sm text-secondary-700 dark:text-secondary-300">Use Key File</label>
 		</div>
 
-		<template x-if="sourceAuthType === 'password'">
-			<div class="sm:col-span-4">
-				<label for="source_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password</label>
-				<div class="relative">
-					<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-						<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-					</div>
-					<input
-						type="password"
-						name="source_password"
-						id="source_password"
-						x-model="sourcePassword"
-						x-bind:required="sourceAuthType === 'password'"
-						class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-						placeholder="Password"/>
+		<div class="sm:col-span-4" x-show="sourceAuthType === 'password'">
+			<label for="source_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
 				</div>
-				<input type="hidden" name="source_password" :value="sourcePassword"/>
+				<input
+					type="password"
+					name="source_password"
+					id="source_password"
+					x-model="sourcePassword"
+					x-bind:required="sourceAuthType === 'password'"
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="Password"/>
 			</div>
-		</template>
+			<input type="hidden" name="source_password" :value="sourcePassword"/>
+		</div>
 
-		<template x-if="sourceAuthType === 'key'">
-			<div class="sm:col-span-4">
-				<label for="source_key_file" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Key File</label>
-				<div class="relative">
-					<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-						<i class="fas fa-file-alt text-secondary-400 dark:text-secondary-600"></i>
-					</div>
-					<input
-						type="text"
-						name="source_key_file"
-						id="source_key_file"
-						x-model="sourceKeyFile"
-						x-bind:required="sourceAuthType === 'key'"
-						class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-						placeholder="/path/to/key"/>
+		<div class="sm:col-span-4" x-show="sourceAuthType === 'key_file'">
+			<label for="source_key_file" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Key File</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+					<i class="fas fa-file-alt text-secondary-400 dark:text-secondary-600"></i>
 				</div>
+				<input
+					type="text"
+					name="source_key_file"
+					id="source_key_file"
+					x-model="sourceKeyFile"
+					x-bind:required="sourceAuthType === 'key_file'"
+					aria-describedby="source_key_file_help"
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+					placeholder="/path/to/key"/>
 			</div>
-		</template>
+			<p id="source_key_file_help" class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+				Absolute path to SSH private key file.
+			</p>
+		</div>
 	</div>
 } 

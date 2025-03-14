@@ -105,7 +105,7 @@ func TestHandleNewConfig(t *testing.T) {
 
 	// Check response
 	assert.Equal(t, http.StatusOK, resp.Code)
-	assert.Contains(t, resp.Body.String(), "New Transfer Configuration")
+	assert.Contains(t, resp.Body.String(), "New Configuration")
 	assert.Contains(t, resp.Body.String(), "Source Type")
 	assert.Contains(t, resp.Body.String(), "Destination Type")
 }
@@ -134,7 +134,7 @@ func TestHandleEditConfig(t *testing.T) {
 			name:         "Edit own config",
 			configID:     config.ID,
 			expectedCode: http.StatusOK,
-			expectedBody: "Edit Transfer Configuration",
+			expectedBody: "Edit Configuration",
 		},
 		{
 			name:         "Cannot edit other user's config",
@@ -183,7 +183,7 @@ func TestHandleEditConfig(t *testing.T) {
 	adminRouter.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusOK, resp.Code)
-	assert.Contains(t, resp.Body.String(), "Edit Transfer Configuration")
+	assert.Contains(t, resp.Body.String(), "Edit Configuration")
 }
 
 func TestHandleCreateConfig(t *testing.T) {
@@ -405,10 +405,10 @@ func TestHandleDeleteConfig(t *testing.T) {
 				// Check error message
 				assert.Equal(t, tc.errorMsg, response["error"])
 			} else {
-				// Verify config was deleted
-				var count int64
-				database.Model(&db.TransferConfig{}).Where("id = ?", tc.configID).Count(&count)
-				assert.Equal(t, int64(0), count)
+				// Verify config was deleted - using a new DB query
+				var foundConfig db.TransferConfig
+				err := database.First(&foundConfig, tc.configID).Error
+				assert.Error(t, err, "Expected config to be deleted but it was found")
 			}
 		})
 	}
@@ -430,7 +430,7 @@ func TestHandleDeleteConfig(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.Code)
 
 	// Verify config was deleted
-	var count int64
-	database.Model(&db.TransferConfig{}).Where("id = ?", otherConfig.ID).Count(&count)
-	assert.Equal(t, int64(0), count)
+	var foundConfig db.TransferConfig
+	err := database.First(&foundConfig, otherConfig.ID).Error
+	assert.Error(t, err, "Expected config to be deleted but it was found")
 }
