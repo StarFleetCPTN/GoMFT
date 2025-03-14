@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/starfleetcptn/gomft/components"
@@ -12,12 +13,28 @@ import (
 // HandleJobs handles the GET /jobs route
 func (h *Handlers) HandleJobs(c *gin.Context) {
 	userID := c.GetUint("userID")
-	
+
 	var jobs []db.Job
 	h.DB.Where("created_by = ?", userID).Preload("Config").Find(&jobs)
 
+	// Create a map to store config counts for each job
+	configCount := make(map[uint]int)
+
+	// Count configurations for each job
+	for _, job := range jobs {
+		// Get all configurations for this job
+		configs, err := h.DB.GetConfigsForJob(job.ID)
+		if err != nil {
+			c.Error(fmt.Errorf("error loading configurations for job %d: %v", job.ID, err))
+			configCount[job.ID] = 0
+		} else {
+			configCount[job.ID] = len(configs)
+		}
+	}
+
 	data := components.JobsData{
-		Jobs: jobs,
+		Jobs:        jobs,
+		ConfigCount: configCount,
 	}
 	components.Jobs(c, data).Render(c, c.Writer)
 }
@@ -26,40 +43,49 @@ func (h *Handlers) HandleJobs(c *gin.Context) {
 func (h *Handlers) HandleJobRunDetails(c *gin.Context) {
 	userID := c.GetUint("userID")
 	jobID := c.Param("id")
-	
+
 	// Get job history
 	var jobHistory db.JobHistory
 	if err := h.DB.First(&jobHistory, jobID).Error; err != nil {
 		c.String(http.StatusNotFound, "Job not found")
 		return
 	}
-	
+
 	// Get job
 	var job db.Job
 	if err := h.DB.First(&job, jobHistory.JobID).Error; err != nil {
 		c.String(http.StatusNotFound, "Job not found")
 		return
 	}
-	
+
 	// Verify that the user owns this job
 	if job.CreatedBy != userID {
 		c.String(http.StatusForbidden, "You don't have permission to view this job run")
 		return
 	}
-	
+
 	// Get the config
 	var config db.TransferConfig
-	if err := h.DB.First(&config, job.ConfigID).Error; err != nil {
+
+	// First try to get the specific config used in this job history record
+	configID := jobHistory.ConfigID
+
+	// If no ConfigID is set in the history, fall back to the job's primary ConfigID
+	if configID == 0 {
+		configID = job.ConfigID
+	}
+
+	if err := h.DB.First(&config, configID).Error; err != nil {
 		c.String(http.StatusNotFound, "Configuration not found")
 		return
 	}
-	
+
 	data := components.JobRunDetailsData{
 		JobHistory: jobHistory,
 		Job:        job,
 		Config:     config,
 	}
-	
+
 	components.JobRunDetails(c.Request.Context(), data).Render(c, c.Writer)
 }
 
@@ -82,7 +108,7 @@ func (h *Handlers) HandleNewJob(c *gin.Context) {
 func (h *Handlers) HandleEditJob(c *gin.Context) {
 	id := c.Param("id")
 	userID := c.GetUint("userID")
-	
+
 	var job db.Job
 	if err := h.DB.First(&job, id).Error; err != nil {
 		c.Redirect(http.StatusFound, "/jobs")
@@ -113,36 +139,83 @@ func (h *Handlers) HandleEditJob(c *gin.Context) {
 
 // HandleCreateJob handles the POST /jobs route
 func (h *Handlers) HandleCreateJob(c *gin.Context) {
+	userID := c.GetUint("userID")
+
+	// Parse form data
 	var job db.Job
 	if err := c.ShouldBind(&job); err != nil {
 		c.String(http.StatusBadRequest, "Invalid form data")
 		return
 	}
 
-	userID := c.GetUint("userID")
-	job.CreatedBy = userID
-
-	// Verify that the config exists and belongs to the user
-	var config db.TransferConfig
-	if err := h.DB.First(&config, job.ConfigID).Error; err != nil {
-		c.String(http.StatusBadRequest, "Invalid configuration selected")
+	// Get multiple config IDs from form
+	configIDs := c.PostFormArray("config_ids[]")
+	if len(configIDs) == 0 {
+		c.String(http.StatusBadRequest, "At least one configuration must be selected")
 		return
 	}
 
-	// Check if the config belongs to the user
-	if config.CreatedBy != userID {
-		// Check if user is admin
-		isAdmin, exists := c.Get("isAdmin")
-		if !exists || isAdmin != true {
-			c.String(http.StatusForbidden, "You do not have permission to use this configuration")
+	// Process config IDs
+	var configIDsList []uint
+	for _, configIDStr := range configIDs {
+		configID, err := strconv.ParseUint(configIDStr, 10, 32)
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid configuration ID format")
 			return
+		}
+
+		// Verify that the config exists and belongs to the user
+		var config db.TransferConfig
+		if err := h.DB.First(&config, configID).Error; err != nil {
+			c.String(http.StatusBadRequest, "Invalid configuration selected")
+			return
+		}
+
+		// Check if the config belongs to the user
+		if config.CreatedBy != userID {
+			// Check if user is admin
+			isAdmin, exists := c.Get("isAdmin")
+			if !exists || isAdmin != true {
+				c.String(http.StatusForbidden, "You do not have permission to use this configuration")
+				return
+			}
+		}
+
+		configIDsList = append(configIDsList, uint(configID))
+	}
+
+	// Set the first config ID for backward compatibility
+	if len(configIDsList) > 0 {
+		job.ConfigID = configIDsList[0]
+
+		// Verify that the config exists and belongs to the user (using the first config as primary)
+		var config db.TransferConfig
+		if err := h.DB.First(&config, job.ConfigID).Error; err != nil {
+			c.String(http.StatusBadRequest, "Invalid configuration selected")
+			return
+		}
+
+		// Check if the config belongs to the user
+		if config.CreatedBy != userID {
+			// Check if user is admin
+			isAdmin, exists := c.Get("isAdmin")
+			if !exists || isAdmin != true {
+				c.String(http.StatusForbidden, "You do not have permission to use this configuration")
+				return
+			}
+		}
+
+		// If job name is empty, use the primary config name
+		if job.Name == "" {
+			job.Name = config.Name
 		}
 	}
 
-	// If job name is empty, use the config name
-	if job.Name == "" {
-		job.Name = config.Name
-	}
+	// Set the config IDs list
+	job.SetConfigIDsList(configIDsList)
+
+	// Set created by user
+	job.CreatedBy = userID
 
 	// Clear the Config field to prevent GORM from creating a new config
 	job.Config = db.TransferConfig{}
@@ -166,7 +239,7 @@ func (h *Handlers) HandleCreateJob(c *gin.Context) {
 func (h *Handlers) HandleUpdateJob(c *gin.Context) {
 	id := c.Param("id")
 	userID := c.GetUint("userID")
-	
+
 	var job db.Job
 	if err := h.DB.First(&job, id).Error; err != nil {
 		c.String(http.StatusNotFound, "Job not found")
@@ -186,38 +259,66 @@ func (h *Handlers) HandleUpdateJob(c *gin.Context) {
 	// Get the old job values for comparison
 	oldJob := job
 
-	// Bind form data to job
+	// Parse form data
 	if err := c.ShouldBind(&job); err != nil {
 		c.String(http.StatusBadRequest, "Invalid form data")
 		return
 	}
 
-	// Verify that the config exists and belongs to the user
-	var config db.TransferConfig
-	if err := h.DB.First(&config, job.ConfigID).Error; err != nil {
-		c.String(http.StatusBadRequest, "Invalid configuration selected")
+	// Get multiple config IDs from form
+	configIDs := c.PostFormArray("config_ids[]")
+	if len(configIDs) == 0 {
+		c.String(http.StatusBadRequest, "At least one configuration must be selected")
 		return
 	}
 
-	// Check if the config belongs to the user
-	if config.CreatedBy != userID {
-		// Check if user is admin
-		isAdmin, exists := c.Get("isAdmin")
-		if !exists || isAdmin != true {
-			c.String(http.StatusForbidden, "You do not have permission to use this configuration")
+	// Process config IDs
+	var configIDsList []uint
+	for _, configIDStr := range configIDs {
+		configID, err := strconv.ParseUint(configIDStr, 10, 32)
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid configuration ID format")
 			return
+		}
+
+		// Verify that the config exists
+		var config db.TransferConfig
+		if err := h.DB.First(&config, configID).Error; err != nil {
+			c.String(http.StatusBadRequest, "Invalid configuration selected")
+			return
+		}
+
+		// Check if the config belongs to the user
+		if config.CreatedBy != userID {
+			// Check if user is admin
+			isAdmin, exists := c.Get("isAdmin")
+			if !exists || isAdmin != true {
+				c.String(http.StatusForbidden, "You do not have permission to use this configuration")
+				return
+			}
+		}
+
+		configIDsList = append(configIDsList, uint(configID))
+	}
+
+	// Set the first config ID for backward compatibility
+	if len(configIDsList) > 0 {
+		job.ConfigID = configIDsList[0]
+
+		// If job name is empty, use the primary config name
+		var config db.TransferConfig
+		if err := h.DB.First(&config, job.ConfigID).Error; err == nil && job.Name == "" {
+			job.Name = config.Name
 		}
 	}
 
-	// If job name is empty, use the config name
-	if job.Name == "" {
-		job.Name = config.Name
-	}
+	// Set the config IDs list
+	job.SetConfigIDsList(configIDsList)
 
 	// Preserve fields that shouldn't be updated
 	job.CreatedBy = oldJob.CreatedBy
 	job.ID = oldJob.ID
-	
+
 	// Clear the Config field to prevent GORM from updating or creating a new config
 	job.Config = db.TransferConfig{}
 
@@ -239,7 +340,7 @@ func (h *Handlers) HandleUpdateJob(c *gin.Context) {
 func (h *Handlers) HandleDeleteJob(c *gin.Context) {
 	id := c.Param("id")
 	userID := c.GetUint("userID")
-	
+
 	var job db.Job
 	if err := h.DB.First(&job, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
@@ -272,7 +373,7 @@ func (h *Handlers) HandleDeleteJob(c *gin.Context) {
 func (h *Handlers) HandleRunJob(c *gin.Context) {
 	id := c.Param("id")
 	userID := c.GetUint("userID")
-	
+
 	var job db.Job
 	if err := h.DB.First(&job, id).Error; err != nil {
 		c.Header("Content-Type", "text/html")
@@ -314,8 +415,8 @@ func (h *Handlers) HandleRunJob(c *gin.Context) {
 	// Set custom header with job name for HTMX to use in the toast notification
 	c.Header("HX-Job-Name", jobName)
 	c.Header("Content-Type", "text/html")
-	
+
 	// Return HTML with JavaScript to trigger the notification
 	successScript := fmt.Sprintf("<script>window.notyfInstance.success('Job \"%s\" has been started successfully')</script>", jobName)
 	c.String(http.StatusOK, successScript)
-} 
+}

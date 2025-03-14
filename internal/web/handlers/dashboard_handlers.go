@@ -17,7 +17,7 @@ func (h *Handlers) HandleDashboard(c *gin.Context) {
 
 	// Get recent job history
 	var recentHistory []db.JobHistory
-	h.DB.Order("start_time DESC").Limit(5).Find(&recentHistory)
+	h.DB.Preload("Job.Config").Order("start_time DESC").Limit(5).Find(&recentHistory)
 
 	// Get job statistics
 	var totalJobs int64
@@ -29,11 +29,50 @@ func (h *Handlers) HandleDashboard(c *gin.Context) {
 	var failedJobs int64
 	h.DB.Model(&db.JobHistory{}).Where("status = ?", "failed").Count(&failedJobs)
 
+	// Create a map to hold all relevant config IDs
+	configIDs := make(map[uint]bool)
+
+	// Collect all config IDs from recent history entries
+	for _, h := range recentHistory {
+		// Add the specific config ID used for this history entry if it exists
+		if h.ConfigID > 0 {
+			configIDs[h.ConfigID] = true
+		}
+
+		// Add the job's default config ID as a fallback
+		if h.Job.ConfigID > 0 {
+			configIDs[h.Job.ConfigID] = true
+		}
+	}
+
+	// Create a map to store all configs by their ID
+	configsMap := make(map[uint]db.TransferConfig)
+
+	// Load all necessary configurations
+	if len(configIDs) > 0 {
+		var configsList []db.TransferConfig
+		configIDsList := make([]uint, 0, len(configIDs))
+
+		// Extract config IDs from the map
+		for id := range configIDs {
+			configIDsList = append(configIDsList, id)
+		}
+
+		// Load all configurations in one query
+		if err := h.DB.Where("id IN ?", configIDsList).Find(&configsList).Error; err == nil {
+			// Create the lookup map
+			for _, config := range configsList {
+				configsMap[config.ID] = config
+			}
+		}
+	}
+
 	data := components.DashboardData{
 		RecentJobs:      recentHistory,
 		ActiveTransfers: int(totalJobs),
 		CompletedToday:  int(completedJobs),
 		FailedTransfers: int(failedJobs),
+		Configs:         configsMap,
 	}
 
 	components.Dashboard(components.CreateTemplateContext(c), data).Render(c, c.Writer)
@@ -110,6 +149,44 @@ func (h *Handlers) HandleHistory(c *gin.Context) {
 		return
 	}
 
+	// Create a map to hold all relevant config IDs
+	configIDs := make(map[uint]bool)
+
+	// Collect all config IDs from history entries
+	for _, h := range history {
+		// Add the specific config ID used for this history entry if it exists
+		if h.ConfigID > 0 {
+			configIDs[h.ConfigID] = true
+		}
+
+		// Add the job's default config ID as a fallback
+		if h.Job.ConfigID > 0 {
+			configIDs[h.Job.ConfigID] = true
+		}
+	}
+
+	// Create a map to store all configs by their ID
+	configsMap := make(map[uint]db.TransferConfig)
+
+	// Load all necessary configurations
+	if len(configIDs) > 0 {
+		var configsList []db.TransferConfig
+		configIDsList := make([]uint, 0, len(configIDs))
+
+		// Extract config IDs from the map
+		for id := range configIDs {
+			configIDsList = append(configIDsList, id)
+		}
+
+		// Load all configurations in one query
+		if err := h.DB.Where("id IN ?", configIDsList).Find(&configsList).Error; err == nil {
+			// Create the lookup map
+			for _, config := range configsList {
+				configsMap[config.ID] = config
+			}
+		}
+	}
+
 	data := components.HistoryData{
 		History:     history,
 		CurrentPage: page,
@@ -117,6 +194,7 @@ func (h *Handlers) HandleHistory(c *gin.Context) {
 		SearchTerm:  searchTerm,
 		PageSize:    pageSize,
 		Total:       int(total),
+		Configs:     configsMap,
 	}
 
 	// If this is an HTMX request, only render the history content component

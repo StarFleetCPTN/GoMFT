@@ -26,6 +26,18 @@ func getJobTitle(isNew bool) string {
 	return "Edit Job"
 }
 
+// configSelected checks if a config ID is selected for a job
+func configSelected(job *db.Job, configID uint) bool {
+	// Check if the job has the config ID in its list
+	for _, id := range job.GetConfigIDsList() {
+		if id == configID {
+			return true
+		}
+	}
+	// As a fallback, check the primary ConfigID
+	return job.ConfigID == configID
+}
+
 templ JobForm(ctx context.Context, data JobFormData) {
 	@LayoutWithContext(getJobFormTitle(data.IsNew), ctx) {
 		<div class="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-secondary-50 dark:bg-secondary-900">
@@ -47,11 +59,7 @@ templ JobForm(ctx context.Context, data JobFormData) {
 								class="space-y-6" 
 								hx-post="/jobs"
 								hx-target="body"
-								hx-boost="true"
-								@htmx:before-request="loading = true"
-								@htmx:after-request="loading = false"
-								@htmx:response-error="$dispatch('notification', { message: 'Failed to create job: ' + event.detail.xhr.responseText, type: 'error' })"
-								x-data="{ name: '', configId: '', schedule: '', enabled: true, loading: false, validate() { return this.configId && this.schedule; } }">
+								hx-boost="true">
 								<div class="space-y-6">
 									<div>
 										<label for="name" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Job Name</label>
@@ -63,7 +71,6 @@ templ JobForm(ctx context.Context, data JobFormData) {
 												type="text" 
 												name="name" 
 												id="name" 
-												x-model="name" 
 												class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
 												placeholder="Daily Production Backup"/>
 										</div>
@@ -74,23 +81,34 @@ templ JobForm(ctx context.Context, data JobFormData) {
 									</div>
 								
 									<div>
-										<label for="config_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Transfer Configuration</label>
-										<div class="relative">
-											<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-												<i class="fas fa-cog text-secondary-400 dark:text-secondary-600"></i>
-											</div>
-											<select 
-												id="config_id" 
-												name="config_id" 
-												x-model="configId" 
-												required 
-												class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500">
-												<option value="">Select a configuration</option>
+										<label class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Transfer Configurations</label>
+										<div class="bg-secondary-50 dark:bg-secondary-800 border border-secondary-300 dark:border-secondary-700 rounded-lg max-h-60 overflow-y-auto">
+											if len(data.Configs) > 0 {
 												for _, config := range data.Configs {
-													<option value={ fmt.Sprint(config.ID) }>{ config.Name }</option>
+													<div class="flex items-center p-2 hover:bg-secondary-100 dark:hover:bg-secondary-700">
+														<input 
+															type="checkbox" 
+															id={ fmt.Sprintf("new-config-%d", config.ID) }
+															name="config_ids[]" 
+															value={ fmt.Sprint(config.ID) }
+															class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
+														<label 
+															for={ fmt.Sprintf("new-config-%d", config.ID) }
+															class="ml-2 block text-sm text-secondary-700 dark:text-secondary-300 cursor-pointer w-full py-2">
+															{ config.Name }
+														</label>
+													</div>
 												}
-											</select>
+											} else {
+												<div class="text-center py-4 text-secondary-500 dark:text-secondary-400">
+													No configurations available. <a href="/configs/new" class="text-primary-600 hover:text-primary-500">Create one</a>
+												</div>
+											}
 										</div>
+										<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
+											<i class="fas fa-info-circle mr-1"></i>
+											Select one or more configurations to run on this schedule.
+										</p>
 									</div>
 									
 									<div>
@@ -103,7 +121,6 @@ templ JobForm(ctx context.Context, data JobFormData) {
 												type="text" 
 												name="schedule" 
 												id="schedule" 
-												x-model="schedule" 
 												required 
 												class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
 												placeholder="*/15 * * * *"/>
@@ -119,10 +136,10 @@ templ JobForm(ctx context.Context, data JobFormData) {
 											<input 
 												type="checkbox" 
 												id="enabled" 
-												x-model="enabled" 
-												class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded" 
-												checked/>
-											<input type="hidden" name="enabled" :value="enabled.toString()"/>
+												name="enabled"
+												value="true"
+												checked
+												class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
 											<label for="enabled" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">Enable this job</label>
 										</div>
 										<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
@@ -139,19 +156,9 @@ templ JobForm(ctx context.Context, data JobFormData) {
 									</a>
 									<button 
 										type="submit" 
-										class="btn-primary flex items-center justify-center px-4 py-2" 
-										x-bind:disabled="!validate() || loading">
-										<span x-show="!loading" class="flex items-center">
-											<i class="fas fa-plus mr-2"></i>
-											Create Job
-										</span>
-										<span x-show="loading" class="flex items-center">
-											<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-												<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-												<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-											</svg>
-											Processing...
-										</span>
+										class="btn-primary flex items-center justify-center px-4 py-2">
+										<i class="fas fa-plus mr-2"></i>
+										Create Job
 									</button>
 								</div>
 							</form>
@@ -160,11 +167,7 @@ templ JobForm(ctx context.Context, data JobFormData) {
 								class="space-y-6" 
 								hx-post={ fmt.Sprintf("/jobs/%d", data.Job.ID) }
 								hx-target="body"
-								hx-boost="true"
-								@htmx:before-request="loading = true"
-								@htmx:after-request="loading = false"
-								@htmx:response-error="$dispatch('notification', { message: 'Failed to update job: ' + event.detail.xhr.responseText, type: 'error' })"
-								x-data={ fmt.Sprintf("{ name: '%s', configId: '%d', schedule: '%s', enabled: %v, loading: false, validate() { return this.configId && this.schedule; } }", data.Job.Name, data.Job.ConfigID, data.Job.Schedule, data.Job.Enabled) }>
+								hx-boost="true">
 								<div class="space-y-6">
 									<div>
 										<label for="name" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Job Name</label>
@@ -176,7 +179,7 @@ templ JobForm(ctx context.Context, data JobFormData) {
 												type="text" 
 												name="name" 
 												id="name" 
-												x-model="name" 
+												value={ data.Job.Name }
 												class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
 												placeholder="Daily Production Backup"/>
 										</div>
@@ -185,25 +188,39 @@ templ JobForm(ctx context.Context, data JobFormData) {
 											Descriptive name for this job (optional). If not provided, the config name will be used.
 										</p>
 									</div>
-								
+									
 									<div>
-										<label for="config_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Transfer Configuration</label>
-										<div class="relative">
-											<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-												<i class="fas fa-cog text-secondary-400 dark:text-secondary-600"></i>
-											</div>
-											<select 
-												id="config_id" 
-												name="config_id" 
-												x-model="configId" 
-												required 
-												class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500">
-												<option value="">Select a configuration</option>
+										<label class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Transfer Configurations</label>
+										<div class="bg-secondary-50 dark:bg-secondary-800 border border-secondary-300 dark:border-secondary-700 rounded-lg max-h-60 overflow-y-auto">
+											if len(data.Configs) > 0 {
 												for _, config := range data.Configs {
-													<option value={ fmt.Sprint(config.ID) } if data.Job != nil && data.Job.ConfigID == config.ID { selected }>{ config.Name }</option>
+													<div class="flex items-center p-2 hover:bg-secondary-100 dark:hover:bg-secondary-700">
+														<input 
+															type="checkbox" 
+															id={ fmt.Sprintf("config-%d", config.ID) }
+															name="config_ids[]" 
+															value={ fmt.Sprint(config.ID) } 
+															if configSelected(data.Job, config.ID) {
+																checked
+															}
+															class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
+														<label 
+															for={ fmt.Sprintf("config-%d", config.ID) }
+															class="ml-2 block text-sm text-secondary-700 dark:text-secondary-300 cursor-pointer w-full py-2">
+															{ config.Name }
+														</label>
+													</div>
 												}
-											</select>
+											} else {
+												<div class="text-center py-4 text-secondary-500 dark:text-secondary-400">
+													No configurations available. <a href="/configs/new" class="text-primary-600 hover:text-primary-500">Create one</a>
+												</div>
+											}
 										</div>
+										<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
+											<i class="fas fa-info-circle mr-1"></i>
+											Select one or more configurations to run on this schedule.
+										</p>
 									</div>
 									
 									<div>
@@ -216,7 +233,7 @@ templ JobForm(ctx context.Context, data JobFormData) {
 												type="text" 
 												name="schedule" 
 												id="schedule" 
-												x-model="schedule" 
+												value={ data.Job.Schedule }
 												required 
 												class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
 												placeholder="*/15 * * * *"/>
@@ -232,9 +249,12 @@ templ JobForm(ctx context.Context, data JobFormData) {
 											<input 
 												type="checkbox" 
 												id="enabled" 
-												x-model="enabled" 
+												name="enabled"
+												value="true"
+												if data.Job.Enabled {
+													checked
+												}
 												class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
-											<input type="hidden" name="enabled" :value="enabled.toString()"/>
 											<label for="enabled" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">Enable this job</label>
 										</div>
 										<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
@@ -251,19 +271,9 @@ templ JobForm(ctx context.Context, data JobFormData) {
 									</a>
 									<button 
 										type="submit" 
-										class="btn-primary flex items-center justify-center px-4 py-2" 
-										x-bind:disabled="!validate() || loading">
-										<span x-show="!loading" class="flex items-center">
-											<i class="fas fa-save mr-2"></i>
-											Save Changes
-										</span>
-										<span x-show="loading" class="flex items-center">
-											<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-												<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-												<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-											</svg>
-											Processing...
-										</span>
+										class="btn-primary flex items-center justify-center px-4 py-2">
+										<i class="fas fa-save mr-2"></i>
+										Save Changes
 									</button>
 								</div>
 							</form>

@@ -296,68 +296,82 @@ func (s *Scheduler) executeJob(jobID uint) {
 
 	// Get job details
 	var job db.Job
-	if err := s.db.Preload("Config").First(&job, jobID).Error; err != nil {
+	if err := s.db.First(&job, jobID).Error; err != nil {
 		s.log.LogError("Error loading job %d: %v", jobID, err)
 		return
 	}
 
-	if job.Config.ID == 0 {
-		s.log.LogError("Error: job %d has no associated config", jobID)
+	// Get all configurations associated with this job
+	configs, err := s.db.GetConfigsForJob(jobID)
+	if err != nil {
+		s.log.LogError("Error loading configurations for job %d: %v", jobID, err)
 		return
 	}
 
-	// Add explicit database reload of the config to ensure we have the latest values
-	var config db.TransferConfig
-	if err := s.db.First(&config, job.Config.ID).Error; err != nil {
-		s.log.LogError("Error loading config %d: %v", job.Config.ID, err)
+	if len(configs) == 0 {
+		s.log.LogError("Error: job %d has no associated configurations", jobID)
 		return
 	}
-	// Replace the job's config with the freshly loaded one
-	job.Config = config
 
-	// Now the rest of your code will use the correct value
-	s.log.LogInfo("Loaded job %d with config: source=%s:%s, dest=%s:%s, skipProcessedFiles=%v, maxConcurrentTransfers=%d",
-		jobID,
-		job.Config.SourceType,
-		job.Config.SourcePath,
-		job.Config.DestinationType,
-		job.Config.DestinationPath,
-		job.Config.SkipProcessedFiles,
-		job.Config.MaxConcurrentTransfers,
-	)
-
-	// Create job history entry
-	startTime := time.Now()
-	history := &db.JobHistory{
-		JobID:            jobID,
-		StartTime:        startTime,
-		Status:           "running",
-		FilesTransferred: 0,
-		BytesTransferred: 0,
-		ErrorMessage:     "",
-	}
-	if err := s.db.CreateJobHistory(history); err != nil {
-		s.log.LogError("Error creating job history for job %d: %v", jobID, err)
-		return
-	}
+	s.log.LogInfo("Loaded job %d with %d configurations", jobID, len(configs))
 
 	// Update job last run time
-	job.LastRun = &history.StartTime
+	startTime := time.Now()
+	job.LastRun = &startTime
 	if err := s.db.UpdateJobStatus(&job); err != nil {
 		s.log.LogError("Error updating job last run time for job %d: %v", jobID, err)
 	}
 
-	// Reload the job from the database to get the latest values
-	if err := s.db.Preload("Config").First(&job, jobID).Error; err != nil {
-		s.log.LogError("Error reloading job %d: %v", jobID, err)
-		return
+	// Process each configuration in sequence
+	for i, config := range configs {
+		// Create job history entry for this configuration
+		history := &db.JobHistory{
+			JobID:            jobID,
+			ConfigID:         config.ID,
+			StartTime:        time.Now(),
+			Status:           "running",
+			FilesTransferred: 0,
+			BytesTransferred: 0,
+			ErrorMessage:     "",
+		}
+		if err := s.db.CreateJobHistory(history); err != nil {
+			s.log.LogError("Error creating job history for job %d, config %d: %v", jobID, config.ID, err)
+			continue
+		}
+
+		s.log.LogInfo("Processing configuration %d (%d/%d) for job %d: source=%s:%s, dest=%s:%s",
+			config.ID,
+			i+1,
+			len(configs),
+			jobID,
+			config.SourceType,
+			config.SourcePath,
+			config.DestinationType,
+			config.DestinationPath,
+		)
+
+		// Execute the configuration transfer
+		s.executeConfigTransfer(job, config, history)
 	}
 
+	// Update next run time if job is still scheduled
+	if entry := s.cron.Entry(s.jobs[jobID]); entry.ID != 0 {
+		job.NextRun = &entry.Next
+		if err := s.db.UpdateJobStatus(&job); err != nil {
+			s.log.LogError("Error updating next run time for job %d: %v", jobID, err)
+		} else {
+			s.log.LogInfo("Next run time for job %d: %s", jobID, entry.Next.Format(time.RFC3339))
+		}
+	}
+}
+
+// executeConfigTransfer performs the actual file transfer for a single configuration
+func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, history *db.JobHistory) {
 	// Track files already processed in this job execution to prevent duplicates
 	processedFiles := make(map[string]bool)
 
 	// Get rclone config path
-	configPath := s.db.GetConfigRclonePath(&job.Config)
+	configPath := s.db.GetConfigRclonePath(&config)
 
 	// Use lsjson to get file list and metadata in one operation instead of separate size and ls commands
 	listArgs := []string{
@@ -368,17 +382,17 @@ func (s *Scheduler) executeJob(jobID uint) {
 	}
 
 	// Add file pattern filter if specified
-	if job.Config.FilePattern != "" && job.Config.FilePattern != "*" {
+	if config.FilePattern != "" && config.FilePattern != "*" {
 		// Create a temporary filter file for complex patterns
-		filterFile, err := createRcloneFilterFile(job.Config.FilePattern)
+		filterFile, err := createRcloneFilterFile(config.FilePattern)
 		if err != nil {
-			s.log.LogError("Error creating filter file for job %d: %v", jobID, err)
+			s.log.LogError("Error creating filter file for job %d, config %d: %v", job.ID, config.ID, err)
 			history.Status = "failed"
 			history.ErrorMessage = fmt.Sprintf("Filter Creation Error: %v", err)
 			endTime := time.Now()
 			history.EndTime = &endTime
 			if err := s.db.UpdateJobHistory(history); err != nil {
-				s.log.LogError("Error updating job history for job %d: %v", jobID, err)
+				s.log.LogError("Error updating job history for job %d, config %d: %v", job.ID, config.ID, err)
 			}
 			return
 		}
@@ -388,19 +402,19 @@ func (s *Scheduler) executeJob(jobID uint) {
 
 	// Add source path with bucket for S3-compatible storage
 	var sourceListPath string
-	if job.Config.SourceType == "s3" || job.Config.SourceType == "minio" || job.Config.SourceType == "b2" {
-		sourceListPath = fmt.Sprintf("source_%d:%s", job.Config.ID, job.Config.SourceBucket)
-		if job.Config.SourcePath != "" && job.Config.SourcePath != "/" {
-			sourceListPath = fmt.Sprintf("source_%d:%s/%s", job.Config.ID, job.Config.SourceBucket, job.Config.SourcePath)
+	if config.SourceType == "s3" || config.SourceType == "minio" || config.SourceType == "b2" {
+		sourceListPath = fmt.Sprintf("source_%d:%s", config.ID, config.SourceBucket)
+		if config.SourcePath != "" && config.SourcePath != "/" {
+			sourceListPath = fmt.Sprintf("source_%d:%s/%s", config.ID, config.SourceBucket, config.SourcePath)
 		}
 	} else {
-		sourceListPath = fmt.Sprintf("source_%d:%s", job.Config.ID, job.Config.SourcePath)
+		sourceListPath = fmt.Sprintf("source_%d:%s", config.ID, config.SourcePath)
 	}
 
 	listArgs = append(listArgs, sourceListPath)
 
 	// Execute lsjson command
-	s.log.LogInfo("Listing files with metadata for job %d: rclone %s", jobID, strings.Join(listArgs, " "))
+	s.log.LogInfo("Listing files with metadata for job %d, config %d: rclone %s", job.ID, config.ID, strings.Join(listArgs, " "))
 	rclonePath := os.Getenv("RCLONE_PATH")
 	if rclonePath == "" {
 		rclonePath = "rclone"
@@ -409,14 +423,14 @@ func (s *Scheduler) executeJob(jobID uint) {
 	listOutput, listErr := listCmd.CombinedOutput()
 
 	if listErr != nil {
-		s.log.LogError("Error listing files for job %d: %v", jobID, listErr)
+		s.log.LogError("Error listing files for job %d, config %d: %v", job.ID, config.ID, listErr)
 		// s.log.Debug.Printf("Output: %s", string(listOutput))
 		history.Status = "failed"
 		history.ErrorMessage = fmt.Sprintf("File Listing Error: %v\nOutput: %s", listErr, string(listOutput))
 		endTime := time.Now()
 		history.EndTime = &endTime
 		if err := s.db.UpdateJobHistory(history); err != nil {
-			s.log.LogError("Error updating job history for job %d: %v", jobID, err)
+			s.log.LogError("Error updating job history for job %d, config %d: %v", job.ID, config.ID, err)
 		}
 		return
 	}
@@ -424,13 +438,13 @@ func (s *Scheduler) executeJob(jobID uint) {
 	// Parse JSON output to get file information
 	var fileEntries []map[string]interface{}
 	if err := json.Unmarshal(listOutput, &fileEntries); err != nil {
-		s.log.LogError("Error parsing file list JSON for job %d: %v", jobID, err)
+		s.log.LogError("Error parsing file list JSON for job %d, config %d: %v", job.ID, config.ID, err)
 		history.Status = "failed"
 		history.ErrorMessage = fmt.Sprintf("JSON Parsing Error: %v", err)
 		endTime := time.Now()
 		history.EndTime = &endTime
 		if err := s.db.UpdateJobHistory(history); err != nil {
-			s.log.LogError("Error updating job history for job %d: %v", jobID, err)
+			s.log.LogError("Error updating job history for job %d, config %d: %v", job.ID, config.ID, err)
 		}
 		return
 	}
@@ -453,400 +467,399 @@ func (s *Scheduler) executeJob(jobID uint) {
 		}
 	}
 
-	s.log.LogInfo("Found %d files totaling %d bytes to transfer for job %d", len(files), totalSize, jobID)
+	s.log.LogInfo("Found %d files totaling %d bytes to transfer for job %d, config %d", len(files), totalSize, job.ID, config.ID)
 
 	// Update history with size information
 	history.BytesTransferred = totalSize
 
 	if len(files) == 0 {
-		s.log.LogInfo("No files to transfer for job %d", jobID)
+		s.log.LogInfo("No files to transfer for job %d, config %d", job.ID, config.ID)
 		history.Status = "completed"
 		history.ErrorMessage = ""
 		history.FilesTransferred = 0
-	} else {
-		var transferErrors []string
-		filesTransferred := 0
-
-		// Use mutex for thread-safe access to shared variables
-		var mutex sync.Mutex
-
-		// Determine number of concurrent transfers
-		maxConcurrent := job.Config.MaxConcurrentTransfers
-		if maxConcurrent < 1 {
-			maxConcurrent = 1 // Default to 1 if not set
+		endTime := time.Now()
+		history.EndTime = &endTime
+		if err := s.db.UpdateJobHistory(history); err != nil {
+			s.log.LogError("Error updating job history for job %d, config %d: %v", job.ID, config.ID, err)
 		}
-		s.log.LogInfo("Using %d concurrent transfers for job %d", maxConcurrent, jobID)
+		return
+	}
 
-		// Create wait group for concurrent processing
-		var wg sync.WaitGroup
+	var transferErrors []string
+	filesTransferred := 0
 
-		// Create channel to limit concurrency
-		concurrencySemaphore := make(chan struct{}, maxConcurrent)
+	// Use mutex for thread-safe access to shared variables
+	var mutex sync.Mutex
 
-		// Process each file individually
-		for _, fileEntry := range files {
-			fileName, ok := fileEntry["Path"].(string)
-			if !ok || fileName == "" {
-				continue
-			}
+	// Determine number of concurrent transfers
+	maxConcurrent := config.MaxConcurrentTransfers
+	if maxConcurrent < 1 {
+		maxConcurrent = 1 // Default to 1 if not set
+	}
+	s.log.LogInfo("Using %d concurrent transfers for job %d, config %d", maxConcurrent, job.ID, config.ID)
 
-			// Skip files that have already been processed in this execution
-			if processedFiles[fileName] {
-				s.log.LogDebug("Skipping duplicate file entry: %s (already processed in this execution)", fileName)
-				continue
-			}
+	// Create wait group for concurrent processing
+	var wg sync.WaitGroup
 
-			// Extract hash from the file entry
-			fileHash := ""
-			if hash, ok := fileEntry["Hashes"].(map[string]interface{}); ok {
-				// Try several hash algorithms in order of preference
-				for _, hashType := range []string{"SHA-1", "MD5"} {
-					if hashValue, found := hash[hashType]; found {
-						if hashStr, ok := hashValue.(string); ok {
-							fileHash = hashStr
-							break
-						}
+	// Create channel to limit concurrency
+	concurrencySemaphore := make(chan struct{}, maxConcurrent)
+
+	// Process each file individually
+	for _, fileEntry := range files {
+		fileName, ok := fileEntry["Path"].(string)
+		if !ok || fileName == "" {
+			continue
+		}
+
+		// Skip files that have already been processed in this execution
+		if processedFiles[fileName] {
+			s.log.LogDebug("Skipping duplicate file entry: %s (already processed in this execution)", fileName)
+			continue
+		}
+
+		// Extract hash from the file entry
+		fileHash := ""
+		if hashes, ok := fileEntry["Hashes"].(map[string]interface{}); ok {
+			// Try several hash algorithms in order of preference
+			for _, hashType := range []string{"SHA-1", "sha1", "MD5", "md5", "sha256", "crc32"} {
+				if hashValue, found := hashes[hashType]; found {
+					if hashStr, ok := hashValue.(string); ok && hashStr != "" {
+						s.log.LogDebug("Found hash %s: %s for file %s", hashType, hashStr, fileName)
+						fileHash = hashStr
+						break
 					}
 				}
 			}
+		}
 
-			// Extract size from the file entry
-			fileSize := int64(0)
-			if size, ok := fileEntry["Size"].(float64); ok {
-				fileSize = int64(size)
-			}
+		// Log if no hash was found
+		if fileHash == "" {
+			s.log.LogDebug("No hash found for file %s. Available fields: %v", fileName, fileEntry)
+		}
 
-			// Skip files that have already been processed based on hash
-			skipFiles := job.Config.SkipProcessedFiles
-			if skipFiles && fileHash != "" {
-				alreadyProcessed, prevMetadata, err := s.hasFileBeenProcessed(jobID, fileHash)
-				if err == nil && alreadyProcessed {
-					s.log.LogDebug("File %s with hash %s was previously processed on %s with status: %s",
-						fileName, fileHash, prevMetadata.ProcessedTime.Format(time.RFC3339), prevMetadata.Status)
+		// Extract size from the file entry
+		fileSize := int64(0)
+		if size, ok := fileEntry["Size"].(float64); ok {
+			fileSize = int64(size)
+		}
 
-					// Determine if we should skip this file based on status
-					shouldSkip := false
-					if prevMetadata.Status == "processed" ||
-						prevMetadata.Status == "archived" ||
-						prevMetadata.Status == "deleted" ||
-						prevMetadata.Status == "archived_and_deleted" {
-						shouldSkip = true
-					}
+		// Skip files that have already been processed based on hash
+		skipFiles := config.SkipProcessedFiles
+		if skipFiles && fileHash != "" {
+			alreadyProcessed, prevMetadata, err := s.hasFileBeenProcessed(job.ID, fileHash)
+			if err == nil && alreadyProcessed {
+				s.log.LogDebug("File %s with hash %s was previously processed on %s with status: %s",
+					fileName, fileHash, prevMetadata.ProcessedTime.Format(time.RFC3339), prevMetadata.Status)
 
-					if shouldSkip {
-						s.log.LogInfo("Skipping unchanged file %s (hash matches previous processing)", fileName)
-						continue
-					} else {
-						s.log.LogInfo("Re-processing file %s despite previous processing (skipProcessedFiles=%v)", fileName, skipFiles)
-					}
-				}
-			}
-
-			// Also check the processing history for this specific file name
-			prevMetadata, histErr := s.checkFileProcessingHistory(jobID, fileName)
-			if histErr == nil {
-				s.log.LogDebug("File %s was previously processed on %s with status: %s",
-					fileName, prevMetadata.ProcessedTime.Format(time.RFC3339), prevMetadata.Status)
-
-				// Determine if we should skip this file based on name+hash match
+				// Determine if we should skip this file based on status
 				shouldSkip := false
-				if skipFiles && fileHash != "" && fileHash == prevMetadata.FileHash {
-					if prevMetadata.Status == "processed" ||
-						prevMetadata.Status == "archived" ||
-						prevMetadata.Status == "deleted" ||
-						prevMetadata.Status == "archived_and_deleted" {
-						shouldSkip = true
-					}
+				if prevMetadata.Status == "processed" ||
+					prevMetadata.Status == "archived" ||
+					prevMetadata.Status == "deleted" ||
+					prevMetadata.Status == "archived_and_deleted" {
+					shouldSkip = true
 				}
 
 				if shouldSkip {
 					s.log.LogInfo("Skipping unchanged file %s (hash matches previous processing)", fileName)
-					// Skip this file and continue to the next one
 					continue
-				} else if fileHash != "" && fileHash == prevMetadata.FileHash {
-					s.log.LogInfo("Re-processing file %s despite matching hash (skipProcessedFiles=%v)", fileName, skipFiles)
+				} else {
+					s.log.LogInfo("Re-processing file %s despite previous processing (skipProcessedFiles=%v)", fileName, skipFiles)
+				}
+			}
+		}
+
+		// Also check the processing history for this specific file name
+		prevMetadata, histErr := s.checkFileProcessingHistory(job.ID, fileName)
+		if histErr == nil {
+			s.log.LogDebug("File %s was previously processed on %s with status: %s",
+				fileName, prevMetadata.ProcessedTime.Format(time.RFC3339), prevMetadata.Status)
+
+			// Determine if we should skip this file based on name+hash match
+			shouldSkip := false
+			if skipFiles && fileHash != "" && fileHash == prevMetadata.FileHash {
+				if prevMetadata.Status == "processed" ||
+					prevMetadata.Status == "archived" ||
+					prevMetadata.Status == "deleted" ||
+					prevMetadata.Status == "archived_and_deleted" {
+					shouldSkip = true
 				}
 			}
 
-			// Mark this file as processed for this execution before launching goroutine
-			// to prevent duplicate processing
-			processedFiles[fileName] = true
-
-			// Add to wait group before starting goroutine
-			wg.Add(1)
-
-			// Get creation time and mod time for the file metadata
-			createTime := time.Now()
-			modTime := time.Now()
-			if creationTimeStr, ok := fileEntry["ModTime"].(string); ok {
-				if t, err := time.Parse(time.RFC3339Nano, creationTimeStr); err == nil {
-					modTime = t
-					createTime = t
-				}
+			if shouldSkip {
+				s.log.LogInfo("Skipping unchanged file %s (hash matches previous processing)", fileName)
+				// Skip this file and continue to the next one
+				continue
+			} else if fileHash != "" && fileHash == prevMetadata.FileHash {
+				s.log.LogInfo("Re-processing file %s despite matching hash (skipProcessedFiles=%v)", fileName, skipFiles)
 			}
+		}
 
-			// Capture current file information for goroutine
-			currentFileName := fileName
-			currentFileHash := fileHash
-			currentFileSize := fileSize
-			currentCreateTime := createTime
-			currentModTime := modTime
+		// Mark this file as processed for this execution before launching goroutine
+		// to prevent duplicate processing
+		processedFiles[fileName] = true
 
-			// Start goroutine for concurrent processing
-			go func() {
-				// Acquire semaphore
-				concurrencySemaphore <- struct{}{}
-				defer func() {
-					// Release semaphore and mark work as done
-					<-concurrencySemaphore
-					wg.Done()
-				}()
+		// Add to wait group before starting goroutine
+		wg.Add(1)
 
-				// Prepare moveto command for transfer
-				transferArgs := []string{
-					"--config", configPath,
-					"copyto",
-					"--progress",
-					"--stats-one-line",
-					"--verbose",
-					"--stats", "1s",
-				}
+		// Get creation time and mod time for the file metadata
+		createTime := time.Now()
+		modTime := time.Now()
+		if creationTimeStr, ok := fileEntry["ModTime"].(string); ok {
+			if t, err := time.Parse(time.RFC3339Nano, creationTimeStr); err == nil {
+				modTime = t
+				createTime = t
+			}
+		}
 
-				// Source and destination paths
-				var sourcePath, destPath string
+		// Capture current file information for goroutine
+		currentFileName := fileName
+		currentFileHash := fileHash
+		currentFileSize := fileSize
+		currentCreateTime := createTime
+		currentModTime := modTime
 
-				// For S3, MinIO, and B2, include the bucket in the path
-				if job.Config.SourceType == "s3" || job.Config.SourceType == "minio" || job.Config.SourceType == "b2" {
-					sourcePath = fmt.Sprintf("source_%d:%s/%s", job.Config.ID, job.Config.SourceBucket, currentFileName)
-					if job.Config.SourcePath != "" && job.Config.SourcePath != "/" {
-						sourcePath = fmt.Sprintf("source_%d:%s/%s/%s", job.Config.ID, job.Config.SourceBucket, job.Config.SourcePath, currentFileName)
-					}
-				} else {
-					sourcePath = fmt.Sprintf("source_%d:%s/%s", job.Config.ID, job.Config.SourcePath, currentFileName)
-				}
+		// Log the file information that will be processed
+		s.log.LogDebug("Processing file: %s, size: %d, hash: %s", currentFileName, currentFileSize, currentFileHash)
 
-				var destFile string = currentFileName
-
-				if job.Config.DestinationType == "s3" || job.Config.DestinationType == "minio" || job.Config.DestinationType == "b2" {
-					destPath = fmt.Sprintf("dest_%d:%s/%s", job.Config.ID, job.Config.DestBucket, currentFileName)
-					if job.Config.DestinationPath != "" && job.Config.DestinationPath != "/" {
-						destPath = fmt.Sprintf("dest_%d:%s/%s/%s", job.Config.ID, job.Config.DestBucket, job.Config.DestinationPath, currentFileName)
-					}
-				} else {
-					destPath = fmt.Sprintf("dest_%d:%s/%s", job.Config.ID, job.Config.DestinationPath, currentFileName)
-				}
-
-				// Add output filename pattern if specified
-				if job.Config.OutputPattern != "" {
-					// Process the output pattern for this specific file
-					destFile = ProcessOutputPattern(job.Config.OutputPattern, currentFileName)
-
-					if job.Config.DestinationType == "s3" || job.Config.DestinationType == "minio" || job.Config.DestinationType == "b2" {
-						destPath = fmt.Sprintf("dest_%d:%s/%s", job.Config.ID, job.Config.DestBucket, destFile)
-						if job.Config.DestinationPath != "" && job.Config.DestinationPath != "/" {
-							destPath = fmt.Sprintf("dest_%d:%s/%s/%s", job.Config.ID, job.Config.DestBucket, job.Config.DestinationPath, destFile)
-						}
-					} else {
-						destPath = fmt.Sprintf("dest_%d:%s/%s", job.Config.ID, job.Config.DestinationPath, destFile)
-					}
-
-					s.log.LogDebug("Renaming file from %s to %s for job %d", currentFileName, destFile, jobID)
-				}
-
-				// Add custom flags if specified
-				if job.Config.RcloneFlags != "" {
-					customFlags := strings.Split(job.Config.RcloneFlags, " ")
-					transferArgs = append(transferArgs, customFlags...)
-					s.log.LogDebug("Added custom flags for job %d: %v", jobID, customFlags)
-				}
-
-				// Add source and destination to the command
-				transferArgs = append(transferArgs, sourcePath, destPath)
-
-				// Execute transfer for this file
-				s.log.LogInfo("Executing rclone transfer command for job %d, file %s: rclone %s",
-					jobID, currentFileName, strings.Join(transferArgs, " "))
-				// Get the rclone path from the environment variable or use the default path
-				rclonePath := os.Getenv("RCLONE_PATH")
-				if rclonePath == "" {
-					rclonePath = "rclone"
-				}
-				cmd := exec.Command(rclonePath, transferArgs...)
-				fileOutput, fileErr := cmd.CombinedOutput()
-
-				// Print the output
-				s.log.LogDebug("Output for file %s: %s", currentFileName, string(fileOutput))
-
-				// Create file metadata record
-				fileStatus := "processed"
-				var fileErrorMsg string
-				var destPathForDB string
-
-				// Check if file was successfully transferred
-				if fileErr != nil {
-					s.log.LogError("Error transferring file %s for job %d: %v", currentFileName, jobID, fileErr)
-					mutex.Lock()
-					transferErrors = append(transferErrors, fmt.Sprintf("File %s: %v", currentFileName, fileErr))
-					mutex.Unlock()
-					fileStatus = "error"
-					fileErrorMsg = fileErr.Error()
-				} else {
-					mutex.Lock()
-					filesTransferred++
-					mutex.Unlock()
-					s.log.LogInfo("Successfully transferred file %s for job %d", currentFileName, jobID)
-
-					// Extract the actual destination path (without rclone remote prefix)
-					if job.Config.DestinationType == "local" {
-						destPathForDB = filepath.Join(job.Config.DestinationPath, destFile)
-					} else {
-						// For remote destinations, store the path format
-						if job.Config.DestinationType == "s3" || job.Config.DestinationType == "minio" || job.Config.DestinationType == "b2" {
-							if job.Config.DestinationPath != "" && job.Config.DestinationPath != "/" {
-								destPathForDB = fmt.Sprintf("%s/%s/%s", job.Config.DestBucket, job.Config.DestinationPath, destFile)
-							} else {
-								destPathForDB = fmt.Sprintf("%s/%s", job.Config.DestBucket, destFile)
-							}
-						} else {
-							destPathForDB = fmt.Sprintf("%s/%s", job.Config.DestinationPath, destFile)
-						}
-					}
-
-					// If archiving is enabled and transfer was successful, move files to archive
-					if job.Config.ArchiveEnabled && job.Config.ArchivePath != "" {
-						s.log.LogInfo("Archiving file %s for job %d", currentFileName, jobID)
-
-						// We don't need to move the file since we used moveto, but we can copy it to archive
-						archiveArgs := []string{
-							"--config", configPath,
-							"copyto",
-							sourcePath,
-						}
-
-						// Construct archive path with bucket if needed
-						var archiveDest string
-						if job.Config.SourceType == "s3" || job.Config.SourceType == "minio" || job.Config.SourceType == "b2" {
-							archiveDest = fmt.Sprintf("source_%d:%s/%s/%s", job.Config.ID, job.Config.SourceBucket, job.Config.ArchivePath, currentFileName)
-						} else {
-							archiveDest = fmt.Sprintf("source_%d:%s/%s", job.Config.ID, job.Config.ArchivePath, currentFileName)
-						}
-
-						archiveArgs = append(archiveArgs, archiveDest)
-
-						s.log.LogInfo("Executing rclone archive command for job %d, file %s: rclone %s",
-							jobID, currentFileName, strings.Join(archiveArgs, " "))
-						// Get the rclone path from the environment variable or use the default path
-						rclonePath := os.Getenv("RCLONE_PATH")
-						if rclonePath == "" {
-							rclonePath = "rclone"
-						}
-						archiveCmd := exec.Command(rclonePath, archiveArgs...)
-						archiveOutput, archiveErr := archiveCmd.CombinedOutput()
-
-						// Print the output
-						s.log.LogDebug("Output for file %s: %s", currentFileName, string(archiveOutput))
-
-						// Check if file was successfully transferred
-						if archiveErr != nil {
-							s.log.LogError("Warning: Error archiving file %s for job %d: %v", currentFileName, jobID, archiveErr)
-							mutex.Lock()
-							transferErrors = append(transferErrors,
-								fmt.Sprintf("Archive error for file %s: %v", currentFileName, archiveErr))
-							mutex.Unlock()
-						} else {
-							fileStatus = "archived"
-						}
-					}
-
-					if job.Config.DeleteAfterTransfer {
-						s.log.LogInfo("Deleting file %s for job %d", currentFileName, jobID)
-						deleteArgs := []string{
-							"--config", configPath,
-							"deletefile",
-							sourcePath}
-						deleteCmd := exec.Command(rclonePath, deleteArgs...)
-						deleteOutput, deleteErr := deleteCmd.CombinedOutput()
-						s.log.LogDebug("Output for file %s: %s", currentFileName, string(deleteOutput))
-						if deleteErr != nil {
-							s.log.LogError("Error deleting file %s for job %d: %v", currentFileName, jobID, deleteErr)
-							mutex.Lock()
-							transferErrors = append(transferErrors,
-								fmt.Sprintf("Delete error for file %s: %v", currentFileName, deleteErr))
-							mutex.Unlock()
-						} else {
-							if fileStatus == "archived" {
-								fileStatus = "archived_and_deleted"
-							} else {
-								fileStatus = "deleted"
-							}
-						}
-					}
-				}
-
-				// Create and save file metadata
-				metadata := &db.FileMetadata{
-					JobID:           jobID,
-					FileName:        currentFileName,
-					OriginalPath:    job.Config.SourcePath,
-					FileSize:        currentFileSize,
-					FileHash:        currentFileHash,
-					CreationTime:    currentCreateTime,
-					ModTime:         currentModTime,
-					ProcessedTime:   time.Now(),
-					DestinationPath: destPathForDB,
-					Status:          fileStatus,
-					ErrorMessage:    fileErrorMsg,
-				}
-
-				if err := s.db.CreateFileMetadata(metadata); err != nil {
-					s.log.LogError("Error creating file metadata for %s: %v", currentFileName, err)
-				} else {
-					s.log.LogDebug("Created file metadata record for %s (ID: %d)", currentFileName, metadata.ID)
-				}
+		// Start goroutine for concurrent processing
+		go func() {
+			// Acquire semaphore
+			concurrencySemaphore <- struct{}{}
+			defer func() {
+				// Release semaphore and mark work as done
+				<-concurrencySemaphore
+				wg.Done()
 			}()
-		}
 
-		// Wait for all transfers to complete
-		wg.Wait()
+			// Prepare moveto command for transfer
+			transferArgs := []string{
+				"--config", configPath,
+				"copyto",
+				"--progress",
+				"--stats-one-line",
+				"--verbose",
+				"--stats", "1s",
+			}
 
-		// Clean up concurrency semaphore
-		close(concurrencySemaphore)
+			// Source and destination paths
+			var sourcePath, destPath string
 
-		// Update job history with transfer results
-		history.FilesTransferred = filesTransferred
+			// For S3, MinIO, and B2, include the bucket in the path
+			if config.SourceType == "s3" || config.SourceType == "minio" || config.SourceType == "b2" {
+				sourcePath = fmt.Sprintf("source_%d:%s/%s", config.ID, config.SourceBucket, currentFileName)
+				if config.SourcePath != "" && config.SourcePath != "/" {
+					sourcePath = fmt.Sprintf("source_%d:%s/%s/%s", config.ID, config.SourceBucket, config.SourcePath, currentFileName)
+				}
+			} else {
+				sourcePath = fmt.Sprintf("source_%d:%s/%s", config.ID, config.SourcePath, currentFileName)
+			}
 
-		if len(transferErrors) > 0 {
-			history.Status = "completed_with_errors"
-			history.ErrorMessage = fmt.Sprintf("Transfer completed with %d errors:\n%s",
-				len(transferErrors), strings.Join(transferErrors, "\n"))
-		}
+			var destFile string = currentFileName
+
+			if config.DestinationType == "s3" || config.DestinationType == "minio" || config.DestinationType == "b2" {
+				destPath = fmt.Sprintf("dest_%d:%s/%s", config.ID, config.DestBucket, currentFileName)
+				if config.DestinationPath != "" && config.DestinationPath != "/" {
+					destPath = fmt.Sprintf("dest_%d:%s/%s/%s", config.ID, config.DestBucket, config.DestinationPath, currentFileName)
+				}
+			} else {
+				destPath = fmt.Sprintf("dest_%d:%s/%s", config.ID, config.DestinationPath, currentFileName)
+			}
+
+			// Add output filename pattern if specified
+			if config.OutputPattern != "" {
+				// Process the output pattern for this specific file
+				destFile = ProcessOutputPattern(config.OutputPattern, currentFileName)
+
+				if config.DestinationType == "s3" || config.DestinationType == "minio" || config.DestinationType == "b2" {
+					destPath = fmt.Sprintf("dest_%d:%s/%s", config.ID, config.DestBucket, destFile)
+					if config.DestinationPath != "" && config.DestinationPath != "/" {
+						destPath = fmt.Sprintf("dest_%d:%s/%s/%s", config.ID, config.DestBucket, config.DestinationPath, destFile)
+					}
+				} else {
+					destPath = fmt.Sprintf("dest_%d:%s/%s", config.ID, config.DestinationPath, destFile)
+				}
+
+				s.log.LogDebug("Renaming file from %s to %s for job %d, config %d", currentFileName, destFile, job.ID, config.ID)
+			}
+
+			// Add custom flags if specified
+			if config.RcloneFlags != "" {
+				customFlags := strings.Split(config.RcloneFlags, " ")
+				transferArgs = append(transferArgs, customFlags...)
+				s.log.LogDebug("Added custom flags for job %d, config %d: %v", job.ID, config.ID, customFlags)
+			}
+
+			// Add source and destination to the command
+			transferArgs = append(transferArgs, sourcePath, destPath)
+
+			// Execute transfer for this file
+			s.log.LogInfo("Executing rclone transfer command for job %d, config %d, file %s: rclone %s",
+				job.ID, config.ID, currentFileName, strings.Join(transferArgs, " "))
+			// Get the rclone path from the environment variable or use the default path
+			rclonePath := os.Getenv("RCLONE_PATH")
+			if rclonePath == "" {
+				rclonePath = "rclone"
+			}
+			cmd := exec.Command(rclonePath, transferArgs...)
+			fileOutput, fileErr := cmd.CombinedOutput()
+
+			// Print the output
+			s.log.LogDebug("Output for file %s: %s", currentFileName, string(fileOutput))
+
+			// Create file metadata record
+			fileStatus := "processed"
+			var fileErrorMsg string
+			var destPathForDB string
+
+			// Check if file was successfully transferred
+			if fileErr != nil {
+				s.log.LogError("Error transferring file %s for job %d, config %d: %v", currentFileName, job.ID, config.ID, fileErr)
+				mutex.Lock()
+				transferErrors = append(transferErrors, fmt.Sprintf("File %s: %v", currentFileName, fileErr))
+				mutex.Unlock()
+				fileStatus = "error"
+				fileErrorMsg = fileErr.Error()
+			} else {
+				mutex.Lock()
+				filesTransferred++
+				mutex.Unlock()
+				s.log.LogInfo("Successfully transferred file %s for job %d, config %d", currentFileName, job.ID, config.ID)
+
+				// Extract the actual destination path (without rclone remote prefix)
+				if config.DestinationType == "local" {
+					destPathForDB = filepath.Join(config.DestinationPath, destFile)
+				} else {
+					// For remote destinations, store the path format
+					if config.DestinationType == "s3" || config.DestinationType == "minio" || config.DestinationType == "b2" {
+						if config.DestinationPath != "" && config.DestinationPath != "/" {
+							destPathForDB = fmt.Sprintf("%s/%s/%s", config.DestBucket, config.DestinationPath, destFile)
+						} else {
+							destPathForDB = fmt.Sprintf("%s/%s", config.DestBucket, destFile)
+						}
+					} else {
+						destPathForDB = fmt.Sprintf("%s/%s", config.DestinationPath, destFile)
+					}
+				}
+
+				// If archiving is enabled and transfer was successful, move files to archive
+				if config.ArchiveEnabled && config.ArchivePath != "" {
+					s.log.LogInfo("Archiving file %s for job %d, config %d", currentFileName, job.ID, config.ID)
+
+					// We don't need to move the file since we used moveto, but we can copy it to archive
+					archiveArgs := []string{
+						"--config", configPath,
+						"copyto",
+						sourcePath,
+					}
+
+					// Construct archive path with bucket if needed
+					var archiveDest string
+					if config.SourceType == "s3" || config.SourceType == "minio" || config.SourceType == "b2" {
+						archiveDest = fmt.Sprintf("source_%d:%s/%s/%s", config.ID, config.SourceBucket, config.ArchivePath, currentFileName)
+					} else {
+						archiveDest = fmt.Sprintf("source_%d:%s/%s", config.ID, config.ArchivePath, currentFileName)
+					}
+
+					archiveArgs = append(archiveArgs, archiveDest)
+
+					s.log.LogInfo("Executing rclone archive command for job %d, config %d, file %s: rclone %s",
+						job.ID, config.ID, currentFileName, strings.Join(archiveArgs, " "))
+					// Get the rclone path from the environment variable or use the default path
+					rclonePath := os.Getenv("RCLONE_PATH")
+					if rclonePath == "" {
+						rclonePath = "rclone"
+					}
+					archiveCmd := exec.Command(rclonePath, archiveArgs...)
+					archiveOutput, archiveErr := archiveCmd.CombinedOutput()
+
+					// Print the output
+					s.log.LogDebug("Output for file %s: %s", currentFileName, string(archiveOutput))
+
+					// Check if file was successfully transferred
+					if archiveErr != nil {
+						s.log.LogError("Warning: Error archiving file %s for job %d, config %d: %v", currentFileName, job.ID, config.ID, archiveErr)
+						mutex.Lock()
+						transferErrors = append(transferErrors,
+							fmt.Sprintf("Archive error for file %s: %v", currentFileName, archiveErr))
+						mutex.Unlock()
+					} else {
+						fileStatus = "archived"
+					}
+				}
+
+				if config.DeleteAfterTransfer {
+					s.log.LogInfo("Deleting file %s for job %d, config %d", currentFileName, job.ID, config.ID)
+					deleteArgs := []string{
+						"--config", configPath,
+						"deletefile",
+						sourcePath}
+					deleteCmd := exec.Command(rclonePath, deleteArgs...)
+					deleteOutput, deleteErr := deleteCmd.CombinedOutput()
+					s.log.LogDebug("Output for file %s: %s", currentFileName, string(deleteOutput))
+					if deleteErr != nil {
+						s.log.LogError("Error deleting file %s for job %d, config %d: %v", currentFileName, job.ID, config.ID, deleteErr)
+						mutex.Lock()
+						transferErrors = append(transferErrors,
+							fmt.Sprintf("Delete error for file %s: %v", currentFileName, deleteErr))
+						mutex.Unlock()
+					} else {
+						if fileStatus == "archived" {
+							fileStatus = "archived_and_deleted"
+						} else {
+							fileStatus = "deleted"
+						}
+					}
+				}
+			}
+
+			// Create and save file metadata
+			metadata := &db.FileMetadata{
+				JobID:           job.ID,
+				ConfigID:        config.ID,
+				FileName:        currentFileName,
+				OriginalPath:    config.SourcePath,
+				FileSize:        currentFileSize,
+				FileHash:        currentFileHash,
+				CreationTime:    currentCreateTime,
+				ModTime:         currentModTime,
+				ProcessedTime:   time.Now(),
+				DestinationPath: destPathForDB,
+				Status:          fileStatus,
+				ErrorMessage:    fileErrorMsg,
+			}
+
+			if err := s.db.CreateFileMetadata(metadata); err != nil {
+				s.log.LogError("Error creating file metadata for %s: %v", currentFileName, err)
+			} else {
+				s.log.LogDebug("Created file metadata record for %s (ID: %d) with hash: %s", currentFileName, metadata.ID, currentFileHash)
+			}
+		}()
+	}
+
+	// Wait for all transfers to complete
+	wg.Wait()
+
+	// Clean up concurrency semaphore
+	close(concurrencySemaphore)
+
+	// Update job history with transfer results
+	history.FilesTransferred = filesTransferred
+
+	if len(transferErrors) > 0 {
+		history.Status = "completed_with_errors"
+		history.ErrorMessage = fmt.Sprintf("Transfer completed with %d errors:\n%s",
+			len(transferErrors), strings.Join(transferErrors, "\n"))
+	} else {
+		history.Status = "completed"
 	}
 
 	// Update job history with completion status and end time
 	endTime := time.Now()
 	history.EndTime = &endTime
-	if job.Config.ArchiveEnabled && job.Config.ArchivePath != "" {
-		if history.ErrorMessage != "" {
-			history.Status = "completed_with_archive_error"
-		} else {
-			history.Status = "completed"
-		}
-	} else {
-		history.Status = "completed"
-	}
 
 	if err := s.db.UpdateJobHistory(history); err != nil {
-		s.log.LogError("Error updating job history for job %d: %v", jobID, err)
-	}
-
-	// Update next run time if job is still scheduled
-	if entry := s.cron.Entry(s.jobs[jobID]); entry.ID != 0 {
-		job.NextRun = &entry.Next
-		if err := s.db.UpdateJobStatus(&job); err != nil {
-			s.log.LogError("Error updating next run time for job %d: %v", jobID, err)
-		} else {
-			s.log.LogInfo("Next run time for job %d: %s", jobID, entry.Next.Format(time.RFC3339))
-		}
+		s.log.LogError("Error updating job history for job %d, config %d: %v", job.ID, config.ID, err)
 	}
 }
 
