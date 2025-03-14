@@ -2,11 +2,14 @@ package scheduler
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/glebarez/sqlite"
+	"github.com/robfig/cron/v3"
 	"github.com/starfleetcptn/gomft/internal/db"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm"
@@ -280,6 +283,72 @@ func TestProcessOutputPattern(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestProcessOutputPatternWithDateTimeVariables(t *testing.T) {
+	// Test with static patterns (we can't easily mock time.Now() without changing the implementation)
+	tests := []struct {
+		name     string
+		pattern  string
+		filename string
+		expected string
+	}{
+		{
+			name:     "No placeholders",
+			pattern:  "output.txt",
+			filename: "input.txt",
+			expected: "output.txt",
+		},
+		{
+			name:     "Filename only",
+			pattern:  "${filename}",
+			filename: "input.txt",
+			expected: "input",
+		},
+		{
+			name:     "Extension only",
+			pattern:  "${ext}",
+			filename: "input.txt",
+			expected: ".txt",
+		},
+		{
+			name:     "Filename and extension",
+			pattern:  "${filename}${ext}",
+			filename: "document.docx",
+			expected: "document.docx",
+		},
+		{
+			name:     "Custom pattern with filename",
+			pattern:  "processed_${filename}",
+			filename: "data.csv",
+			expected: "processed_data",
+		},
+		{
+			name:     "Custom pattern with extension",
+			pattern:  "backup${ext}",
+			filename: "image.png",
+			expected: "backup.png",
+		},
+		{
+			name:     "Custom pattern with filename and extension",
+			pattern:  "${filename}_copy${ext}",
+			filename: "report.pdf",
+			expected: "report_copy.pdf",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := ProcessOutputPattern(tc.pattern, tc.filename)
+			assert.Equal(t, tc.expected, result, "Output pattern processing should match expected result")
+		})
+	}
+
+	// Test date pattern separately - we can't deterministically test the exact output
+	// but we can verify it doesn't error and contains something that looks like a date
+	datePattern := "${date:2006-01-02}"
+	result := ProcessOutputPattern(datePattern, "test.txt")
+	assert.Regexp(t, `^\d{4}-\d{2}-\d{2}$`, result, "Date pattern should produce a date in YYYY-MM-DD format")
 }
 
 func TestCreateRcloneFilterFile(t *testing.T) {
@@ -561,4 +630,488 @@ func TestCheckFileProcessingHistory(t *testing.T) {
 	// Check with a non-existent file name
 	_, err = scheduler.checkFileProcessingHistory(job.ID, "nonexistentfile.txt")
 	assert.Error(t, err)
+}
+
+func TestUnscheduleJob(t *testing.T) {
+	// Set up a temporary data directory for logs
+	tempDir, err := os.MkdirTemp("", "gomft-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	t.Cleanup(func() {
+		os.RemoveAll(tempDir)
+	})
+
+	// Set DATA_DIR environment variable for the test
+	originalDataDir := os.Getenv("DATA_DIR")
+	os.Setenv("DATA_DIR", tempDir)
+	defer os.Setenv("DATA_DIR", originalDataDir)
+
+	// Create a test database
+	database := setupTestDB(t)
+
+	// Create a test user
+	user := &db.User{
+		Email:        "unschedule-test@example.com",
+		PasswordHash: "hashed_password",
+		IsAdmin:      true,
+	}
+	if err := database.CreateUser(user); err != nil {
+		t.Fatalf("Failed to create test user: %v", err)
+	}
+
+	// Create a test transfer config
+	config := &db.TransferConfig{
+		Name:            "Unschedule Test Config",
+		SourceType:      "local",
+		SourcePath:      "/source",
+		DestinationType: "local",
+		DestinationPath: "/dest",
+		CreatedBy:       user.ID,
+	}
+	if err := database.DB.Create(config).Error; err != nil {
+		t.Fatalf("Failed to create transfer config: %v", err)
+	}
+
+	// Create two test jobs
+	job1 := &db.Job{
+		Name:      "Test Job 1",
+		Schedule:  "*/15 * * * *", // Every 15 minutes
+		ConfigID:  config.ID,
+		Enabled:   true,
+		CreatedBy: user.ID,
+	}
+	if err := database.DB.Create(job1).Error; err != nil {
+		t.Fatalf("Failed to create job: %v", err)
+	}
+
+	job2 := &db.Job{
+		Name:      "Test Job 2",
+		Schedule:  "0 */2 * * *", // Every 2 hours
+		ConfigID:  config.ID,
+		Enabled:   true,
+		CreatedBy: user.ID,
+	}
+	if err := database.DB.Create(job2).Error; err != nil {
+		t.Fatalf("Failed to create job: %v", err)
+	}
+
+	// Create a new scheduler
+	scheduler := New(database)
+	t.Cleanup(func() {
+		scheduler.Stop()
+	})
+
+	// Schedule both jobs
+	if err := scheduler.ScheduleJob(job1); err != nil {
+		t.Fatalf("Failed to schedule job1: %v", err)
+	}
+	if err := scheduler.ScheduleJob(job2); err != nil {
+		t.Fatalf("Failed to schedule job2: %v", err)
+	}
+
+	// Verify both jobs are scheduled
+	scheduler.jobMutex.Lock()
+	_, job1Exists := scheduler.jobs[job1.ID]
+	_, job2Exists := scheduler.jobs[job2.ID]
+	scheduler.jobMutex.Unlock()
+
+	assert.True(t, job1Exists, "Expected job1 to be scheduled")
+	assert.True(t, job2Exists, "Expected job2 to be scheduled")
+
+	// Unschedule job1
+	scheduler.UnscheduleJob(job1.ID)
+
+	// Verify job1 is unscheduled but job2 is still scheduled
+	scheduler.jobMutex.Lock()
+	_, job1ExistsAfter := scheduler.jobs[job1.ID]
+	_, job2ExistsAfter := scheduler.jobs[job2.ID]
+	scheduler.jobMutex.Unlock()
+
+	assert.False(t, job1ExistsAfter, "Expected job1 to be unscheduled")
+	assert.True(t, job2ExistsAfter, "Expected job2 to still be scheduled")
+
+	// Unschedule a non-existent job (shouldn't cause any issues)
+	scheduler.UnscheduleJob(9999)
+
+	// Verify job2 is still scheduled after attempting to unschedule non-existent job
+	scheduler.jobMutex.Lock()
+	_, job2StillExists := scheduler.jobs[job2.ID]
+	scheduler.jobMutex.Unlock()
+
+	assert.True(t, job2StillExists, "Expected job2 to still be scheduled after unscheduling non-existent job")
+}
+
+func TestRotateLogs(t *testing.T) {
+	// Set up a temporary data directory for logs
+	tempDir, err := os.MkdirTemp("", "gomft-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	t.Cleanup(func() {
+		os.RemoveAll(tempDir)
+	})
+
+	// Set DATA_DIR environment variable for the test
+	originalDataDir := os.Getenv("DATA_DIR")
+	os.Setenv("DATA_DIR", tempDir)
+	defer os.Setenv("DATA_DIR", originalDataDir)
+
+	// Create log directory
+	logDir := filepath.Join(tempDir, "logs")
+	err = os.MkdirAll(logDir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create log directory: %v", err)
+	}
+
+	// Create a test database
+	database := setupTestDB(t)
+
+	// Create a new scheduler
+	scheduler := New(database)
+	t.Cleanup(func() {
+		scheduler.Stop()
+	})
+
+	// Write some logs to ensure there's content
+	for i := 0; i < 10; i++ {
+		scheduler.log.LogInfo("Test log message %d", i)
+		scheduler.log.LogError("Test error message %d", i)
+		scheduler.log.LogDebug("Test debug message %d", i)
+	}
+
+	// Verify the log file exists
+	logFiles, err := os.ReadDir(logDir)
+	if err != nil {
+		t.Fatalf("Failed to read log directory: %v", err)
+	}
+
+	if len(logFiles) == 0 {
+		t.Fatalf("Expected log files to be created, but none found in %s", logDir)
+	}
+
+	// Rotate logs
+	err = scheduler.RotateLogs()
+	assert.NoError(t, err, "Expected no error when rotating logs")
+
+	// Force flush by writing more logs
+	for i := 0; i < 5; i++ {
+		scheduler.log.LogInfo("Post-rotation log message %d", i)
+	}
+
+	// Check that log files still exist
+	logFilesAfter, err := os.ReadDir(logDir)
+	if err != nil {
+		t.Fatalf("Failed to read log directory after rotation: %v", err)
+	}
+
+	assert.GreaterOrEqual(t, len(logFilesAfter), len(logFiles),
+		"Expected at least the same number of log files after rotation")
+}
+
+func TestLoadJobs(t *testing.T) {
+	// Set up a temporary data directory for logs
+	tempDir, err := os.MkdirTemp("", "gomft-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	t.Cleanup(func() {
+		os.RemoveAll(tempDir)
+	})
+
+	// Set DATA_DIR environment variable for the test
+	originalDataDir := os.Getenv("DATA_DIR")
+	os.Setenv("DATA_DIR", tempDir)
+	defer os.Setenv("DATA_DIR", originalDataDir)
+
+	// Create a test database
+	database := setupTestDB(t)
+
+	// Create a test user
+	user := &db.User{
+		Email:        "loadjobs-test@example.com",
+		PasswordHash: "hashed_password",
+		IsAdmin:      true,
+	}
+	if err := database.CreateUser(user); err != nil {
+		t.Fatalf("Failed to create test user: %v", err)
+	}
+
+	// Create a test transfer config
+	config := &db.TransferConfig{
+		Name:            "Load Jobs Test Config",
+		SourceType:      "local",
+		SourcePath:      "/source",
+		DestinationType: "local",
+		DestinationPath: "/dest",
+		CreatedBy:       user.ID,
+	}
+	if err := database.DB.Create(config).Error; err != nil {
+		t.Fatalf("Failed to create transfer config: %v", err)
+	}
+
+	// Create multiple jobs with different states (enabled/disabled)
+	jobs := []db.Job{
+		{
+			Name:      "Enabled Job 1",
+			Schedule:  "*/10 * * * *", // Every 10 minutes
+			ConfigID:  config.ID,
+			Enabled:   true,
+			CreatedBy: user.ID,
+		},
+		{
+			Name:      "Enabled Job 2",
+			Schedule:  "0 */1 * * *", // Every hour
+			ConfigID:  config.ID,
+			Enabled:   true,
+			CreatedBy: user.ID,
+		},
+		{
+			Name:      "Disabled Job",
+			Schedule:  "0 0 * * *", // Daily at midnight
+			ConfigID:  config.ID,
+			Enabled:   false,
+			CreatedBy: user.ID,
+		},
+	}
+
+	// Create jobs in the database
+	for i := range jobs {
+		if err := database.DB.Create(&jobs[i]).Error; err != nil {
+			t.Fatalf("Failed to create job: %v", err)
+		}
+	}
+
+	// Create a new scheduler, which should load the jobs
+	scheduler := New(database)
+	t.Cleanup(func() {
+		scheduler.Stop()
+	})
+
+	// Verify that only the enabled jobs were scheduled
+	scheduler.jobMutex.Lock()
+	defer scheduler.jobMutex.Unlock()
+
+	// Should have 2 enabled jobs loaded
+	assert.Equal(t, 2, len(scheduler.jobs), "Expected 2 jobs to be loaded (only the enabled ones)")
+
+	// Check enabled jobs are scheduled
+	_, job1Exists := scheduler.jobs[jobs[0].ID]
+	_, job2Exists := scheduler.jobs[jobs[1].ID]
+	_, job3Exists := scheduler.jobs[jobs[2].ID]
+
+	assert.True(t, job1Exists, "Expected enabled job 1 to be scheduled")
+	assert.True(t, job2Exists, "Expected enabled job 2 to be scheduled")
+	assert.False(t, job3Exists, "Expected disabled job to not be scheduled")
+
+	// Test with an error in GetActiveJobs (by using a new DB instance with no connection)
+	closedDB := &db.DB{DB: nil}
+	errorScheduler := &Scheduler{
+		cron:     cron.New(),
+		db:       closedDB,
+		jobMutex: sync.Mutex{},
+		jobs:     make(map[uint]cron.EntryID),
+		log:      NewLogger(),
+	}
+	errorScheduler.loadJobs() // This should not panic even if DB access fails
+
+	// Cleanup
+	errorScheduler.Stop()
+}
+
+func TestStopScheduler(t *testing.T) {
+	// Set up a temporary data directory for logs
+	tempDir, err := os.MkdirTemp("", "gomft-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	t.Cleanup(func() {
+		os.RemoveAll(tempDir)
+	})
+
+	// Set DATA_DIR environment variable for the test
+	originalDataDir := os.Getenv("DATA_DIR")
+	os.Setenv("DATA_DIR", tempDir)
+	defer os.Setenv("DATA_DIR", originalDataDir)
+
+	// Create a test database
+	database := setupTestDB(t)
+
+	// Create a test user
+	user := &db.User{
+		Email:        "stop-test@example.com",
+		PasswordHash: "hashed_password",
+		IsAdmin:      true,
+	}
+	if err := database.CreateUser(user); err != nil {
+		t.Fatalf("Failed to create test user: %v", err)
+	}
+
+	// Create a test transfer config
+	config := &db.TransferConfig{
+		Name:            "Stop Test Config",
+		SourceType:      "local",
+		SourcePath:      "/source",
+		DestinationType: "local",
+		DestinationPath: "/dest",
+		CreatedBy:       user.ID,
+	}
+	if err := database.DB.Create(config).Error; err != nil {
+		t.Fatalf("Failed to create transfer config: %v", err)
+	}
+
+	// Create a test job with a frequent schedule
+	job := &db.Job{
+		Name:      "Test Job",
+		Schedule:  "*/1 * * * *", // Every minute
+		ConfigID:  config.ID,
+		Enabled:   true,
+		CreatedBy: user.ID,
+	}
+	if err := database.DB.Create(job).Error; err != nil {
+		t.Fatalf("Failed to create job: %v", err)
+	}
+
+	// Create a new scheduler
+	scheduler := New(database)
+
+	// Schedule the job
+	if err := scheduler.ScheduleJob(job); err != nil {
+		t.Fatalf("Failed to schedule job: %v", err)
+	}
+
+	// Verify job is scheduled
+	scheduler.jobMutex.Lock()
+	_, jobExists := scheduler.jobs[job.ID]
+	scheduler.jobMutex.Unlock()
+	assert.True(t, jobExists, "Expected job to be scheduled")
+
+	// Stop the scheduler
+	scheduler.Stop()
+
+	// Verify the scheduler is stopped (testing this is tricky since it's internal state)
+	// We can't directly test the cron.Cron state, but we can test that resources are released
+	// by creating a new scheduler with the same database and verifying it loads jobs correctly
+
+	// Create a new scheduler
+	newScheduler := New(database)
+	t.Cleanup(func() {
+		newScheduler.Stop()
+	})
+
+	// Verify the new scheduler loads the job correctly
+	newScheduler.jobMutex.Lock()
+	_, jobExistsInNew := newScheduler.jobs[job.ID]
+	newScheduler.jobMutex.Unlock()
+	assert.True(t, jobExistsInNew, "Expected job to be loaded in new scheduler")
+}
+
+func TestFileProcessingFullCycle(t *testing.T) {
+	// Set up a temporary data directory for logs
+	tempDir, err := os.MkdirTemp("", "gomft-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	t.Cleanup(func() {
+		os.RemoveAll(tempDir)
+	})
+
+	// Set DATA_DIR environment variable for the test
+	originalDataDir := os.Getenv("DATA_DIR")
+	os.Setenv("DATA_DIR", tempDir)
+	defer os.Setenv("DATA_DIR", originalDataDir)
+
+	// Create a test database
+	database := setupTestDB(t)
+
+	// Create a test user
+	user := &db.User{
+		Email:        "file-processing-test@example.com",
+		PasswordHash: "hashed_password",
+		IsAdmin:      true,
+	}
+	if err := database.CreateUser(user); err != nil {
+		t.Fatalf("Failed to create test user: %v", err)
+	}
+
+	// Create a test transfer config
+	config := &db.TransferConfig{
+		Name:               "File Processing Test Config",
+		SourceType:         "local",
+		SourcePath:         "/source",
+		DestinationType:    "local",
+		DestinationPath:    "/dest",
+		SkipProcessedFiles: true, // Instead of DuplicatePolicy
+		CreatedBy:          user.ID,
+	}
+	if err := database.DB.Create(config).Error; err != nil {
+		t.Fatalf("Failed to create transfer config: %v", err)
+	}
+
+	// Create a test job
+	job := &db.Job{
+		Name:      "File Processing Test Job",
+		Schedule:  "*/30 * * * *", // Every 30 minutes
+		ConfigID:  config.ID,
+		Enabled:   true,
+		CreatedBy: user.ID,
+	}
+	if err := database.DB.Create(job).Error; err != nil {
+		t.Fatalf("Failed to create job: %v", err)
+	}
+
+	// Create a scheduler
+	scheduler := New(database)
+	t.Cleanup(func() {
+		scheduler.Stop()
+	})
+
+	// Test scenario 1: File doesn't exist in history yet
+	fileName := "new_file.txt"
+	metadata, err := scheduler.checkFileProcessingHistory(job.ID, fileName)
+	assert.Error(t, err, "Should return error when file not in history")
+	assert.Nil(t, metadata, "Metadata should be nil when file not found")
+
+	// Create a file metadata record
+	fileMetadata := &db.FileMetadata{
+		JobID:           job.ID,
+		FileName:        fileName,
+		OriginalPath:    "/source/" + fileName,
+		FileSize:        1024,
+		FileHash:        "test_hash_123",
+		DestinationPath: "/dest/processed_" + fileName,
+		Status:          "success",
+		CreationTime:    time.Now().Add(-30 * time.Minute),
+		ModTime:         time.Now().Add(-30 * time.Minute),
+		ProcessedTime:   time.Now().Add(-15 * time.Minute),
+	}
+
+	if err := database.DB.Create(fileMetadata).Error; err != nil {
+		t.Fatalf("Failed to create file metadata: %v", err)
+	}
+
+	// Test scenario 2: File exists in history
+	metadata, err = scheduler.checkFileProcessingHistory(job.ID, fileName)
+	assert.NoError(t, err, "Should not return error when file found in history")
+	assert.NotNil(t, metadata, "Should find metadata for file")
+	assert.Equal(t, fileName, metadata.FileName, "Filename should match")
+	assert.Equal(t, "/dest/processed_"+fileName, metadata.DestinationPath, "Destination path should match")
+
+	// Test scenario 3: Check using file hash
+	hasProcessed, metadata, err := scheduler.hasFileBeenProcessed(job.ID, "test_hash_123")
+	assert.NoError(t, err, "Should not return error when checking by hash")
+	assert.True(t, hasProcessed, "Should identify file as processed")
+	assert.NotNil(t, metadata, "Should return metadata when file found by hash")
+
+	// Test scenario 4: Check with empty hash (should always return false)
+	hasProcessed, metadata, err = scheduler.hasFileBeenProcessed(job.ID, "")
+	assert.NoError(t, err, "Should not return error with empty hash")
+	assert.False(t, hasProcessed, "Should return false for empty hash")
+	assert.Nil(t, metadata, "Should not return metadata for empty hash")
+
+	// Test scenario 5: Check with non-existent hash
+	hasProcessed, metadata, err = scheduler.hasFileBeenProcessed(job.ID, "non_existent_hash")
+	assert.NoError(t, err, "Should not return error for non-existent hash")
+	assert.False(t, hasProcessed, "Should return false for non-existent hash")
+	assert.Nil(t, metadata, "Should not return metadata for non-existent hash")
 }
