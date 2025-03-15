@@ -47,8 +47,8 @@ COPY --from=builder /usr/local/bin/rclone /usr/local/bin/rclone
 COPY static/ /app/static/
 COPY components/ /app/components/
 
-# Create data directory
-RUN mkdir -p /app/data/gomft
+# Create data and backup directories
+RUN mkdir -p /app/data /app/backups
 
 # Set executable permissions
 RUN chmod +x /app/gomft

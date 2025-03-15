@@ -8,15 +8,18 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      # Persist data directory for SQLite database and configurations
+      # Main data directory - contains DB and configs
       - gomft-data:/app/data
+      # Separate backups directory
+      - gomft-backups:/app/backups
       # For development, you can mount the source code
       # - .:/app
     environment:
       - TZ=UTC
-      # Add any environment variables needed for configuration
-      # - GOMFT_DB_PATH=/app/data/gomft.db
-      # - GOMFT_LOG_LEVEL=info
+      - DATA_DIR=/app/data
+      - BACKUP_DIR=/app/backups
+      - LOGS_DIR=/app/data/logs
+      # - LOG_LEVEL=info
     networks:
       - gomft-network
 
@@ -26,4 +29,6 @@ networks:
 
 volumes:
   gomft-data:
+    driver: local
+  gomft-backups:
     driver: local 

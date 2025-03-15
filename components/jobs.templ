@@ -70,7 +70,8 @@ script triggerJobDelete(dialogId string, jobID uint, jobName string) {
 }
 
 type JobsData struct {
-	Jobs []db.Job
+	Jobs        []db.Job
+	ConfigCount map[uint]int // Maps job ID to number of configs
 }
 
 templ Jobs(ctx context.Context, data JobsData) {
@@ -334,8 +335,17 @@ templ Jobs(ctx context.Context, data JobsData) {
 												<div class="mt-2 sm:flex sm:justify-between">
 													<div class="sm:flex">
 														<p class="flex items-center text-sm text-secondary-500 dark:text-secondary-400">
-															<i class="fas fa-cog flex-shrink-0 mr-1.5 h-5 w-5 text-secondary-400 dark:text-secondary-500"></i>
-															Config: { job.Config.Name }
+															<i class="fas fa-cogs flex-shrink-0 mr-1.5 h-5 w-5 text-secondary-400 dark:text-secondary-500"></i>
+															Configs: 
+															<span class="ml-1">
+																if count, ok := data.ConfigCount[job.ID]; ok && count > 1 {
+																	{ fmt.Sprintf("%d configurations", count) }
+																} else if job.ConfigID > 0 {
+																	{ job.Config.Name }
+																} else {
+																	{ "None" }
+																}
+															</span>
 														</p>
 														<p class="mt-2 flex items-center text-sm text-secondary-500 dark:text-secondary-400 sm:mt-0 sm:ml-6">
 															<i class="fas fa-calendar-alt flex-shrink-0 mr-1.5 h-5 w-5 text-secondary-400 dark:text-secondary-500"></i>

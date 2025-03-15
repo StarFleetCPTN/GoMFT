@@ -1,0 +1,191 @@
+package providers
+
+import (
+	"fmt"
+	"strings"
+	
+	"github.com/starfleetcptn/gomft/components/providers/common"
+	"github.com/starfleetcptn/gomft/components/providers/source"
+	"github.com/starfleetcptn/gomft/components/providers/destination"
+)
+
+// Returns the form ID based on the form type and whether it's a source or destination
+func formID(formType string, isSource bool) string {
+	if isSource {
+		return "source_config_form"
+	}
+	return "destination_config_form"
+}
+
+// Returns a user-friendly display name for the provider
+func providerDisplayName(provider string) string {
+	switch provider {
+	case "sftp":
+		return "SFTP"
+	case "local":
+		return "Local Filesystem"
+	case "s3":
+		return "Amazon S3"
+	case "ftp":
+		return "FTP"
+	case "azure":
+		return "Azure Blob Storage"
+	default:
+		return strings.Title(provider)
+	}
+}
+
+templ ProviderForm(formType string, providers []string, isSource bool) {
+	<form 
+		id={formID(formType, isSource)}
+		x-data={fmt.Sprintf("{ %sProvider: '', showAdvanced: false }", formType)}
+		class="space-y-8">
+		
+		<div class="grid grid-cols-1 sm:grid-cols-12 gap-y-6 gap-x-4">
+			@common.NameField()
+			
+			<div class="sm:col-span-4">
+				<label for={fmt.Sprintf("%s_provider", formType)} class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Provider Type</label>
+				<div class="relative">
+					<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+						<i class="fas fa-server text-secondary-400 dark:text-secondary-600"></i>
+					</div>
+					<select 
+						id={fmt.Sprintf("%s_provider", formType)} 
+						name={fmt.Sprintf("%s_provider", formType)}
+						x-model={fmt.Sprintf("%sProvider", formType)}
+						class="form-select pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500">
+						<option value="" disabled selected>Select provider type</option>
+						for _, provider := range providers {
+							<option value={provider}>{providerDisplayName(provider)}</option>
+						}
+					</select>
+				</div>
+			</div>
+
+			<div class="sm:col-span-6" x-show={fmt.Sprintf("%sProvider === 'sftp'", formType)}>
+				if isSource {
+					@source.SFTPSourceForm()
+				} else {
+					@destination.SFTPDestinationForm()
+				}
+			</div>
+
+			<div class="sm:col-span-6" x-show={fmt.Sprintf("%sProvider === 'local'", formType)}>
+				if isSource {
+					@source.LocalSourceForm()
+				} else {
+					@destination.LocalDestinationForm()
+				}
+			</div>
+
+			<div class="sm:col-span-6" x-show={fmt.Sprintf("%sProvider === 's3'", formType)}>
+				if isSource {
+					@source.S3SourceForm()
+				} else {
+					@destination.S3DestinationForm()
+				}
+			</div>
+
+			<div class="sm:col-span-6" x-show={fmt.Sprintf("%sProvider === 'ftp'", formType)}>
+				if isSource {
+					@source.FTPSourceForm()
+				} else {
+					@destination.FTPDestinationForm()
+				}
+			</div>
+
+			<div class="sm:col-span-12" x-show={fmt.Sprintf("%sProvider", formType)}>
+				<div class="mt-6">
+					<label for="show_advanced" class="flex items-center cursor-pointer">
+						<div class="relative">
+							<input id="show_advanced" type="checkbox" x-model="showAdvanced" class="sr-only" />
+							<div class="block bg-gray-200 w-14 h-8 rounded-full"></div>
+							<div class="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"
+								:class="showAdvanced ? 'transform translate-x-6 bg-primary-500' : ''"></div>
+						</div>
+						<div class="ml-3 text-gray-700 font-medium">
+							Show Advanced Options
+						</div>
+					</label>
+				</div>
+				
+				<div x-show="showAdvanced">
+					<div class="grid grid-cols-1 sm:grid-cols-12 gap-y-6 gap-x-4 mt-6">
+						@common.FilePatternFields()
+						if isSource {
+							@common.ArchiveOptions()
+						}
+					</div>
+				</div>
+			</div>
+		</div>
+	</form>
+}
+
+script formAlpineInit() {
+  return {
+    initProviderForm() {
+      // Initialize with values if editing existing config
+      if (window.editData && window.editData.configs) {
+        const config = window.editData.configs.find(c => 
+          isSource ? (c.id === window.editData.source_config_id) : (c.id === window.editData.destination_config_id)
+        );
+        
+        if (config) {
+          this[formType + 'Provider'] = config.provider;
+          this.name = config.name;
+          
+          // Provider-specific fields
+          if (config.provider === 'sftp') {
+            this.host = config.host;
+            this.port = config.port;
+            this.username = config.username;
+            this.path = config.path;
+            
+            if (config.key_file && config.key_file !== '') {
+              this.authType = 'key_file';
+              this.keyFile = config.key_file;
+            } else {
+              this.authType = 'password';
+              // Password is not included in edit data for security
+            }
+          } else if (config.provider === 'local') {
+            this.path = config.path;
+          } else if (config.provider === 's3') {
+            this.bucket = config.bucket;
+            this.region = config.region;
+            this.path = config.path;
+            this.accessKey = config.access_key;
+            
+            if (config.endpoint && config.endpoint !== '') {
+              this.useCustomEndpoint = true;
+              this.endpoint = config.endpoint;
+            } else {
+              this.useCustomEndpoint = false;
+            }
+          } else if (config.provider === 'ftp') {
+            this.host = config.host;
+            this.port = config.port;
+            this.username = config.username;
+            this.path = config.path;
+            this.useFTPS = config.use_ftps;
+          }
+          
+          // Advanced options
+          if (config.include_pattern) this.filePattern = config.include_pattern;
+          if (config.exclude_pattern) this.excludePattern = config.exclude_pattern;
+          
+          if (isSource && config.extract_archives) {
+            this.extractArchives = true;
+            this.deleteArchives = config.delete_archives;
+          }
+        }
+      }
+    },
+    
+    providerChanged() {
+      console.log("Provider changed to: " + this[formType + 'Provider']);
+    }
+  };
+} 

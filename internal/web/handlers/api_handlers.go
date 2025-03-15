@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 
-
 	"github.com/gin-gonic/gin"
 	"github.com/starfleetcptn/gomft/internal/db"
 	"golang.org/x/crypto/bcrypt"
@@ -55,7 +54,7 @@ func (h *Handlers) HandleAPILogin(c *gin.Context) {
 // HandleAPIConfigs handles the GET /api/configs route
 func (h *Handlers) HandleAPIConfigs(c *gin.Context) {
 	userID := c.GetUint("userID")
-	
+
 	var configs []db.TransferConfig
 	h.DB.Where("created_by = ?", userID).Find(&configs)
 
@@ -66,7 +65,7 @@ func (h *Handlers) HandleAPIConfigs(c *gin.Context) {
 func (h *Handlers) HandleAPIConfig(c *gin.Context) {
 	id := c.Param("id")
 	userID := c.GetUint("userID")
-	
+
 	var config db.TransferConfig
 	if err := h.DB.First(&config, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Config not found"})
@@ -109,7 +108,7 @@ func (h *Handlers) HandleAPICreateConfig(c *gin.Context) {
 func (h *Handlers) HandleAPIUpdateConfig(c *gin.Context) {
 	id := c.Param("id")
 	userID := c.GetUint("userID")
-	
+
 	var config db.TransferConfig
 	if err := h.DB.First(&config, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Config not found"})
@@ -150,7 +149,7 @@ func (h *Handlers) HandleAPIUpdateConfig(c *gin.Context) {
 func (h *Handlers) HandleAPIDeleteConfig(c *gin.Context) {
 	id := c.Param("id")
 	userID := c.GetUint("userID")
-	
+
 	var config db.TransferConfig
 	if err := h.DB.First(&config, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Config not found"})
@@ -182,38 +181,6 @@ func (h *Handlers) HandleAPIDeleteConfig(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Config deleted successfully"})
-}
-
-// HandleAPITestConnection handles the POST /api/configs/test route
-func (h *Handlers) HandleAPITestConnection(c *gin.Context) {
-	var config db.TransferConfig
-	if err := c.ShouldBindJSON(&config); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid request data: %v", err)})
-		return
-	}
-
-	// TODO: Implement connection testing based on protocol
-	// This is a placeholder for the actual connection testing logic
-	success := true
-	message := "Connection successful"
-
-	// Example of how connection testing might work
-	switch config.SourceType {
-	case "sftp":
-		// Test SFTP connection
-		// success, message = testSFTPConnection(config)
-	case "ftp":
-		// Test FTP connection
-		// success, message = testFTPConnection(config)
-	default:
-		success = false
-		message = "Unsupported source type"
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": success,
-		"message": message,
-	})
 }
 
 // HandleAPIJobs handles the API jobs request
@@ -250,7 +217,7 @@ func (h *Handlers) HandleAPIDeleteJob(c *gin.Context) {
 func (h *Handlers) HandleAPIRunJob(c *gin.Context) {
 	id := c.Param("id")
 	userID := c.GetUint("userID")
-	
+
 	var job db.Job
 	if err := h.DB.First(&job, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
@@ -284,7 +251,7 @@ func (h *Handlers) HandleAPIRunJob(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to run job: " + err.Error()})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Job started successfully",
 		"jobId":   job.ID,

@@ -27,6 +27,9 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
 ![User Management](screenshots/user.management.gomft.png)
 *Create user accounts and manage them*
 
+### Admin Tools
+![Admin Tools](screenshots/admin.tools.gomft.png)
+*Admin dashboard with log viewer and system management tools*
 
 ## Features
 
@@ -40,6 +43,12 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
   - SMB/CIFS shares
   - Local filesystem
   - And more via rclone
+- **Webhook Notifications**: Receive real-time notifications of job events:
+  - Configurable webhook URLs
+  - HMAC-SHA256 authentication with secrets
+  - Custom HTTP headers
+  - Selectable events (job success, job failure)
+  - Detailed JSON payload with job information
 - **Scheduled Transfers**: Configure transfers using cron expressions with flexible scheduling options
 - **Transfer Monitoring**: Real-time status updates and detailed transfer logs with bytes and files transferred statistics
 - **File Metadata Tracking**: Complete history and status of all transferred files with detailed information:
@@ -52,6 +61,12 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
   - Advanced search interface with multiple criteria
   - Bulk management and record deletion capabilities
   - Responsive design with mobile-friendly interface
+- **Multi-threaded File Transfers**: Significantly improve performance with concurrent file processing:
+  - Configurable number of concurrent transfers (1-32) per job
+  - Automatic queue management to prevent system overload
+  - Independent configuration for each transfer job
+  - Optimized for both high-volume small files and large file transfers
+  - Maximizes bandwidth utilization for cloud storage providers
 - **Web Interface**: User-friendly interface for managing transfers, built with Templ components
 - **File Pattern Matching**: Support for file patterns to filter files during transfers
 - **File Output Patterns**: Dynamic naming of destination files using patterns with date variables
@@ -106,6 +121,7 @@ docker run -d \
   --name gomft \
   -p 8080:8080 \
   -v /path/to/data:/app/data \
+  -v /path/to/backups:/app/backups \
   starfleetcptn/gomft:latest
 ```
 
@@ -126,12 +142,12 @@ services:
       - "8080:8080"
     volumes:
       - ./data:/app/data
-      - ./backups:/app/data/gomft/backups
+      - ./backups:/app/backups
     environment:
       - TZ=UTC
       - SERVER_ADDRESS=:8080
-      - DATA_DIR=/app/data/gomft
-      - BACKUP_DIR=/app/data/gomft/backups
+      - DATA_DIR=/app/data
+      - BACKUP_DIR=/app/backups
       - JWT_SECRET=change_this_to_a_secure_random_string
       - BASE_URL=http://localhost:8080
       - EMAIL_ENABLED=true
@@ -143,6 +159,13 @@ services:
       - EMAIL_REQUIRE_AUTH=true
       - EMAIL_USERNAME=smtp_username
       - EMAIL_PASSWORD=smtp_password
+      # Logging configuration
+      - LOGS_DIR=/app/data/logs
+      - LOG_MAX_SIZE=10
+      - LOG_MAX_BACKUPS=5
+      - LOG_MAX_AGE=30
+      - LOG_COMPRESS=true
+      - LOG_LEVEL=info
 ```
 
 Alternatively, you can mount your own .env file to the container:
@@ -158,7 +181,7 @@ services:
       - "8080:8080"
     volumes:
       - ./data:/app/data
-      - ./backups:/app/data/gomft/backups
+      - ./backups:/app/backups
       - ./.env:/app/.env
     environment:
       - TZ=UTC
@@ -178,8 +201,8 @@ GoMFT uses an environment file located at `.env` in the root directory of the ap
 
 ```
 SERVER_ADDRESS=:8080
-DATA_DIR=./data/gomft
-BACKUP_DIR=./data/gomft/backups
+DATA_DIR=/app/data
+BACKUP_DIR=/app/backups
 JWT_SECRET=change_this_to_a_secure_random_string
 BASE_URL=http://localhost:8080
 
@@ -199,7 +222,7 @@ EMAIL_PASSWORD=smtp_password
 ### Configuration Options
 
 - `SERVER_ADDRESS`: The address and port to run the server on
-- `DATA_DIR`: Directory for storing application data
+- `DATA_DIR`: Directory for storing application data (database and configs)
 - `BACKUP_DIR`: Directory for storing database backups
 - `JWT_SECRET`: Secret key for JWT token generation
 - `BASE_URL`: Base URL for generating links in emails (e.g., password reset links)
@@ -214,6 +237,22 @@ EMAIL_PASSWORD=smtp_password
   - `EMAIL_REPLY_TO`: Optional reply-to email address
   - `EMAIL_ENABLE_TLS`: Set to `true` to use TLS for secure email transmission
   - `EMAIL_REQUIRE_AUTH`: Set to `true` to require authentication for SMTP connections, or `false` for servers that don't need authentication
+
+### Logging Configuration
+
+GoMFT provides configurable logging with rotation support through the following environment variables:
+
+- `LOGS_DIR`: Directory where log files are stored (default: `./data/logs`)
+- `LOG_MAX_SIZE`: Maximum size in megabytes for each log file before rotation (default: `10`)
+- `LOG_MAX_BACKUPS`: Number of old log files to retain (default: `5`)
+- `LOG_MAX_AGE`: Maximum number of days to retain old log files (default: `30`)
+- `LOG_COMPRESS`: Whether to compress rotated log files (default: `true`)
+- `LOG_LEVEL`: Controls verbosity level of logging (values: `error`, `info`, `debug`, default: `info`)
+  - `error`: Only show errors and critical issues
+  - `info`: Show errors and general operational information (default)
+  - `debug`: Show all messages including detailed debugging information
+
+Log files contain detailed information about file transfers, job execution, and system operations, which can be useful for troubleshooting and auditing.
 
 ## Usage
 
@@ -233,6 +272,11 @@ EMAIL_PASSWORD=smtp_password
    - Navigate to "Transfer Configs" section
    - Configure source and destination locations with connection details
    - Set file patterns and archive options as needed
+   - Configure performance settings:
+     - Set "Concurrent Transfers" slider to optimize throughput
+     - Use higher values (8-16) for many small files or fast networks
+     - Use lower values (1-4) for large files or limited bandwidth
+     - Consider source/destination system capabilities when setting
 
 5. Create jobs using your configurations:
    - Navigate to "Jobs" section
@@ -245,13 +289,29 @@ EMAIL_PASSWORD=smtp_password
    - Check detailed transfer history with performance metrics
    - View job run details including any error messages
 
-7. Manage file metadata:
+7. Configure webhook notifications:
+   - Enable webhooks in job settings to receive notifications
+   - Provide a valid webhook URL where notifications will be sent
+   - Optionally set a webhook secret for HMAC-SHA256 signature verification
+   - Configure custom HTTP headers in JSON format if needed
+   - Choose notification triggers (job success, job failure, or both)
+   - Test your webhook integration with manual job runs
+
+8. Manage file metadata:
    - Navigate to the "Files" section to view all processed files
    - Use filters to quickly find files by status, job ID, or filename
    - Click on any file to view detailed metadata including timestamps, size, and hash
    - Use the advanced search page for complex queries with multiple criteria
    - Delete file metadata records when no longer needed
    - View files associated with specific jobs by navigating from the job details
+
+9. Utilize admin tools (administrators only):
+   - Access the "Admin Tools" section from the navigation menu
+   - View system statistics and server information
+   - Create and manage database backups
+   - Browse and download system log files with the integrated log viewer
+   - Perform database maintenance and optimization tasks
+   - View webhook documentation and integration details
 
 ### User Management
 
@@ -275,7 +335,6 @@ User management features:
    - Local filesystem
    - Amazon S3
    - MinIO (S3-compatible storage)
-   - Backblaze B2
    - SFTP
    - FTP
    - SMB/CIFS shares
@@ -294,11 +353,28 @@ User management features:
    - File patterns for filtering (e.g., `*.txt`, `data_*.csv`)
    - Output patterns for dynamic naming
    - Archive options for transferred files
+   - Skip already processed files to avoid duplicates
+   - Concurrent file transfers (configurable per job)
 
-4. **Schedule Options**:
+4. **Performance Options**:
+   - **Multi-threaded File Transfers**: Process multiple files simultaneously for higher throughput
+   - Configurable concurrency level (1-32 concurrent transfers)
+   - Per-job concurrency settings to optimize for different storage types
+   - Automatic transfer queue management to prevent overloading systems
+   - Adaptive processing based on source/destination capabilities
+
+5. **Schedule Options**:
    - Cron expressions for flexible scheduling
    - Manual execution
    - Enable/disable schedules
+
+6. **Webhook Notifications**:
+   - **Webhook Integration**: Send notifications to external systems when jobs complete
+   - **Secure Authentication**: HMAC-SHA256 signature for webhook verification
+   - **Custom Headers**: Add custom HTTP headers to webhook requests
+   - **Flexible Configuration**: Configure different webhooks for different jobs
+   - **Event Selection**: Choose to send notifications on success, failure, or both
+   - **Detailed Payload**: Rich JSON payload with complete job execution details
 
 ### Email Notifications
 
@@ -317,6 +393,87 @@ To configure email functionality:
 1. Edit the `.env` file and provide your SMTP server details
 2. Set `EMAIL_ENABLED=true` in the email configuration section
 3. Ensure the `BASE_URL` setting is configured correctly for your deployment
+
+### Webhook Integration
+
+GoMFT can send webhook notifications to external systems when jobs complete. This allows integration with monitoring tools, chat applications, custom notification systems, or workflow automation platforms.
+
+#### Webhook Payload Structure
+
+Webhook notifications are sent as HTTP POST requests with a JSON payload containing detailed information about the job execution:
+
+```json
+{
+  "event_type": "job_execution",
+  "job_id": 123,
+  "job_name": "Daily Backup",
+  "config_id": 456,
+  "config_name": "S3 to Local Backup",
+  "status": "completed",
+  "start_time": "2023-07-14T15:30:00Z",
+  "end_time": "2023-07-14T15:35:42Z",
+  "duration_seconds": 342,
+  "bytes_transferred": 1048576,
+  "files_transferred": 25,
+  "history_id": 789,
+  "source": {
+    "type": "s3",
+    "path": "my-bucket/data"
+  },
+  "destination": {
+    "type": "local",
+    "path": "/backups/data"
+  }
+}
+```
+
+For failed transfers, additional error information is included:
+
+```json
+{
+  "status": "failed",
+  "error_message": "Permission denied accessing destination path"
+}
+```
+
+#### Webhook Authentication
+
+When a webhook secret is configured, GoMFT signs the payload using HMAC-SHA256 and includes the signature in the `X-Hub-Signature-256` header. To verify the webhook:
+
+1. Compute the HMAC-SHA256 of the raw request body using your shared secret
+2. Compare it with the value in the `X-Hub-Signature-256` header
+3. Process the webhook only if the signatures match
+
+This ensures that webhook requests are authentic and haven't been tampered with.
+
+### Admin Tools
+
+GoMFT provides a comprehensive set of administrative tools for system management and monitoring:
+
+#### Log Viewer
+
+The Admin Tools panel includes an integrated log viewer with the following features:
+
+- **Log File Browser**: View a list of all available log files in the system
+- **Real-time Log Viewing**: View log file contents directly in the web interface
+- **Refresh Function**: Update the log list and content with the latest information
+- **User-friendly Interface**: Clean, readable presentation with custom scrolling
+- **Dark Mode Support**: Consistent theming with the rest of the application
+- **Navigation**: Easily switch between different log files
+
+This log viewer allows administrators to:
+- Monitor system activity and diagnose issues without requiring server access
+- View application logs, scheduler logs, and transfer logs in one place
+- Track down errors and warning messages in real-time
+
+#### Database Management
+
+The Admin Tools interface also includes database management capabilities:
+- Create and manage database backups
+- Restore from previous backups
+- Download backups for safekeeping
+- View system statistics
+- Optimize the database with maintenance tools
 
 ## Development
 
@@ -379,3 +536,23 @@ air
 ## License
 
 MIT License - see LICENSE file for details
+
+## Directory Structure
+
+GoMFT uses the following directory structure:
+
+- `/app/data`: Main application data directory
+  - Contains the SQLite database (`gomft.db`)
+  - Contains rclone configurations in `/app/data/configs`
+  - Contains log files in `/app/data/logs`
+- `/app/backups`: Database backup directory
+
+When using Docker, you should mount volumes to these locations:
+
+```yaml
+volumes:
+  - /host/path/data:/app/data         # For all application data
+  - /host/path/backups:/app/backups   # For database backups
+```
+
+These paths can be customized using the environment variables `DATA_DIR`, `BACKUP_DIR`, and `LOGS_DIR`.

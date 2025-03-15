@@ -31,6 +31,9 @@ templ FTPSourceForm() {
 					id="source_port"
 					x-model="sourcePort"
 					required
+					min="1"
+					max="65535"
+					value="21"
 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
 					placeholder="21"/>
 			</div>

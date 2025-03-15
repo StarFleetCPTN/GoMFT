@@ -73,6 +73,7 @@ func getInitialData(config *db.TransferConfig) string {
 	archiveEnabled := false
 	deleteAfterTransfer := false
 	skipProcessedFiles := true
+	maxConcurrentTransfers := 4
 	rcloneFlags := ""
 
 	// If editing an existing config, populate with those values
@@ -130,7 +131,8 @@ func getInitialData(config *db.TransferConfig) string {
 		archivePath = config.ArchivePath
 		archiveEnabled = config.ArchiveEnabled
 		deleteAfterTransfer = config.DeleteAfterTransfer
-		skipProcessedFiles = config.SkipProcessedFiles
+		skipProcessedFiles = config.GetSkipProcessedFiles()
+		maxConcurrentTransfers = config.MaxConcurrentTransfers
 		rcloneFlags = config.RcloneFlags
 	}
 
@@ -186,6 +188,7 @@ func getInitialData(config *db.TransferConfig) string {
 		archiveEnabled: %v,
 		deleteAfterTransfer: %v,
 		skipProcessedFiles: %v,
+		maxConcurrentTransfers: %d,
 		rcloneFlags: '%s',
 	}`, 
 	name, sourceType, sourcePath, sourceHost, sourcePort, sourceUser, sourcePassword, sourceKeyFile, sourceAuthType,
@@ -195,7 +198,7 @@ func getInitialData(config *db.TransferConfig) string {
 	destinationType, destinationPath, destHost, destPort, destUser, destPassword, destKeyFile, destAuthType,
 	destBucket, destRegion, destAccessKey, destSecretKey, destEndpoint, destShare, destDomain, destPassiveMode,
 	destClientId, destClientSecret, destDriveId, destTeamDrive,
-	archivePath, archiveEnabled, deleteAfterTransfer, skipProcessedFiles, rcloneFlags)
+	archivePath, archiveEnabled, deleteAfterTransfer, skipProcessedFiles, maxConcurrentTransfers, rcloneFlags)
 }
 
 templ ConfigForm(ctx context.Context, data ConfigFormData) {

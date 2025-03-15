@@ -14,9 +14,13 @@ templ LocalDestinationForm() {
 					id="destination_path"
 					x-model="destinationPath"
 					required
+					aria-describedby="destination_path_help"
 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
 					placeholder="/path/to/destination"/>
 			</div>
+			<p id="destination_path_help" class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+				Absolute path to the local directory where files will be saved.
+			</p>
 		</div>
 	</div>
 } 

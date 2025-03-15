@@ -5,6 +5,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/glebarez/sqlite"
@@ -98,15 +100,16 @@ type TransferConfig struct {
 	DestDriveID      string `form:"dest_drive_id"`               // For OneDrive
 	DestTeamDrive    string `form:"dest_team_drive"`             // For Google Drive
 	// General fields
-	ArchivePath         string `form:"archive_path"`
-	ArchiveEnabled      bool   `gorm:"default:false" form:"archive_enabled"`
-	RcloneFlags         string `form:"rclone_flags"`
-	DeleteAfterTransfer bool   `gorm:"default:false" form:"delete_after_transfer"`
-	SkipProcessedFiles  bool   `gorm:"default:true" form:"skip_processed_files"`
-	CreatedBy           uint
-	User                User `gorm:"foreignkey:CreatedBy"`
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
+	ArchivePath            string `form:"archive_path"`
+	ArchiveEnabled         bool   `gorm:"default:false" form:"archive_enabled"`
+	RcloneFlags            string `form:"rclone_flags"`
+	DeleteAfterTransfer    bool   `gorm:"default:false" form:"delete_after_transfer"`
+	SkipProcessedFiles     *bool  `gorm:"default:true" form:"skip_processed_files"`
+	MaxConcurrentTransfers int    `gorm:"default:4" form:"max_concurrent_transfers"` // Number of concurrent file transfers
+	CreatedBy              uint
+	User                   User `gorm:"foreignkey:CreatedBy"`
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
 }
 
 type Job struct {
@@ -114,20 +117,82 @@ type Job struct {
 	Name      string         `form:"name"`
 	ConfigID  uint           `gorm:"not null" form:"config_id"`
 	Config    TransferConfig `gorm:"foreignkey:ConfigID"`
+	ConfigIDs string         `gorm:"column:config_ids"` // Comma-separated list of config IDs
 	Schedule  string         `gorm:"not null" form:"schedule"`
 	Enabled   bool           `gorm:"default:true" form:"enabled"`
 	LastRun   *time.Time
 	NextRun   *time.Time
-	CreatedBy uint
-	User      User `gorm:"foreignkey:CreatedBy"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	// Webhook notification fields
+	WebhookEnabled  bool   `gorm:"default:false" form:"webhook_enabled"`
+	WebhookURL      string `form:"webhook_url"`
+	WebhookSecret   string `form:"webhook_secret"`
+	WebhookHeaders  string `form:"webhook_headers"` // JSON-encoded headers
+	NotifyOnSuccess bool   `gorm:"default:true" form:"notify_on_success"`
+	NotifyOnFailure bool   `gorm:"default:true" form:"notify_on_failure"`
+	CreatedBy       uint
+	User            User `gorm:"foreignkey:CreatedBy"`
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+// GetConfigIDsList returns the list of config IDs as integers
+func (j *Job) GetConfigIDsList() []uint {
+	if j.ConfigIDs == "" {
+		// If ConfigIDs is empty but ConfigID is set, return that as the only ID
+		if j.ConfigID > 0 {
+			return []uint{j.ConfigID}
+		}
+		return []uint{}
+	}
+
+	// Split the comma-separated string
+	strIDs := strings.Split(j.ConfigIDs, ",")
+	ids := make([]uint, 0, len(strIDs))
+
+	// Convert each string to uint
+	for _, strID := range strIDs {
+		if id, err := strconv.ParseUint(strings.TrimSpace(strID), 10, 32); err == nil {
+			ids = append(ids, uint(id))
+		}
+	}
+
+	return ids
+}
+
+// SetConfigIDsList sets the config IDs from a slice of uint
+func (j *Job) SetConfigIDsList(ids []uint) {
+	// Convert to strings
+	strIDs := make([]string, len(ids))
+	for i, id := range ids {
+		strIDs[i] = strconv.FormatUint(uint64(id), 10)
+	}
+
+	// Join with commas
+	j.ConfigIDs = strings.Join(strIDs, ",")
+
+	// If there's at least one ID, set ConfigID to the first one for backward compatibility
+	if len(ids) > 0 {
+		j.ConfigID = ids[0]
+	}
+}
+
+// GetConfigIDsAsStrings returns the list of config IDs as strings for template rendering
+func (j *Job) GetConfigIDsAsStrings() []string {
+	ids := j.GetConfigIDsList()
+	strIDs := make([]string, len(ids))
+
+	for i, id := range ids {
+		strIDs[i] = fmt.Sprintf("'%d'", id)
+	}
+
+	return strIDs
 }
 
 type JobHistory struct {
 	ID               uint      `gorm:"primarykey"`
 	JobID            uint      `gorm:"not null"`
 	Job              Job       `gorm:"foreignkey:JobID"`
+	ConfigID         uint      `gorm:"default:0"` // The specific config ID this history entry is for
 	StartTime        time.Time `gorm:"not null"`
 	EndTime          *time.Time
 	Status           string `gorm:"not null"`
@@ -141,6 +206,7 @@ type FileMetadata struct {
 	ID              uint   `gorm:"primarykey"`
 	JobID           uint   `gorm:"not null;index"`
 	Job             Job    `gorm:"foreignkey:JobID"`
+	ConfigID        uint   `gorm:"default:0"` // The specific config ID this file was processed with
 	FileName        string `gorm:"not null"`
 	OriginalPath    string `gorm:"not null"`
 	FileSize        int64  `gorm:"not null"`
@@ -332,16 +398,6 @@ func (db *DB) CreateFileMetadata(metadata *FileMetadata) error {
 	return db.Create(metadata).Error
 }
 
-// GetFileMetadata retrieves file metadata by ID
-func (db *DB) GetFileMetadata(id uint) (*FileMetadata, error) {
-	var metadata FileMetadata
-	err := db.First(&metadata, id).Error
-	if err != nil {
-		return nil, err
-	}
-	return &metadata, nil
-}
-
 // GetFileMetadataByJobAndName retrieves file metadata by job ID and filename
 func (db *DB) GetFileMetadataByJobAndName(jobID uint, fileName string) (*FileMetadata, error) {
 	var metadata FileMetadata
@@ -362,18 +418,6 @@ func (db *DB) GetFileMetadataByHash(fileHash string) (*FileMetadata, error) {
 	return &metadata, nil
 }
 
-// UpdateFileMetadata updates an existing file metadata record
-func (db *DB) UpdateFileMetadata(metadata *FileMetadata) error {
-	return db.Save(metadata).Error
-}
-
-// GetFileMetadataForJob retrieves all file metadata for a job
-func (db *DB) GetFileMetadataForJob(jobID uint) ([]FileMetadata, error) {
-	var metadata []FileMetadata
-	err := db.Where("job_id = ?", jobID).Find(&metadata).Error
-	return metadata, err
-}
-
 // DeleteFileMetadata deletes file metadata by ID
 func (db *DB) DeleteFileMetadata(id uint) error {
 	return db.Delete(&FileMetadata{}, id).Error
@@ -381,24 +425,24 @@ func (db *DB) DeleteFileMetadata(id uint) error {
 
 // GetConfigRclonePath returns the path to the rclone config file for a given transfer config
 func (db *DB) GetConfigRclonePath(config *TransferConfig) string {
-	return filepath.Join("configs", fmt.Sprintf("config_%d.conf", config.ID))
-}
+	// Get data directory from environment or use default
+	dataDir := os.Getenv("DATA_DIR")
+	if dataDir == "" {
+		dataDir = "./data"
+	}
 
-// GetSkipProcessedFilesValue gets the current value of SkipProcessedFiles for a config
-func (db *DB) GetSkipProcessedFilesValue(configID uint) (bool, error) {
-	var value bool
-	err := db.Model(&TransferConfig{}).
-		Where("id = ?", configID).
-		Select("skip_processed_files").
-		Scan(&value).Error
-	return value, err
+	// Store configs in the data directory
+	return filepath.Join(dataDir, "configs", fmt.Sprintf("config_%d.conf", config.ID))
 }
 
 func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 	configPath := db.GetConfigRclonePath(config)
 
+	// Get the directory part of the path
+	configDir := filepath.Dir(configPath)
+
 	// Ensure configs directory exists
-	if err := os.MkdirAll("configs", 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0755); err != nil {
 		return fmt.Errorf("failed to create configs directory: %v", err)
 	}
 
@@ -791,4 +835,53 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 	}
 
 	return nil
+}
+
+func (db *DB) GetActiveJobs() ([]Job, error) {
+	if db.DB == nil {
+		return nil, fmt.Errorf("database connection is nil")
+	}
+	var jobs []Job
+	err := db.Preload("Config").Where("enabled = ?", true).Find(&jobs).Error
+	return jobs, err
+}
+
+// GetConfigsForJob returns all transfer configurations associated with a job
+func (db *DB) GetConfigsForJob(jobID uint) ([]TransferConfig, error) {
+	var job Job
+	if err := db.First(&job, jobID).Error; err != nil {
+		return nil, err
+	}
+
+	// Get the list of config IDs
+	configIDs := job.GetConfigIDsList()
+	if len(configIDs) == 0 {
+		// If there are no IDs in the list but there is a configID, use that
+		if job.ConfigID > 0 {
+			configIDs = []uint{job.ConfigID}
+		} else {
+			return []TransferConfig{}, nil
+		}
+	}
+
+	// Fetch all configs
+	var configs []TransferConfig
+	if err := db.Where("id IN ?", configIDs).Find(&configs).Error; err != nil {
+		return nil, err
+	}
+
+	return configs, nil
+}
+
+// GetSkipProcessedFiles returns the value of SkipProcessedFiles with a default if nil
+func (tc *TransferConfig) GetSkipProcessedFiles() bool {
+	if tc.SkipProcessedFiles == nil {
+		return true // Default to true if not set
+	}
+	return *tc.SkipProcessedFiles
+}
+
+// SetSkipProcessedFiles sets the SkipProcessedFiles field
+func (tc *TransferConfig) SetSkipProcessedFiles(value bool) {
+	tc.SkipProcessedFiles = &value
 }

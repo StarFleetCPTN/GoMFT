@@ -46,6 +46,9 @@ Thumbs.db
 components/*.go
 !components/components.go
 
+components/providers/*.go
+!components/providers/providers.go
+
 components/providers/source/*.go
 !components/providers/source/source.go
 
@@ -68,11 +71,14 @@ tmp/
 # Ignore the configs directory
 configs/
 
+# Ignore the backups directory
+backups/
+
 # Ignore Dirs
 /source/
 /destination/
-
 /archive/
+
 
 # Ignore binaries
 gomft

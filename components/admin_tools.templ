@@ -12,6 +12,13 @@ type BackupFile struct {
 	ModTime time.Time
 }
 
+type LogFile struct {
+	Name    string
+	Size    string
+	ModTime time.Time
+	Path    string
+}
+
 type AdminToolsData struct {
 	JobHistoryCount    int
 	DatabaseSize       string
@@ -26,6 +33,9 @@ type AdminToolsData struct {
 	BackupPath         string
 	MaintenanceMessage string
 	BackupFiles        []BackupFile
+	LogFiles           []LogFile
+	LogContent         string
+	CurrentLogFile     string
 }
 
 // Dialog component for confirmation dialogs
@@ -131,6 +141,64 @@ templ BackupActionDialog(id string, title string, message string, confirmClass s
 
 templ AdminTools(ctx context.Context, data AdminToolsData) {
 	@LayoutWithContext("Admin Tools", ctx) {
+		<style>
+			/* Custom scrollbar styles - more aggressive */
+			.log-scrollbar {
+				scrollbar-width: thin !important; /* Firefox */
+				scrollbar-color: rgba(0,0,0,0.3) rgba(0,0,0,0.1) !important; /* Firefox */
+				overflow: auto !important;
+			}
+			
+			.dark .log-scrollbar {
+				scrollbar-color: rgba(255,255,255,0.3) rgba(255,255,255,0.1) !important; /* Firefox */
+			}
+			
+			.log-scrollbar::-webkit-scrollbar {
+				width: 10px !important;
+				height: 10px !important;
+				display: block !important;
+			}
+			
+			.log-scrollbar::-webkit-scrollbar-track {
+				background: rgba(0,0,0,0.1) !important;
+				border-radius: 4px !important;
+			}
+			
+			.log-scrollbar::-webkit-scrollbar-thumb {
+				background: rgba(0,0,0,0.3) !important;
+				border-radius: 4px !important;
+				border: 2px solid transparent !important;
+				background-clip: content-box !important;
+			}
+			
+			.log-scrollbar::-webkit-scrollbar-thumb:hover {
+				background: rgba(0,0,0,0.5) !important;
+				border: 2px solid transparent !important;
+				background-clip: content-box !important;
+			}
+			
+			.dark .log-scrollbar::-webkit-scrollbar-track {
+				background: rgba(255,255,255,0.1) !important;
+			}
+			
+			.dark .log-scrollbar::-webkit-scrollbar-thumb {
+				background: rgba(255,255,255,0.3) !important;
+				border: 2px solid transparent !important;
+				background-clip: content-box !important;
+			}
+			
+			.dark .log-scrollbar::-webkit-scrollbar-thumb:hover {
+				background: rgba(255,255,255,0.5) !important;
+				border: 2px solid transparent !important;
+				background-clip: content-box !important;
+			}
+			
+			/* Force scrollbar to appear */
+			.force-scroll {
+				overflow-y: scroll !important;
+				min-height: 100px !important;
+			}
+		</style>
 		<div class="py-6">
 			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 				<div class="flex items-center justify-between mb-8">
@@ -448,6 +516,94 @@ templ AdminTools(ctx context.Context, data AdminToolsData) {
 						</div>
 					</div>
 				</div>
+				
+				<!-- Log Viewer -->
+				<div id="logs-container" class="mt-8">
+					@AdminLogViewer(data)
+				</div>
+
+				<!-- Webhook Documentation -->
+				<div class="mt-8">
+					<div class="card">
+						<div class="card-header">
+							<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100">
+								<i class="fas fa-bell mr-2 text-primary-500"></i>
+								Webhook Notifications
+							</h3>
+						</div>
+						<div class="card-body">
+							<p class="text-secondary-600 dark:text-secondary-400 mb-4">
+								GoMFT can send webhook notifications when jobs run. You can configure webhooks 
+								for individual jobs in the job edit form. Below is the format of the webhook payload:
+							</p>
+							
+							<div class="bg-secondary-50 dark:bg-secondary-900 p-4 rounded-lg overflow-auto font-mono text-sm">
+<pre>&#123;
+  "event_type": "job_execution",
+  "job_id": 123,
+  "job_name": "Daily Backup",
+  "config_id": 456,
+  "config_name": "Backup Config",
+  "status": "completed",
+  "start_time": "2023-06-18T15:30:45Z",
+  "end_time": "2023-06-18T15:35:12Z",
+  "duration_seconds": 267,
+  "history_id": 789,
+  "bytes_transferred": 1048576,
+  "files_transferred": 5,
+  "source": &#123;
+    "type": "local",
+    "path": "/path/to/source"
+  &#125;,
+  "destination": &#123;
+    "type": "s3",
+    "path": "bucket/path"
+  &#125;
+&#125;</pre>
+							</div>
+							
+							<h4 class="text-lg font-medium text-secondary-900 dark:text-secondary-100 mt-6 mb-2">Authentication</h4>
+							<p class="text-secondary-600 dark:text-secondary-400 mb-4">
+								When configuring a webhook, you can optionally provide a secret key. This will be used to sign
+								the webhook payload with HMAC-SHA256. The signature is provided in the <code>X-Hub-Signature-256</code> header.
+							</p>
+							
+							<h4 class="text-lg font-medium text-secondary-900 dark:text-secondary-100 mt-6 mb-2">HTTP Request Details</h4>
+							<div class="overflow-x-auto">
+								<table class="min-w-full">
+									<thead>
+										<tr>
+											<th class="text-left text-sm font-medium text-secondary-500 dark:text-secondary-400 pb-2">Property</th>
+											<th class="text-left text-sm font-medium text-secondary-500 dark:text-secondary-400 pb-2">Value</th>
+										</tr>
+									</thead>
+									<tbody class="divide-y divide-secondary-200 dark:divide-secondary-700">
+										<tr>
+											<td class="py-2 text-sm text-secondary-900 dark:text-secondary-100 font-medium">Method</td>
+											<td class="py-2 text-sm text-secondary-600 dark:text-secondary-400">POST</td>
+										</tr>
+										<tr>
+											<td class="py-2 text-sm text-secondary-900 dark:text-secondary-100 font-medium">Content-Type</td>
+											<td class="py-2 text-sm text-secondary-600 dark:text-secondary-400">application/json</td>
+										</tr>
+										<tr>
+											<td class="py-2 text-sm text-secondary-900 dark:text-secondary-100 font-medium">User-Agent</td>
+											<td class="py-2 text-sm text-secondary-600 dark:text-secondary-400">GoMFT-Webhook/1.0</td>
+										</tr>
+										<tr>
+											<td class="py-2 text-sm text-secondary-900 dark:text-secondary-100 font-medium">X-Hub-Signature-256</td>
+											<td class="py-2 text-sm text-secondary-600 dark:text-secondary-400">HMAC SHA256 signature (if secret configured)</td>
+										</tr>
+										<tr>
+											<td class="py-2 text-sm text-secondary-900 dark:text-secondary-100 font-medium">Custom Headers</td>
+											<td class="py-2 text-sm text-secondary-600 dark:text-secondary-400">Any additional headers specified in the job configuration</td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+				</div>
 			</div>
 		</div>
 	}
@@ -575,4 +731,168 @@ templ BackupsList(data AdminToolsData) {
 			</div>
 		</div>
 	}
+}
+
+// Add this new template after other admin tool templates
+templ AdminLogViewer(data AdminToolsData) {
+	<div class="bg-white dark:bg-secondary-800 rounded-lg shadow-md p-6 mb-6">
+		<h3 class="text-xl font-semibold mb-4 text-secondary-900 dark:text-secondary-100 flex items-center">
+			<i class="fas fa-file-alt mr-2"></i> Log Files
+		</h3>
+
+		<div class="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4">
+			<div class="lg:col-span-1 border-r border-secondary-200 dark:border-secondary-700 pr-4">
+				<h4 class="text-lg font-medium mb-2 text-secondary-900 dark:text-secondary-100">Available Logs</h4>
+				<div class="space-y-2 max-h-96 overflow-y-auto pr-2 log-scrollbar">
+					if len(data.LogFiles) == 0 {
+						<div class="text-secondary-600 dark:text-secondary-400 italic">
+							No log files found
+						</div>
+					} else {
+						<div class="flex flex-col space-y-1">
+							for _, logFile := range data.LogFiles {
+								<button
+									class={
+										"text-left px-3 py-2 rounded transition-colors flex justify-between items-center",
+										templ.KV("bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400", logFile.Name == data.CurrentLogFile),
+										templ.KV("hover:bg-secondary-50 dark:hover:bg-secondary-700/50 text-secondary-700 dark:text-secondary-300", logFile.Name != data.CurrentLogFile)
+									}
+									hx-get={ fmt.Sprintf("/admin/logs/view/%s", logFile.Name) }
+									hx-target="#log-content"
+									hx-indicator="#log-loading"
+								>
+									<span class="flex items-center">
+										<i class="fas fa-file-alt mr-2"></i>
+										{ logFile.Name }
+									</span>
+									<span class="text-xs text-secondary-500 dark:text-secondary-400">{ logFile.Size }</span>
+								</button>
+							}
+						</div>
+					}
+				</div>
+				<div class="mt-4 flex justify-between">
+					<button 
+						class="btn-secondary btn-sm"
+						hx-get="/admin/logs/refresh"
+						hx-target="#logs-container"
+						hx-indicator="#refresh-logs-indicator"
+					>
+						<span id="refresh-logs-indicator" class="htmx-indicator">
+							<i class="fas fa-spinner fa-spin"></i>
+						</span>
+						<i class="fas fa-sync-alt mr-1"></i> Refresh
+					</button>
+				</div>
+			</div>
+
+			<div class="lg:col-span-3 pl-0 lg:pl-4">
+				<div class="flex justify-between items-center mb-2">
+					<h4 class="text-lg font-medium text-secondary-900 dark:text-secondary-100">
+						if data.CurrentLogFile != "" {
+							Log: { data.CurrentLogFile }
+						} else {
+							Select a log file
+						}
+					</h4>
+					if data.CurrentLogFile != "" {
+						<div class="flex space-x-2">
+							<button 
+								class="btn-secondary btn-sm"
+								hx-get={ fmt.Sprintf("/admin/logs/download/%s", data.CurrentLogFile) }
+							>
+								<i class="fas fa-download mr-1"></i> Download
+							</button>
+						</div>
+					}
+				</div>
+
+				@AdminLogContent(data)
+			</div>
+		</div>
+	</div>
+}
+
+// AdminLogContent template for log view
+templ AdminLogContent(data AdminToolsData) {
+	<div id="log-content" class="relative">
+		<div id="log-loading" class="htmx-indicator absolute inset-0 bg-white/75 dark:bg-secondary-800/75 flex items-center justify-center">
+			<i class="fas fa-spinner fa-spin text-primary-600 text-2xl"></i>
+		</div>
+		if data.CurrentLogFile == "" {
+			<div class="border border-secondary-200 dark:border-secondary-700 rounded p-4 text-secondary-600 dark:text-secondary-400 bg-secondary-50 dark:bg-secondary-900/30 text-center h-96 flex items-center justify-center">
+				<div>
+					<i class="fas fa-file-alt text-4xl mb-2"></i>
+					<p>Select a log file to view its contents</p>
+				</div>
+			</div>
+		} else {
+			<!-- Fixed height log content container with guaranteed scrollbars -->
+			<div class="log-content-container" style="height: 400px; border: 1px solid #ccc; border-radius: 0.375rem; position: relative;">
+				<!-- Standard scrollable div -->
+				<div id="log-content-text" class="p-4 h-full overflow-y-scroll bg-secondary-50 dark:bg-secondary-900/30 text-secondary-800 dark:text-secondary-200 text-sm font-mono whitespace-pre-wrap" style="scrollbar-width: thin;">
+					{ data.LogContent }
+				</div>
+				
+				<!-- Custom scrollbar -->
+				<div class="custom-scrollbar dark:bg-white dark:bg-opacity-10" style="position: absolute; right: 0; top: 0; width: 12px; height: 100%; background-color: rgba(0,0,0,0.05); border-radius: 0 0.375rem 0.375rem 0;">
+					<div class="scrollbar-thumb dark:bg-opacity-30 dark:bg-white" style="position: absolute; right: 0; width: 12px; background-color: rgba(0,0,0,0.3); border-radius: 6px; cursor: pointer; min-height: 40px;"></div>
+				</div>
+			</div>
+			
+			<script>
+				// Custom scrollbar implementation
+				(function() {
+					const content = document.getElementById('log-content-text');
+					const scrollThumb = document.querySelector('.scrollbar-thumb');
+					
+					// Initial position
+					updateScrollThumb();
+					
+					// Update scrollbar position when content is scrolled
+					content.addEventListener('scroll', updateScrollThumb);
+					
+					function updateScrollThumb() {
+						const scrollPercentage = content.scrollTop / (content.scrollHeight - content.clientHeight);
+						const thumbHeight = Math.max(40, (content.clientHeight / content.scrollHeight) * content.clientHeight);
+						const thumbTop = scrollPercentage * (content.clientHeight - thumbHeight);
+						
+						scrollThumb.style.height = thumbHeight + 'px';
+						scrollThumb.style.top = thumbTop + 'px';
+					}
+					
+					// Dragging the scrollbar
+					let isDragging = false;
+					let startY, startTop;
+					
+					scrollThumb.addEventListener('mousedown', function(e) {
+						isDragging = true;
+						startY = e.clientY;
+						startTop = parseInt(scrollThumb.style.top) || 0;
+						document.body.style.userSelect = 'none'; // Prevent text selection during drag
+					});
+					
+					document.addEventListener('mousemove', function(e) {
+						if (!isDragging) return;
+						
+						const deltaY = e.clientY - startY;
+						const newTop = Math.max(0, Math.min(content.clientHeight - scrollThumb.offsetHeight, startTop + deltaY));
+						scrollThumb.style.top = newTop + 'px';
+						
+						// Update scroll position
+						const scrollPercentage = newTop / (content.clientHeight - scrollThumb.offsetHeight);
+						content.scrollTop = scrollPercentage * (content.scrollHeight - content.clientHeight);
+					});
+					
+					document.addEventListener('mouseup', function() {
+						isDragging = false;
+						document.body.style.userSelect = '';
+					});
+					
+					// Auto-scroll to bottom
+					content.scrollTop = content.scrollHeight;
+				})();
+			</script>
+		}
+	</div>
 }

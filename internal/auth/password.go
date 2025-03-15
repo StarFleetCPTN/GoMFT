@@ -6,46 +6,46 @@ import (
 	"regexp"
 	"strings"
 	"time"
-	
+
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 // PasswordPolicy defines the requirements for password strength and management
 type PasswordPolicy struct {
-	MinLength         int           // Minimum password length
-	RequireUppercase  bool          // Require at least one uppercase letter
-	RequireLowercase  bool          // Require at least one lowercase letter
-	RequireNumbers    bool          // Require at least one number
-	RequireSpecial    bool          // Require at least one special character
-	ExpirationDays    int           // Number of days until password expires (0 = never)
-	HistoryCount      int           // Number of previous passwords to remember (0 = disabled)
-	DisallowCommon    bool          // Disallow common passwords
-	MaxLoginAttempts  int           // Maximum failed login attempts before lockout
-	LockoutDuration   time.Duration // Duration of account lockout after max failed attempts
+	MinLength        int           // Minimum password length
+	RequireUppercase bool          // Require at least one uppercase letter
+	RequireLowercase bool          // Require at least one lowercase letter
+	RequireNumbers   bool          // Require at least one number
+	RequireSpecial   bool          // Require at least one special character
+	ExpirationDays   int           // Number of days until password expires (0 = never)
+	HistoryCount     int           // Number of previous passwords to remember (0 = disabled)
+	DisallowCommon   bool          // Disallow common passwords
+	MaxLoginAttempts int           // Maximum failed login attempts before lockout
+	LockoutDuration  time.Duration // Duration of account lockout after max failed attempts
 }
 
 // PasswordHistory represents a historical password entry
 type PasswordHistory struct {
-	ID           uint      `gorm:"primarykey"`
-	UserID       uint      `gorm:"not null"`
-	PasswordHash string    `gorm:"not null"`
+	ID           uint   `gorm:"primarykey"`
+	UserID       uint   `gorm:"not null"`
+	PasswordHash string `gorm:"not null"`
 	CreatedAt    time.Time
 }
 
 // DefaultPasswordPolicy returns the default password policy
 func DefaultPasswordPolicy() PasswordPolicy {
 	return PasswordPolicy{
-		MinLength:         8,
-		RequireUppercase:  true,
-		RequireLowercase:  true,
-		RequireNumbers:    true,
-		RequireSpecial:    true,
-		ExpirationDays:    90,
-		HistoryCount:      5,
-		DisallowCommon:    true,
-		MaxLoginAttempts:  5,
-		LockoutDuration:   15 * time.Minute,
+		MinLength:        8,
+		RequireUppercase: true,
+		RequireLowercase: true,
+		RequireNumbers:   true,
+		RequireSpecial:   true,
+		ExpirationDays:   90,
+		HistoryCount:     5,
+		DisallowCommon:   true,
+		MaxLoginAttempts: 5,
+		LockoutDuration:  15 * time.Minute,
 	}
 }
 
@@ -127,7 +127,7 @@ func IsPasswordExpired(lastPasswordChange time.Time, policy PasswordPolicy) bool
 	if policy.ExpirationDays <= 0 {
 		return false
 	}
-	
+
 	expirationTime := lastPasswordChange.Add(time.Duration(policy.ExpirationDays) * 24 * time.Hour)
 	return time.Now().After(expirationTime)
 }
@@ -143,7 +143,7 @@ func UpdatePasswordHistory(userID uint, hashedPassword string, db *gorm.DB, poli
 		UserID:       userID,
 		PasswordHash: hashedPassword,
 	}
-	
+
 	if err := db.Create(&passwordHistory).Error; err != nil {
 		return err
 	}
@@ -151,13 +151,13 @@ func UpdatePasswordHistory(userID uint, hashedPassword string, db *gorm.DB, poli
 	// Trim history if needed
 	var count int64
 	db.Model(&PasswordHistory{}).Where("user_id = ?", userID).Count(&count)
-	
+
 	if count > int64(policy.HistoryCount) {
 		var oldestHistories []PasswordHistory
 		if err := db.Where("user_id = ?", userID).Order("created_at asc").Limit(int(count) - policy.HistoryCount).Find(&oldestHistories).Error; err != nil {
 			return err
 		}
-		
+
 		for _, history := range oldestHistories {
 			if err := db.Delete(&history).Error; err != nil {
 				return err
@@ -166,15 +166,6 @@ func UpdatePasswordHistory(userID uint, hashedPassword string, db *gorm.DB, poli
 	}
 
 	return nil
-}
-
-// HashPassword hashes a password using bcrypt
-func HashPassword(password string) (string, error) {
-	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return "", err
-	}
-	return string(hashedBytes), nil
 }
 
 // ComparePasswords compares a hashed password with a plain text password

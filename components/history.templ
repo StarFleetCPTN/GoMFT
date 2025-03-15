@@ -13,6 +13,7 @@ type HistoryData struct {
 	SearchTerm  string
 	PageSize    int
 	Total       int
+	Configs     map[uint]db.TransferConfig // Map of config IDs to configs for quick lookup
 }
 
 // min returns the smaller of x or y
@@ -21,6 +22,28 @@ func min(x, y int) int {
 		return x
 	}
 	return y
+}
+
+// getConfigNameForHistory returns the appropriate name for the config used in a job history entry
+func getConfigNameForHistory(history db.JobHistory, configs map[uint]db.TransferConfig) string {
+	// If ConfigID is set in the history record, use that to get the config name
+	if history.ConfigID > 0 {
+		if config, exists := configs[history.ConfigID]; exists {
+			return config.Name
+		}
+	}
+	
+	// Fallback to the Job's default Config if it exists
+	if history.Job.Config.ID > 0 {
+		return history.Job.Config.Name
+	}
+	
+	// If we can't determine the config name, show a default with the job name
+	if history.Job.Name != "" {
+		return fmt.Sprintf("%s (unknown config)", history.Job.Name)
+	}
+	
+	return "Unknown Configuration"
 }
 
 // HistoryContent renders only the content part of the history page for HTMX requests
@@ -47,7 +70,7 @@ templ HistoryContent(ctx context.Context, data HistoryData) {
 						<div class="px-4 py-4 sm:px-6">
 							<div class="flex items-center justify-between">
 								<div class="flex items-center">
-									<p class="text-sm font-medium text-primary-600 dark:text-primary-400 truncate">{ history.Job.Config.Name }</p>
+									<p class="text-sm font-medium text-primary-600 dark:text-primary-400 truncate">{ getConfigNameForHistory(history, data.Configs) }</p>
 									if history.Status == "completed" {
 										<span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300">
 											Completed

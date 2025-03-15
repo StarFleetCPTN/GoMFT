@@ -13,7 +13,7 @@ import (
 // HandleConfigs handles the GET /configs route
 func (h *Handlers) HandleConfigs(c *gin.Context) {
 	userID := c.GetUint("userID")
-	
+
 	var configs []db.TransferConfig
 	h.DB.Where("created_by = ?", userID).Find(&configs)
 
@@ -36,7 +36,7 @@ func (h *Handlers) HandleNewConfig(c *gin.Context) {
 func (h *Handlers) HandleEditConfig(c *gin.Context) {
 	id := c.Param("id")
 	userID := c.GetUint("userID")
-	
+
 	var config db.TransferConfig
 	if err := h.DB.First(&config, id).Error; err != nil {
 		c.Redirect(http.StatusFound, "/configs")
@@ -72,6 +72,16 @@ func (h *Handlers) HandleCreateConfig(c *gin.Context) {
 	userID := c.GetUint("userID")
 	config.CreatedBy = userID
 
+	// print entire form data
+	fmt.Println("Form data:", c.Request.Form)
+
+	// Process skipProcessedFiles value (now using pointer)
+	skipProcessedValue := c.Request.FormValue("skip_processed_files") == "true"
+	config.SkipProcessedFiles = &skipProcessedValue
+
+	fmt.Println("Skip processed files:", config.SkipProcessedFiles)
+	fmt.Println("Config:", config)
+
 	if err := h.DB.Create(&config).Error; err != nil {
 		log.Printf("Error creating config: %v", err)
 		c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to create config: %v", err))
@@ -93,7 +103,7 @@ func (h *Handlers) HandleCreateConfig(c *gin.Context) {
 func (h *Handlers) HandleUpdateConfig(c *gin.Context) {
 	id := c.Param("id")
 	userID := c.GetUint("userID")
-	
+
 	var config db.TransferConfig
 	if err := h.DB.First(&config, id).Error; err != nil {
 		log.Printf("Error finding config: %v", err)
@@ -121,6 +131,10 @@ func (h *Handlers) HandleUpdateConfig(c *gin.Context) {
 		return
 	}
 
+	// Process skipProcessedFiles value (now using pointer)
+	skipProcessedValue := c.Request.FormValue("skip_processed_files") == "true"
+	config.SkipProcessedFiles = &skipProcessedValue
+
 	// Preserve fields that shouldn't be updated
 	config.CreatedBy = oldConfig.CreatedBy
 
@@ -145,7 +159,7 @@ func (h *Handlers) HandleUpdateConfig(c *gin.Context) {
 func (h *Handlers) HandleDeleteConfig(c *gin.Context) {
 	id := c.Param("id")
 	userID := c.GetUint("userID")
-	
+
 	var config db.TransferConfig
 	if err := h.DB.First(&config, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Config not found"})
@@ -177,45 +191,4 @@ func (h *Handlers) HandleDeleteConfig(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Config deleted successfully"})
-}
-
-// HandleTestConnection handles the POST /configs/test route
-func (h *Handlers) HandleTestConnection(c *gin.Context) {
-	var config db.TransferConfig
-	if err := c.ShouldBind(&config); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid form data: %v", err)})
-		return
-	}
-
-	// TODO: Implement connection testing based on protocol
-	// This is a placeholder for the actual connection testing logic
-	success := true
-	message := "Connection successful"
-
-	// Example of how connection testing might work
-	switch config.SourceType {
-	case "sftp":
-		// Test SFTP connection
-		// success, message = testSFTPConnection(config)
-	default:
-		success = false
-		message = "Unsupported source type"
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": success,
-		"message": message,
-	})
-}
-
-// HandleTestSFTPConnection handles the test SFTP connection request
-func (h *Handlers) HandleTestSFTPConnection(c *gin.Context) {
-	// Implementation will be moved from the old handlers.go
-	c.JSON(http.StatusOK, gin.H{"message": "Test SFTP connection handler stub"})
-}
-
-// HandleBrowseDirectory handles the browse directory request
-func (h *Handlers) HandleBrowseDirectory(c *gin.Context) {
-	// Implementation will be moved from the old handlers.go
-	c.JSON(http.StatusOK, gin.H{"message": "Browse directory handler stub"})
 }

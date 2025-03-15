@@ -12,6 +12,7 @@ type DashboardData struct {
 	ActiveTransfers int
 	CompletedToday  int
 	FailedTransfers int
+	Configs         map[uint]db.TransferConfig
 }
 
 templ Dashboard(ctx context.Context, data DashboardData) {
@@ -113,7 +114,7 @@ templ Dashboard(ctx context.Context, data DashboardData) {
 													</div>
 													<div class="flex-1 min-w-0">
 														<p class="text-sm font-medium text-secondary-900 truncate dark:text-secondary-100">
-															{ job.Job.Config.Name }
+															{ getConfigNameForHistory(job, data.Configs) }
 														</p>
 														<div class="flex items-center mt-1">
 															<i class="fas fa-clock text-xs text-secondary-500 dark:text-secondary-400 mr-1"></i>

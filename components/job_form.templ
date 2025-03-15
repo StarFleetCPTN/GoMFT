@@ -26,8 +26,59 @@ func getJobTitle(isNew bool) string {
 	return "Edit Job"
 }
 
+// configSelected checks if a config ID is selected for a job
+func configSelected(job *db.Job, configID uint) bool {
+	if job.ConfigIDs != "" {
+		// If ConfigIDs is populated, only check against those IDs
+		for _, id := range job.GetConfigIDsList() {
+			if id == configID {
+				return true
+			}
+		}
+		return false
+	} else {
+		// If ConfigIDs is empty, fall back to checking the primary ConfigID
+		return job.ConfigID == configID
+	}
+}
+
+templ configSearchScript() {
+	<script>
+		document.addEventListener('DOMContentLoaded', () => {
+			// Handle search for new job form
+			const configSearch = document.getElementById('config-search');
+			if (configSearch) {
+				configSearch.addEventListener('input', (e) => {
+					const searchTerm = e.target.value.toLowerCase();
+					const configItems = document.querySelectorAll('#config-list .config-item');
+					
+					configItems.forEach(item => {
+						const name = item.getAttribute('data-name').toLowerCase();
+						item.style.display = name.includes(searchTerm) ? 'flex' : 'none';
+					});
+				});
+			}
+			
+			// Handle search for edit job form
+			const configSearchEdit = document.getElementById('config-search-edit');
+			if (configSearchEdit) {
+				configSearchEdit.addEventListener('input', (e) => {
+					const searchTerm = e.target.value.toLowerCase();
+					const configItems = document.querySelectorAll('#config-list-edit .config-item');
+					
+					configItems.forEach(item => {
+						const name = item.getAttribute('data-name').toLowerCase();
+						item.style.display = name.includes(searchTerm) ? 'flex' : 'none';
+					});
+				});
+			}
+		});
+	</script>
+}
+
 templ JobForm(ctx context.Context, data JobFormData) {
 	@LayoutWithContext(getJobFormTitle(data.IsNew), ctx) {
+		@configSearchScript()
 		<div class="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-secondary-50 dark:bg-secondary-900">
 			<div class="max-w-3xl w-full">
 				<div class="card overflow-hidden shadow-lg">
@@ -47,11 +98,7 @@ templ JobForm(ctx context.Context, data JobFormData) {
 								class="space-y-6" 
 								hx-post="/jobs"
 								hx-target="body"
-								hx-boost="true"
-								@htmx:before-request="loading = true"
-								@htmx:after-request="loading = false"
-								@htmx:response-error="$dispatch('notification', { message: 'Failed to create job: ' + event.detail.xhr.responseText, type: 'error' })"
-								x-data="{ name: '', configId: '', schedule: '', enabled: true, loading: false, validate() { return this.configId && this.schedule; } }">
+								hx-boost="true">
 								<div class="space-y-6">
 									<div>
 										<label for="name" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Job Name</label>
@@ -63,7 +110,6 @@ templ JobForm(ctx context.Context, data JobFormData) {
 												type="text" 
 												name="name" 
 												id="name" 
-												x-model="name" 
 												class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
 												placeholder="Daily Production Backup"/>
 										</div>
@@ -74,23 +120,51 @@ templ JobForm(ctx context.Context, data JobFormData) {
 									</div>
 								
 									<div>
-										<label for="config_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Transfer Configuration</label>
-										<div class="relative">
-											<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-												<i class="fas fa-cog text-secondary-400 dark:text-secondary-600"></i>
+										<label class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Transfer Configurations</label>
+										<div class="mt-2 border border-secondary-300 dark:border-secondary-700 rounded-md overflow-hidden">
+											<!-- Search box -->
+											<div class="px-3 py-2 border-b border-secondary-200 dark:border-secondary-700 bg-secondary-50 dark:bg-secondary-800">
+												<div class="relative">
+													<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+														<i class="fas fa-search text-secondary-400 dark:text-secondary-600"></i>
+													</div>
+													<input 
+														type="text" 
+														id="config-search" 
+														placeholder="Search configurations..." 
+														class="block w-full pl-10 pr-3 py-2 border border-secondary-300 dark:border-secondary-600 rounded-md leading-5 bg-white dark:bg-secondary-800 text-secondary-900 dark:text-secondary-100 placeholder-secondary-500 dark:placeholder-secondary-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" />
+												</div>
 											</div>
-											<select 
-												id="config_id" 
-												name="config_id" 
-												x-model="configId" 
-												required 
-												class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500">
-												<option value="">Select a configuration</option>
-												for _, config := range data.Configs {
-													<option value={ fmt.Sprint(config.ID) }>{ config.Name }</option>
+
+											<!-- Configuration checkboxes -->
+											<div class="max-h-48 overflow-y-auto py-2 px-3 bg-white dark:bg-secondary-900 divide-y divide-secondary-200 dark:divide-secondary-700" id="config-list">
+												if len(data.Configs) > 0 {
+													for _, config := range data.Configs {
+														<div class="config-item py-2 flex items-center" data-name={ config.Name }>
+															<input 
+																type="checkbox" 
+																name="config_ids[]" 
+																id={ fmt.Sprintf("config_%d", config.ID) }
+																value={ fmt.Sprint(config.ID) }
+																class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"
+															/>
+															<label for={ fmt.Sprintf("config_%d", config.ID) } class="ml-3 block font-medium text-secondary-700 dark:text-secondary-300 w-full cursor-pointer">
+																{ config.Name }
+															</label>
+														</div>
+													}
+												} else {
+													<div class="text-center py-4 text-secondary-500 dark:text-secondary-400">
+														No configurations available. <a href="/configs/new" class="text-primary-600 hover:text-primary-500">Create one</a>
+													</div>
 												}
-											</select>
+											</div>
 										</div>
+
+										<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
+											<i class="fas fa-info-circle mr-1"></i>
+											Select one or more configurations to run on this schedule.
+										</p>
 									</div>
 									
 									<div>
@@ -103,7 +177,6 @@ templ JobForm(ctx context.Context, data JobFormData) {
 												type="text" 
 												name="schedule" 
 												id="schedule" 
-												x-model="schedule" 
 												required 
 												class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
 												placeholder="*/15 * * * *"/>
@@ -119,16 +192,129 @@ templ JobForm(ctx context.Context, data JobFormData) {
 											<input 
 												type="checkbox" 
 												id="enabled" 
-												x-model="enabled" 
-												class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded" 
-												checked/>
-											<input type="hidden" name="enabled" :value="enabled.toString()"/>
+												name="enabled"
+												value="true"
+												checked
+												class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
 											<label for="enabled" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">Enable this job</label>
 										</div>
 										<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
 											<i class="fas fa-exclamation-triangle mr-1 text-amber-500"></i>
 											Disabled jobs will not run automatically.
 										</p>
+									</div>
+									
+									<!-- Webhook Notification Settings -->
+									<div class="border-t border-secondary-200 dark:border-secondary-700 pt-6 mt-6">
+										<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100 mb-4">
+											<i class="fas fa-bell mr-2 text-primary-500"></i> 
+											Webhook Notifications
+										</h3>
+										
+										<div class="space-y-4">
+											<div class="flex items-center">
+												<input 
+													type="checkbox" 
+													id="webhook_enabled" 
+													name="webhook_enabled"
+													value="true"
+													class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
+												<label for="webhook_enabled" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">
+													Enable webhook notifications
+												</label>
+											</div>
+											
+											<div class="pl-6 space-y-4">
+												<div>
+													<label for="webhook_url" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Webhook URL</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-link text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input 
+															type="url" 
+															name="webhook_url" 
+															id="webhook_url" 
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
+															placeholder="https://example.com/webhook"/>
+													</div>
+													<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">
+														<i class="fas fa-info-circle mr-1"></i>
+														The URL where notifications will be sent when jobs run
+													</p>
+												</div>
+
+												<div>
+													<label for="webhook_secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+														Webhook Secret <span class="text-secondary-500 dark:text-secondary-400">(optional)</span>
+													</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input 
+															type="password" 
+															name="webhook_secret" 
+															id="webhook_secret" 
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
+															placeholder="Secret token for signing requests"/>
+													</div>
+													<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">
+														<i class="fas fa-info-circle mr-1"></i>
+														Used to sign webhook payloads (X-Hub-Signature-256 header)
+													</p>
+												</div>
+												
+												<div>
+													<label for="webhook_headers" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+														Custom Headers <span class="text-secondary-500 dark:text-secondary-400">(optional)</span>
+													</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-code text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input 
+															type="text" 
+															name="webhook_headers" 
+															id="webhook_headers" 
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
+															placeholder='{"X-Custom-Header": "value"}'/>
+													</div>
+													<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">
+														<i class="fas fa-info-circle mr-1"></i>
+														Additional HTTP headers as JSON
+													</p>
+												</div>
+												
+												<div class="space-y-2">
+													<div class="flex items-center">
+														<input 
+															type="checkbox" 
+															id="notify_on_success" 
+															name="notify_on_success"
+															value="true"
+															checked
+															class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
+														<label for="notify_on_success" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">
+															Notify on successful jobs
+														</label>
+													</div>
+													
+													<div class="flex items-center">
+														<input 
+															type="checkbox" 
+															id="notify_on_failure" 
+															name="notify_on_failure"
+															value="true"
+															checked
+															class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
+														<label for="notify_on_failure" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">
+															Notify on failed jobs
+														</label>
+													</div>
+												</div>
+											</div>
+										</div>
 									</div>
 								</div>
 								
@@ -139,19 +325,9 @@ templ JobForm(ctx context.Context, data JobFormData) {
 									</a>
 									<button 
 										type="submit" 
-										class="btn-primary flex items-center justify-center px-4 py-2" 
-										x-bind:disabled="!validate() || loading">
-										<span x-show="!loading" class="flex items-center">
-											<i class="fas fa-plus mr-2"></i>
-											Create Job
-										</span>
-										<span x-show="loading" class="flex items-center">
-											<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-												<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-												<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-											</svg>
-											Processing...
-										</span>
+										class="btn-primary flex items-center justify-center px-4 py-2">
+										<i class="fas fa-plus mr-2"></i>
+										Create Job
 									</button>
 								</div>
 							</form>
@@ -160,11 +336,7 @@ templ JobForm(ctx context.Context, data JobFormData) {
 								class="space-y-6" 
 								hx-post={ fmt.Sprintf("/jobs/%d", data.Job.ID) }
 								hx-target="body"
-								hx-boost="true"
-								@htmx:before-request="loading = true"
-								@htmx:after-request="loading = false"
-								@htmx:response-error="$dispatch('notification', { message: 'Failed to update job: ' + event.detail.xhr.responseText, type: 'error' })"
-								x-data={ fmt.Sprintf("{ name: '%s', configId: '%d', schedule: '%s', enabled: %v, loading: false, validate() { return this.configId && this.schedule; } }", data.Job.Name, data.Job.ConfigID, data.Job.Schedule, data.Job.Enabled) }>
+								hx-boost="true">
 								<div class="space-y-6">
 									<div>
 										<label for="name" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Job Name</label>
@@ -176,7 +348,7 @@ templ JobForm(ctx context.Context, data JobFormData) {
 												type="text" 
 												name="name" 
 												id="name" 
-												x-model="name" 
+												value={ data.Job.Name }
 												class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
 												placeholder="Daily Production Backup"/>
 										</div>
@@ -185,25 +357,56 @@ templ JobForm(ctx context.Context, data JobFormData) {
 											Descriptive name for this job (optional). If not provided, the config name will be used.
 										</p>
 									</div>
-								
+									
 									<div>
-										<label for="config_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Transfer Configuration</label>
-										<div class="relative">
-											<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-												<i class="fas fa-cog text-secondary-400 dark:text-secondary-600"></i>
+										<label class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Transfer Configurations</label>
+										<div class="mt-2 border border-secondary-300 dark:border-secondary-700 rounded-md overflow-hidden">
+											<!-- Search box -->
+											<div class="px-3 py-2 border-b border-secondary-200 dark:border-secondary-700 bg-secondary-50 dark:bg-secondary-800">
+												<div class="relative">
+													<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+														<i class="fas fa-search text-secondary-400 dark:text-secondary-600"></i>
+													</div>
+													<input 
+														type="text" 
+														id="config-search-edit" 
+														placeholder="Search configurations..." 
+														class="block w-full pl-10 pr-3 py-2 border border-secondary-300 dark:border-secondary-600 rounded-md leading-5 bg-white dark:bg-secondary-800 text-secondary-900 dark:text-secondary-100 placeholder-secondary-500 dark:placeholder-secondary-400 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm" />
+												</div>
 											</div>
-											<select 
-												id="config_id" 
-												name="config_id" 
-												x-model="configId" 
-												required 
-												class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500">
-												<option value="">Select a configuration</option>
-												for _, config := range data.Configs {
-													<option value={ fmt.Sprint(config.ID) } if data.Job != nil && data.Job.ConfigID == config.ID { selected }>{ config.Name }</option>
+
+											<!-- Configuration checkboxes -->
+											<div class="max-h-48 overflow-y-auto py-2 px-3 bg-white dark:bg-secondary-900 divide-y divide-secondary-200 dark:divide-secondary-700" id="config-list-edit">
+												if len(data.Configs) > 0 {
+													for _, config := range data.Configs {
+														<div class="config-item py-2 flex items-center" data-name={ config.Name }>
+															<input 
+																type="checkbox" 
+																name="config_ids[]" 
+																id={ fmt.Sprintf("config_edit_%d", config.ID) }
+																value={ fmt.Sprint(config.ID) }
+																if configSelected(data.Job, config.ID) {
+																	checked
+																}
+																class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"
+															/>
+															<label for={ fmt.Sprintf("config_edit_%d", config.ID) } class="ml-3 block font-medium text-secondary-700 dark:text-secondary-300 w-full cursor-pointer">
+																{ config.Name }
+															</label>
+														</div>
+													}
+												} else {
+													<div class="text-center py-4 text-secondary-500 dark:text-secondary-400">
+														No configurations available. <a href="/configs/new" class="text-primary-600 hover:text-primary-500">Create one</a>
+													</div>
 												}
-											</select>
+											</div>
 										</div>
+
+										<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
+											<i class="fas fa-info-circle mr-1"></i>
+											Select one or more configurations to run on this schedule.
+										</p>
 									</div>
 									
 									<div>
@@ -216,7 +419,7 @@ templ JobForm(ctx context.Context, data JobFormData) {
 												type="text" 
 												name="schedule" 
 												id="schedule" 
-												x-model="schedule" 
+												value={ data.Job.Schedule }
 												required 
 												class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
 												placeholder="*/15 * * * *"/>
@@ -232,15 +435,141 @@ templ JobForm(ctx context.Context, data JobFormData) {
 											<input 
 												type="checkbox" 
 												id="enabled" 
-												x-model="enabled" 
+												name="enabled"
+												value="true"
+												if data.Job.Enabled {
+													checked
+												}
 												class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
-											<input type="hidden" name="enabled" :value="enabled.toString()"/>
 											<label for="enabled" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">Enable this job</label>
 										</div>
 										<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
 											<i class="fas fa-exclamation-triangle mr-1 text-amber-500"></i>
 											Disabled jobs will not run automatically.
 										</p>
+									</div>
+									
+									<!-- Webhook Notification Settings -->
+									<div class="border-t border-secondary-200 dark:border-secondary-700 pt-6 mt-6">
+										<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100 mb-4">
+											<i class="fas fa-bell mr-2 text-primary-500"></i> 
+											Webhook Notifications
+										</h3>
+										
+										<div class="space-y-4">
+											<div class="flex items-center">
+												<input 
+													type="checkbox" 
+													id="webhook_enabled" 
+													name="webhook_enabled"
+													value="true"
+													if data.Job.WebhookEnabled {
+														checked
+													}
+													class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
+												<label for="webhook_enabled" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">
+													Enable webhook notifications
+												</label>
+											</div>
+											
+											<div class="pl-6 space-y-4">
+												<div>
+													<label for="webhook_url" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Webhook URL</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-link text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input 
+															type="url" 
+															name="webhook_url" 
+															id="webhook_url" 
+															value={ data.Job.WebhookURL }
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
+															placeholder="https://example.com/webhook"/>
+													</div>
+													<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">
+														<i class="fas fa-info-circle mr-1"></i>
+														The URL where notifications will be sent when jobs run
+													</p>
+												</div>
+
+												<div>
+													<label for="webhook_secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+														Webhook Secret <span class="text-secondary-500 dark:text-secondary-400">(optional)</span>
+													</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input 
+															type="password" 
+															name="webhook_secret" 
+															id="webhook_secret" 
+															value={ data.Job.WebhookSecret }
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
+															placeholder="Secret token for signing requests"/>
+													</div>
+													<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">
+														<i class="fas fa-info-circle mr-1"></i>
+														Used to sign webhook payloads (X-Hub-Signature-256 header)
+													</p>
+												</div>
+												
+												<div>
+													<label for="webhook_headers" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+														Custom Headers <span class="text-secondary-500 dark:text-secondary-400">(optional)</span>
+													</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-code text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input 
+															type="text" 
+															name="webhook_headers" 
+															id="webhook_headers" 
+															value={ data.Job.WebhookHeaders }
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
+															placeholder='{"X-Custom-Header": "value"}'/>
+													</div>
+													<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">
+														<i class="fas fa-info-circle mr-1"></i>
+														Additional HTTP headers as JSON
+													</p>
+												</div>
+												
+												<div class="space-y-2">
+													<div class="flex items-center">
+														<input 
+															type="checkbox" 
+															id="notify_on_success" 
+															name="notify_on_success"
+															value="true"
+															if data.Job.NotifyOnSuccess {
+																checked
+															}
+															class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
+														<label for="notify_on_success" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">
+															Notify on successful jobs
+														</label>
+													</div>
+													
+													<div class="flex items-center">
+														<input 
+															type="checkbox" 
+															id="notify_on_failure" 
+															name="notify_on_failure"
+															value="true"
+															if data.Job.NotifyOnFailure {
+																checked
+															}
+															class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
+														<label for="notify_on_failure" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">
+															Notify on failed jobs
+														</label>
+													</div>
+												</div>
+											</div>
+										</div>
 									</div>
 								</div>
 								
@@ -251,19 +580,9 @@ templ JobForm(ctx context.Context, data JobFormData) {
 									</a>
 									<button 
 										type="submit" 
-										class="btn-primary flex items-center justify-center px-4 py-2" 
-										x-bind:disabled="!validate() || loading">
-										<span x-show="!loading" class="flex items-center">
-											<i class="fas fa-save mr-2"></i>
-											Save Changes
-										</span>
-										<span x-show="loading" class="flex items-center">
-											<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-												<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-												<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-											</svg>
-											Processing...
-										</span>
+										class="btn-primary flex items-center justify-center px-4 py-2">
+										<i class="fas fa-save mr-2"></i>
+										Save Changes
 									</button>
 								</div>
 							</form>
