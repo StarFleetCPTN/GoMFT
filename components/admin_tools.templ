@@ -521,6 +521,89 @@ templ AdminTools(ctx context.Context, data AdminToolsData) {
 				<div id="logs-container" class="mt-8">
 					@AdminLogViewer(data)
 				</div>
+
+				<!-- Webhook Documentation -->
+				<div class="mt-8">
+					<div class="card">
+						<div class="card-header">
+							<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100">
+								<i class="fas fa-bell mr-2 text-primary-500"></i>
+								Webhook Notifications
+							</h3>
+						</div>
+						<div class="card-body">
+							<p class="text-secondary-600 dark:text-secondary-400 mb-4">
+								GoMFT can send webhook notifications when jobs run. You can configure webhooks 
+								for individual jobs in the job edit form. Below is the format of the webhook payload:
+							</p>
+							
+							<div class="bg-secondary-50 dark:bg-secondary-900 p-4 rounded-lg overflow-auto font-mono text-sm">
+<pre>&#123;
+  "event_type": "job_execution",
+  "job_id": 123,
+  "job_name": "Daily Backup",
+  "config_id": 456,
+  "config_name": "Backup Config",
+  "status": "completed",
+  "start_time": "2023-06-18T15:30:45Z",
+  "end_time": "2023-06-18T15:35:12Z",
+  "duration_seconds": 267,
+  "history_id": 789,
+  "bytes_transferred": 1048576,
+  "files_transferred": 5,
+  "source": &#123;
+    "type": "local",
+    "path": "/path/to/source"
+  &#125;,
+  "destination": &#123;
+    "type": "s3",
+    "path": "bucket/path"
+  &#125;
+&#125;</pre>
+							</div>
+							
+							<h4 class="text-lg font-medium text-secondary-900 dark:text-secondary-100 mt-6 mb-2">Authentication</h4>
+							<p class="text-secondary-600 dark:text-secondary-400 mb-4">
+								When configuring a webhook, you can optionally provide a secret key. This will be used to sign
+								the webhook payload with HMAC-SHA256. The signature is provided in the <code>X-Hub-Signature-256</code> header.
+							</p>
+							
+							<h4 class="text-lg font-medium text-secondary-900 dark:text-secondary-100 mt-6 mb-2">HTTP Request Details</h4>
+							<div class="overflow-x-auto">
+								<table class="min-w-full">
+									<thead>
+										<tr>
+											<th class="text-left text-sm font-medium text-secondary-500 dark:text-secondary-400 pb-2">Property</th>
+											<th class="text-left text-sm font-medium text-secondary-500 dark:text-secondary-400 pb-2">Value</th>
+										</tr>
+									</thead>
+									<tbody class="divide-y divide-secondary-200 dark:divide-secondary-700">
+										<tr>
+											<td class="py-2 text-sm text-secondary-900 dark:text-secondary-100 font-medium">Method</td>
+											<td class="py-2 text-sm text-secondary-600 dark:text-secondary-400">POST</td>
+										</tr>
+										<tr>
+											<td class="py-2 text-sm text-secondary-900 dark:text-secondary-100 font-medium">Content-Type</td>
+											<td class="py-2 text-sm text-secondary-600 dark:text-secondary-400">application/json</td>
+										</tr>
+										<tr>
+											<td class="py-2 text-sm text-secondary-900 dark:text-secondary-100 font-medium">User-Agent</td>
+											<td class="py-2 text-sm text-secondary-600 dark:text-secondary-400">GoMFT-Webhook/1.0</td>
+										</tr>
+										<tr>
+											<td class="py-2 text-sm text-secondary-900 dark:text-secondary-100 font-medium">X-Hub-Signature-256</td>
+											<td class="py-2 text-sm text-secondary-600 dark:text-secondary-400">HMAC SHA256 signature (if secret configured)</td>
+										</tr>
+										<tr>
+											<td class="py-2 text-sm text-secondary-900 dark:text-secondary-100 font-medium">Custom Headers</td>
+											<td class="py-2 text-sm text-secondary-600 dark:text-secondary-400">Any additional headers specified in the job configuration</td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+				</div>
 			</div>
 		</div>
 	}

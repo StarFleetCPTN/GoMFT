@@ -954,7 +954,7 @@ func TestFileProcessingFullCycle(t *testing.T) {
 		SourcePath:         "/source",
 		DestinationType:    "local",
 		DestinationPath:    "/dest",
-		SkipProcessedFiles: true, // Instead of DuplicatePolicy
+		SkipProcessedFiles: boolPtr(true), // Use boolPtr instead of literal true
 		CreatedBy:          user.ID,
 	}
 	if err := database.DB.Create(config).Error; err != nil {
@@ -1306,4 +1306,9 @@ func TestScheduler_LoadMultiConfigJobs(t *testing.T) {
 	scheduler.jobMutex.Lock()
 	defer scheduler.jobMutex.Unlock()
 	assert.Equal(t, 3, len(scheduler.jobs), "Expected 3 jobs to be scheduled in the scheduler")
+}
+
+// Helper function to create a pointer to a bool value
+func boolPtr(b bool) *bool {
+	return &b
 }

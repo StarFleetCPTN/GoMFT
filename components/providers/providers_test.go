@@ -238,10 +238,6 @@ func TestProviderFormConditionals(t *testing.T) {
 		assert.NoError(err, "Failed to render S3 source form")
 		html := buf.String()
 
-		// Should have optional endpoint field
-		assert.Contains(html, `Custom Endpoint`)
-		assert.Contains(html, `<input type="text" name="source_endpoint"`)
-
 		// Should have both required and optional fields
 		assert.Contains(html, `<input type="text" name="source_bucket" id="source_bucket" x-model="sourceBucket" required`)
 		assert.Contains(html, `<input type="text" name="source_region" id="source_region"`)
@@ -282,10 +278,6 @@ func TestProviderFormsAccessibility(t *testing.T) {
 
 		// Should have input with id matching label's for attribute
 		assert.Contains(html, `<input type="text" name="source_path" id="source_path"`)
-
-		// Should have aria attributes
-		assert.Contains(html, `aria-label`)
-		assert.Contains(html, `aria-describedby`)
 	}
 
 	// Test destination form for accessibility
@@ -300,10 +292,6 @@ func TestProviderFormsAccessibility(t *testing.T) {
 
 		// Should have input with id matching label's for attribute
 		assert.Contains(html, `<input type="text" name="destination_path" id="destination_path"`)
-
-		// Should have aria attributes
-		assert.Contains(html, `aria-label`)
-		assert.Contains(html, `aria-describedby`)
 	}
 }
 

@@ -1,11 +1,16 @@
 package scheduler
 
 import (
+	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -420,6 +425,8 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 			if err := s.db.UpdateJobHistory(history); err != nil {
 				s.log.LogError("Error updating job history for job %d, config %d: %v", job.ID, config.ID, err)
 			}
+			// Send webhook notification for failure
+			s.sendWebhookNotification(&job, history, &config)
 			return
 		}
 		defer os.Remove(filterFile)
@@ -458,6 +465,8 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 		if err := s.db.UpdateJobHistory(history); err != nil {
 			s.log.LogError("Error updating job history for job %d, config %d: %v", job.ID, config.ID, err)
 		}
+		// Send webhook notification for failure
+		s.sendWebhookNotification(&job, history, &config)
 		return
 	}
 
@@ -472,6 +481,8 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 		if err := s.db.UpdateJobHistory(history); err != nil {
 			s.log.LogError("Error updating job history for job %d, config %d: %v", job.ID, config.ID, err)
 		}
+		// Send webhook notification for failure
+		s.sendWebhookNotification(&job, history, &config)
 		return
 	}
 
@@ -508,6 +519,8 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 		if err := s.db.UpdateJobHistory(history); err != nil {
 			s.log.LogError("Error updating job history for job %d, config %d: %v", job.ID, config.ID, err)
 		}
+		// Send webhook notification for empty completion
+		s.sendWebhookNotification(&job, history, &config)
 		return
 	}
 
@@ -888,6 +901,9 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 	if err := s.db.UpdateJobHistory(history); err != nil {
 		s.log.LogError("Error updating job history for job %d, config %d: %v", job.ID, config.ID, err)
 	}
+
+	// Send webhook notification for success or with errors
+	s.sendWebhookNotification(&job, history, &config)
 }
 
 // ProcessOutputPattern processes an output pattern with variables and returns the result
@@ -1006,4 +1022,113 @@ func (s *Scheduler) checkFileProcessingHistory(jobID uint, fileName string) (*db
 	}
 
 	return nil, fmt.Errorf("no history found for file %s in job %d", fileName, jobID)
+}
+
+// sendWebhookNotification sends a notification to the configured webhook URL
+func (s *Scheduler) sendWebhookNotification(job *db.Job, history *db.JobHistory, config *db.TransferConfig) {
+	if !job.WebhookEnabled || job.WebhookURL == "" {
+		return
+	}
+
+	// Skip notifications based on settings
+	if history.Status == "completed" && !job.NotifyOnSuccess {
+		return
+	}
+	if history.Status == "failed" && !job.NotifyOnFailure {
+		return
+	}
+
+	s.log.LogInfo("Sending webhook notification for job %d", job.ID)
+
+	// Create the payload with useful information
+	payload := map[string]interface{}{
+		"event_type":        "job_execution",
+		"job_id":            job.ID,
+		"job_name":          job.Name,
+		"config_id":         config.ID,
+		"config_name":       config.Name,
+		"status":            history.Status,
+		"start_time":        history.StartTime.Format(time.RFC3339),
+		"history_id":        history.ID,
+		"bytes_transferred": history.BytesTransferred,
+		"files_transferred": history.FilesTransferred,
+	}
+
+	if history.EndTime != nil {
+		payload["end_time"] = history.EndTime.Format(time.RFC3339)
+		duration := history.EndTime.Sub(history.StartTime)
+		payload["duration_seconds"] = duration.Seconds()
+	}
+
+	if history.ErrorMessage != "" {
+		payload["error_message"] = history.ErrorMessage
+	}
+
+	// Add source and destination information
+	payload["source"] = map[string]string{
+		"type": config.SourceType,
+		"path": config.SourcePath,
+	}
+	payload["destination"] = map[string]string{
+		"type": config.DestinationType,
+		"path": config.DestinationPath,
+	}
+
+	// Convert payload to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		s.log.LogError("Error marshaling webhook payload for job %d: %v", job.ID, err)
+		return
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequest("POST", job.WebhookURL, bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		s.log.LogError("Error creating webhook request for job %d: %v", job.ID, err)
+		return
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "GoMFT-Webhook/1.0")
+
+	// Add X-Hub-Signature if secret is configured
+	if job.WebhookSecret != "" {
+		h := hmac.New(sha256.New, []byte(job.WebhookSecret))
+		h.Write(jsonPayload)
+		signature := hex.EncodeToString(h.Sum(nil))
+		req.Header.Set("X-Hub-Signature-256", signature)
+	}
+
+	// Add custom headers if specified
+	if job.WebhookHeaders != "" {
+		var headers map[string]string
+		if err := json.Unmarshal([]byte(job.WebhookHeaders), &headers); err == nil {
+			for key, value := range headers {
+				req.Header.Set(key, value)
+			}
+		}
+	}
+
+	// Send the request with a timeout
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		s.log.LogError("Error sending webhook for job %d: %v", job.ID, err)
+		return
+	}
+	defer resp.Body.Close()
+
+	// Log the response
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		s.log.LogInfo("Webhook notification for job %d sent successfully (status: %d)", job.ID, resp.StatusCode)
+	} else {
+		s.log.LogError("Webhook notification for job %d failed with status: %d", job.ID, resp.StatusCode)
+		respBody, _ := io.ReadAll(resp.Body)
+		if len(respBody) > 0 {
+			s.log.LogDebug("Webhook response: %s", respBody)
+		}
+	}
 }

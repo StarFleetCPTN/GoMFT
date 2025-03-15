@@ -203,6 +203,119 @@ templ JobForm(ctx context.Context, data JobFormData) {
 											Disabled jobs will not run automatically.
 										</p>
 									</div>
+									
+									<!-- Webhook Notification Settings -->
+									<div class="border-t border-secondary-200 dark:border-secondary-700 pt-6 mt-6">
+										<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100 mb-4">
+											<i class="fas fa-bell mr-2 text-primary-500"></i> 
+											Webhook Notifications
+										</h3>
+										
+										<div class="space-y-4">
+											<div class="flex items-center">
+												<input 
+													type="checkbox" 
+													id="webhook_enabled" 
+													name="webhook_enabled"
+													value="true"
+													class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
+												<label for="webhook_enabled" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">
+													Enable webhook notifications
+												</label>
+											</div>
+											
+											<div class="pl-6 space-y-4">
+												<div>
+													<label for="webhook_url" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Webhook URL</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-link text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input 
+															type="url" 
+															name="webhook_url" 
+															id="webhook_url" 
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
+															placeholder="https://example.com/webhook"/>
+													</div>
+													<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">
+														<i class="fas fa-info-circle mr-1"></i>
+														The URL where notifications will be sent when jobs run
+													</p>
+												</div>
+
+												<div>
+													<label for="webhook_secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+														Webhook Secret <span class="text-secondary-500 dark:text-secondary-400">(optional)</span>
+													</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input 
+															type="password" 
+															name="webhook_secret" 
+															id="webhook_secret" 
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
+															placeholder="Secret token for signing requests"/>
+													</div>
+													<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">
+														<i class="fas fa-info-circle mr-1"></i>
+														Used to sign webhook payloads (X-Hub-Signature-256 header)
+													</p>
+												</div>
+												
+												<div>
+													<label for="webhook_headers" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+														Custom Headers <span class="text-secondary-500 dark:text-secondary-400">(optional)</span>
+													</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-code text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input 
+															type="text" 
+															name="webhook_headers" 
+															id="webhook_headers" 
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
+															placeholder='{"X-Custom-Header": "value"}'/>
+													</div>
+													<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">
+														<i class="fas fa-info-circle mr-1"></i>
+														Additional HTTP headers as JSON
+													</p>
+												</div>
+												
+												<div class="space-y-2">
+													<div class="flex items-center">
+														<input 
+															type="checkbox" 
+															id="notify_on_success" 
+															name="notify_on_success"
+															value="true"
+															checked
+															class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
+														<label for="notify_on_success" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">
+															Notify on successful jobs
+														</label>
+													</div>
+													
+													<div class="flex items-center">
+														<input 
+															type="checkbox" 
+															id="notify_on_failure" 
+															name="notify_on_failure"
+															value="true"
+															checked
+															class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
+														<label for="notify_on_failure" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">
+															Notify on failed jobs
+														</label>
+													</div>
+												</div>
+											</div>
+										</div>
+									</div>
 								</div>
 								
 								<div class="pt-5 flex justify-end space-x-3">
@@ -334,6 +447,129 @@ templ JobForm(ctx context.Context, data JobFormData) {
 											<i class="fas fa-exclamation-triangle mr-1 text-amber-500"></i>
 											Disabled jobs will not run automatically.
 										</p>
+									</div>
+									
+									<!-- Webhook Notification Settings -->
+									<div class="border-t border-secondary-200 dark:border-secondary-700 pt-6 mt-6">
+										<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100 mb-4">
+											<i class="fas fa-bell mr-2 text-primary-500"></i> 
+											Webhook Notifications
+										</h3>
+										
+										<div class="space-y-4">
+											<div class="flex items-center">
+												<input 
+													type="checkbox" 
+													id="webhook_enabled" 
+													name="webhook_enabled"
+													value="true"
+													if data.Job.WebhookEnabled {
+														checked
+													}
+													class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
+												<label for="webhook_enabled" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">
+													Enable webhook notifications
+												</label>
+											</div>
+											
+											<div class="pl-6 space-y-4">
+												<div>
+													<label for="webhook_url" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Webhook URL</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-link text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input 
+															type="url" 
+															name="webhook_url" 
+															id="webhook_url" 
+															value={ data.Job.WebhookURL }
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
+															placeholder="https://example.com/webhook"/>
+													</div>
+													<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">
+														<i class="fas fa-info-circle mr-1"></i>
+														The URL where notifications will be sent when jobs run
+													</p>
+												</div>
+
+												<div>
+													<label for="webhook_secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+														Webhook Secret <span class="text-secondary-500 dark:text-secondary-400">(optional)</span>
+													</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input 
+															type="password" 
+															name="webhook_secret" 
+															id="webhook_secret" 
+															value={ data.Job.WebhookSecret }
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
+															placeholder="Secret token for signing requests"/>
+													</div>
+													<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">
+														<i class="fas fa-info-circle mr-1"></i>
+														Used to sign webhook payloads (X-Hub-Signature-256 header)
+													</p>
+												</div>
+												
+												<div>
+													<label for="webhook_headers" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+														Custom Headers <span class="text-secondary-500 dark:text-secondary-400">(optional)</span>
+													</label>
+													<div class="relative">
+														<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+															<i class="fas fa-code text-secondary-400 dark:text-secondary-600"></i>
+														</div>
+														<input 
+															type="text" 
+															name="webhook_headers" 
+															id="webhook_headers" 
+															value={ data.Job.WebhookHeaders }
+															class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500" 
+															placeholder='{"X-Custom-Header": "value"}'/>
+													</div>
+													<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">
+														<i class="fas fa-info-circle mr-1"></i>
+														Additional HTTP headers as JSON
+													</p>
+												</div>
+												
+												<div class="space-y-2">
+													<div class="flex items-center">
+														<input 
+															type="checkbox" 
+															id="notify_on_success" 
+															name="notify_on_success"
+															value="true"
+															if data.Job.NotifyOnSuccess {
+																checked
+															}
+															class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
+														<label for="notify_on_success" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">
+															Notify on successful jobs
+														</label>
+													</div>
+													
+													<div class="flex items-center">
+														<input 
+															type="checkbox" 
+															id="notify_on_failure" 
+															name="notify_on_failure"
+															value="true"
+															if data.Job.NotifyOnFailure {
+																checked
+															}
+															class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
+														<label for="notify_on_failure" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">
+															Notify on failed jobs
+														</label>
+													</div>
+												</div>
+											</div>
+										</div>
 									</div>
 								</div>
 								

@@ -122,10 +122,17 @@ type Job struct {
 	Enabled   bool           `gorm:"default:true" form:"enabled"`
 	LastRun   *time.Time
 	NextRun   *time.Time
-	CreatedBy uint
-	User      User `gorm:"foreignkey:CreatedBy"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	// Webhook notification fields
+	WebhookEnabled  bool   `gorm:"default:false" form:"webhook_enabled"`
+	WebhookURL      string `form:"webhook_url"`
+	WebhookSecret   string `form:"webhook_secret"`
+	WebhookHeaders  string `form:"webhook_headers"` // JSON-encoded headers
+	NotifyOnSuccess bool   `gorm:"default:true" form:"notify_on_success"`
+	NotifyOnFailure bool   `gorm:"default:true" form:"notify_on_failure"`
+	CreatedBy       uint
+	User            User `gorm:"foreignkey:CreatedBy"`
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 // GetConfigIDsList returns the list of config IDs as integers

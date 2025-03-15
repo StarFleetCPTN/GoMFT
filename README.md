@@ -27,6 +27,9 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
 ![User Management](screenshots/user.management.gomft.png)
 *Create user accounts and manage them*
 
+### Admin Tools
+![Admin Tools](screenshots/admin.tools.gomft.png)
+*Admin dashboard with log viewer and system management tools*
 
 ## Features
 
@@ -40,6 +43,12 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
   - SMB/CIFS shares
   - Local filesystem
   - And more via rclone
+- **Webhook Notifications**: Receive real-time notifications of job events:
+  - Configurable webhook URLs
+  - HMAC-SHA256 authentication with secrets
+  - Custom HTTP headers
+  - Selectable events (job success, job failure)
+  - Detailed JSON payload with job information
 - **Scheduled Transfers**: Configure transfers using cron expressions with flexible scheduling options
 - **Transfer Monitoring**: Real-time status updates and detailed transfer logs with bytes and files transferred statistics
 - **File Metadata Tracking**: Complete history and status of all transferred files with detailed information:
@@ -280,13 +289,29 @@ Log files contain detailed information about file transfers, job execution, and 
    - Check detailed transfer history with performance metrics
    - View job run details including any error messages
 
-7. Manage file metadata:
+7. Configure webhook notifications:
+   - Enable webhooks in job settings to receive notifications
+   - Provide a valid webhook URL where notifications will be sent
+   - Optionally set a webhook secret for HMAC-SHA256 signature verification
+   - Configure custom HTTP headers in JSON format if needed
+   - Choose notification triggers (job success, job failure, or both)
+   - Test your webhook integration with manual job runs
+
+8. Manage file metadata:
    - Navigate to the "Files" section to view all processed files
    - Use filters to quickly find files by status, job ID, or filename
    - Click on any file to view detailed metadata including timestamps, size, and hash
    - Use the advanced search page for complex queries with multiple criteria
    - Delete file metadata records when no longer needed
    - View files associated with specific jobs by navigating from the job details
+
+9. Utilize admin tools (administrators only):
+   - Access the "Admin Tools" section from the navigation menu
+   - View system statistics and server information
+   - Create and manage database backups
+   - Browse and download system log files with the integrated log viewer
+   - Perform database maintenance and optimization tasks
+   - View webhook documentation and integration details
 
 ### User Management
 
@@ -310,7 +335,6 @@ User management features:
    - Local filesystem
    - Amazon S3
    - MinIO (S3-compatible storage)
-   - Backblaze B2
    - SFTP
    - FTP
    - SMB/CIFS shares
@@ -344,6 +368,14 @@ User management features:
    - Manual execution
    - Enable/disable schedules
 
+6. **Webhook Notifications**:
+   - **Webhook Integration**: Send notifications to external systems when jobs complete
+   - **Secure Authentication**: HMAC-SHA256 signature for webhook verification
+   - **Custom Headers**: Add custom HTTP headers to webhook requests
+   - **Flexible Configuration**: Configure different webhooks for different jobs
+   - **Event Selection**: Choose to send notifications on success, failure, or both
+   - **Detailed Payload**: Rich JSON payload with complete job execution details
+
 ### Email Notifications
 
 GoMFT supports email notifications for various features:
@@ -361,6 +393,87 @@ To configure email functionality:
 1. Edit the `.env` file and provide your SMTP server details
 2. Set `EMAIL_ENABLED=true` in the email configuration section
 3. Ensure the `BASE_URL` setting is configured correctly for your deployment
+
+### Webhook Integration
+
+GoMFT can send webhook notifications to external systems when jobs complete. This allows integration with monitoring tools, chat applications, custom notification systems, or workflow automation platforms.
+
+#### Webhook Payload Structure
+
+Webhook notifications are sent as HTTP POST requests with a JSON payload containing detailed information about the job execution:
+
+```json
+{
+  "event_type": "job_execution",
+  "job_id": 123,
+  "job_name": "Daily Backup",
+  "config_id": 456,
+  "config_name": "S3 to Local Backup",
+  "status": "completed",
+  "start_time": "2023-07-14T15:30:00Z",
+  "end_time": "2023-07-14T15:35:42Z",
+  "duration_seconds": 342,
+  "bytes_transferred": 1048576,
+  "files_transferred": 25,
+  "history_id": 789,
+  "source": {
+    "type": "s3",
+    "path": "my-bucket/data"
+  },
+  "destination": {
+    "type": "local",
+    "path": "/backups/data"
+  }
+}
+```
+
+For failed transfers, additional error information is included:
+
+```json
+{
+  "status": "failed",
+  "error_message": "Permission denied accessing destination path"
+}
+```
+
+#### Webhook Authentication
+
+When a webhook secret is configured, GoMFT signs the payload using HMAC-SHA256 and includes the signature in the `X-Hub-Signature-256` header. To verify the webhook:
+
+1. Compute the HMAC-SHA256 of the raw request body using your shared secret
+2. Compare it with the value in the `X-Hub-Signature-256` header
+3. Process the webhook only if the signatures match
+
+This ensures that webhook requests are authentic and haven't been tampered with.
+
+### Admin Tools
+
+GoMFT provides a comprehensive set of administrative tools for system management and monitoring:
+
+#### Log Viewer
+
+The Admin Tools panel includes an integrated log viewer with the following features:
+
+- **Log File Browser**: View a list of all available log files in the system
+- **Real-time Log Viewing**: View log file contents directly in the web interface
+- **Refresh Function**: Update the log list and content with the latest information
+- **User-friendly Interface**: Clean, readable presentation with custom scrolling
+- **Dark Mode Support**: Consistent theming with the rest of the application
+- **Navigation**: Easily switch between different log files
+
+This log viewer allows administrators to:
+- Monitor system activity and diagnose issues without requiring server access
+- View application logs, scheduler logs, and transfer logs in one place
+- Track down errors and warning messages in real-time
+
+#### Database Management
+
+The Admin Tools interface also includes database management capabilities:
+- Create and manage database backups
+- Restore from previous backups
+- Download backups for safekeeping
+- View system statistics
+- Optimize the database with maintenance tools
 
 ## Development
 
