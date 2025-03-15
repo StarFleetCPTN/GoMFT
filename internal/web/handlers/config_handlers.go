@@ -72,15 +72,9 @@ func (h *Handlers) HandleCreateConfig(c *gin.Context) {
 	userID := c.GetUint("userID")
 	config.CreatedBy = userID
 
-	// print entire form data
-	fmt.Println("Form data:", c.Request.Form)
-
 	// Process skipProcessedFiles value (now using pointer)
 	skipProcessedValue := c.Request.FormValue("skip_processed_files") == "true"
 	config.SkipProcessedFiles = &skipProcessedValue
-
-	fmt.Println("Skip processed files:", config.SkipProcessedFiles)
-	fmt.Println("Config:", config)
 
 	if err := h.DB.Create(&config).Error; err != nil {
 		log.Printf("Error creating config: %v", err)
