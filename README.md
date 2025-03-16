@@ -6,14 +6,9 @@
 
 GoMFT is a web-based managed file transfer application built with Go, leveraging rclone for robust file transfer capabilities. It provides a user-friendly interface for configuring, scheduling, and monitoring file transfers across various storage providers.
 
-<div style="background-color: #fff3e0; border-left: 4px solid #ff9800; padding: 1rem; margin: 1rem 0;">
-  <p style="margin: 0; display: flex; align-items: center; color: #e65100;">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" style="margin-right: 0.5rem; fill: currentColor;">
-      <path d="M12 2L1 21h22M12 6l7.53 13H4.47M11 10v4h2v-4m-2 6v2h2v-2" />
-    </svg>
-    <strong>WARNING:</strong>&nbsp;GoMFT is in active development and configuration may change often. Please make sure to carefully read the release notes before updating.
-  </p>
-</div>
+> [!WARNING]  
+> This application is actively under development. As such, any aspect of the application—including configurations, data structures, and database fields—may change rapidly and without prior notice. Please review all release notes thoroughly before updating.
+
 
 ## Screenshots
 
