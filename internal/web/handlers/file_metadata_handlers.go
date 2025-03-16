@@ -16,6 +16,10 @@ type FileMetadataHandler struct {
 	DB *db.DB
 }
 
+type UserIDKey string
+
+const userIDKey UserIDKey = "userID"
+
 // ListFileMetadata displays a list of file metadata with pagination and filtering options
 func (h *FileMetadataHandler) ListFileMetadata(c *gin.Context) {
 	userID := c.GetUint("userID")
@@ -322,9 +326,6 @@ func (h *FileMetadataHandler) SearchFileMetadata(c *gin.Context) {
 		return
 	}
 
-	// Create context for template
-	ctx := components.CreateTemplateContext(c)
-
 	// Render the file metadata search template
 	data := components.FileMetadataSearchData{
 		Files:      fileMetadata,
@@ -348,7 +349,7 @@ func (h *FileMetadataHandler) SearchFileMetadata(c *gin.Context) {
 	}
 
 	// Add HTMX request checking and conditional rendering
-	ctx = context.WithValue(c.Request.Context(), "userID", userID)
+	ctx := context.WithValue(c.Request.Context(), userIDKey, userID)
 
 	// Check if this is an HTMX request
 	isHtmxRequest := c.GetHeader("HX-Request") == "true" || c.Query("htmx") == "true"
@@ -626,7 +627,7 @@ func (h *FileMetadataHandler) HandleFileMetadataSearchPartial(c *gin.Context) {
 		data.TotalPages++
 	}
 
-	ctx := context.WithValue(c.Request.Context(), "userID", userID)
+	ctx := context.WithValue(c.Request.Context(), userIDKey, userID)
 	c.Header("Content-Type", "text/html")
 	components.FileMetadataSearchContent(data).Render(ctx, c.Writer)
 }

@@ -57,12 +57,12 @@ func TestWebhookConfiguration(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify webhook settings were saved correctly
-	assert.True(t, job.WebhookEnabled)
+	assert.True(t, job.GetWebhookEnabled())
 	assert.Equal(t, "https://example.com/webhook", job.WebhookURL)
 	assert.Equal(t, "test-secret", job.WebhookSecret)
 	assert.Equal(t, `{"X-Test-Header": "test-value"}`, job.WebhookHeaders)
-	assert.True(t, job.NotifyOnSuccess)
-	assert.True(t, job.NotifyOnFailure)
+	assert.True(t, job.GetNotifyOnSuccess())
+	assert.True(t, job.GetNotifyOnFailure())
 }
 
 // TestWebhookEditConfiguration tests editing webhook configuration
@@ -75,8 +75,8 @@ func TestWebhookEditConfiguration(t *testing.T) {
 		Name:           "Initial Job",
 		ConfigID:       config.ID,
 		Schedule:       "*/30 * * * *",
-		Enabled:        true,
-		WebhookEnabled: false, // Initially disabled
+		Enabled:        BoolPtr(true),
+		WebhookEnabled: BoolPtr(false), // Initially disabled
 		CreatedBy:      user.ID,
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
@@ -116,12 +116,12 @@ func TestWebhookEditConfiguration(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify webhook settings were updated correctly
-	assert.True(t, updatedJob.WebhookEnabled)
+	assert.True(t, updatedJob.GetWebhookEnabled())
 	assert.Equal(t, "https://example.com/webhook", updatedJob.WebhookURL)
 	assert.Equal(t, "new-secret", updatedJob.WebhookSecret)
 	assert.Equal(t, `{"X-Api-Key": "12345"}`, updatedJob.WebhookHeaders)
-	assert.True(t, updatedJob.NotifyOnSuccess)
-	assert.False(t, updatedJob.NotifyOnFailure)
+	assert.True(t, updatedJob.GetNotifyOnSuccess())
+	assert.False(t, updatedJob.GetNotifyOnFailure())
 }
 
 // TestDisablingWebhook tests disabling a previously enabled webhook
@@ -134,13 +134,13 @@ func TestDisablingWebhook(t *testing.T) {
 		Name:            "Webhook Enabled Job",
 		ConfigID:        config.ID,
 		Schedule:        "*/30 * * * *",
-		Enabled:         true,
-		WebhookEnabled:  true,
+		Enabled:         BoolPtr(true),
+		WebhookEnabled:  BoolPtr(true),
 		WebhookURL:      "https://example.com/webhook",
 		WebhookSecret:   "secret",
 		WebhookHeaders:  `{"X-Test": "test"}`,
-		NotifyOnSuccess: true,
-		NotifyOnFailure: true,
+		NotifyOnSuccess: BoolPtr(true),
+		NotifyOnFailure: BoolPtr(true),
 		CreatedBy:       user.ID,
 		CreatedAt:       time.Now(),
 		UpdatedAt:       time.Now(),
@@ -178,7 +178,7 @@ func TestDisablingWebhook(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify webhook was disabled
-	assert.False(t, updatedJob.WebhookEnabled)
+	assert.False(t, updatedJob.GetWebhookEnabled())
 
 	// Other fields should remain unchanged
 	assert.Equal(t, "https://example.com/webhook", updatedJob.WebhookURL)
@@ -240,4 +240,8 @@ func TestWebhookValidation(t *testing.T) {
 	// Should not create job with invalid headers JSON
 	assert.NotEqual(t, http.StatusFound, resp.Code)
 	assert.Contains(t, resp.Body.String(), "valid JSON")
+}
+
+func BoolPtr(b bool) *bool {
+	return &b
 }

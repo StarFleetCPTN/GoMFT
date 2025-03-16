@@ -3,6 +3,7 @@ package db
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -134,4 +135,117 @@ func TestGenerateRcloneConfigWithoutRclone(t *testing.T) {
 			t.Logf("Local destination type might not error")
 		}
 	}
+}
+
+func TestGoogleDriveRcloneConfig(t *testing.T) {
+	// Skip if rclone not available
+	rclonePath := os.Getenv("RCLONE_PATH")
+	if rclonePath == "" {
+		rclonePath = "rclone" // default to PATH lookup
+	}
+	_, err := exec.Command(rclonePath, "--version").CombinedOutput()
+	if err != nil {
+		t.Skip("Skipping test as rclone is not available")
+	}
+
+	db := setupTestDB(t)
+
+	// Create a test user
+	testUser := &User{
+		Email:              fmt.Sprintf("google-rclone-test-%d@example.com", time.Now().UnixNano()),
+		PasswordHash:       "hashed_password",
+		LastPasswordChange: time.Now(),
+	}
+	err = db.CreateUser(testUser)
+	if err != nil {
+		t.Fatalf("Failed to create user: %v", err)
+	}
+
+	// Create Google Drive source config
+	googleSourceConfig := &TransferConfig{
+		Name:               "Google Drive Source Rclone Test",
+		SourceType:         "google_drive",
+		SourcePath:         "/path/in/google/drive",
+		SourceClientID:     "source_google_client_id",
+		SourceClientSecret: "source_google_client_secret",
+		SourceTeamDrive:    "source_team_drive_id",
+		DestinationType:    "local",
+		DestinationPath:    "/local/destination/path",
+		FilePattern:        "*.pdf",
+		CreatedBy:          testUser.ID,
+	}
+
+	// Set authenticated status
+	authenticated := true
+	googleSourceConfig.GoogleDriveAuthenticated = &authenticated
+
+	// Create the config
+	err = db.CreateTransferConfig(googleSourceConfig)
+	assert.NoError(t, err)
+
+	err = db.GenerateRcloneConfigWithToken(googleSourceConfig, "test_token")
+	assert.NoError(t, err)
+
+	// Generate rclone config for source
+	configPath := db.GetConfigRclonePath(googleSourceConfig)
+
+	// Check that the file exists
+	_, err = os.Stat(configPath)
+	assert.NoError(t, err, "Rclone config file should exist")
+
+	// Read the config file
+	configContent, err := os.ReadFile(configPath)
+	assert.NoError(t, err)
+	content := string(configContent)
+
+	// Verify it contains Google Drive specific content
+	assert.Contains(t, content, "type = drive")
+	assert.Contains(t, content, fmt.Sprintf("client_id = %s", googleSourceConfig.SourceClientID))
+	assert.Contains(t, content, "source")
+	assert.Contains(t, content, fmt.Sprintf("team_drive = %s", googleSourceConfig.SourceTeamDrive))
+
+	// Create Google Drive destination config
+	googleDestConfig := &TransferConfig{
+		Name:             "Google Drive Dest Rclone Test",
+		SourceType:       "local",
+		SourcePath:       "/local/source/path",
+		DestinationType:  "google_drive",
+		DestinationPath:  "/dest/path/in/google/drive",
+		DestClientID:     "dest_google_client_id",
+		DestClientSecret: "dest_google_client_secret",
+		DestTeamDrive:    "dest_team_drive_id",
+		FilePattern:      "*.pdf",
+		CreatedBy:        testUser.ID,
+	}
+
+	// Set authenticated status
+	googleDestConfig.GoogleDriveAuthenticated = &authenticated
+
+	// Create the config
+	err = db.CreateTransferConfig(googleDestConfig)
+	assert.NoError(t, err)
+
+	// Generate rclone config for destination
+	configPath = db.GetConfigRclonePath(googleDestConfig)
+
+	// Check that the file exists
+	_, err = os.Stat(configPath)
+	assert.NoError(t, err, "Rclone config file should exist")
+
+	// Read the config file
+	configContent, err = os.ReadFile(configPath)
+	assert.NoError(t, err)
+	content = string(configContent)
+
+	// Verify it contains Google Drive specific content
+	assert.Contains(t, content, "type = drive")
+	assert.Contains(t, content, fmt.Sprintf("client_id = %s", googleDestConfig.DestClientID))
+	assert.Contains(t, content, "dest")
+	assert.Contains(t, content, fmt.Sprintf("team_drive = %s", googleDestConfig.DestTeamDrive))
+
+	// Clean up
+	err = db.Delete(&googleSourceConfig).Error
+	assert.NoError(t, err)
+	err = db.Delete(&googleDestConfig).Error
+	assert.NoError(t, err)
 }

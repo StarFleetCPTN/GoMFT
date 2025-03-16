@@ -57,9 +57,9 @@ func (h *Handlers) HandleCreateUser(c *gin.Context) {
 	user := db.User{
 		Email:              email,
 		PasswordHash:       string(hashedPassword),
-		IsAdmin:            isAdmin,
 		LastPasswordChange: time.Now(),
 	}
+	user.SetIsAdmin(isAdmin)
 
 	if err := h.DB.Create(&user).Error; err != nil {
 		c.String(http.StatusInternalServerError, "Failed to create user")
@@ -130,21 +130,22 @@ func (h *Handlers) HandleRegister(c *gin.Context) {
 		return
 	}
 
-	// Create the admin user
+	// Create the user
 	user := db.User{
 		Email:              email,
 		PasswordHash:       string(hashedPassword),
-		IsAdmin:            true,
 		LastPasswordChange: time.Now(),
 	}
+	// Set as regular user (not admin)
+	user.SetIsAdmin(false)
 
 	if err := h.DB.Create(&user).Error; err != nil {
 		c.String(http.StatusInternalServerError, "Failed to create user")
 		return
 	}
 
-	// Generate JWT
-	token, err := h.GenerateJWT(user.ID, user.Email, user.IsAdmin)
+	// Generate JWT token
+	token, err := h.GenerateJWT(user.ID, user.Email, user.GetIsAdmin())
 	if err != nil {
 		c.String(http.StatusInternalServerError, "Failed to generate token")
 		return

@@ -26,7 +26,7 @@ func setupAPITest(t *testing.T) (*Handlers, *gin.Engine, *db.DB, *db.User) {
 	user := &db.User{
 		Email:              "test@example.com",
 		PasswordHash:       string(hashedPassword),
-		IsAdmin:            false,
+		IsAdmin:            BoolPtr(false),
 		LastPasswordChange: time.Now(),
 	}
 	database.Create(user)
@@ -52,10 +52,7 @@ func setupAuthenticatedAPITest(t *testing.T, isAdmin bool) (*Handlers, *gin.Engi
 	handlers, router, database, user := setupAPITest(t)
 
 	// Update user admin status if needed
-	if isAdmin != user.IsAdmin {
-		user.IsAdmin = isAdmin
-		database.Save(user)
-	}
+	user.SetIsAdmin(isAdmin)
 
 	// Set up authentication middleware
 	router.Use(func(c *gin.Context) {
@@ -162,7 +159,7 @@ func TestHandleAPIConfigs(t *testing.T) {
 	otherUser := &db.User{
 		Email:              "other@example.com",
 		PasswordHash:       "hashedpassword",
-		IsAdmin:            false,
+		IsAdmin:            BoolPtr(false),
 		LastPasswordChange: time.Now(),
 	}
 	database.Create(otherUser)
@@ -242,7 +239,7 @@ func TestHandleAPIConfig(t *testing.T) {
 	otherUser := &db.User{
 		Email:              "other@example.com",
 		PasswordHash:       "hashedpassword",
-		IsAdmin:            false,
+		IsAdmin:            BoolPtr(false),
 		LastPasswordChange: time.Now(),
 	}
 	database.Create(otherUser)
@@ -376,7 +373,7 @@ func TestHandleAPIUpdateConfig(t *testing.T) {
 	otherUser := &db.User{
 		Email:              "other@example.com",
 		PasswordHash:       "hashedpassword",
-		IsAdmin:            false,
+		IsAdmin:            BoolPtr(false),
 		LastPasswordChange: time.Now(),
 	}
 	database.Create(otherUser)
@@ -483,7 +480,7 @@ func TestHandleAPIDeleteConfig(t *testing.T) {
 	otherUser := &db.User{
 		Email:              "other@example.com",
 		PasswordHash:       "hashedpassword",
-		IsAdmin:            false,
+		IsAdmin:            BoolPtr(false),
 		LastPasswordChange: time.Now(),
 	}
 	database.Create(otherUser)
@@ -513,7 +510,7 @@ func TestHandleAPIDeleteConfig(t *testing.T) {
 		Name:      "Test Job",
 		Schedule:  "* * * * *",
 		ConfigID:  configWithJob.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	database.Create(job)
@@ -591,7 +588,7 @@ func TestHandleAPIRunJob(t *testing.T) {
 		Name:      "Test Job",
 		Schedule:  "* * * * *",
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	database.Create(job)
@@ -600,7 +597,7 @@ func TestHandleAPIRunJob(t *testing.T) {
 	otherUser := &db.User{
 		Email:              "other@example.com",
 		PasswordHash:       "hashedpassword",
-		IsAdmin:            false,
+		IsAdmin:            BoolPtr(false),
 		LastPasswordChange: time.Now(),
 	}
 	database.Create(otherUser)
@@ -609,7 +606,7 @@ func TestHandleAPIRunJob(t *testing.T) {
 		Name:      "Other User Job",
 		Schedule:  "* * * * *",
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: otherUser.ID,
 	}
 	database.Create(otherJob)

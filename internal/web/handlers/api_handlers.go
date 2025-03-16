@@ -35,7 +35,7 @@ func (h *Handlers) HandleAPILogin(c *gin.Context) {
 	}
 
 	// Generate JWT token
-	token, err := h.GenerateJWT(user.ID, user.Email, user.IsAdmin)
+	token, err := h.GenerateJWT(user.ID, user.Email, user.GetIsAdmin())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return

@@ -86,6 +86,11 @@ func TestSourceProviders(t *testing.T) {
 			err := source.WebDAVSourceForm().Render(ctx, &buf)
 			return buf.String(), err
 		}},
+		{"GoogleDriveSourceForm", func() (string, error) {
+			var buf strings.Builder
+			err := source.GoogleDriveSourceForm().Render(ctx, &buf)
+			return buf.String(), err
+		}},
 	}
 
 	for _, provider := range providers {
@@ -136,6 +141,11 @@ func TestDestinationProviders(t *testing.T) {
 		{"WebDAVDestinationForm", func() (string, error) {
 			var buf strings.Builder
 			err := destination.WebDAVDestinationForm().Render(ctx, &buf)
+			return buf.String(), err
+		}},
+		{"GoogleDriveDestinationForm", func() (string, error) {
+			var buf strings.Builder
+			err := destination.GoogleDriveDestinationForm().Render(ctx, &buf)
 			return buf.String(), err
 		}},
 	}

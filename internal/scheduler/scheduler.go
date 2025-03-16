@@ -241,7 +241,7 @@ func (s *Scheduler) loadJobs() {
 
 	for _, job := range jobs {
 		// Skip disabled jobs
-		if !job.Enabled {
+		if !job.GetEnabled() {
 			s.log.LogInfo("Job %d (%s) is disabled, skipping scheduling", job.ID, job.Name)
 			continue
 		}
@@ -268,7 +268,7 @@ func (s *Scheduler) ScheduleJob(job *db.Job) error {
 	}
 
 	// Only schedule if job is enabled
-	if !job.Enabled {
+	if !job.GetEnabled() {
 		s.log.LogInfo("Job %d is disabled, skipping scheduling", job.ID)
 		return nil
 	}
@@ -535,6 +535,12 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 	if maxConcurrent < 1 {
 		maxConcurrent = 1 // Default to 1 if not set
 	}
+
+	// Limit Google Photos to 1 concurrent transfers
+	if config.SourceType == "gphotos" || config.DestinationType == "gphotos" {
+		maxConcurrent = 1
+	}
+
 	s.log.LogInfo("Using %d concurrent transfers for job %d, config %d", maxConcurrent, job.ID, config.ID)
 
 	// Create wait group for concurrent processing
@@ -783,7 +789,7 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 				}
 
 				// If archiving is enabled and transfer was successful, move files to archive
-				if config.ArchiveEnabled && config.ArchivePath != "" {
+				if config.GetArchiveEnabled() && config.ArchivePath != "" {
 					s.log.LogInfo("Archiving file %s for job %d, config %d", currentFileName, job.ID, config.ID)
 
 					// We don't need to move the file since we used moveto, but we can copy it to archive
@@ -828,7 +834,7 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 					}
 				}
 
-				if config.DeleteAfterTransfer {
+				if config.GetDeleteAfterTransfer() {
 					s.log.LogInfo("Deleting file %s for job %d, config %d", currentFileName, job.ID, config.ID)
 					deleteArgs := []string{
 						"--config", configPath,
@@ -1026,15 +1032,15 @@ func (s *Scheduler) checkFileProcessingHistory(jobID uint, fileName string) (*db
 
 // sendWebhookNotification sends a notification to the configured webhook URL
 func (s *Scheduler) sendWebhookNotification(job *db.Job, history *db.JobHistory, config *db.TransferConfig) {
-	if !job.WebhookEnabled || job.WebhookURL == "" {
+	if !job.GetWebhookEnabled() || job.WebhookURL == "" {
 		return
 	}
 
 	// Skip notifications based on settings
-	if history.Status == "completed" && !job.NotifyOnSuccess {
+	if history.Status == "completed" && !job.GetNotifyOnSuccess() {
 		return
 	}
-	if history.Status == "failed" && !job.NotifyOnFailure {
+	if history.Status == "failed" && !job.GetNotifyOnFailure() {
 		return
 	}
 

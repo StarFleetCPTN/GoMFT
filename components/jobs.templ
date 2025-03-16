@@ -287,7 +287,7 @@ templ Jobs(ctx context.Context, data JobsData) {
 																{ job.Config.Name }
 															}
 														</p>
-														if job.Enabled {
+														if job.GetEnabled() {
 															<span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300">
 																Active
 															</span>

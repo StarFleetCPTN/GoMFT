@@ -1,0 +1,178 @@
+package destination
+
+templ GoogleDriveDestinationForm() {
+<div class="space-y-6" x-init="$watch('useBuiltinAuth', value => {
+    if(value) {
+        destClientId = '';
+        destClientSecret = '';
+    }
+})">
+    <div class="mb-6">
+        <label for="use_builtin_auth" class="flex items-center cursor-pointer">
+            <div class="relative">
+                <input id="use_builtin_auth" name="use_builtin_auth" type="checkbox" 
+                    class="sr-only"
+                    x-model="useBuiltinAuth"
+                />
+                <div class="block bg-gray-200 w-14 h-8 rounded-full"></div>
+                <div class="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"
+                    :class="useBuiltinAuth ? 'transform translate-x-6 bg-primary-500' : ''"></div>
+            </div>
+            <div class="ml-3 text-gray-700 font-medium">
+                Use rclone's built-in Google authentication (recommended)
+            </div>
+        </label>
+        <p class="mt-1 ml-14 text-xs text-secondary-500 dark:text-secondary-400">
+            Simple one-click authentication using rclone's shared credentials
+        </p>
+    </div>
+
+    <div x-bind:class="{ 'opacity-50': useBuiltinAuth }">
+        <div>
+            <label for="dest_client_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+                Google Client ID
+                <span x-show="useBuiltinAuth" class="text-secondary-400 dark:text-secondary-600 text-xs font-normal">(Using rclone default)</span>
+            </label>
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <i class="fas fa-id-card text-secondary-400 dark:text-secondary-600"></i>
+                </div>
+                <input type="text" id="dest_client_id" name="dest_client_id" x-model="destClientId"
+                    class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+                    x-bind:disabled="useBuiltinAuth"
+                    placeholder="Google Drive OAuth Client ID" />
+            </div>
+            <p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+                Client ID from Google Cloud Console
+            </p>
+        </div>
+
+        <div class="mt-4">
+            <label for="dest_client_secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+                Google Client Secret
+                <span x-show="useBuiltinAuth" class="text-secondary-400 dark:text-secondary-600 text-xs font-normal">(Using rclone default)</span>
+            </label>
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+                </div>
+                <input type="password" id="dest_client_secret" name="dest_client_secret" x-model="destClientSecret"
+                    class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+                    x-bind:disabled="useBuiltinAuth"
+                    placeholder="Google Drive OAuth Client Secret" />
+            </div>
+            <p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+                Client Secret from Google Cloud Console
+            </p>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <label for="dest_drive_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Folder ID (Optional)</label>
+        <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <i class="fas fa-folder text-secondary-400 dark:text-secondary-600"></i>
+            </div>
+            <input type="text" id="dest_drive_id" name="dest_drive_id" x-model="destDriveId"
+                class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+                placeholder="Google Drive Folder ID (optional)" />
+        </div>
+        <p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+            Folder ID to use as the root (leave empty for "My Drive")
+        </p>
+    </div>
+
+    <div class="mt-4">
+        <label for="dest_team_drive" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Shared/Team Drive ID (Optional)</label>
+        <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <i class="fas fa-users text-secondary-400 dark:text-secondary-600"></i>
+            </div>
+            <input type="text" id="dest_team_drive" name="dest_team_drive" x-model="destTeamDrive"
+                class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+                placeholder="Shared/Team Drive ID (optional)" />
+        </div>
+        <p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+            ID of the Shared Drive / Team Drive to use
+        </p>
+    </div>
+
+    <div class="mt-4">
+        <label for="destination_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Path</label>
+        <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <i class="fas fa-folder-open text-secondary-400 dark:text-secondary-600"></i>
+            </div>
+            <input type="text" id="destination_path" name="destination_path" x-model="destinationPath"
+                class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+                placeholder="Path within Google Drive (e.g., /backup)" />
+        </div>
+        <p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+            Path within the Drive where files will be uploaded
+        </p>
+    </div>
+
+    <div class="p-4 bg-amber-50 rounded-lg border border-amber-100">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-exclamation-triangle text-amber-500"></i>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-amber-800">Important: Authentication Required</h3>
+                <div class="mt-2 text-sm text-amber-700">
+                    <p><strong>After saving this configuration</strong>, you will need to authenticate with Google Drive.</p>
+                    <p class="mt-1">The authentication process will require you to:</p>
+                    <ol class="list-decimal list-inside mt-1 space-y-1">
+                        <li>Visit a Google authorization URL</li>
+                        <li>Sign in to your Google account</li>
+                        <li>Grant permission to access your Google Drive</li>
+                        <li>Copy the authorization code back to this application</li>
+                    </ol>
+                    <p class="mt-2 text-xs">
+                        This is a one-time process for each configuration. The application will store your authorization token securely.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="p-4 bg-blue-50 rounded-lg border border-blue-100">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <i class="fas fa-info-circle text-blue-400"></i>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-blue-800">Authentication Information</h3>
+                <div class="mt-2 text-sm text-blue-700">
+                    <template x-if="useBuiltinAuth">
+                        <div>
+                            <p>You're using rclone's built-in authentication, which simplifies the setup process:</p>
+                            <ul class="list-disc list-inside mt-1 space-y-1">
+                                <li>No need to create your own Google API credentials</li>
+                                <li>Authentication happens through a browser window</li>
+                                <li>You will need to manually copy the authorization code back</li>
+                            </ul>
+                            <p class="mt-2 text-xs text-amber-600">
+                                <i class="fas fa-exclamation-triangle mr-1"></i> 
+                                Note: The built-in authentication uses shared credentials which have rate limits across all rclone users.
+                                If you plan to transfer large amounts of data or run many concurrent transfers, consider creating your own credentials.
+                            </p>
+                        </div>
+                    </template>
+                    <template x-if="!useBuiltinAuth">
+                        <div>
+                            <p>To use Google Drive with your own credentials:</p>
+                            <ol class="list-decimal list-inside mt-1 space-y-1">
+                                <li>Go to the <a href="https://console.cloud.google.com/" target="_blank" class="text-blue-600 underline">Google Cloud Console</a></li>
+                                <li>Create a project and enable the Google Drive API</li>
+                                <li>Create OAuth 2.0 credentials (Client ID & Secret)</li>
+                                <li>Set authorized redirect URI to <code class="bg-blue-100 px-1 py-0.5 rounded">http://localhost:53682/</code></li>
+                            </ol>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+} 

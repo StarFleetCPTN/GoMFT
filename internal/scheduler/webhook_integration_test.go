@@ -38,7 +38,7 @@ func TestJobExecutionWebhook(t *testing.T) {
 	user := &db.User{
 		Email:        "webhook-integration@example.com",
 		PasswordHash: "hashed_password",
-		IsAdmin:      true,
+		IsAdmin:      BoolPtr(true),
 	}
 	err := database.CreateUser(user)
 	require.NoError(t, err)
@@ -96,11 +96,11 @@ func TestJobExecutionWebhook(t *testing.T) {
 		Name:            "Webhook Integration Job",
 		ConfigID:        config.ID,
 		Schedule:        "*/5 * * * *", // not actually used in this test
-		Enabled:         true,
-		WebhookEnabled:  true,
+		Enabled:         BoolPtr(true),
+		WebhookEnabled:  BoolPtr(true),
 		WebhookURL:      mockServer.URL,
-		NotifyOnSuccess: true,
-		NotifyOnFailure: true,
+		NotifyOnSuccess: BoolPtr(true),
+		NotifyOnFailure: BoolPtr(true),
 		CreatedBy:       user.ID,
 	}
 	err = database.DB.Create(job).Error
@@ -259,7 +259,7 @@ func TestFailedJobWebhook(t *testing.T) {
 	user := &db.User{
 		Email:        "webhook-failure@example.com",
 		PasswordHash: "hashed_password",
-		IsAdmin:      true,
+		IsAdmin:      BoolPtr(true),
 	}
 	err := database.CreateUser(user)
 	require.NoError(t, err)
@@ -314,11 +314,11 @@ func TestFailedJobWebhook(t *testing.T) {
 		Name:            "Webhook Failure Job",
 		ConfigID:        config.ID,
 		Schedule:        "*/5 * * * *", // not actually used in this test
-		Enabled:         true,
-		WebhookEnabled:  true,
+		Enabled:         BoolPtr(true),
+		WebhookEnabled:  BoolPtr(true),
 		WebhookURL:      mockServer.URL,
-		NotifyOnSuccess: true,
-		NotifyOnFailure: true,
+		NotifyOnSuccess: BoolPtr(true),
+		NotifyOnFailure: BoolPtr(true),
 		CreatedBy:       user.ID,
 	}
 	err = database.DB.Create(job).Error
@@ -431,7 +431,7 @@ func TestWebhookDisabledForSuccessNotification(t *testing.T) {
 	user := &db.User{
 		Email:        "webhook-disabled@example.com",
 		PasswordHash: "hashed_password",
-		IsAdmin:      true,
+		IsAdmin:      BoolPtr(true),
 	}
 	err := database.CreateUser(user)
 	require.NoError(t, err)
@@ -476,11 +476,11 @@ func TestWebhookDisabledForSuccessNotification(t *testing.T) {
 		Name:            "Webhook Disabled Job",
 		ConfigID:        config.ID,
 		Schedule:        "*/5 * * * *", // not actually used in this test
-		Enabled:         true,
-		WebhookEnabled:  true,
+		Enabled:         BoolPtr(true),
+		WebhookEnabled:  BoolPtr(true),
 		WebhookURL:      mockServer.URL,
-		NotifyOnSuccess: false, // This is the key setting we're testing
-		NotifyOnFailure: true,
+		NotifyOnSuccess: BoolPtr(false), // This is the key setting we're testing
+		NotifyOnFailure: BoolPtr(true),
 		CreatedBy:       user.ID,
 	}
 	err = database.DB.Create(job).Error

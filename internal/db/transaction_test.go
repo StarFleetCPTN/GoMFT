@@ -117,7 +117,7 @@ func TestDeleteJobWithTransaction(t *testing.T) {
 		Name:      "Test Delete Job",
 		ConfigID:  testConfig.ID,
 		Schedule:  "0 * * * *", // Run hourly
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: testUser.ID,
 	}
 	err = db.CreateJob(testJob)
@@ -137,7 +137,7 @@ func TestDeleteJobWithTransaction(t *testing.T) {
 		Name:      "Test Delete Job 2",
 		ConfigID:  testConfig.ID,
 		Schedule:  "0 * * * *", // Run hourly
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: testUser.ID,
 	}
 	err = db.CreateJob(testJob2)

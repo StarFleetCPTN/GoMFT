@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -331,7 +330,7 @@ func (h *Handlers) HandleImportConfigs(c *gin.Context) {
 	}
 
 	userObj, ok := user.(*db.User)
-	if !ok || !userObj.IsAdmin {
+	if !ok || !userObj.GetIsAdmin() {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
 		return
 	}
@@ -370,7 +369,7 @@ func (h *Handlers) HandleImportJobs(c *gin.Context) {
 	}
 
 	userObj, ok := user.(*db.User)
-	if !ok || !userObj.IsAdmin {
+	if !ok || !userObj.GetIsAdmin() {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
 		return
 	}
@@ -401,7 +400,7 @@ func (h *Handlers) HandleImportJobs(c *gin.Context) {
 		}
 
 		if enabled, ok := rawJob["enabled"].(bool); ok {
-			job.Enabled = enabled
+			job.SetEnabled(enabled)
 		}
 
 		// Handle config_id
@@ -443,7 +442,7 @@ func (h *Handlers) HandleListBackups(c *gin.Context) {
 	}
 
 	userObj, ok := user.(*db.User)
-	if !ok || !userObj.IsAdmin {
+	if !ok || !userObj.GetIsAdmin() {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
 		return
 	}
@@ -466,7 +465,7 @@ func (h *Handlers) HandleSystemInfo(c *gin.Context) {
 	}
 
 	userObj, ok := user.(*db.User)
-	if !ok || !userObj.IsAdmin {
+	if !ok || !userObj.GetIsAdmin() {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
 		return
 	}
@@ -494,7 +493,7 @@ func (h *Handlers) HandleImportJobsFromFile(c *gin.Context) {
 	}
 
 	userObj, ok := user.(*db.User)
-	if !ok || !userObj.IsAdmin {
+	if !ok || !userObj.GetIsAdmin() {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
 		return
 	}
@@ -547,7 +546,7 @@ func (h *Handlers) HandleImportJobsFromFile(c *gin.Context) {
 		}
 
 		if enabled, ok := rawJob["enabled"].(bool); ok {
-			job.Enabled = enabled
+			job.SetEnabled(enabled)
 		}
 
 		// Handle config_id
@@ -589,7 +588,7 @@ func (h *Handlers) HandleDeleteLogFile(c *gin.Context) {
 	}
 
 	userObj, ok := user.(*db.User)
-	if !ok || !userObj.IsAdmin {
+	if !ok || !userObj.GetIsAdmin() {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
 		return
 	}
@@ -641,7 +640,7 @@ func (h *Handlers) HandleSystemMaintenanceCheck(c *gin.Context) {
 	}
 
 	userObj, ok := user.(*db.User)
-	if !ok || !userObj.IsAdmin {
+	if !ok || !userObj.GetIsAdmin() {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
 		return
 	}
@@ -682,7 +681,7 @@ func (h *Handlers) HandleUpdateSystemSettings(c *gin.Context) {
 	}
 
 	userObj, ok := user.(*db.User)
-	if !ok || !userObj.IsAdmin {
+	if !ok || !userObj.GetIsAdmin() {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
 		return
 	}
@@ -736,7 +735,12 @@ func (h *Handlers) checkDatabaseSize() map[string]interface{} {
 	// Parse size for comparison
 	var size float64
 	var unit string
-	fmt.Sscanf(sizeStr, "%f %s", &size, &unit)
+	if _, err := fmt.Sscanf(sizeStr, "%f %s", &size, &unit); err != nil {
+		return map[string]interface{}{
+			"status":  "unknown",
+			"message": "Unable to determine database size",
+		}
+	}
 
 	status := "healthy"
 	message := fmt.Sprintf("Database size is %s", sizeStr)
@@ -1139,7 +1143,7 @@ func (h *Handlers) getLogFiles() []components.LogFile {
 	}
 
 	// Try to read directory
-	files, err := ioutil.ReadDir(logsDir)
+	files, err := os.ReadDir(logsDir)
 	if err != nil {
 		return []components.LogFile{}
 	}
@@ -1156,11 +1160,16 @@ func (h *Handlers) getLogFiles() []components.LogFile {
 			continue
 		}
 
-		size := formatSize(float64(file.Size()))
+		fileInfo, err := file.Info()
+		if err != nil {
+			continue
+		}
+
+		size := formatSize(float64(fileInfo.Size()))
 		logFiles = append(logFiles, components.LogFile{
 			Name:    file.Name(),
 			Size:    size,
-			ModTime: file.ModTime(),
+			ModTime: fileInfo.ModTime(),
 			Path:    filepath.Join(logsDir, file.Name()),
 		})
 	}
@@ -1203,7 +1212,7 @@ func (h *Handlers) HandleViewLog(c *gin.Context) {
 	}
 
 	// Read file contents
-	content, err := ioutil.ReadFile(filePath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		c.String(http.StatusInternalServerError, "Error reading log file: "+err.Error())
 		return
@@ -1316,7 +1325,7 @@ func (h *Handlers) HandleImportConfigsFromFile(c *gin.Context) {
 	}
 
 	userObj, ok := user.(*db.User)
-	if !ok || !userObj.IsAdmin {
+	if !ok || !userObj.GetIsAdmin() {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Admin access required"})
 		return
 	}

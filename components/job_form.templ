@@ -191,16 +191,17 @@ templ JobForm(ctx context.Context, data JobFormData) {
 										<div class="flex items-center">
 											<input 
 												type="checkbox" 
-												id="enabled" 
+												id="enabled"
 												name="enabled"
 												value="true"
-												checked
-												class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
+												if data.Job.GetEnabled() {
+													checked
+												}
+												class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded" />
 											<label for="enabled" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">Enable this job</label>
 										</div>
-										<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
-											<i class="fas fa-exclamation-triangle mr-1 text-amber-500"></i>
-											Disabled jobs will not run automatically.
+										<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">
+											Jobs that are not enabled will not run automatically on schedule.
 										</p>
 									</div>
 									
@@ -215,12 +216,15 @@ templ JobForm(ctx context.Context, data JobFormData) {
 											<div class="flex items-center">
 												<input 
 													type="checkbox" 
-													id="webhook_enabled" 
+													id="webhook_enabled"
 													name="webhook_enabled"
 													value="true"
-													class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
+													if data.Job.GetWebhookEnabled() {
+														checked
+													}
+													class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded" />
 												<label for="webhook_enabled" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">
-													Enable webhook notifications
+													Send webhook notification on completion
 												</label>
 											</div>
 											
@@ -293,7 +297,9 @@ templ JobForm(ctx context.Context, data JobFormData) {
 															id="notify_on_success" 
 															name="notify_on_success"
 															value="true"
-															checked
+															if data.Job.GetNotifyOnSuccess() {
+																checked
+															}
 															class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
 														<label for="notify_on_success" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">
 															Notify on successful jobs
@@ -306,7 +312,9 @@ templ JobForm(ctx context.Context, data JobFormData) {
 															id="notify_on_failure" 
 															name="notify_on_failure"
 															value="true"
-															checked
+															if data.Job.GetNotifyOnFailure() {
+																checked
+															}
 															class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
 														<label for="notify_on_failure" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">
 															Notify on failed jobs
@@ -434,18 +442,17 @@ templ JobForm(ctx context.Context, data JobFormData) {
 										<div class="flex items-center">
 											<input 
 												type="checkbox" 
-												id="enabled" 
+												id="enabled"
 												name="enabled"
 												value="true"
-												if data.Job.Enabled {
+												if data.Job.GetEnabled() {
 													checked
 												}
-												class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
+												class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded" />
 											<label for="enabled" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">Enable this job</label>
 										</div>
-										<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
-											<i class="fas fa-exclamation-triangle mr-1 text-amber-500"></i>
-											Disabled jobs will not run automatically.
+										<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">
+											Jobs that are not enabled will not run automatically on schedule.
 										</p>
 									</div>
 									
@@ -460,15 +467,15 @@ templ JobForm(ctx context.Context, data JobFormData) {
 											<div class="flex items-center">
 												<input 
 													type="checkbox" 
-													id="webhook_enabled" 
+													id="webhook_enabled"
 													name="webhook_enabled"
 													value="true"
-													if data.Job.WebhookEnabled {
+													if data.Job.GetWebhookEnabled() {
 														checked
 													}
-													class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
+													class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded" />
 												<label for="webhook_enabled" class="ml-2 block text-sm font-medium text-secondary-700 dark:text-secondary-300">
-													Enable webhook notifications
+													Send webhook notification on completion
 												</label>
 											</div>
 											
@@ -544,7 +551,7 @@ templ JobForm(ctx context.Context, data JobFormData) {
 															id="notify_on_success" 
 															name="notify_on_success"
 															value="true"
-															if data.Job.NotifyOnSuccess {
+															if data.Job.GetNotifyOnSuccess() {
 																checked
 															}
 															class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>
@@ -559,7 +566,7 @@ templ JobForm(ctx context.Context, data JobFormData) {
 															id="notify_on_failure" 
 															name="notify_on_failure"
 															value="true"
-															if data.Job.NotifyOnFailure {
+															if data.Job.GetNotifyOnFailure() {
 																checked
 															}
 															class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-secondary-300 dark:border-secondary-700 rounded"/>

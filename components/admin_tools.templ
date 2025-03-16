@@ -85,7 +85,8 @@ script hideDialog(id string) {
 }
 
 script submitFormAndHideDialog(formId string, dialogId string) {
-	document.getElementById(formId).submit();
+	// Use HTMX's API to trigger the request instead of bypassing it
+	htmx.trigger(document.getElementById(formId), 'submit');
 	document.getElementById(dialogId).classList.add("hidden");
 }
 

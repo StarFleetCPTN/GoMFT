@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -18,10 +19,10 @@ type User struct {
 	ID                  uint   `gorm:"primarykey"`
 	Email               string `gorm:"unique;not null"`
 	PasswordHash        string `gorm:"not null"`
-	IsAdmin             bool   `gorm:"default:false"`
+	IsAdmin             *bool  `gorm:"default:false"`
 	LastPasswordChange  time.Time
-	FailedLoginAttempts int  `gorm:"default:0"`
-	AccountLocked       bool `gorm:"default:false"`
+	FailedLoginAttempts int   `gorm:"default:0"`
+	AccountLocked       *bool `gorm:"default:false"`
 	LockoutUntil        *time.Time
 	Theme               string `gorm:"default:'light'"`
 	CreatedAt           time.Time
@@ -42,7 +43,7 @@ type PasswordResetToken struct {
 	User      User      `gorm:"foreignkey:UserID"`
 	Token     string    `gorm:"not null"`
 	ExpiresAt time.Time `gorm:"not null"`
-	Used      bool      `gorm:"default:false"`
+	Used      *bool     `gorm:"default:false"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -67,12 +68,16 @@ type TransferConfig struct {
 	SourceShare  string `form:"source_share"`
 	SourceDomain string `form:"source_domain"`
 	// FTP source fields
-	SourcePassiveMode bool `gorm:"default:true" form:"source_passive_mode"`
+	SourcePassiveMode *bool `gorm:"default:true" form:"source_passive_mode"`
 	// OneDrive and Google Drive source fields
 	SourceClientID     string `form:"source_client_id"`
 	SourceClientSecret string `form:"source_client_secret" gorm:"-"` // Not stored in DB, only used for form
 	SourceDriveID      string `form:"source_drive_id"`               // For OneDrive
 	SourceTeamDrive    string `form:"source_team_drive"`             // For Google Drive
+	// Google Photos source fields
+	SourceReadOnly        *bool `form:"source_read_only"`        // For Google Photos
+	SourceStartYear       int   `form:"source_start_year"`       // For Google Photos
+	SourceIncludeArchived *bool `form:"source_include_archived"` // For Google Photos
 	// General fields
 	FilePattern     string `gorm:"default:'*'" form:"file_pattern"`
 	OutputPattern   string `form:"output_pattern"` // Pattern for output filenames with date variables
@@ -93,17 +98,24 @@ type TransferConfig struct {
 	DestShare  string `form:"dest_share"`
 	DestDomain string `form:"dest_domain"`
 	// FTP destination fields
-	DestPassiveMode bool `gorm:"default:true" form:"dest_passive_mode"`
+	DestPassiveMode *bool `gorm:"default:true" form:"dest_passive_mode"`
 	// OneDrive and Google Drive destination fields
 	DestClientID     string `form:"dest_client_id"`
 	DestClientSecret string `form:"dest_client_secret" gorm:"-"` // Not stored in DB, only used for form
 	DestDriveID      string `form:"dest_drive_id"`               // For OneDrive
 	DestTeamDrive    string `form:"dest_team_drive"`             // For Google Drive
+	// Google Photos destination fields
+	DestReadOnly        *bool `form:"dest_read_only"`        // For Google Photos
+	DestStartYear       int   `form:"dest_start_year"`       // For Google Photos
+	DestIncludeArchived *bool `form:"dest_include_archived"` // For Google Photos
+	// Security fields
+	UseBuiltinAuth           *bool `form:"use_builtin_auth"` // For Google and other OAuth services
+	GoogleDriveAuthenticated *bool // Whether Google Drive auth is completed
 	// General fields
 	ArchivePath            string `form:"archive_path"`
-	ArchiveEnabled         bool   `gorm:"default:false" form:"archive_enabled"`
+	ArchiveEnabled         *bool  `gorm:"default:false" form:"archive_enabled"`
 	RcloneFlags            string `form:"rclone_flags"`
-	DeleteAfterTransfer    bool   `gorm:"default:false" form:"delete_after_transfer"`
+	DeleteAfterTransfer    *bool  `gorm:"default:false" form:"delete_after_transfer"`
 	SkipProcessedFiles     *bool  `gorm:"default:true" form:"skip_processed_files"`
 	MaxConcurrentTransfers int    `gorm:"default:4" form:"max_concurrent_transfers"` // Number of concurrent file transfers
 	CreatedBy              uint
@@ -119,16 +131,16 @@ type Job struct {
 	Config    TransferConfig `gorm:"foreignkey:ConfigID"`
 	ConfigIDs string         `gorm:"column:config_ids"` // Comma-separated list of config IDs
 	Schedule  string         `gorm:"not null" form:"schedule"`
-	Enabled   bool           `gorm:"default:true" form:"enabled"`
+	Enabled   *bool          `gorm:"default:true" form:"enabled"`
 	LastRun   *time.Time
 	NextRun   *time.Time
 	// Webhook notification fields
-	WebhookEnabled  bool   `gorm:"default:false" form:"webhook_enabled"`
+	WebhookEnabled  *bool  `gorm:"default:false" form:"webhook_enabled"`
 	WebhookURL      string `form:"webhook_url"`
 	WebhookSecret   string `form:"webhook_secret"`
 	WebhookHeaders  string `form:"webhook_headers"` // JSON-encoded headers
-	NotifyOnSuccess bool   `gorm:"default:true" form:"notify_on_success"`
-	NotifyOnFailure bool   `gorm:"default:true" form:"notify_on_failure"`
+	NotifyOnSuccess *bool  `gorm:"default:true" form:"notify_on_success"`
+	NotifyOnFailure *bool  `gorm:"default:true" form:"notify_on_failure"`
 	CreatedBy       uint
 	User            User `gorm:"foreignkey:CreatedBy"`
 	CreatedAt       time.Time
@@ -558,7 +570,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--log-level", "ERROR",
 		}
 
-		if config.SourcePassiveMode {
+		if config.SourcePassiveMode != nil && *config.SourcePassiveMode {
 			args = append(args, "passive", "true")
 		}
 
@@ -627,6 +639,40 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 
 		if config.SourceTeamDrive != "" {
 			args = append(args, "team_drive", config.SourceTeamDrive)
+		}
+
+		cmd := exec.Command(rclonePath, args...)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to create source config: %v\nOutput: %s", err, output)
+		}
+	case "gphotos":
+		args := []string{
+			"config", "create", sourceName, "google photos",
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+
+		// Only add client_id and client_secret if they're provided (not empty)
+		// This allows using rclone's built-in authentication
+		if config.SourceClientID != "" && config.SourceClientSecret != "" {
+			args = append(args, "client_id", config.SourceClientID)
+			args = append(args, "client_secret", config.SourceClientSecret)
+		}
+
+		// Add read_only option if specified
+		if config.SourceReadOnly != nil && *config.SourceReadOnly {
+			args = append(args, "read_only", "true")
+		}
+
+		// Add start_year if specified
+		if config.SourceStartYear > 0 {
+			args = append(args, "start_year", strconv.Itoa(config.SourceStartYear))
+		}
+
+		// Add include_archived if specified
+		if config.SourceIncludeArchived != nil && *config.SourceIncludeArchived {
+			args = append(args, "include_archived", "true")
 		}
 
 		cmd := exec.Command(rclonePath, args...)
@@ -746,7 +792,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--log-level", "ERROR",
 		}
 
-		if config.DestPassiveMode {
+		if config.DestPassiveMode != nil && *config.DestPassiveMode {
 			args = append(args, "passive", "true")
 		}
 
@@ -803,6 +849,67 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create destination config: %v\nOutput: %s", err, output)
 		}
+	case "gdrive":
+		args := []string{
+			"config", "create", destName, "drive",
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+
+		// Only add client_id and client_secret if they're provided (not empty)
+		// This allows using rclone's built-in authentication
+		if config.DestClientID != "" && config.DestClientSecret != "" {
+			args = append(args, "client_id", config.DestClientID)
+			args = append(args, "client_secret", config.DestClientSecret)
+		}
+
+		if config.DestTeamDrive != "" {
+			args = append(args, "team_drive", config.DestTeamDrive)
+		}
+
+		if config.DestDriveID != "" {
+			args = append(args, "root_folder_id", config.DestDriveID)
+		}
+
+		cmd := exec.Command(rclonePath, args...)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to create destination config: %v\nOutput: %s", err, output)
+		}
+	case "gphotos":
+		args := []string{
+			"config", "create", destName, "google photos",
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+
+		// Only add client_id and client_secret if they're provided (not empty)
+		// This allows using rclone's built-in authentication
+		if config.DestClientID != "" && config.DestClientSecret != "" {
+			args = append(args, "client_id", config.DestClientID)
+			args = append(args, "client_secret", config.DestClientSecret)
+		}
+
+		// Add read_only option if specified
+		if config.DestReadOnly != nil && *config.DestReadOnly {
+			args = append(args, "read_only", "true")
+		}
+
+		// Add start_year if specified
+		if config.DestStartYear > 0 {
+			args = append(args, "start_year", strconv.Itoa(config.DestStartYear))
+		}
+
+		// Add include_archived if specified
+		if config.DestIncludeArchived != nil && *config.DestIncludeArchived {
+			args = append(args, "include_archived", "true")
+		}
+
+		cmd := exec.Command(rclonePath, args...)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to create destination config: %v\nOutput: %s", err, output)
+		}
 	case "google_drive":
 		args := []string{
 			"config", "create", destName, "drive",
@@ -837,12 +944,14 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 	return nil
 }
 
+// GetActiveJobs returns all active jobs
 func (db *DB) GetActiveJobs() ([]Job, error) {
 	if db.DB == nil {
 		return nil, fmt.Errorf("database connection is nil")
 	}
 	var jobs []Job
-	err := db.Preload("Config").Where("enabled = ?", true).Find(&jobs).Error
+	// For boolean pointer fields, need to check either NULL (for default) or true value
+	err := db.Preload("Config").Where("enabled IS NULL OR enabled = ?", true).Find(&jobs).Error
 	return jobs, err
 }
 
@@ -884,4 +993,471 @@ func (tc *TransferConfig) GetSkipProcessedFiles() bool {
 // SetSkipProcessedFiles sets the SkipProcessedFiles field
 func (tc *TransferConfig) SetSkipProcessedFiles(value bool) {
 	tc.SkipProcessedFiles = &value
+}
+
+// StoreGoogleDriveToken stores the Google Drive auth token for a config
+func (db *DB) StoreGoogleDriveToken(configIDStr string, token string) error {
+	configID, err := strconv.ParseUint(configIDStr, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid config ID: %v", err)
+	}
+
+	// Get the existing config
+	config, err := db.GetTransferConfig(uint(configID))
+	if err != nil {
+		return fmt.Errorf("failed to get config: %v", err)
+	}
+
+	// Mark as authenticated
+	authenticated := true
+	config.GoogleDriveAuthenticated = &authenticated
+
+	// Update the config in the database
+	if err := db.UpdateTransferConfig(config); err != nil {
+		return fmt.Errorf("failed to update config: %v", err)
+	}
+
+	// Get the rclone config path
+	configPath := db.GetConfigRclonePath(config)
+
+	// Read existing config if it exists
+	existingConfig := ""
+	if _, err := os.Stat(configPath); err == nil {
+		data, err := os.ReadFile(configPath)
+		if err != nil {
+			return fmt.Errorf("failed to read existing config: %v", err)
+		}
+		existingConfig = string(data)
+	}
+
+	// Ensure directory exists
+	configDir := filepath.Dir(configPath)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return fmt.Errorf("failed to create config directory: %v", err)
+	}
+
+	// Write the new config with the token
+	destName := fmt.Sprintf("dest_%d", config.ID)
+	newConfig := fmt.Sprintf("[%s]\ntype = drive\ntoken = %s\n", destName, token)
+
+	// If the config has client ID and secret, add them
+	if config.DestClientID != "" && config.DestClientSecret != "" {
+		newConfig += fmt.Sprintf("client_id = %s\nclient_secret = %s\n", config.DestClientID, config.DestClientSecret)
+	}
+
+	// Add root folder ID if specified
+	if config.DestDriveID != "" {
+		newConfig += fmt.Sprintf("root_folder_id = %s\n", config.DestDriveID)
+	}
+
+	// Add team drive if specified
+	if config.DestTeamDrive != "" {
+		newConfig += fmt.Sprintf("team_drive = %s\n", config.DestTeamDrive)
+	}
+
+	// If there's existing config, append to it; otherwise create new file
+	var content string
+	if existingConfig != "" {
+		// Replace/update existing dest section if it exists, otherwise append
+		if strings.Contains(existingConfig, fmt.Sprintf("[%s]", destName)) {
+			// This is a simplistic approach - in production you might want a more robust regex-based replacement
+			// Truncate at the beginning of the dest section
+			parts := strings.SplitN(existingConfig, fmt.Sprintf("[%s]", destName), 2)
+			// Check if there are more sections after this one
+			nextSectionIdx := strings.Index(parts[1], "[")
+			if nextSectionIdx != -1 {
+				content = parts[0] + newConfig + parts[1][nextSectionIdx:]
+			} else {
+				content = parts[0] + newConfig
+			}
+		} else {
+			content = existingConfig + "\n" + newConfig
+		}
+	} else {
+		content = newConfig
+	}
+
+	// Write the config file
+	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
+		return fmt.Errorf("failed to write config: %v", err)
+	}
+
+	return nil
+}
+
+// GenerateRcloneConfigWithToken generates a rclone config file for a transfer config with a provided token
+func (db *DB) GenerateRcloneConfigWithToken(config *TransferConfig, token string) error {
+	// Get the config path
+	configPath := db.GetConfigRclonePath(config)
+	if configPath == "" {
+		return fmt.Errorf("failed to get config path")
+	}
+
+	// Clean up the token to ensure it's a single line JSON
+	token = strings.TrimSpace(token)
+	token = strings.ReplaceAll(token, "\n", "")
+	token = strings.ReplaceAll(token, "\r", "")
+
+	// Determine if this is a source or destination config
+	var configType, section, clientID, clientSecret string
+	var readOnly, includeArchived *bool
+	var startYear int
+
+	if config.DestinationType == "gdrive" || config.DestinationType == "gphotos" {
+		configType = config.DestinationType
+		section = "dest"
+		clientID = config.DestClientID
+		clientSecret = config.DestClientSecret
+		readOnly = config.DestReadOnly
+		startYear = config.DestStartYear
+		includeArchived = config.DestIncludeArchived
+	} else if config.SourceType == "gdrive" || config.SourceType == "gphotos" {
+		configType = config.SourceType
+		section = "source"
+		clientID = config.SourceClientID
+		clientSecret = config.SourceClientSecret
+		readOnly = config.SourceReadOnly
+		startYear = config.SourceStartYear
+		includeArchived = config.SourceIncludeArchived
+	} else {
+		return fmt.Errorf("config is not for Google Drive or Google Photos")
+	}
+
+	// Read the existing config
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to read config file: %v", err)
+	}
+
+	// Prepare the section content
+	var sectionContent string
+	if configType == "gdrive" {
+		sectionContent = fmt.Sprintf("[%s_%d]\ntype = drive\n", section, config.ID)
+		if clientID != "" {
+			sectionContent += fmt.Sprintf("client_id = %s\n", clientID)
+		}
+		if clientSecret != "" {
+			sectionContent += fmt.Sprintf("client_secret = %s\n", clientSecret)
+		}
+		sectionContent += fmt.Sprintf("token = %s\n", token)
+
+		// Add team drive if specified
+		if section == "source" && config.SourceTeamDrive != "" {
+			sectionContent += fmt.Sprintf("team_drive = %s\n", config.SourceTeamDrive)
+		} else if section == "dest" && config.DestTeamDrive != "" {
+			sectionContent += fmt.Sprintf("team_drive = %s\n", config.DestTeamDrive)
+		}
+
+		// Add read-only flag if specified
+		if readOnly != nil && *readOnly {
+			sectionContent += "read_only = true\n"
+		}
+	} else if configType == "gphotos" {
+		sectionContent = fmt.Sprintf("[%s_%d]\ntype = google photos\n", section, config.ID)
+		if clientID != "" {
+			sectionContent += fmt.Sprintf("client_id = %s\n", clientID)
+		}
+		if clientSecret != "" {
+			sectionContent += fmt.Sprintf("client_secret = %s\n", clientSecret)
+		}
+		sectionContent += fmt.Sprintf("token = %s\n", token)
+
+		// Add read-only flag if specified
+		if readOnly != nil && *readOnly {
+			sectionContent += "read_only = true\n"
+		}
+
+		// Add start year if specified
+		if startYear > 0 {
+			sectionContent += fmt.Sprintf("start_year = %d\n", startYear)
+		}
+
+		// Add include_archived flag if specified and true
+		if includeArchived != nil && *includeArchived {
+			sectionContent += "include_archived = true\n"
+		}
+	}
+
+	// Find the section in the existing config
+	sectionPattern := regexp.MustCompile(fmt.Sprintf(`\[%s_%d\][^\[]*`, section, config.ID))
+	if sectionPattern.MatchString(string(content)) {
+		// Replace the existing section
+		newContent := sectionPattern.ReplaceAllString(string(content), sectionContent)
+		err = os.WriteFile(configPath, []byte(newContent), 0644)
+		if err != nil {
+			return fmt.Errorf("failed to write updated config file: %v", err)
+		}
+	} else {
+		// Append the section to the config
+		file, err := os.OpenFile(configPath, os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			return fmt.Errorf("failed to open config file for appending: %v", err)
+		}
+		defer file.Close()
+
+		_, err = file.WriteString("\n" + sectionContent)
+		if err != nil {
+			return fmt.Errorf("failed to append to config file: %v", err)
+		}
+	}
+
+	// Update the authentication status
+	authenticated := true
+	if config.DestinationType == "gdrive" || config.DestinationType == "gphotos" {
+		config.SetGoogleAuthenticated(authenticated)
+	} else if config.SourceType == "gdrive" || config.SourceType == "gphotos" {
+		config.SetGoogleAuthenticated(authenticated)
+	}
+
+	return nil
+}
+
+// GetIsAdmin returns the value of IsAdmin with a default if nil
+func (u *User) GetIsAdmin() bool {
+	if u.IsAdmin == nil {
+		return false // Default to false if not set
+	}
+	return *u.IsAdmin
+}
+
+// SetIsAdmin sets the IsAdmin field
+func (u *User) SetIsAdmin(value bool) {
+	u.IsAdmin = &value
+}
+
+// GetAccountLocked returns the value of AccountLocked with a default if nil
+func (u *User) GetAccountLocked() bool {
+	if u.AccountLocked == nil {
+		return false // Default to false if not set
+	}
+	return *u.AccountLocked
+}
+
+// SetAccountLocked sets the AccountLocked field
+func (u *User) SetAccountLocked(value bool) {
+	u.AccountLocked = &value
+}
+
+// GetUsed returns the value of Used with a default if nil
+func (t *PasswordResetToken) GetUsed() bool {
+	if t.Used == nil {
+		return false // Default to false if not set
+	}
+	return *t.Used
+}
+
+// SetUsed sets the Used field
+func (t *PasswordResetToken) SetUsed(value bool) {
+	t.Used = &value
+}
+
+// GetSourcePassiveMode returns the value of SourcePassiveMode with a default if nil
+func (tc *TransferConfig) GetSourcePassiveMode() bool {
+	if tc.SourcePassiveMode == nil {
+		return true // Default to true if not set
+	}
+	return *tc.SourcePassiveMode
+}
+
+// SetSourcePassiveMode sets the SourcePassiveMode field
+func (tc *TransferConfig) SetSourcePassiveMode(value bool) {
+	tc.SourcePassiveMode = &value
+}
+
+// GetDestPassiveMode returns the value of DestPassiveMode with a default if nil
+func (tc *TransferConfig) GetDestPassiveMode() bool {
+	if tc.DestPassiveMode == nil {
+		return true // Default to true if not set
+	}
+	return *tc.DestPassiveMode
+}
+
+// SetDestPassiveMode sets the DestPassiveMode field
+func (tc *TransferConfig) SetDestPassiveMode(value bool) {
+	tc.DestPassiveMode = &value
+}
+
+// GetGoogleDriveAuthenticated returns whether the transfer config has been authenticated with Google Drive
+func (tc *TransferConfig) GetGoogleDriveAuthenticated() bool {
+	return tc.GoogleDriveAuthenticated != nil && *tc.GoogleDriveAuthenticated
+}
+
+// SetGoogleDriveAuthenticated sets the Google Drive authentication status
+func (tc *TransferConfig) SetGoogleDriveAuthenticated(value bool) {
+	tc.GoogleDriveAuthenticated = &value
+}
+
+// GetGoogleAuthenticated is an alias for GetGoogleDriveAuthenticated for better semantics when working with Google Photos
+func (tc *TransferConfig) GetGoogleAuthenticated() bool {
+	return tc.GetGoogleDriveAuthenticated()
+}
+
+// SetGoogleAuthenticated is an alias for SetGoogleDriveAuthenticated for better semantics when working with Google Photos
+func (tc *TransferConfig) SetGoogleAuthenticated(value bool) {
+	tc.SetGoogleDriveAuthenticated(value)
+}
+
+// GetArchiveEnabled returns the value of ArchiveEnabled with a default if nil
+func (tc *TransferConfig) GetArchiveEnabled() bool {
+	if tc.ArchiveEnabled == nil {
+		return false // Default to false if not set
+	}
+	return *tc.ArchiveEnabled
+}
+
+// SetArchiveEnabled sets the ArchiveEnabled field
+func (tc *TransferConfig) SetArchiveEnabled(value bool) {
+	tc.ArchiveEnabled = &value
+}
+
+// GetDeleteAfterTransfer returns the value of DeleteAfterTransfer with a default if nil
+func (tc *TransferConfig) GetDeleteAfterTransfer() bool {
+	if tc.DeleteAfterTransfer == nil {
+		return false // Default to false if not set
+	}
+	return *tc.DeleteAfterTransfer
+}
+
+// SetDeleteAfterTransfer sets the DeleteAfterTransfer field
+func (tc *TransferConfig) SetDeleteAfterTransfer(value bool) {
+	tc.DeleteAfterTransfer = &value
+}
+
+// GetEnabled returns the value of Enabled with a default if nil
+func (j *Job) GetEnabled() bool {
+	if j.Enabled == nil {
+		return true // Default to true if not set
+	}
+	return *j.Enabled
+}
+
+// SetEnabled sets the Enabled field
+func (j *Job) SetEnabled(value bool) {
+	j.Enabled = &value
+}
+
+// GetWebhookEnabled returns the value of WebhookEnabled with a default if nil
+func (j *Job) GetWebhookEnabled() bool {
+	if j.WebhookEnabled == nil {
+		return false // Default to false if not set
+	}
+	return *j.WebhookEnabled
+}
+
+// SetWebhookEnabled sets the WebhookEnabled field
+func (j *Job) SetWebhookEnabled(value bool) {
+	j.WebhookEnabled = &value
+}
+
+// GetNotifyOnSuccess returns the value of NotifyOnSuccess with a default if nil
+func (j *Job) GetNotifyOnSuccess() bool {
+	if j.NotifyOnSuccess == nil {
+		return true // Default to true if not set
+	}
+	return *j.NotifyOnSuccess
+}
+
+// SetNotifyOnSuccess sets the NotifyOnSuccess field
+func (j *Job) SetNotifyOnSuccess(value bool) {
+	j.NotifyOnSuccess = &value
+}
+
+// GetNotifyOnFailure returns the value of NotifyOnFailure with a default if nil
+func (j *Job) GetNotifyOnFailure() bool {
+	if j.NotifyOnFailure == nil {
+		return true // Default to true if not set
+	}
+	return *j.NotifyOnFailure
+}
+
+// SetNotifyOnFailure sets the NotifyOnFailure field
+func (j *Job) SetNotifyOnFailure(value bool) {
+	j.NotifyOnFailure = &value
+}
+
+// GetGDriveCredentialsFromConfig extracts Google Drive client ID and secret from an existing rclone config file
+func (db *DB) GetGDriveCredentialsFromConfig(config *TransferConfig) (string, string) {
+	configPath := db.GetConfigRclonePath(config)
+	if configPath == "" {
+		return "", ""
+	}
+
+	// Check if the file exists
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return "", ""
+	}
+
+	// Read the rclone config file
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		return "", ""
+	}
+
+	// Parse the content to extract client_id and client_secret from both source and destination sections
+	lines := strings.Split(string(content), "\n")
+
+	// Define section names based on config ID
+	sourceSectionName := fmt.Sprintf("[source_%d]", config.ID)
+	destSectionName := fmt.Sprintf("[dest_%d]", config.ID)
+
+	var inSourceSection, inDestSection bool
+	var sourceClientID, sourceClientSecret, destClientID, destClientSecret string
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+
+		// Check if we're entering a new section
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			inSourceSection = line == sourceSectionName
+			inDestSection = line == destSectionName
+			continue
+		}
+
+		// Extract credentials from source section
+		if inSourceSection {
+			if strings.HasPrefix(line, "client_id") {
+				parts := strings.SplitN(line, "=", 2)
+				if len(parts) == 2 {
+					sourceClientID = strings.TrimSpace(parts[1])
+				}
+			} else if strings.HasPrefix(line, "client_secret") {
+				parts := strings.SplitN(line, "=", 2)
+				if len(parts) == 2 {
+					sourceClientSecret = strings.TrimSpace(parts[1])
+				}
+			}
+		}
+
+		// Extract credentials from destination section
+		if inDestSection {
+			if strings.HasPrefix(line, "client_id") {
+				parts := strings.SplitN(line, "=", 2)
+				if len(parts) == 2 {
+					destClientID = strings.TrimSpace(parts[1])
+				}
+			} else if strings.HasPrefix(line, "client_secret") {
+				parts := strings.SplitN(line, "=", 2)
+				if len(parts) == 2 {
+					destClientSecret = strings.TrimSpace(parts[1])
+				}
+			}
+		}
+
+		// If we found both values in both sections, we can stop processing
+		if sourceClientID != "" && sourceClientSecret != "" && destClientID != "" && destClientSecret != "" {
+			break
+		}
+	}
+
+	// Prefer destination credentials since we're authenticating for destination
+	if destClientID != "" && destClientSecret != "" {
+		return destClientID, destClientSecret
+	}
+
+	// Fall back to source credentials if available
+	if sourceClientID != "" && sourceClientSecret != "" {
+		return sourceClientID, sourceClientSecret
+	}
+
+	return "", ""
 }

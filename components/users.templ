@@ -73,7 +73,7 @@ templ Users(ctx context.Context, data UsersData) {
 													<div class="text-sm font-medium text-secondary-900 dark:text-secondary-100">{ user.Email }</div>
 												</td>
 												<td class="px-6 py-4 whitespace-nowrap">
-													if user.IsAdmin {
+													if user.GetIsAdmin() {
 														<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-300">
 															<i class="fas fa-user-shield mr-1"></i> Admin
 														</span>

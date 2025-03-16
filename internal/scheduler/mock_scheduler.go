@@ -31,7 +31,7 @@ func (m *MockScheduler) ScheduleJob(job *db.Job) error {
 		return m.ScheduleJobErr
 	}
 
-	if job.Enabled {
+	if job.GetEnabled() {
 		m.ScheduledJobs[job.ID] = true
 		delete(m.UnscheduledJobs, job.ID)
 	} else {

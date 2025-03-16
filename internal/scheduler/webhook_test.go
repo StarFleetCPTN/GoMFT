@@ -35,7 +35,7 @@ func TestWebhookNotification(t *testing.T) {
 	user := &db.User{
 		Email:        "webhook-test@example.com",
 		PasswordHash: "hashed_password",
-		IsAdmin:      true,
+		IsAdmin:      BoolPtr(true),
 	}
 	err := database.CreateUser(user)
 	require.NoError(t, err)
@@ -110,10 +110,10 @@ func TestWebhookNotification(t *testing.T) {
 			job: &db.Job{
 				Name:            "Success Job",
 				ConfigID:        config.ID,
-				WebhookEnabled:  true,
+				WebhookEnabled:  BoolPtr(true),
 				WebhookURL:      mockServer.URL,
-				NotifyOnSuccess: true,
-				NotifyOnFailure: true,
+				NotifyOnSuccess: BoolPtr(true),
+				NotifyOnFailure: BoolPtr(true),
 				CreatedBy:       user.ID,
 			},
 			history: &db.JobHistory{
@@ -135,10 +135,10 @@ func TestWebhookNotification(t *testing.T) {
 			job: &db.Job{
 				Name:            "Failed Job",
 				ConfigID:        config.ID,
-				WebhookEnabled:  true,
+				WebhookEnabled:  BoolPtr(true),
 				WebhookURL:      mockServer.URL,
-				NotifyOnSuccess: true,
-				NotifyOnFailure: true,
+				NotifyOnSuccess: BoolPtr(true),
+				NotifyOnFailure: BoolPtr(true),
 				CreatedBy:       user.ID,
 			},
 			history: &db.JobHistory{
@@ -159,10 +159,10 @@ func TestWebhookNotification(t *testing.T) {
 			job: &db.Job{
 				Name:            "Success Job No Notify",
 				ConfigID:        config.ID,
-				WebhookEnabled:  true,
+				WebhookEnabled:  BoolPtr(true),
 				WebhookURL:      mockServer.URL,
-				NotifyOnSuccess: false,
-				NotifyOnFailure: true,
+				NotifyOnSuccess: BoolPtr(false),
+				NotifyOnFailure: BoolPtr(true),
 				CreatedBy:       user.ID,
 			},
 			history: &db.JobHistory{
@@ -182,10 +182,10 @@ func TestWebhookNotification(t *testing.T) {
 			job: &db.Job{
 				Name:            "Failed Job No Notify",
 				ConfigID:        config.ID,
-				WebhookEnabled:  true,
+				WebhookEnabled:  BoolPtr(true),
 				WebhookURL:      mockServer.URL,
-				NotifyOnSuccess: true,
-				NotifyOnFailure: false,
+				NotifyOnSuccess: BoolPtr(true),
+				NotifyOnFailure: BoolPtr(false),
 				CreatedBy:       user.ID,
 			},
 			history: &db.JobHistory{
@@ -206,10 +206,10 @@ func TestWebhookNotification(t *testing.T) {
 			job: &db.Job{
 				Name:            "Webhook Disabled",
 				ConfigID:        config.ID,
-				WebhookEnabled:  false,
+				WebhookEnabled:  BoolPtr(true),
 				WebhookURL:      mockServer.URL,
-				NotifyOnSuccess: true,
-				NotifyOnFailure: true,
+				NotifyOnSuccess: BoolPtr(true),
+				NotifyOnFailure: BoolPtr(true),
 				CreatedBy:       user.ID,
 			},
 			history: &db.JobHistory{
@@ -244,10 +244,10 @@ func TestWebhookNotification(t *testing.T) {
 			job := &db.Job{
 				Name:            tc.job.Name,
 				ConfigID:        tc.job.ConfigID,
-				WebhookEnabled:  tc.webhookEnabled,
+				WebhookEnabled:  BoolPtr(tc.webhookEnabled),
 				WebhookURL:      tc.webhookURL,
-				NotifyOnSuccess: tc.notifyOnSuccess,
-				NotifyOnFailure: tc.notifyOnFailure,
+				NotifyOnSuccess: BoolPtr(tc.notifyOnSuccess),
+				NotifyOnFailure: BoolPtr(tc.notifyOnFailure),
 				CreatedBy:       tc.job.CreatedBy,
 			}
 
@@ -366,7 +366,7 @@ func TestWebhookAuthentication(t *testing.T) {
 	user := &db.User{
 		Email:        "webhook-auth-test@example.com",
 		PasswordHash: "hashed_password",
-		IsAdmin:      true,
+		IsAdmin:      BoolPtr(true),
 	}
 	err := database.CreateUser(user)
 	require.NoError(t, err)
@@ -413,11 +413,11 @@ func TestWebhookAuthentication(t *testing.T) {
 	job := &db.Job{
 		Name:            "Auth Test Job",
 		ConfigID:        config.ID,
-		WebhookEnabled:  true,
+		WebhookEnabled:  BoolPtr(true),
 		WebhookURL:      mockServer.URL,
 		WebhookSecret:   secret,
-		NotifyOnSuccess: true,
-		NotifyOnFailure: true,
+		NotifyOnSuccess: BoolPtr(true),
+		NotifyOnFailure: BoolPtr(true),
 		CreatedBy:       user.ID,
 	}
 	err = database.DB.Create(job).Error
@@ -492,7 +492,7 @@ func TestWebhookCustomHeaders(t *testing.T) {
 	user := &db.User{
 		Email:        "webhook-headers-test@example.com",
 		PasswordHash: "hashed_password",
-		IsAdmin:      true,
+		IsAdmin:      BoolPtr(true),
 	}
 	err := database.CreateUser(user)
 	require.NoError(t, err)
@@ -548,11 +548,11 @@ func TestWebhookCustomHeaders(t *testing.T) {
 	job := &db.Job{
 		Name:            "Custom Headers Test Job",
 		ConfigID:        config.ID,
-		WebhookEnabled:  true,
+		WebhookEnabled:  BoolPtr(true),
 		WebhookURL:      mockServer.URL,
 		WebhookHeaders:  string(customHeadersJSON),
-		NotifyOnSuccess: true,
-		NotifyOnFailure: true,
+		NotifyOnSuccess: BoolPtr(true),
+		NotifyOnFailure: BoolPtr(true),
 		CreatedBy:       user.ID,
 	}
 	err = database.DB.Create(job).Error

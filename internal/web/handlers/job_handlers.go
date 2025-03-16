@@ -214,6 +214,23 @@ func (h *Handlers) HandleCreateJob(c *gin.Context) {
 	// Set the config IDs list
 	job.SetConfigIDsList(configIDsList)
 
+	// Set the boolean fields - handle both "on" and "true" values for checkboxes
+	enabledVal := c.Request.FormValue("enabled")
+	jobEnabledValue := enabledVal == "on" || enabledVal == "true"
+	job.SetEnabled(jobEnabledValue)
+
+	webhookEnabledVal := c.Request.FormValue("webhook_enabled")
+	webhookEnabledValue := webhookEnabledVal == "on" || webhookEnabledVal == "true"
+	job.SetWebhookEnabled(webhookEnabledValue)
+
+	notifySuccessVal := c.Request.FormValue("notify_on_success")
+	notifyOnSuccessValue := notifySuccessVal == "on" || notifySuccessVal == "true"
+	job.SetNotifyOnSuccess(notifyOnSuccessValue)
+
+	notifyFailureVal := c.Request.FormValue("notify_on_failure")
+	notifyOnFailureValue := notifyFailureVal == "on" || notifyFailureVal == "true"
+	job.SetNotifyOnFailure(notifyOnFailureValue)
+
 	// Set created by user
 	job.CreatedBy = userID
 
@@ -314,6 +331,23 @@ func (h *Handlers) HandleUpdateJob(c *gin.Context) {
 
 	// Set the config IDs list
 	job.SetConfigIDsList(configIDsList)
+
+	// Set the boolean fields - handle both "on" and "true" values for checkboxes
+	enabledVal := c.Request.FormValue("enabled")
+	jobEnabledValue := enabledVal == "on" || enabledVal == "true"
+	job.SetEnabled(jobEnabledValue)
+
+	webhookEnabledVal := c.Request.FormValue("webhook_enabled")
+	webhookEnabledValue := webhookEnabledVal == "on" || webhookEnabledVal == "true"
+	job.SetWebhookEnabled(webhookEnabledValue)
+
+	notifySuccessVal := c.Request.FormValue("notify_on_success")
+	notifyOnSuccessValue := notifySuccessVal == "on" || notifySuccessVal == "true"
+	job.SetNotifyOnSuccess(notifyOnSuccessValue)
+
+	notifyFailureVal := c.Request.FormValue("notify_on_failure")
+	notifyOnFailureValue := notifyFailureVal == "on" || notifyFailureVal == "true"
+	job.SetNotifyOnFailure(notifyOnFailureValue)
 
 	// Preserve fields that shouldn't be updated
 	job.CreatedBy = oldJob.CreatedBy

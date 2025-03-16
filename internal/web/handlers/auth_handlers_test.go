@@ -318,9 +318,9 @@ func TestHandleLogin(t *testing.T) {
 	user := &db.User{
 		Email:               "test@example.com",
 		PasswordHash:        string(hashedPassword),
-		IsAdmin:             false,
+		IsAdmin:             BoolPtr(false),
 		FailedLoginAttempts: 0,
-		AccountLocked:       false,
+		AccountLocked:       BoolPtr(false),
 		LastPasswordChange:  time.Now(),
 	}
 	database.Create(user)
@@ -437,9 +437,9 @@ func TestHandleChangePassword(t *testing.T) {
 	user := &db.User{
 		Email:               "test@example.com",
 		PasswordHash:        string(hashedPassword),
-		IsAdmin:             false,
+		IsAdmin:             BoolPtr(false),
 		FailedLoginAttempts: 0,
-		AccountLocked:       false,
+		AccountLocked:       BoolPtr(false),
 		LastPasswordChange:  time.Now().Add(-24 * time.Hour), // 1 day ago
 	}
 	database.Create(user)
@@ -577,7 +577,7 @@ func TestHandleForgotPassword(t *testing.T) {
 	user := &db.User{
 		Email:              "test@example.com",
 		PasswordHash:       string(hashedPassword),
-		IsAdmin:            false,
+		IsAdmin:            BoolPtr(false),
 		LastPasswordChange: time.Now(),
 	}
 	database.Create(user)
@@ -612,7 +612,7 @@ func TestHandleForgotPassword(t *testing.T) {
 	result := database.Where("user_id = ?", user.ID).First(&resetToken)
 	assert.NoError(t, result.Error, "Reset token should be created")
 	assert.NotEmpty(t, resetToken.Token, "Token should not be empty")
-	assert.False(t, resetToken.Used, "Token should not be marked as used")
+	assert.False(t, resetToken.GetUsed(), "Token should not be marked as used")
 
 	// Verify email would have been sent (if not mocked)
 	// Note: We can't check SendPasswordResetEmailCalls with our current mock
@@ -654,7 +654,7 @@ func TestHandleResetPasswordPage(t *testing.T) {
 	user := &db.User{
 		Email:              "test@example.com",
 		PasswordHash:       "hashedpassword",
-		IsAdmin:            false,
+		IsAdmin:            BoolPtr(false),
 		LastPasswordChange: time.Now(),
 	}
 	database.Create(user)
@@ -665,7 +665,7 @@ func TestHandleResetPasswordPage(t *testing.T) {
 		UserID:    user.ID,
 		Token:     token,
 		ExpiresAt: time.Now().Add(15 * time.Minute),
-		Used:      false,
+		Used:      BoolPtr(false),
 	}
 	database.Create(resetToken)
 
@@ -719,7 +719,7 @@ func TestHandleResetPassword(t *testing.T) {
 	user := &db.User{
 		Email:              "test@example.com",
 		PasswordHash:       string(hashedPassword),
-		IsAdmin:            false,
+		IsAdmin:            BoolPtr(false),
 		LastPasswordChange: time.Now().Add(-24 * time.Hour), // 1 day ago
 	}
 	database.Create(user)
@@ -730,7 +730,7 @@ func TestHandleResetPassword(t *testing.T) {
 		UserID:    user.ID,
 		Token:     token,
 		ExpiresAt: time.Now().Add(15 * time.Minute),
-		Used:      false,
+		Used:      BoolPtr(false),
 	}
 	database.Create(resetToken)
 
@@ -767,7 +767,7 @@ func TestHandleResetPassword(t *testing.T) {
 	// Verify token is marked as used
 	var updatedToken db.PasswordResetToken
 	database.First(&updatedToken, resetToken.ID)
-	assert.True(t, updatedToken.Used, "Token should be marked as used")
+	assert.True(t, updatedToken.GetUsed(), "Token should be marked as used")
 
 	// Test case 2: Passwords don't match
 	// Create another token first
@@ -776,7 +776,7 @@ func TestHandleResetPassword(t *testing.T) {
 		UserID:    user.ID,
 		Token:     token2,
 		ExpiresAt: time.Now().Add(15 * time.Minute),
-		Used:      false,
+		Used:      BoolPtr(false),
 	}
 	database.Create(resetToken2)
 
@@ -800,7 +800,7 @@ func TestHandleResetPassword(t *testing.T) {
 		UserID:    user.ID,
 		Token:     token3,
 		ExpiresAt: time.Now().Add(15 * time.Minute),
-		Used:      false,
+		Used:      BoolPtr(false),
 	}
 	database.Create(resetToken3)
 

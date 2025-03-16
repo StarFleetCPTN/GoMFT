@@ -70,7 +70,7 @@ func TestGetPasswordResetTokenError(t *testing.T) {
 		UserID:    testUser.ID,
 		Token:     "used-token",
 		ExpiresAt: time.Now().Add(1 * time.Hour),
-		Used:      true,
+		Used:      BoolPtr(true),
 	}
 	err = db.CreatePasswordResetToken(usedToken)
 	assert.NoError(t, err)
@@ -131,7 +131,7 @@ func TestGenerateRcloneConfigErrors(t *testing.T) {
 	testUser := &User{
 		Email:              "config-error-test@example.com",
 		PasswordHash:       "hashed_password",
-		IsAdmin:            false,
+		IsAdmin:            BoolPtr(false),
 		LastPasswordChange: time.Now(),
 	}
 
