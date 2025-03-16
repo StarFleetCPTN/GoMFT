@@ -6,7 +6,7 @@ templ LocalDestinationForm() {
 			<label for="destination_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Local Path</label>
 			<div class="relative">
 				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-folder text-secondary-400 dark:text-secondary-600"></i>
+					<i class="fas fa-folder-open text-secondary-400 dark:text-secondary-600"></i>
 				</div>
 				<input
 					type="text"
@@ -14,13 +14,26 @@ templ LocalDestinationForm() {
 					id="destination_path"
 					x-model="destinationPath"
 					required
-					aria-describedby="destination_path_help"
+					:class="{ 'border-red-300 dark:border-red-700': destPathValid === false, 'border-green-300 dark:border-green-700': destPathValid === true }"
 					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="/path/to/destination"/>
+					placeholder="Local directory path (e.g., /path/to/destination)"
+				/>
 			</div>
-			<p id="destination_path_help" class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
-				Absolute path to the local directory where files will be saved.
+			<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+				Full path to the local directory where files will be saved
 			</p>
+			<!-- Path validation message -->
+			<template x-if="destPathValid !== null">
+				<p x-show="destPathError" class="mt-1 text-sm" :class="destPathValid ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'" x-text="destPathError"></p>
+			</template>
 		</div>
+		<button
+			type="button"
+			class="btn-secondary h-10 whitespace-nowrap"
+			@click="checkPath(destinationPath, 'dest')"
+		>
+			<i class="fas fa-check-circle mr-2"></i>
+			Check Location
+		</button>
 	</div>
-} 
+}

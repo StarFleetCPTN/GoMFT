@@ -84,7 +84,8 @@ func getInitialData(config *db.TransferConfig) string {
 	skipProcessedFiles := true
 	maxConcurrentTransfers := 4
 	rcloneFlags := ""
-	useBuiltinAuth := true
+	useBuiltinAuthSource := true
+	useBuiltinAuthDest := true
 
 	// If editing an existing config, populate with those values
 	if config != nil {
@@ -162,14 +163,19 @@ func getInitialData(config *db.TransferConfig) string {
 		skipProcessedFiles = config.GetSkipProcessedFiles()
 		maxConcurrentTransfers = config.MaxConcurrentTransfers
 		rcloneFlags = config.RcloneFlags
-		if config.UseBuiltinAuth != nil {
-			useBuiltinAuth = *config.UseBuiltinAuth
+		if config.UseBuiltinAuthSource != nil {
+			useBuiltinAuthSource = *config.UseBuiltinAuthSource
+		} else if sourceClientId != "" || sourceClientSecret != "" {
+			useBuiltinAuthSource = false
+		}
+		if config.UseBuiltinAuthDest != nil {
+			useBuiltinAuthDest = *config.UseBuiltinAuthDest
 		} else if destClientId != "" || destClientSecret != "" {
-			useBuiltinAuth = false
+			useBuiltinAuthDest = false
 		}
 	}
 
-	// Return the JSON-formatted string with all the data
+	// Return the JSON-formatted string with all the data, add new path validation states
 	return fmt.Sprintf(`{
 		name: '%s',
 		sourceType: '%s',
@@ -223,7 +229,8 @@ func getInitialData(config *db.TransferConfig) string {
 		destStartYear: %d,
 		destIncludeArchived: %v,
 		
-		useBuiltinAuth: %v,
+		useBuiltinAuthSource: %v,
+		useBuiltinAuthDest: %v,
 		
 		archivePath: '%s',
 		archiveEnabled: %v,
@@ -231,6 +238,32 @@ func getInitialData(config *db.TransferConfig) string {
 		skipProcessedFiles: %v,
 		maxConcurrentTransfers: %d,
 		rcloneFlags: '%s',
+
+		// Path validation states
+		sourcePathValid: null,
+		sourcePathError: '',
+		destPathValid: null,
+		destPathError: '',
+
+		// Methods for path validation
+		checkPath(path, type) {
+			if (!path) {
+				this[type + 'PathValid'] = false;
+				this[type + 'PathError'] = 'Path cannot be empty';
+				return;
+			}
+
+			fetch('/check-path?path=' + encodeURIComponent(path))
+				.then(response => response.json())
+				.then(data => {
+					this[type + 'PathValid'] = data.valid;
+					this[type + 'PathError'] = data.error || '';
+				})
+				.catch(error => {
+					this[type + 'PathValid'] = false;
+					this[type + 'PathError'] = 'Error checking path: ' + error.message;
+				});
+		}
 	}`, 
 	name, sourceType, sourcePath, sourceHost, sourcePort, sourceUser, sourcePassword, sourceKeyFile, sourceAuthType,
 	sourceBucket, sourceRegion, sourceAccessKey, sourceSecretKey, sourceEndpoint, sourceShare, sourceDomain, sourcePassiveMode,
@@ -241,7 +274,7 @@ func getInitialData(config *db.TransferConfig) string {
 	destBucket, destRegion, destAccessKey, destSecretKey, destEndpoint, destShare, destDomain, destPassiveMode,
 	destClientId, destClientSecret, destDriveId, destTeamDrive,
 	destReadOnly, destStartYear, destIncludeArchived,
-	useBuiltinAuth,
+	useBuiltinAuthSource, useBuiltinAuthDest,
 	archivePath, archiveEnabled, deleteAfterTransfer, skipProcessedFiles, maxConcurrentTransfers, rcloneFlags)
 }
 
@@ -321,7 +354,7 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 					@source.NextCloudSourceForm()
 				</template>
 
-				<template x-if="sourceType === 'google_drive'">
+				<template x-if="sourceType === 'gdrive'">
 					@source.GoogleDriveSourceForm()
 				</template>
 				

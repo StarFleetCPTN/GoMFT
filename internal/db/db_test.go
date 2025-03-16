@@ -853,7 +853,7 @@ func TestGoogleDriveTransferConfig(t *testing.T) {
 	// Test 1: Create config with Google Drive as source
 	googleSourceConfig := &TransferConfig{
 		Name:               "Google Drive Source Test",
-		SourceType:         "google_drive",
+		SourceType:         "gdrive",
 		SourcePath:         "/path/in/google/drive",
 		SourceClientID:     "google_client_id",
 		SourceClientSecret: "google_client_secret",
@@ -878,7 +878,7 @@ func TestGoogleDriveTransferConfig(t *testing.T) {
 		Name:             "Google Drive Destination Test",
 		SourceType:       "local",
 		SourcePath:       "/local/source/path",
-		DestinationType:  "google_drive",
+		DestinationType:  "gdrive",
 		DestinationPath:  "/path/in/google/drive",
 		DestClientID:     "google_client_id",
 		DestClientSecret: "google_client_secret",
@@ -898,12 +898,12 @@ func TestGoogleDriveTransferConfig(t *testing.T) {
 	// Test 3: Create config with Google Drive as both source and destination
 	googleBothConfig := &TransferConfig{
 		Name:               "Google Drive Both Test",
-		SourceType:         "google_drive",
+		SourceType:         "gdrive",
 		SourcePath:         "/source/path/in/google/drive",
 		SourceClientID:     "source_google_client_id",
 		SourceClientSecret: "source_google_client_secret",
 		SourceTeamDrive:    "source_team_drive_id",
-		DestinationType:    "google_drive",
+		DestinationType:    "gdrive",
 		DestinationPath:    "/dest/path/in/google/drive",
 		DestClientID:       "dest_google_client_id",
 		DestClientSecret:   "dest_google_client_secret",
@@ -923,7 +923,7 @@ func TestGoogleDriveTransferConfig(t *testing.T) {
 	// Test retrieving and verifying Google Drive configs
 	retrievedSourceConfig, err := db.GetTransferConfig(googleSourceConfig.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, "google_drive", retrievedSourceConfig.SourceType)
+	assert.Equal(t, "gdrive", retrievedSourceConfig.SourceType)
 	assert.Equal(t, "/path/in/google/drive", retrievedSourceConfig.SourcePath)
 	assert.Equal(t, "google_client_id", retrievedSourceConfig.SourceClientID)
 	assert.Equal(t, "team_drive_id", retrievedSourceConfig.SourceTeamDrive)
@@ -931,7 +931,7 @@ func TestGoogleDriveTransferConfig(t *testing.T) {
 
 	retrievedDestConfig, err := db.GetTransferConfig(googleDestConfig.ID)
 	assert.NoError(t, err)
-	assert.Equal(t, "google_drive", retrievedDestConfig.DestinationType)
+	assert.Equal(t, "gdrive", retrievedDestConfig.DestinationType)
 	assert.Equal(t, "/path/in/google/drive", retrievedDestConfig.DestinationPath)
 	assert.Equal(t, "google_client_id", retrievedDestConfig.DestClientID)
 	assert.Equal(t, "team_drive_id", retrievedDestConfig.DestTeamDrive)
@@ -986,7 +986,7 @@ func TestGoogleDriveJobExecution(t *testing.T) {
 	// Create a test transfer config with Google Drive as source
 	googleConfig := &TransferConfig{
 		Name:               "Google Drive Job Test",
-		SourceType:         "google_drive",
+		SourceType:         "gdrive",
 		SourcePath:         "/source/path/in/google/drive",
 		SourceClientID:     "google_client_id",
 		SourceClientSecret: "google_client_secret",
@@ -1149,7 +1149,7 @@ func TestGoogleDriveAuthentication(t *testing.T) {
 	// Create a Google Drive config that requires authentication
 	googleConfig := &TransferConfig{
 		Name:               "Google Drive Auth Test",
-		SourceType:         "google_drive",
+		SourceType:         "gdrive",
 		SourcePath:         "/source/path",
 		SourceClientID:     "test_client_id",
 		SourceClientSecret: "test_client_secret",
@@ -1234,7 +1234,7 @@ func TestGoogleDriveErrorHandling(t *testing.T) {
 	// Test 1: Create a config with missing required fields
 	incompleteConfig := &TransferConfig{
 		Name:            "Incomplete Google Drive Config",
-		SourceType:      "google_drive",
+		SourceType:      "gdrive",
 		SourcePath:      "", // Missing path
 		DestinationType: "local",
 		DestinationPath: "/local/path",
@@ -1249,7 +1249,7 @@ func TestGoogleDriveErrorHandling(t *testing.T) {
 	// Test 2: Config with invalid Team Drive ID
 	invalidTeamDriveConfig := &TransferConfig{
 		Name:               "Invalid Team Drive Config",
-		SourceType:         "google_drive",
+		SourceType:         "gdrive",
 		SourcePath:         "/test/path",
 		SourceClientID:     "test_client_id",
 		SourceClientSecret: "test_client_secret",
@@ -1279,7 +1279,7 @@ func TestGoogleDriveErrorHandling(t *testing.T) {
 	// Test 3: Test authentication error scenario - using malformed token
 	badTokenConfig := &TransferConfig{
 		Name:               "Bad Token Config",
-		SourceType:         "google_drive",
+		SourceType:         "gdrive",
 		SourcePath:         "/test/path",
 		SourceClientID:     "test_client_id",
 		SourceClientSecret: "test_client_secret",
@@ -1325,7 +1325,7 @@ func TestGoogleDriveTeamDrive(t *testing.T) {
 	// Test 1: Configure source with Team Drive
 	teamDriveSourceConfig := &TransferConfig{
 		Name:               "Team Drive Source Test",
-		SourceType:         "google_drive",
+		SourceType:         "gdrive",
 		SourcePath:         "/shared/documents",
 		SourceClientID:     "test_client_id",
 		SourceClientSecret: "test_client_secret",
@@ -1350,7 +1350,7 @@ func TestGoogleDriveTeamDrive(t *testing.T) {
 		Name:             "Team Drive Destination Test",
 		SourceType:       "local",
 		SourcePath:       "/local/source",
-		DestinationType:  "google_drive",
+		DestinationType:  "gdrive",
 		DestinationPath:  "/team/drive/path",
 		DestClientID:     "test_client_id",
 		DestClientSecret: "test_client_secret",
@@ -1370,12 +1370,12 @@ func TestGoogleDriveTeamDrive(t *testing.T) {
 	// Test 3: Configure both source and destination with Team Drive
 	teamDriveBothConfig := &TransferConfig{
 		Name:               "Team Drive Both Test",
-		SourceType:         "google_drive",
+		SourceType:         "gdrive",
 		SourcePath:         "/source/team/drive/path",
 		SourceClientID:     "source_client_id",
 		SourceClientSecret: "source_client_secret",
 		SourceTeamDrive:    "source_team_drive_id",
-		DestinationType:    "google_drive",
+		DestinationType:    "gdrive",
 		DestinationPath:    "/dest/team/drive/path",
 		DestClientID:       "dest_client_id",
 		DestClientSecret:   "dest_client_secret",
@@ -1434,7 +1434,7 @@ func TestGooglePhotosTransferConfig(t *testing.T) {
 	// Test 1: Create config with Google Photos as source
 	sourceReadOnly := true
 	sourceIncludeArchived := false
-	useBuiltinAuth := true
+	useBuiltinAuthSource := true
 	googleSourceConfig := &TransferConfig{
 		Name:                  "Google Photos Source Test",
 		SourceType:            "gphotos",
@@ -1444,7 +1444,7 @@ func TestGooglePhotosTransferConfig(t *testing.T) {
 		SourceReadOnly:        &sourceReadOnly,
 		SourceStartYear:       2015,
 		SourceIncludeArchived: &sourceIncludeArchived,
-		UseBuiltinAuth:        &useBuiltinAuth,
+		UseBuiltinAuthSource:  &useBuiltinAuthSource,
 		DestinationType:       "local",
 		DestinationPath:       "/local/destination/path",
 		FilePattern:           "*.jpg",
@@ -1463,6 +1463,7 @@ func TestGooglePhotosTransferConfig(t *testing.T) {
 	// Test 2: Create config with Google Photos as destination
 	destReadOnly := false
 	destIncludeArchived := true
+	useBuiltinAuthDest := true
 	googleDestConfig := &TransferConfig{
 		Name:                "Google Photos Destination Test",
 		SourceType:          "local",
@@ -1474,7 +1475,7 @@ func TestGooglePhotosTransferConfig(t *testing.T) {
 		DestReadOnly:        &destReadOnly,
 		DestStartYear:       2018,
 		DestIncludeArchived: &destIncludeArchived,
-		UseBuiltinAuth:      &useBuiltinAuth,
+		UseBuiltinAuthDest:  &useBuiltinAuthDest,
 		FilePattern:         "*.png",
 		CreatedBy:           testUser.ID,
 	}
@@ -1504,7 +1505,8 @@ func TestGooglePhotosTransferConfig(t *testing.T) {
 		DestReadOnly:          &destReadOnly,
 		DestStartYear:         2020,
 		DestIncludeArchived:   &destIncludeArchived,
-		UseBuiltinAuth:        &useBuiltinAuth,
+		UseBuiltinAuthSource:  &useBuiltinAuthSource,
+		UseBuiltinAuthDest:    &useBuiltinAuthDest,
 		FilePattern:           "*.jpeg",
 		CreatedBy:             testUser.ID,
 	}
@@ -1524,7 +1526,7 @@ func TestGooglePhotosTransferConfig(t *testing.T) {
 	assert.Equal(t, sourceReadOnly, *retrievedConfig.SourceReadOnly)
 	assert.Equal(t, 2015, retrievedConfig.SourceStartYear)
 	assert.Equal(t, sourceIncludeArchived, *retrievedConfig.SourceIncludeArchived)
-	assert.Equal(t, useBuiltinAuth, *retrievedConfig.UseBuiltinAuth)
+	assert.Equal(t, useBuiltinAuthSource, *retrievedConfig.UseBuiltinAuthSource)
 	assert.Equal(t, true, retrievedConfig.GetGoogleAuthenticated())
 
 	retrievedConfig, err = db.GetTransferConfig(googleDestConfig.ID)
@@ -1533,7 +1535,7 @@ func TestGooglePhotosTransferConfig(t *testing.T) {
 	assert.Equal(t, destReadOnly, *retrievedConfig.DestReadOnly)
 	assert.Equal(t, 2018, retrievedConfig.DestStartYear)
 	assert.Equal(t, destIncludeArchived, *retrievedConfig.DestIncludeArchived)
-	assert.Equal(t, useBuiltinAuth, *retrievedConfig.UseBuiltinAuth)
+	assert.Equal(t, useBuiltinAuthDest, *retrievedConfig.UseBuiltinAuthDest)
 	assert.Equal(t, true, retrievedConfig.GetGoogleAuthenticated())
 }
 
@@ -1573,7 +1575,7 @@ func TestGooglePhotosRcloneConfig(t *testing.T) {
 	// TEST 1: Google Photos as source with standard options
 	sourceReadOnly := true
 	sourceIncludeArchived := false
-	useBuiltinAuth := true
+	useBuiltinAuthSource := true
 	gphotosSourceConfig := &TransferConfig{
 		ID:                    1, // Force ID for predictable config path
 		Name:                  "Google Photos Source Config",
@@ -1584,7 +1586,7 @@ func TestGooglePhotosRcloneConfig(t *testing.T) {
 		SourceReadOnly:        &sourceReadOnly,
 		SourceStartYear:       2015,
 		SourceIncludeArchived: &sourceIncludeArchived,
-		UseBuiltinAuth:        &useBuiltinAuth,
+		UseBuiltinAuthSource:  &useBuiltinAuthSource,
 		DestinationType:       "local",
 		DestinationPath:       "/tmp/destination",
 		FilePattern:           "*.jpg",
@@ -1617,6 +1619,7 @@ func TestGooglePhotosRcloneConfig(t *testing.T) {
 	// TEST 2: Google Photos as destination with authenticated token
 	destReadOnly := false
 	destIncludeArchived := true
+	useBuiltinAuthDest := true
 	gphotosDestConfig := &TransferConfig{
 		ID:                  2, // Force ID for predictable config path
 		Name:                "Google Photos Destination Config",
@@ -1629,7 +1632,7 @@ func TestGooglePhotosRcloneConfig(t *testing.T) {
 		DestReadOnly:        &destReadOnly,
 		DestStartYear:       2018,
 		DestIncludeArchived: &destIncludeArchived,
-		UseBuiltinAuth:      &useBuiltinAuth,
+		UseBuiltinAuthDest:  &useBuiltinAuthDest,
 		FilePattern:         "*.png",
 		CreatedBy:           testUser.ID,
 	}
@@ -1686,7 +1689,7 @@ func TestGooglePhotosAuthentication(t *testing.T) {
 	// Create a transfer config with Google Photos
 	readOnly := true
 	includeArchived := false
-	useBuiltinAuth := true
+	useBuiltinAuthSource := true
 	gPhotosConfig := &TransferConfig{
 		Name:                  "Test Google Photos Auth",
 		SourceType:            "gphotos",
@@ -1696,7 +1699,7 @@ func TestGooglePhotosAuthentication(t *testing.T) {
 		SourceReadOnly:        &readOnly,
 		SourceStartYear:       2015,
 		SourceIncludeArchived: &includeArchived,
-		UseBuiltinAuth:        &useBuiltinAuth,
+		UseBuiltinAuthSource:  &useBuiltinAuthSource,
 		DestinationType:       "local",
 		DestinationPath:       "/tmp/destination",
 		FilePattern:           "*.jpg",

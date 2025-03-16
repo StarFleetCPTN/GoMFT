@@ -1,7 +1,7 @@
 package source
 
 templ GooglePhotosSourceForm() {
-<div class="space-y-6" x-init="$watch('useBuiltinAuth', value => {
+<div class="space-y-6" x-init="$watch('useBuiltinAuthSource', value => {
     if(value) {
         sourceClientId = '';
         sourceClientSecret = '';
@@ -12,11 +12,12 @@ templ GooglePhotosSourceForm() {
             <div class="relative">
                 <input id="use_builtin_auth_source" name="use_builtin_auth_source" type="checkbox" 
                     class="sr-only"
-                    x-model="useBuiltinAuth"
+                    x-model="useBuiltinAuthSource"
+                    :value="useBuiltinAuthSource ? 'true' : 'false'"
                 />
                 <div class="block bg-secondary-200 dark:bg-secondary-700 w-14 h-8 rounded-full"></div>
                 <div class="dot absolute left-1 top-1 bg-white dark:bg-secondary-100 w-6 h-6 rounded-full transition"
-                    :class="useBuiltinAuth ? 'transform translate-x-6 bg-primary-500' : ''"></div>
+                    :class="useBuiltinAuthSource ? 'transform translate-x-6 bg-primary-500' : ''"></div>
             </div>
             <div class="ml-3 text-secondary-700 dark:text-secondary-300 font-medium">
                 Use rclone's built-in Google authentication (recommended)
@@ -27,11 +28,11 @@ templ GooglePhotosSourceForm() {
         </p>
     </div>
 
-    <div x-bind:class="{ 'opacity-50': useBuiltinAuth }">
+    <div x-bind:class="{ 'opacity-50': useBuiltinAuthSource }">
         <div>
             <label for="source_client_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
                 Google Client ID
-                <span x-show="useBuiltinAuth" class="text-secondary-400 dark:text-secondary-600 text-xs font-normal">(Using rclone default)</span>
+                <span x-show="useBuiltinAuthSource" class="text-secondary-400 dark:text-secondary-600 text-xs font-normal">(Using rclone default)</span>
             </label>
             <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -39,7 +40,7 @@ templ GooglePhotosSourceForm() {
                 </div>
                 <input type="text" id="source_client_id" name="source_client_id" x-model="sourceClientId"
                     class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-                    x-bind:disabled="useBuiltinAuth"
+                    x-bind:disabled="useBuiltinAuthSource"
                     placeholder="Google Photos OAuth Client ID" />
             </div>
             <p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
@@ -50,7 +51,7 @@ templ GooglePhotosSourceForm() {
         <div class="mt-4">
             <label for="source_client_secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
                 Google Client Secret
-                <span x-show="useBuiltinAuth" class="text-secondary-400 dark:text-secondary-600 text-xs font-normal">(Using rclone default)</span>
+                <span x-show="useBuiltinAuthSource" class="text-secondary-400 dark:text-secondary-600 text-xs font-normal">(Using rclone default)</span>
             </label>
             <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -58,7 +59,7 @@ templ GooglePhotosSourceForm() {
                 </div>
                 <input type="password" id="source_client_secret" name="source_client_secret" x-model="sourceClientSecret"
                     class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-                    x-bind:disabled="useBuiltinAuth"
+                    x-bind:disabled="useBuiltinAuthSource"
                     placeholder="Google Photos OAuth Client Secret" />
             </div>
             <p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
@@ -130,7 +131,7 @@ templ GooglePhotosSourceForm() {
             </div>
             <input type="text" id="source_path" name="source_path" x-model="sourcePath"
                 class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-                placeholder="Album path (e.g., /album/my-photos)" />
+                placeholder="Album path (e.g., album/my-photos)" />
         </div>
         <p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
             Path within Google Photos to download files from
@@ -165,7 +166,7 @@ templ GooglePhotosSourceForm() {
             <div class="ml-3">
                 <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200">Authentication Information</h3>
                 <div class="mt-2 text-sm text-blue-700 dark:text-blue-300">
-                    <template x-if="useBuiltinAuth">
+                    <template x-if="useBuiltinAuthSource">
                         <div>
                             <p>You're using rclone's built-in authentication, which simplifies the setup process:</p>
                             <ul class="list-disc list-inside mt-1 space-y-1">
@@ -180,7 +181,7 @@ templ GooglePhotosSourceForm() {
                             </p>
                         </div>
                     </template>
-                    <template x-if="!useBuiltinAuth">
+                    <template x-if="!useBuiltinAuthSource">
                         <div>
                             <p>To use Google Photos with your own credentials:</p>
                             <ol class="list-decimal list-inside mt-1 space-y-1">

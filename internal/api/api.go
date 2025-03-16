@@ -711,7 +711,7 @@ func handleListHistory(database *db.DB) gin.HandlerFunc {
 		// For now, just return the most recent 100 history entries for the user's jobs
 		var history []db.JobHistory
 		err := database.DB.
-			Joins("JOIN jobs ON job_histories.job_id = jobs.id").
+			Joins("JOIN jobs ON job_history.job_id = jobs.id").
 			Where("jobs.created_by = ?", userID).
 			Order("start_time DESC").
 			Limit(100).

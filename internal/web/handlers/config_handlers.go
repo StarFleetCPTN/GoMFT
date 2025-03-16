@@ -71,6 +71,7 @@ func (h *Handlers) HandleEditConfig(c *gin.Context) {
 // HandleCreateConfig handles the POST /configs route
 func (h *Handlers) HandleCreateConfig(c *gin.Context) {
 	var config db.TransferConfig
+
 	if err := c.ShouldBind(&config); err != nil {
 		log.Printf("Error binding config form: %v", err)
 		c.String(http.StatusBadRequest, fmt.Sprintf("Invalid form data: %v", err))
@@ -118,9 +119,13 @@ func (h *Handlers) HandleCreateConfig(c *gin.Context) {
 	sourceIncludeArchivedValue := sourceIncludeArchivedVal == "on" || sourceIncludeArchivedVal == "true"
 	config.SourceIncludeArchived = &sourceIncludeArchivedValue
 
-	useBuiltinAuthVal := c.Request.FormValue("use_builtin_auth")
-	useBuiltinAuthValue := useBuiltinAuthVal == "on" || useBuiltinAuthVal == "true"
-	config.UseBuiltinAuth = &useBuiltinAuthValue
+	useBuiltinAuthSourceVal := c.Request.FormValue("use_builtin_auth_source")
+	useBuiltinAuthSourceValue := useBuiltinAuthSourceVal == "on" || useBuiltinAuthSourceVal == "true"
+	config.UseBuiltinAuthSource = &useBuiltinAuthSourceValue
+
+	useBuiltinAuthDestVal := c.Request.FormValue("use_builtin_auth_dest")
+	useBuiltinAuthDestValue := useBuiltinAuthDestVal == "on" || useBuiltinAuthDestVal == "true"
+	config.UseBuiltinAuthDest = &useBuiltinAuthDestValue
 
 	if err := h.DB.Create(&config).Error; err != nil {
 		log.Printf("Error creating config: %v", err)
@@ -209,9 +214,13 @@ func (h *Handlers) HandleUpdateConfig(c *gin.Context) {
 	sourceIncludeArchivedValue := sourceIncludeArchivedVal == "on" || sourceIncludeArchivedVal == "true"
 	config.SourceIncludeArchived = &sourceIncludeArchivedValue
 
-	useBuiltinAuthVal := c.Request.FormValue("use_builtin_auth")
-	useBuiltinAuthValue := useBuiltinAuthVal == "on" || useBuiltinAuthVal == "true"
-	config.UseBuiltinAuth = &useBuiltinAuthValue
+	useBuiltinAuthSourceVal := c.Request.FormValue("use_builtin_auth_source")
+	useBuiltinAuthSourceValue := useBuiltinAuthSourceVal == "on" || useBuiltinAuthSourceVal == "true"
+	config.UseBuiltinAuthSource = &useBuiltinAuthSourceValue
+
+	useBuiltinAuthDestVal := c.Request.FormValue("use_builtin_auth_dest")
+	useBuiltinAuthDestValue := useBuiltinAuthDestVal == "on" || useBuiltinAuthDestVal == "true"
+	config.UseBuiltinAuthDest = &useBuiltinAuthDestValue
 
 	// Preserve fields that shouldn't be updated
 	config.CreatedBy = oldConfig.CreatedBy

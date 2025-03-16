@@ -348,8 +348,8 @@ User management features:
 ### Transfer Configuration Options
 
 1. **Source/Destination Types**:
-   - Google Drive (with built-in or custom authentication)
-   - Google Photos (with built-in or custom authentication)
+   - Google Drive
+   - Google Photos
    - Local filesystem
    - Amazon S3
    - MinIO (S3-compatible storage)

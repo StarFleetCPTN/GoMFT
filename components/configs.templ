@@ -289,7 +289,7 @@ templ Configs(ctx context.Context, data ConfigsData) {
 														<!-- Google Drive Authentication Button -->
 														if (config.DestinationType == "gdrive" || config.SourceType == "gdrive" || config.SourceType == "gphotos" || config.DestinationType == "gphotos") && !config.GetGoogleAuthenticated() {
 															<a href={ templ.SafeURL(fmt.Sprintf("/configs/%d/gdrive-auth", config.ID)) } class="btn-warning btn-sm">
-																<i class="fab fa-google-drive mr-1"></i>
+																<i class="fab fa-google mr-1"></i>
 																Authenticate
 															</a>
 														}
@@ -356,8 +356,8 @@ templ Configs(ctx context.Context, data ConfigsData) {
 				<!-- Google Drive Auth Help -->
 				<div class="mt-4 text-center">
 					<p class="text-sm text-secondary-500 dark:text-secondary-400">
-						<i class="fab fa-google-drive mr-1 text-blue-500 inline-flex items-center"></i>
-						Google Drive configurations require authentication. Click the "Authenticate" button to complete setup.
+						<i class="fab fa-google mr-1 text-blue-500 inline-flex items-center"></i>
+						Google Drive and Google Photos configurations require authentication. Click the "Authenticate" button to complete setup.
 					</p>
 				</div>
 			</div>
