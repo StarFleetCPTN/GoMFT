@@ -34,6 +34,8 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
 ## Features
 
 - **Multiple Storage Support**: Leverage rclone's extensive support for cloud storage providers:
+  - Google Drive
+  - Google Photos
   - Amazon S3
   - MinIO
   - NextCloud
@@ -150,6 +152,10 @@ services:
       - BACKUP_DIR=/app/backups
       - JWT_SECRET=change_this_to_a_secure_random_string
       - BASE_URL=http://localhost:8080
+      # Google OAuth configuration (optional)
+      - GOOGLE_CLIENT_ID=your_google_client_id
+      - GOOGLE_CLIENT_SECRET=your_google_client_secret
+      # Email configuration
       - EMAIL_ENABLED=true
       - EMAIL_HOST=smtp.example.com
       - EMAIL_PORT=587
@@ -206,6 +212,10 @@ BACKUP_DIR=/app/backups
 JWT_SECRET=change_this_to_a_secure_random_string
 BASE_URL=http://localhost:8080
 
+# Google OAuth configuration (optional, for built-in authentication)
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+
 # Email configuration
 EMAIL_ENABLED=true
 EMAIL_HOST=smtp.example.com
@@ -226,6 +236,9 @@ EMAIL_PASSWORD=smtp_password
 - `BACKUP_DIR`: Directory for storing database backups
 - `JWT_SECRET`: Secret key for JWT token generation
 - `BASE_URL`: Base URL for generating links in emails (e.g., password reset links)
+- Google OAuth configuration for built-in authentication:
+  - `GOOGLE_CLIENT_ID`: Your Google OAuth client ID
+  - `GOOGLE_CLIENT_SECRET`: Your Google OAuth client secret
 - Email configuration settings for system notifications and password resets:
   - `EMAIL_ENABLED`: Set to `true` to enable email functionality
   - `EMAIL_HOST`: SMTP server hostname
@@ -332,6 +345,8 @@ User management features:
 ### Transfer Configuration Options
 
 1. **Source/Destination Types**:
+   - Google Drive (with built-in or custom authentication)
+   - Google Photos (with built-in or custom authentication)
    - Local filesystem
    - Amazon S3
    - MinIO (S3-compatible storage)
@@ -343,32 +358,46 @@ User management features:
 2. **Connection Options**:
    - Host/server addresses
    - Authentication (username/password or key files)
+   - OAuth2 authentication for Google services
    - Port configurations
    - Cloud credentials (access keys, secret keys)
    - Bucket and region settings
    - Custom endpoints
    - Custom rclone flags
 
-3. **File Options**:
+3. **Google Photos Specific Options**:
+   - Read-only mode for safer operations
+   - Start year filter for historical photos
+   - Include/exclude archived media
+   - Album path configuration
+   - Built-in or custom OAuth authentication
+
+4. **Google Drive Specific Options**:
+   - Folder ID for specific directory access
+   - Team/Shared Drive ID support
+   - Built-in or custom OAuth authentication
+   - Path-based navigation
+
+5. **File Options**:
    - File patterns for filtering (e.g., `*.txt`, `data_*.csv`)
    - Output patterns for dynamic naming
    - Archive options for transferred files
    - Skip already processed files to avoid duplicates
    - Concurrent file transfers (configurable per job)
 
-4. **Performance Options**:
+6. **Performance Options**:
    - **Multi-threaded File Transfers**: Process multiple files simultaneously for higher throughput
    - Configurable concurrency level (1-32 concurrent transfers)
    - Per-job concurrency settings to optimize for different storage types
    - Automatic transfer queue management to prevent overloading systems
    - Adaptive processing based on source/destination capabilities
 
-5. **Schedule Options**:
+7. **Schedule Options**:
    - Cron expressions for flexible scheduling
    - Manual execution
    - Enable/disable schedules
 
-6. **Webhook Notifications**:
+8. **Webhook Notifications**:
    - **Webhook Integration**: Send notifications to external systems when jobs complete
    - **Secure Authentication**: HMAC-SHA256 signature for webhook verification
    - **Custom Headers**: Add custom HTTP headers to webhook requests
