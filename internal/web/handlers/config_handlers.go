@@ -101,6 +101,27 @@ func (h *Handlers) HandleCreateConfig(c *gin.Context) {
 	destPassiveModeValue := destPassiveModeVal == "on" || destPassiveModeVal == "true"
 	config.DestPassiveMode = &destPassiveModeValue
 
+	// Google Photos specific fields
+	destReadOnlyVal := c.Request.FormValue("dest_read_only")
+	destReadOnlyValue := destReadOnlyVal == "on" || destReadOnlyVal == "true"
+	config.DestReadOnly = &destReadOnlyValue
+
+	sourceReadOnlyVal := c.Request.FormValue("source_read_only")
+	sourceReadOnlyValue := sourceReadOnlyVal == "on" || sourceReadOnlyVal == "true"
+	config.SourceReadOnly = &sourceReadOnlyValue
+
+	destIncludeArchivedVal := c.Request.FormValue("dest_include_archived")
+	destIncludeArchivedValue := destIncludeArchivedVal == "on" || destIncludeArchivedVal == "true"
+	config.DestIncludeArchived = &destIncludeArchivedValue
+
+	sourceIncludeArchivedVal := c.Request.FormValue("source_include_archived")
+	sourceIncludeArchivedValue := sourceIncludeArchivedVal == "on" || sourceIncludeArchivedVal == "true"
+	config.SourceIncludeArchived = &sourceIncludeArchivedValue
+
+	useBuiltinAuthVal := c.Request.FormValue("use_builtin_auth")
+	useBuiltinAuthValue := useBuiltinAuthVal == "on" || useBuiltinAuthVal == "true"
+	config.UseBuiltinAuth = &useBuiltinAuthValue
+
 	if err := h.DB.Create(&config).Error; err != nil {
 		log.Printf("Error creating config: %v", err)
 		c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to create config: %v", err))
@@ -170,6 +191,27 @@ func (h *Handlers) HandleUpdateConfig(c *gin.Context) {
 	destPassiveModeVal := c.Request.FormValue("dest_passive_mode")
 	destPassiveModeValue := destPassiveModeVal == "on" || destPassiveModeVal == "true"
 	config.DestPassiveMode = &destPassiveModeValue
+
+	// Google Photos specific fields
+	destReadOnlyVal := c.Request.FormValue("dest_read_only")
+	destReadOnlyValue := destReadOnlyVal == "on" || destReadOnlyVal == "true"
+	config.DestReadOnly = &destReadOnlyValue
+
+	sourceReadOnlyVal := c.Request.FormValue("source_read_only")
+	sourceReadOnlyValue := sourceReadOnlyVal == "on" || sourceReadOnlyVal == "true"
+	config.SourceReadOnly = &sourceReadOnlyValue
+
+	destIncludeArchivedVal := c.Request.FormValue("dest_include_archived")
+	destIncludeArchivedValue := destIncludeArchivedVal == "on" || destIncludeArchivedVal == "true"
+	config.DestIncludeArchived = &destIncludeArchivedValue
+
+	sourceIncludeArchivedVal := c.Request.FormValue("source_include_archived")
+	sourceIncludeArchivedValue := sourceIncludeArchivedVal == "on" || sourceIncludeArchivedVal == "true"
+	config.SourceIncludeArchived = &sourceIncludeArchivedValue
+
+	useBuiltinAuthVal := c.Request.FormValue("use_builtin_auth")
+	useBuiltinAuthValue := useBuiltinAuthVal == "on" || useBuiltinAuthVal == "true"
+	config.UseBuiltinAuth = &useBuiltinAuthValue
 
 	// Preserve fields that shouldn't be updated
 	config.CreatedBy = oldConfig.CreatedBy

@@ -7,6 +7,7 @@ import (
 	"github.com/starfleetcptn/gomft/components/providers/source"
 	"github.com/starfleetcptn/gomft/components/providers/destination"
 	"github.com/starfleetcptn/gomft/components/providers/common"
+	"strconv"
 )
 
 type ConfigFormData struct {
@@ -44,6 +45,10 @@ func getInitialData(config *db.TransferConfig) string {
 	sourceClientSecret := ""
 	sourceDriveId := ""
 	sourceTeamDrive := ""
+	// Google Photos source fields
+	sourceReadOnly := false
+	sourceStartYear, _ := strconv.Atoi(getCurrentYear())
+	sourceIncludeArchived := false
 	
 	filePattern := ""
 	outputPattern := "${filename}"
@@ -68,6 +73,10 @@ func getInitialData(config *db.TransferConfig) string {
 	destClientSecret := ""
 	destDriveId := ""
 	destTeamDrive := ""
+	// Google Photos destination fields
+	destReadOnly := false
+	destStartYear, _ := strconv.Atoi(getCurrentYear()) // Default to current year int
+	destIncludeArchived := false
 	
 	archivePath := ""
 	archiveEnabled := false
@@ -103,6 +112,15 @@ func getInitialData(config *db.TransferConfig) string {
 		sourceDriveId = config.SourceDriveID
 		sourceTeamDrive = config.SourceTeamDrive
 		
+		// Google Photos source fields
+		if config.SourceReadOnly != nil {
+			sourceReadOnly = *config.SourceReadOnly
+		}
+		sourceStartYear = config.SourceStartYear
+		if config.SourceIncludeArchived != nil {
+			sourceIncludeArchived = *config.SourceIncludeArchived
+		}
+		
 		filePattern = config.FilePattern
 		outputPattern = config.OutputPattern
 		
@@ -129,13 +147,24 @@ func getInitialData(config *db.TransferConfig) string {
 		destDriveId = config.DestDriveID
 		destTeamDrive = config.DestTeamDrive
 		
+		// Google Photos destination fields
+		if config.DestReadOnly != nil {
+			destReadOnly = *config.DestReadOnly
+		}
+		destStartYear = config.DestStartYear
+		if config.DestIncludeArchived != nil {
+			destIncludeArchived = *config.DestIncludeArchived
+		}
+		
 		archivePath = config.ArchivePath
 		archiveEnabled = config.GetArchiveEnabled()
 		deleteAfterTransfer = config.GetDeleteAfterTransfer()
 		skipProcessedFiles = config.GetSkipProcessedFiles()
 		maxConcurrentTransfers = config.MaxConcurrentTransfers
 		rcloneFlags = config.RcloneFlags
-		if destClientId != "" || destClientSecret != "" {
+		if config.UseBuiltinAuth != nil {
+			useBuiltinAuth = *config.UseBuiltinAuth
+		} else if destClientId != "" || destClientSecret != "" {
 			useBuiltinAuth = false
 		}
 	}
@@ -163,6 +192,9 @@ func getInitialData(config *db.TransferConfig) string {
 		sourceClientSecret: '%s',
 		sourceDriveId: '%s',
 		sourceTeamDrive: '%s',
+		sourceReadOnly: %v,
+		sourceStartYear: %d,
+		sourceIncludeArchived: %v,
 		
 		filePattern: '%s',
 		outputPattern: '%s',
@@ -187,6 +219,10 @@ func getInitialData(config *db.TransferConfig) string {
 		destClientSecret: '%s',
 		destDriveId: '%s',
 		destTeamDrive: '%s',
+		destReadOnly: %v,
+		destStartYear: %d,
+		destIncludeArchived: %v,
+		
 		useBuiltinAuth: %v,
 		
 		archivePath: '%s',
@@ -199,10 +235,12 @@ func getInitialData(config *db.TransferConfig) string {
 	name, sourceType, sourcePath, sourceHost, sourcePort, sourceUser, sourcePassword, sourceKeyFile, sourceAuthType,
 	sourceBucket, sourceRegion, sourceAccessKey, sourceSecretKey, sourceEndpoint, sourceShare, sourceDomain, sourcePassiveMode,
 	sourceClientId, sourceClientSecret, sourceDriveId, sourceTeamDrive,
+	sourceReadOnly, sourceStartYear, sourceIncludeArchived,
 	filePattern, outputPattern,
 	destinationType, destinationPath, destHost, destPort, destUser, destPassword, destKeyFile, destAuthType,
 	destBucket, destRegion, destAccessKey, destSecretKey, destEndpoint, destShare, destDomain, destPassiveMode,
 	destClientId, destClientSecret, destDriveId, destTeamDrive,
+	destReadOnly, destStartYear, destIncludeArchived,
 	useBuiltinAuth,
 	archivePath, archiveEnabled, deleteAfterTransfer, skipProcessedFiles, maxConcurrentTransfers, rcloneFlags)
 }
@@ -287,6 +325,10 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 					@source.GoogleDriveSourceForm()
 				</template>
 				
+				<template x-if="sourceType === 'gphotos'">
+					@source.GooglePhotosSourceForm()
+				</template>
+				
 				<!-- File pattern fields -->
 				@common.FilePatternFields()
 				
@@ -330,6 +372,9 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 					@destination.GoogleDriveDestinationForm()
 				</template>
 				
+				<template x-if="destinationType === 'gphotos'">
+					@destination.GooglePhotosDestinationForm()
+				</template>
 				
 				<!-- Archive options -->
 				@common.ArchiveOptions()

@@ -535,6 +535,12 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 	if maxConcurrent < 1 {
 		maxConcurrent = 1 // Default to 1 if not set
 	}
+
+	// Limit Google Photos to 1 concurrent transfers
+	if config.SourceType == "gphotos" || config.DestinationType == "gphotos" {
+		maxConcurrent = 1
+	}
+
 	s.log.LogInfo("Using %d concurrent transfers for job %d, config %d", maxConcurrent, job.ID, config.ID)
 
 	// Create wait group for concurrent processing

@@ -1416,3 +1416,345 @@ func TestGoogleDriveTeamDrive(t *testing.T) {
 	err = db.DeleteTransferConfig(teamDriveBothConfig.ID)
 	assert.NoError(t, err)
 }
+
+func TestGooglePhotosTransferConfig(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Create a test user
+	testUser := &User{
+		Email:              fmt.Sprintf("gphotos-test-%d@example.com", time.Now().UnixNano()),
+		PasswordHash:       "hashed_password",
+		LastPasswordChange: time.Now(),
+	}
+	err := db.CreateUser(testUser)
+	if err != nil {
+		t.Fatalf("Failed to create user: %v", err)
+	}
+
+	// Test 1: Create config with Google Photos as source
+	sourceReadOnly := true
+	sourceIncludeArchived := false
+	useBuiltinAuth := true
+	googleSourceConfig := &TransferConfig{
+		Name:                  "Google Photos Source Test",
+		SourceType:            "gphotos",
+		SourcePath:            "/albums/vacation",
+		SourceClientID:        "google_client_id",
+		SourceClientSecret:    "google_client_secret",
+		SourceReadOnly:        &sourceReadOnly,
+		SourceStartYear:       2015,
+		SourceIncludeArchived: &sourceIncludeArchived,
+		UseBuiltinAuth:        &useBuiltinAuth,
+		DestinationType:       "local",
+		DestinationPath:       "/local/destination/path",
+		FilePattern:           "*.jpg",
+		CreatedBy:             testUser.ID,
+	}
+
+	// Set authenticated status
+	authenticated := true
+	googleSourceConfig.GoogleDriveAuthenticated = &authenticated
+
+	// Create the config
+	err = db.CreateTransferConfig(googleSourceConfig)
+	assert.NoError(t, err)
+	assert.NotZero(t, googleSourceConfig.ID, "Config ID should be set after creation")
+
+	// Test 2: Create config with Google Photos as destination
+	destReadOnly := false
+	destIncludeArchived := true
+	googleDestConfig := &TransferConfig{
+		Name:                "Google Photos Destination Test",
+		SourceType:          "local",
+		SourcePath:          "/local/source/path",
+		DestinationType:     "gphotos",
+		DestinationPath:     "/albums/upload",
+		DestClientID:        "google_client_id",
+		DestClientSecret:    "google_client_secret",
+		DestReadOnly:        &destReadOnly,
+		DestStartYear:       2018,
+		DestIncludeArchived: &destIncludeArchived,
+		UseBuiltinAuth:      &useBuiltinAuth,
+		FilePattern:         "*.png",
+		CreatedBy:           testUser.ID,
+	}
+
+	// Set authenticated status
+	googleDestConfig.GoogleDriveAuthenticated = &authenticated
+
+	// Create the config
+	err = db.CreateTransferConfig(googleDestConfig)
+	assert.NoError(t, err)
+	assert.NotZero(t, googleDestConfig.ID, "Config ID should be set after creation")
+
+	// Test 3: Create config with Google Photos as both source and destination
+	googleBothConfig := &TransferConfig{
+		Name:                  "Google Photos Both Test",
+		SourceType:            "gphotos",
+		SourcePath:            "/albums/source_album",
+		SourceClientID:        "source_client_id",
+		SourceClientSecret:    "source_client_secret",
+		SourceReadOnly:        &sourceReadOnly,
+		SourceStartYear:       2020,
+		SourceIncludeArchived: &sourceIncludeArchived,
+		DestinationType:       "gphotos",
+		DestinationPath:       "/albums/dest_album",
+		DestClientID:          "dest_client_id",
+		DestClientSecret:      "dest_client_secret",
+		DestReadOnly:          &destReadOnly,
+		DestStartYear:         2020,
+		DestIncludeArchived:   &destIncludeArchived,
+		UseBuiltinAuth:        &useBuiltinAuth,
+		FilePattern:           "*.jpeg",
+		CreatedBy:             testUser.ID,
+	}
+
+	// Set authenticated status
+	googleBothConfig.GoogleDriveAuthenticated = &authenticated
+
+	// Create the config
+	err = db.CreateTransferConfig(googleBothConfig)
+	assert.NoError(t, err)
+	assert.NotZero(t, googleBothConfig.ID, "Config ID should be set after creation")
+
+	// Verify configs were created properly
+	retrievedConfig, err := db.GetTransferConfig(googleSourceConfig.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, "gphotos", retrievedConfig.SourceType)
+	assert.Equal(t, sourceReadOnly, *retrievedConfig.SourceReadOnly)
+	assert.Equal(t, 2015, retrievedConfig.SourceStartYear)
+	assert.Equal(t, sourceIncludeArchived, *retrievedConfig.SourceIncludeArchived)
+	assert.Equal(t, useBuiltinAuth, *retrievedConfig.UseBuiltinAuth)
+	assert.Equal(t, true, retrievedConfig.GetGoogleAuthenticated())
+
+	retrievedConfig, err = db.GetTransferConfig(googleDestConfig.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, "gphotos", retrievedConfig.DestinationType)
+	assert.Equal(t, destReadOnly, *retrievedConfig.DestReadOnly)
+	assert.Equal(t, 2018, retrievedConfig.DestStartYear)
+	assert.Equal(t, destIncludeArchived, *retrievedConfig.DestIncludeArchived)
+	assert.Equal(t, useBuiltinAuth, *retrievedConfig.UseBuiltinAuth)
+	assert.Equal(t, true, retrievedConfig.GetGoogleAuthenticated())
+}
+
+func TestGooglePhotosRcloneConfig(t *testing.T) {
+	// Create a temporary test directory
+	tempDir, err := os.MkdirTemp("", "gomft-test")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Set up data directory
+	dataDir := filepath.Join(tempDir, "data")
+	configDir := filepath.Join(dataDir, "configs")
+	err = os.MkdirAll(configDir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create config directory: %v", err)
+	}
+
+	// Set DATA_DIR environment variable
+	oldDataDir := os.Getenv("DATA_DIR")
+	defer os.Setenv("DATA_DIR", oldDataDir)
+	os.Setenv("DATA_DIR", dataDir)
+
+	// Initialize test database
+	db := setupTestDB(t)
+
+	// Create a test user
+	testUser := &User{
+		Email:              fmt.Sprintf("gphotos-rclone-%d@example.com", time.Now().UnixNano()),
+		PasswordHash:       "hashed_password",
+		LastPasswordChange: time.Now(),
+	}
+	err = db.CreateUser(testUser)
+	assert.NoError(t, err)
+
+	// TEST 1: Google Photos as source with standard options
+	sourceReadOnly := true
+	sourceIncludeArchived := false
+	useBuiltinAuth := true
+	gphotosSourceConfig := &TransferConfig{
+		ID:                    1, // Force ID for predictable config path
+		Name:                  "Google Photos Source Config",
+		SourceType:            "gphotos",
+		SourcePath:            "/albums/vacation",
+		SourceClientID:        "test_client_id",
+		SourceClientSecret:    "test_client_secret",
+		SourceReadOnly:        &sourceReadOnly,
+		SourceStartYear:       2015,
+		SourceIncludeArchived: &sourceIncludeArchived,
+		UseBuiltinAuth:        &useBuiltinAuth,
+		DestinationType:       "local",
+		DestinationPath:       "/tmp/destination",
+		FilePattern:           "*.jpg",
+		CreatedBy:             testUser.ID,
+	}
+
+	// Generate rclone config
+	err = db.GenerateRcloneConfig(gphotosSourceConfig)
+	assert.NoError(t, err)
+
+	// Check if config file exists
+	configPath := filepath.Join(configDir, fmt.Sprintf("config_%d.conf", gphotosSourceConfig.ID))
+	_, err = os.Stat(configPath)
+	assert.NoError(t, err, "Config file should exist")
+
+	// Read config file content
+	content, err := os.ReadFile(configPath)
+	assert.NoError(t, err)
+	configContent := string(content)
+
+	// Check for Google Photos source section
+	assert.Contains(t, configContent, "[source_1]")
+	assert.Contains(t, configContent, "type = google photos")
+	assert.Contains(t, configContent, "client_id = test_client_id")
+	assert.Contains(t, configContent, "client_secret = test_client_secret")
+	assert.Contains(t, configContent, "read_only = true")
+	assert.Contains(t, configContent, "start_year = 2015")
+	assert.NotContains(t, configContent, "include_archived = true") // This should be false and not included
+
+	// TEST 2: Google Photos as destination with authenticated token
+	destReadOnly := false
+	destIncludeArchived := true
+	gphotosDestConfig := &TransferConfig{
+		ID:                  2, // Force ID for predictable config path
+		Name:                "Google Photos Destination Config",
+		SourceType:          "local",
+		SourcePath:          "/tmp/source",
+		DestinationType:     "gphotos",
+		DestinationPath:     "/albums/upload",
+		DestClientID:        "dest_client_id",
+		DestClientSecret:    "dest_client_secret",
+		DestReadOnly:        &destReadOnly,
+		DestStartYear:       2018,
+		DestIncludeArchived: &destIncludeArchived,
+		UseBuiltinAuth:      &useBuiltinAuth,
+		FilePattern:         "*.png",
+		CreatedBy:           testUser.ID,
+	}
+
+	// Set authentication status
+	authenticated := true
+	gphotosDestConfig.GoogleDriveAuthenticated = &authenticated
+
+	// Generate config first (needed for token update)
+	err = db.GenerateRcloneConfig(gphotosDestConfig)
+	assert.NoError(t, err)
+
+	// Now test token handling with GenerateRcloneConfigWithToken
+	testToken := `{"access_token":"test-token","token_type":"Bearer","refresh_token":"test-refresh","expiry":"2023-12-31T23:59:59Z"}`
+	err = db.GenerateRcloneConfigWithToken(gphotosDestConfig, testToken)
+	assert.NoError(t, err)
+
+	// Check updated config
+	configPath = filepath.Join(configDir, fmt.Sprintf("config_%d.conf", gphotosDestConfig.ID))
+	_, err = os.Stat(configPath)
+	assert.NoError(t, err, "Config file should exist")
+
+	// Read config file content
+	content, err = os.ReadFile(configPath)
+	assert.NoError(t, err)
+	configContent = string(content)
+
+	// Check for Google Photos destination section with token
+	assert.Contains(t, configContent, "type = google photos")
+	assert.Contains(t, configContent, "client_id = dest_client_id")
+	assert.Contains(t, configContent, "client_secret = dest_client_secret")
+	assert.Contains(t, configContent, "token = {")
+	assert.Contains(t, configContent, "access_token")
+	assert.Contains(t, configContent, "test-token")
+	assert.Contains(t, configContent, "refresh_token")
+	assert.Contains(t, configContent, "test-refresh")
+	assert.Contains(t, configContent, "include_archived = true")
+	assert.NotContains(t, configContent, "read_only = false") // This should be false and not included
+}
+
+func TestGooglePhotosAuthentication(t *testing.T) {
+	// Initialize test database
+	db := setupTestDB(t)
+
+	// Create a test user
+	testUser := &User{
+		Email:              fmt.Sprintf("gphotos-auth-%d@example.com", time.Now().UnixNano()),
+		PasswordHash:       "hashed_password",
+		LastPasswordChange: time.Now(),
+	}
+	err := db.CreateUser(testUser)
+	assert.NoError(t, err)
+
+	// Create a transfer config with Google Photos
+	readOnly := true
+	includeArchived := false
+	useBuiltinAuth := true
+	gPhotosConfig := &TransferConfig{
+		Name:                  "Test Google Photos Auth",
+		SourceType:            "gphotos",
+		SourcePath:            "/albums/vacation",
+		SourceClientID:        "test_client_id",
+		SourceClientSecret:    "test_client_secret",
+		SourceReadOnly:        &readOnly,
+		SourceStartYear:       2015,
+		SourceIncludeArchived: &includeArchived,
+		UseBuiltinAuth:        &useBuiltinAuth,
+		DestinationType:       "local",
+		DestinationPath:       "/tmp/destination",
+		FilePattern:           "*.jpg",
+		CreatedBy:             testUser.ID,
+	}
+
+	// Create the config
+	err = db.CreateTransferConfig(gPhotosConfig)
+	assert.NoError(t, err)
+	assert.NotZero(t, gPhotosConfig.ID)
+
+	// Test initial authentication state
+	// Should be false when first created
+	authenticated := gPhotosConfig.GetGoogleAuthenticated()
+	assert.False(t, authenticated)
+	t.Logf("Initial GoogleDriveAuthenticated value: %v", gPhotosConfig.GoogleDriveAuthenticated)
+
+	// Test generic Google authentication method (new)
+	gPhotosConfig.SetGoogleAuthenticated(true)
+	t.Logf("After SetGoogleAuthenticated(true): %v", gPhotosConfig.GoogleDriveAuthenticated)
+
+	// Save the updated config to the database
+	err = db.UpdateTransferConfig(gPhotosConfig)
+	assert.NoError(t, err)
+	t.Logf("After UpdateTransferConfig: %v", gPhotosConfig.GoogleDriveAuthenticated)
+
+	// Verify authentication status is updated
+	updatedConfig, err := db.GetTransferConfig(gPhotosConfig.ID)
+	assert.NoError(t, err)
+	t.Logf("Retrieved config GoogleDriveAuthenticated: %v", updatedConfig.GoogleDriveAuthenticated)
+	assert.True(t, updatedConfig.GetGoogleAuthenticated())
+
+	// Verify it can be unset
+	updatedConfig.SetGoogleAuthenticated(false)
+	t.Logf("After SetGoogleAuthenticated(false): %v", updatedConfig.GoogleDriveAuthenticated)
+
+	// Save the updated config to the database
+	err = db.UpdateTransferConfig(updatedConfig)
+	assert.NoError(t, err)
+
+	// Verify authentication status is updated
+	updatedConfig2, err := db.GetTransferConfig(gPhotosConfig.ID)
+	assert.NoError(t, err)
+	t.Logf("Retrieved config2 GoogleDriveAuthenticated: %v", updatedConfig2.GoogleDriveAuthenticated)
+	assert.False(t, updatedConfig2.GetGoogleAuthenticated())
+
+	// Test with the old method naming for backward compatibility
+	updatedConfig2.SetGoogleDriveAuthenticated(true)
+	t.Logf("After SetGoogleDriveAuthenticated(true): %v", updatedConfig2.GoogleDriveAuthenticated)
+
+	// Save the updated config to the database
+	err = db.UpdateTransferConfig(updatedConfig2)
+	assert.NoError(t, err)
+
+	// Verify authentication status is updated when using the old method
+	updatedConfig3, err := db.GetTransferConfig(gPhotosConfig.ID)
+	assert.NoError(t, err)
+	t.Logf("Retrieved config3 GoogleDriveAuthenticated: %v", updatedConfig3.GoogleDriveAuthenticated)
+	assert.True(t, updatedConfig3.GetGoogleAuthenticated())
+	assert.True(t, updatedConfig3.GetGoogleDriveAuthenticated())
+}

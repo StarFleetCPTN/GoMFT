@@ -36,9 +36,9 @@ func (h *Handlers) HandleGDriveAuth(c *gin.Context) {
 		return
 	}
 
-	// Ensure it's a Google Drive configuration
-	if config.DestinationType != "gdrive" {
-		RenderErrorPage(c, "Not a Google Drive configuration", "The selected configuration is not set up for Google Drive")
+	// Ensure it's a Google Drive or Google Photos configuration
+	if config.DestinationType != "gdrive" && config.DestinationType != "gphotos" {
+		RenderErrorPage(c, "Not a Google configuration", "The selected configuration is not set up for Google Drive or Google Photos")
 		return
 	}
 
@@ -81,9 +81,9 @@ func (h *Handlers) HandleGDriveAuth(c *gin.Context) {
 	// Define the redirect URI for our callback
 	redirectURI := fmt.Sprintf("%s/configs/gdrive-callback", baseURL)
 
-	// Attempt to get GDRIVE_CLIENT_ID and GDRIVE_CLIENT_SECRET from ENV
-	clientID := os.Getenv("GDRIVE_CLIENT_ID")
-	clientSecret := os.Getenv("GDRIVE_CLIENT_SECRET")
+	// Attempt to get GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET from ENV
+	clientID := os.Getenv("GOOGLE_CLIENT_ID")
+	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
 
 	if clientID == "" || clientSecret == "" {
 		// Check if we have client credentials in the existing config file
@@ -109,7 +109,7 @@ func (h *Handlers) HandleGDriveAuth(c *gin.Context) {
 			clientSecret = existingClientSecret
 		} else {
 			// If we still can't find a matching secret, show an error
-			RenderErrorPage(c, "Missing client secret", "You provided a custom client ID but no client secret. Both are required for Google Drive authentication.")
+			RenderErrorPage(c, "Missing client secret", "You provided a custom client ID but no client secret. Both are required for Google authentication.")
 			return
 		}
 	}
@@ -123,13 +123,28 @@ func (h *Handlers) HandleGDriveAuth(c *gin.Context) {
 	// Store config ID in cookie for use during callback
 	c.SetCookie("gdrive_config_id", configIDStr, 3600, "/", "", false, true)
 
+	// Determine the appropriate scope based on destination type
+	var scope string
+	if config.DestinationType == "gphotos" {
+		// Read-only access is handled elsewhere in the config; here we need the full auth scope
+		scope = url.QueryEscape("https://www.googleapis.com/auth/photoslibrary")
+	} else {
+		// Default to Google Drive scope
+		scope = url.QueryEscape("https://www.googleapis.com/auth/drive")
+	}
+
 	// Create a config file with redirect URI-based auth
-	configContent := fmt.Sprintf(`[temp_gdrive]
-type = drive
+	configType := "drive"
+	if config.DestinationType == "gphotos" {
+		configType = "google photos"
+	}
+
+	configContent := fmt.Sprintf(`[temp_%s]
+type = %s
 client_id = %s
 client_secret = %s
 redirect_url = %s
-`, clientID, clientSecret, redirectURI)
+`, config.DestinationType, configType, clientID, clientSecret, redirectURI)
 
 	// Write the config file
 	if err := os.WriteFile(tempConfigPath, []byte(configContent), 0644); err != nil {
@@ -138,7 +153,6 @@ redirect_url = %s
 	}
 
 	// Direct Google OAuth URL with our redirect
-	scope := url.QueryEscape("https://www.googleapis.com/auth/drive")
 	authURL := fmt.Sprintf("https://accounts.google.com/o/oauth2/auth?client_id=%s&redirect_uri=%s&scope=%s&response_type=code&access_type=offline&state=%s",
 		url.QueryEscape(clientID),
 		url.QueryEscape(redirectURI),
@@ -205,9 +219,9 @@ func (h *Handlers) HandleGDriveAuthCallback(c *gin.Context) {
 		return
 	}
 
-	// Attempt to get GDRIVE_CLIENT_ID and GDRIVE_CLIENT_SECRET from ENV
-	clientID := os.Getenv("GDRIVE_CLIENT_ID")
-	clientSecret := os.Getenv("GDRIVE_CLIENT_SECRET")
+	// Attempt to get GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET from ENV
+	clientID := os.Getenv("GOOGLE_CLIENT_ID")
+	clientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
 
 	if clientID == "" || clientSecret == "" {
 		// Check if we have client credentials in the existing config file
@@ -233,7 +247,7 @@ func (h *Handlers) HandleGDriveAuthCallback(c *gin.Context) {
 			clientSecret = existingClientSecret
 		} else {
 			// If we still can't find a matching secret, show an error
-			RenderErrorPage(c, "Missing client secret", "You provided a custom client ID but no client secret. Both are required for Google Drive authentication.")
+			RenderErrorPage(c, "Missing client secret", "You provided a custom client ID but no client secret. Both are required for Google authentication.")
 			return
 		}
 	}
@@ -313,7 +327,13 @@ func (h *Handlers) HandleGDriveAuthCallback(c *gin.Context) {
 	c.SetCookie("gdrive_config_id", "", -1, "/", "", false, true)
 
 	// Redirect to the config list with a success message
-	c.Redirect(http.StatusFound, "/configs?status=gdrive_auth_success")
+	var successParam string
+	if config.DestinationType == "gphotos" {
+		successParam = "gphotos_auth_success"
+	} else {
+		successParam = "gdrive_auth_success"
+	}
+	c.Redirect(http.StatusFound, fmt.Sprintf("/configs?status=%s", successParam))
 }
 
 // HandleGDriveTokenProcess processes a Google Drive token directly from a URL parameter
