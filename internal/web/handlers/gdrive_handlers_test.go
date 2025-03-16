@@ -64,26 +64,26 @@ func (h *MockHandlers) HandleGDriveAuth(c *gin.Context) {
 	// Get the config ID from the query parameter
 	configIDStr := c.Param("id")
 	if configIDStr == "" {
-		RenderErrorPage(c, "Missing configuration ID", "")
+		RenderErrorPageTest(c, "Missing configuration ID", "")
 		return
 	}
 
 	configID, err := strconv.ParseUint(configIDStr, 10, 64)
 	if err != nil {
-		RenderErrorPage(c, "Invalid configuration ID", err.Error())
+		RenderErrorPageTest(c, "Invalid configuration ID", err.Error())
 		return
 	}
 
 	// Get the configuration
 	config, err := h.DB.GetTransferConfig(uint(configID))
 	if err != nil {
-		RenderErrorPage(c, "Configuration not found", err.Error())
+		RenderErrorPageTest(c, "Configuration not found", err.Error())
 		return
 	}
 
 	// Ensure it's a Google Drive or Google Photos configuration
 	if config.DestinationType != "gdrive" && config.DestinationType != "gphotos" {
-		RenderErrorPage(c, "Not a Google configuration", "The selected configuration is not set up for Google Drive or Google Photos")
+		RenderErrorPageTest(c, "Not a Google configuration", "The selected configuration is not set up for Google Drive or Google Photos")
 		return
 	}
 
@@ -96,14 +96,14 @@ func (h *MockHandlers) HandleGDriveAuth(c *gin.Context) {
 	// Get Rclone Config Path
 	rcloneConfigPath := h.DB.GetConfigRclonePath(config)
 	if rcloneConfigPath == "" {
-		RenderErrorPage(c, "Rclone config not found", "The selected configuration does not have a valid rclone config")
+		RenderErrorPageTest(c, "Rclone config not found", "The selected configuration does not have a valid rclone config")
 		return
 	}
 
 	// Create a temporary config file for authentication
 	tempConfigDir := filepath.Join(dataDir, "temp")
 	if err := os.MkdirAll(tempConfigDir, 0755); err != nil {
-		RenderErrorPage(c, "Failed to create temporary directory", err.Error())
+		RenderErrorPageTest(c, "Failed to create temporary directory", err.Error())
 		return
 	}
 
@@ -180,7 +180,7 @@ func (h *MockHandlers) HandleGDriveAuthCallback(c *gin.Context) {
 	// Get auth code from query parameters
 	authCode := c.Query("code")
 	if authCode == "" {
-		RenderErrorPage(c, "Authentication failed", "No authorization code received from Google")
+		RenderErrorPageTest(c, "Authentication failed", "No authorization code received from Google")
 		return
 	}
 
@@ -188,27 +188,27 @@ func (h *MockHandlers) HandleGDriveAuthCallback(c *gin.Context) {
 	state := c.Query("state")
 	storedState, err := c.Cookie("gdrive_auth_state")
 	if err != nil || state != storedState {
-		RenderErrorPage(c, "Authentication failed", "Invalid state parameter")
+		RenderErrorPageTest(c, "Authentication failed", "Invalid state parameter")
 		return
 	}
 
 	// Get config ID from cookie
 	configIDStr, err := c.Cookie("gdrive_config_id")
 	if err != nil {
-		RenderErrorPage(c, "Authentication failed", "Unable to retrieve configuration ID")
+		RenderErrorPageTest(c, "Authentication failed", "Unable to retrieve configuration ID")
 		return
 	}
 
 	configID, err := strconv.ParseUint(configIDStr, 10, 64)
 	if err != nil {
-		RenderErrorPage(c, "Invalid configuration ID", err.Error())
+		RenderErrorPageTest(c, "Invalid configuration ID", err.Error())
 		return
 	}
 
 	// Get the configuration
 	config, err := h.DB.GetTransferConfig(uint(configID))
 	if err != nil {
-		RenderErrorPage(c, "Failed to get configuration", err.Error())
+		RenderErrorPageTest(c, "Failed to get configuration", err.Error())
 		return
 	}
 
@@ -219,7 +219,7 @@ func (h *MockHandlers) HandleGDriveAuthCallback(c *gin.Context) {
 	// Update the config with the token
 	err = h.DB.GenerateRcloneConfigWithToken(config, mockToken)
 	if err != nil {
-		RenderErrorPage(c, "Failed to update configuration", err.Error())
+		RenderErrorPageTest(c, "Failed to update configuration", err.Error())
 		return
 	}
 
@@ -420,8 +420,8 @@ func TestHandleGDriveAuth_NonGoogleConfig(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "Not a Google configuration")
 }
 
-// RenderErrorPage renders an error page with the given message
-func RenderErrorPage(c *gin.Context, title string, details string) {
+// RenderErrorPageTest renders an error page with the given message
+func RenderErrorPageTest(c *gin.Context, title string, details string) {
 	// Here we'd typically use a component for error display
 	// For now, we'll just render a simple HTML error page for testing
 	errorHTML := fmt.Sprintf("<html><body><h1>Error: %s</h1><p>%s</p></body></html>", title, details)

@@ -49,7 +49,7 @@ templ FilePatternFields() {
 			Pattern for output filename. Use variables like ${`filename`}, ${`timestamp`}, ${`date`}
 		</p>
 		<div>
-			<p class="mt-1 text-xs text-gray-500">
+			<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
 				Pattern for filenames. Available variables:<br />
 				${`filename`} - Original filename without extension (e.g., "report")<br />
 				${`ext`} - Original file extension (e.g., "csv")<br />
@@ -65,8 +65,8 @@ templ FilePatternFields() {
 }
 
 templ ArchiveOptions() {
-	<div class="border border-gray-200 rounded-lg p-6 bg-gray-50 shadow-sm">
-		<h3 class="text-lg font-medium text-gray-900 mb-4">Archive &amp; Delete Options</h3>
+	<div class="border border-secondary-200 dark:border-secondary-700 rounded-lg p-6 bg-secondary-50 dark:bg-secondary-800/50 shadow-sm">
+		<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100 mb-4">Archive &amp; Delete Options</h3>
 		
 		<div class="mb-4">
 			<label for="archive_enabled" class="flex items-center cursor-pointer">
@@ -75,29 +75,29 @@ templ ArchiveOptions() {
 						class="sr-only"
 						:value="archiveEnabled ? 'true' : 'false'"
 					/>
-					<div class="block bg-gray-200 w-14 h-8 rounded-full"></div>
-					<div class="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"
+					<div class="block bg-secondary-200 dark:bg-secondary-700 w-14 h-8 rounded-full"></div>
+					<div class="dot absolute left-1 top-1 bg-white dark:bg-secondary-100 w-6 h-6 rounded-full transition"
 						:class="archiveEnabled ? 'transform translate-x-6 bg-primary-500' : ''"></div>
 				</div>
-				<div class="ml-3 text-gray-700 font-medium">
+				<div class="ml-3 text-secondary-700 dark:text-secondary-300 font-medium">
 					Enable archiving
 				</div>
 			</label>
 		</div>
 		
 		<div class="mb-4" x-show="archiveEnabled">
-			<label for="archive_path" class="block text-sm font-medium text-gray-700 mb-1">Archive Path</label>
+			<label for="archive_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Archive Path</label>
 			<div class="relative">
 				<span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-folder text-gray-400"></i>
+					<i class="fas fa-folder text-secondary-400 dark:text-secondary-600"></i>
 				</span>
 				<input id="archive_path" name="archive_path" type="text" 
-					class="pl-10 pr-10 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 block w-full shadow-sm"
+					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
 					placeholder="Path to archive files"
 					x-model="archivePath"
 				/>
 			</div>
-			<p class="mt-1 text-xs text-gray-500">
+			<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
 				Files will be moved here after successful transfer
 			</p>
 		</div>
@@ -109,15 +109,15 @@ templ ArchiveOptions() {
 						class="sr-only"
 						:value="deleteAfterTransfer ? 'true' : 'false'"
 					/>
-					<div class="block bg-gray-200 w-14 h-8 rounded-full"></div>
-					<div class="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"
+					<div class="block bg-secondary-200 dark:bg-secondary-700 w-14 h-8 rounded-full"></div>
+					<div class="dot absolute left-1 top-1 bg-white dark:bg-secondary-100 w-6 h-6 rounded-full transition"
 						:class="deleteAfterTransfer ? 'transform translate-x-6 bg-red-500' : ''"></div>
 				</div>
-				<div class="ml-3 text-gray-700 font-medium">
+				<div class="ml-3 text-secondary-700 dark:text-secondary-300 font-medium">
 					Delete source files after transfer
 				</div>
 			</label>
-			<p class="mt-1 ml-14 text-xs text-red-500" x-show="deleteAfterTransfer">
+			<p class="mt-1 ml-14 text-xs text-red-500 dark:text-red-400" x-show="deleteAfterTransfer">
 				<i class="fas fa-exclamation-triangle mr-1"></i> Warning: This will permanently delete the original files
 			</p>
 		</div>
@@ -129,30 +129,30 @@ templ ArchiveOptions() {
 						class="sr-only"
 						:value="skipProcessedFiles ? 'true' : 'false'"
 					/>
-					<div class="block bg-gray-200 w-14 h-8 rounded-full"></div>
-					<div class="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"
+					<div class="block bg-secondary-200 dark:bg-secondary-700 w-14 h-8 rounded-full"></div>
+					<div class="dot absolute left-1 top-1 bg-white dark:bg-secondary-100 w-6 h-6 rounded-full transition"
 						:class="skipProcessedFiles ? 'transform translate-x-6 bg-primary-500' : ''"></div>
 				</div>
-				<div class="ml-3 text-gray-700 font-medium">
+				<div class="ml-3 text-secondary-700 dark:text-secondary-300 font-medium">
 					Skip files that have already been processed
 				</div>
 			</label>
-			<p class="mt-1 ml-14 text-xs text-gray-500">
+			<p class="mt-1 ml-14 text-xs text-secondary-500 dark:text-secondary-400">
 				Files with the same hash that have been successfully processed before will be skipped
 			</p>
 		</div>
 
 		<div class="mb-4">
-			<label for="max_concurrent_transfers" class="block text-sm font-medium text-gray-700 mb-1">Concurrent Transfers</label>
+			<label for="max_concurrent_transfers" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Concurrent Transfers</label>
 			<div class="flex items-center">
 				<input type="range" id="max_concurrent_transfers" name="max_concurrent_transfers" 
-					class="form-range w-2/3 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+					class="form-range w-2/3 h-2 bg-secondary-200 dark:bg-secondary-700 rounded-lg appearance-none cursor-pointer"
 					min="1" max="32" step="1"
 					x-model="maxConcurrentTransfers" 
 				/>
-				<span class="ml-4 text-gray-700" x-text="maxConcurrentTransfers"></span>
+				<span class="ml-4 text-secondary-700 dark:text-secondary-300" x-text="maxConcurrentTransfers"></span>
 			</div>
-			<p class="mt-1 text-xs text-gray-500">
+			<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
 				Number of files to transfer simultaneously (higher values may improve performance but increase resource usage)
 			</p>
 		</div>
@@ -161,16 +161,16 @@ templ ArchiveOptions() {
 
 templ RcloneFlags() {
 <div>
-	<label for="rclone_flags" class="block text-sm font-medium text-gray-700">Rclone Flags</label>
+	<label for="rclone_flags" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300">Rclone Flags</label>
 	<div class="mt-1 relative rounded-md shadow-sm">
 		<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-			<i class="fas fa-flag text-gray-400"></i>
+			<i class="fas fa-flag text-secondary-400 dark:text-secondary-600"></i>
 		</div>
 		<input type="text" name="rclone_flags" id="rclone_flags" x-model="rcloneFlags"
 			class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
 			placeholder="--transfers 4 --checkers 8" />
 	</div>
-	<p class="mt-1 text-xs text-gray-500">
+	<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
 		Optional: Additional rclone flags for fine-tuning the transfer.
 	</p>
 </div>
@@ -194,7 +194,7 @@ templ SourceSelection() {
 			<option value="smb">SMB</option>
 			<option value="nextcloud">NextCloud</option>
 			<option value="webdav">WebDAV</option>
-			<option value="google_drive">Google Drive</option>
+			<option value="gdrive">Google Drive</option>
 			<option value="gphotos">Google Photos</option>
 		</select>
 	</div>

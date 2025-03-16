@@ -1,25 +1,25 @@
 package destination
 
 templ GooglePhotosDestinationForm() {
-<div class="space-y-6" x-init="$watch('useBuiltinAuth', value => {
+<div class="space-y-6" x-init="$watch('useBuiltinAuthDest', value => {
     if(value) {
         destClientId = '';
         destClientSecret = '';
     }
 })">
     <div class="mb-6">
-        <label for="use_builtin_auth" class="flex items-center cursor-pointer">
+        <label for="use_builtin_auth_dest" class="flex items-center cursor-pointer">
             <div class="relative">
-                <input id="use_builtin_auth" name="use_builtin_auth" type="checkbox" 
+                <input id="use_builtin_auth_dest" name="use_builtin_auth_dest" type="checkbox" 
                     class="sr-only"
-                    x-model="useBuiltinAuth"
-                    value="true"
+                    x-model="useBuiltinAuthDest"
+                    :value="useBuiltinAuthDest ? 'true' : 'false'"
                 />
-                <div class="block bg-gray-200 w-14 h-8 rounded-full"></div>
-                <div class="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"
-                    :class="useBuiltinAuth ? 'transform translate-x-6 bg-primary-500' : ''"></div>
+                <div class="block bg-secondary-200 dark:bg-secondary-700 w-14 h-8 rounded-full"></div>
+                <div class="dot absolute left-1 top-1 bg-white dark:bg-secondary-100 w-6 h-6 rounded-full transition"
+                    :class="useBuiltinAuthDest ? 'transform translate-x-6 bg-primary-500' : ''"></div>
             </div>
-            <div class="ml-3 text-gray-700 font-medium">
+            <div class="ml-3 text-secondary-700 dark:text-secondary-300 font-medium">
                 Use rclone's built-in Google authentication (recommended)
             </div>
         </label>
@@ -28,11 +28,11 @@ templ GooglePhotosDestinationForm() {
         </p>
     </div>
 
-    <div x-bind:class="{ 'opacity-50': useBuiltinAuth }">
+    <div x-bind:class="{ 'opacity-50': useBuiltinAuthDest }">
         <div>
             <label for="dest_client_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
                 Google Client ID
-                <span x-show="useBuiltinAuth" class="text-secondary-400 dark:text-secondary-600 text-xs font-normal">(Using rclone default)</span>
+                <span x-show="useBuiltinAuthDest" class="text-secondary-400 dark:text-secondary-600 text-xs font-normal">(Using rclone default)</span>
             </label>
             <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -40,7 +40,7 @@ templ GooglePhotosDestinationForm() {
                 </div>
                 <input type="text" id="dest_client_id" name="dest_client_id" x-model="destClientId"
                     class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-                    x-bind:disabled="useBuiltinAuth"
+                    x-bind:disabled="useBuiltinAuthDest"
                     placeholder="Google Photos OAuth Client ID" />
             </div>
             <p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
@@ -51,7 +51,7 @@ templ GooglePhotosDestinationForm() {
         <div class="mt-4">
             <label for="dest_client_secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
                 Google Client Secret
-                <span x-show="useBuiltinAuth" class="text-secondary-400 dark:text-secondary-600 text-xs font-normal">(Using rclone default)</span>
+                <span x-show="useBuiltinAuthDest" class="text-secondary-400 dark:text-secondary-600 text-xs font-normal">(Using rclone default)</span>
             </label>
             <div class="relative">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -59,7 +59,7 @@ templ GooglePhotosDestinationForm() {
                 </div>
                 <input type="password" id="dest_client_secret" name="dest_client_secret" x-model="destClientSecret"
                     class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-                    x-bind:disabled="useBuiltinAuth"
+                    x-bind:disabled="useBuiltinAuthDest"
                     placeholder="Google Photos OAuth Client Secret" />
             </div>
             <p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
@@ -74,13 +74,12 @@ templ GooglePhotosDestinationForm() {
                 <input id="dest_read_only" name="dest_read_only" type="checkbox" 
                     class="sr-only"
                     x-model="destReadOnly"
-                    value="true"
                 />
-                <div class="block bg-gray-200 w-14 h-8 rounded-full"></div>
-                <div class="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"
+                <div class="block bg-secondary-200 dark:bg-secondary-700 w-14 h-8 rounded-full"></div>
+                <div class="dot absolute left-1 top-1 bg-white dark:bg-secondary-100 w-6 h-6 rounded-full transition"
                     :class="destReadOnly ? 'transform translate-x-6 bg-primary-500' : ''"></div>
             </div>
-            <div class="ml-3 text-gray-700 font-medium">
+            <div class="ml-3 text-secondary-700 dark:text-secondary-300 font-medium">
                 Read-only mode
             </div>
         </label>
@@ -110,13 +109,12 @@ templ GooglePhotosDestinationForm() {
                 <input id="dest_include_archived" name="dest_include_archived" type="checkbox" 
                     class="sr-only"
                     x-model="destIncludeArchived"
-                    value="true"
                 />
-                <div class="block bg-gray-200 w-14 h-8 rounded-full"></div>
-                <div class="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"
+                <div class="block bg-secondary-200 dark:bg-secondary-700 w-14 h-8 rounded-full"></div>
+                <div class="dot absolute left-1 top-1 bg-white dark:bg-secondary-100 w-6 h-6 rounded-full transition"
                     :class="destIncludeArchived ? 'transform translate-x-6 bg-primary-500' : ''"></div>
             </div>
-            <div class="ml-3 text-gray-700 font-medium">
+            <div class="ml-3 text-secondary-700 dark:text-secondary-300 font-medium">
                 Include archived media
             </div>
         </label>
@@ -133,68 +131,64 @@ templ GooglePhotosDestinationForm() {
             </div>
             <input type="text" id="destination_path" name="destination_path" x-model="destinationPath"
                 class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-                placeholder="Album path (e.g., /album/my-photos)" />
+                placeholder="Album path (e.g., album/my-photos)" />
         </div>
         <p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
-            Path within Google Photos where files will be uploaded
+            Path within Google Photos where files will be uploaded.
         </p>
     </div>
 
-    <div class="p-4 bg-amber-50 rounded-lg border border-amber-100">
+    <div class="p-4 bg-amber-50 dark:bg-amber-900/50 rounded-lg border border-amber-100 dark:border-amber-700">
         <div class="flex">
             <div class="flex-shrink-0">
-                <i class="fas fa-exclamation-triangle text-amber-500"></i>
+                <i class="fas fa-exclamation-triangle text-amber-500 dark:text-amber-400"></i>
             </div>
             <div class="ml-3">
-                <h3 class="text-sm font-medium text-amber-800">Important: Authentication Required</h3>
-                <div class="mt-2 text-sm text-amber-700">
-                    <p><strong>After saving this configuration</strong>, you will need to authenticate with Google Photos.</p>
-                    <p class="mt-1">The authentication process will require you to:</p>
-                    <ol class="list-decimal list-inside mt-1 space-y-1">
-                        <li>Visit a Google authorization URL</li>
-                        <li>Sign in to your Google account</li>
-                        <li>Grant permission to access your Google Photos</li>
-                        <li>Copy the authorization code back to this application</li>
+                <h3 class="text-sm font-medium text-amber-800 dark:text-amber-200">Authentication Required</h3>
+                <div class="mt-2 text-sm text-amber-700 dark:text-amber-300">
+                    <p>After saving this configuration, you'll need to authenticate with Google Photos:</p>
+                    <ol class="list-decimal list-inside mt-2 space-y-1">
+                        <li>Go to the configurations page</li>
+                        <li>Click the "Authenticate" button for this configuration</li>
+                        <li>You'll be redirected to Google to grant access permissions</li>
+                        <li>After granting permission, you'll be automatically redirected back to GoMFT</li>
                     </ol>
-                    <p class="mt-2 text-xs">
-                        This is a one-time process for each configuration. The application will store your authorization token securely.
-                    </p>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="p-4 bg-blue-50 rounded-lg border border-blue-100">
+    <div class="p-4 bg-blue-50 dark:bg-blue-900/50 rounded-lg border border-blue-100 dark:border-blue-700">
         <div class="flex">
             <div class="flex-shrink-0">
-                <i class="fas fa-info-circle text-blue-400"></i>
+                <i class="fas fa-info-circle text-blue-400 dark:text-blue-300"></i>
             </div>
             <div class="ml-3">
-                <h3 class="text-sm font-medium text-blue-800">Authentication Information</h3>
-                <div class="mt-2 text-sm text-blue-700">
-                    <template x-if="useBuiltinAuth">
+                <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200">Authentication Information</h3>
+                <div class="mt-2 text-sm text-blue-700 dark:text-blue-300">
+                    <template x-if="useBuiltinAuthDest">
                         <div>
                             <p>You're using rclone's built-in authentication, which simplifies the setup process:</p>
                             <ul class="list-disc list-inside mt-1 space-y-1">
                                 <li>No need to create your own Google API credentials</li>
-                                <li>Authentication happens through a browser window</li>
-                                <li>You will need to manually copy the authorization code back</li>
+                                <li>Authentication happens through Google's secure OAuth flow</li>
+                                <li>Automatic redirection back to GoMFT after authentication</li>
                             </ul>
-                            <p class="mt-2 text-xs text-amber-600">
+                            <p class="mt-2 text-xs text-amber-600 dark:text-amber-400">
                                 <i class="fas fa-exclamation-triangle mr-1"></i> 
                                 Note: The built-in authentication uses shared credentials which have rate limits across all rclone users.
                                 If you plan to transfer large amounts of data or run many concurrent transfers, consider creating your own credentials.
                             </p>
                         </div>
                     </template>
-                    <template x-if="!useBuiltinAuth">
+                    <template x-if="!useBuiltinAuthDest">
                         <div>
                             <p>To use Google Photos with your own credentials:</p>
                             <ol class="list-decimal list-inside mt-1 space-y-1">
-                                <li>Go to the <a href="https://console.cloud.google.com/" target="_blank" class="text-blue-600 underline">Google Cloud Console</a></li>
+                                <li>Go to the <a href="https://console.cloud.google.com/" target="_blank" class="text-blue-600 dark:text-blue-400 underline">Google Cloud Console</a></li>
                                 <li>Create a project and enable the Google Photos API</li>
                                 <li>Create OAuth 2.0 credentials (Client ID & Secret)</li>
-                                <li>Set authorized redirect URI to <code class="bg-blue-100 px-1 py-0.5 rounded">http://localhost:53682/</code></li>
+                                <li>Set authorized redirect URI to <code class="bg-blue-100 dark:bg-blue-800 px-1 py-0.5 rounded">http://localhost:53682/</code></li>
                             </ol>
                         </div>
                     </template>
@@ -203,14 +197,14 @@ templ GooglePhotosDestinationForm() {
         </div>
     </div>
 
-    <div class="p-4 bg-yellow-50 rounded-lg border border-yellow-100">
+    <div class="p-4 bg-yellow-50 dark:bg-yellow-900/50 rounded-lg border border-yellow-100 dark:border-yellow-700">
         <div class="flex">
             <div class="flex-shrink-0">
-                <i class="fas fa-exclamation-circle text-yellow-500"></i>
+                <i class="fas fa-exclamation-circle text-yellow-500 dark:text-yellow-400"></i>
             </div>
             <div class="ml-3">
-                <h3 class="text-sm font-medium text-yellow-800">Important Note About Google Photos</h3>
-                <div class="mt-2 text-sm text-yellow-700">
+                <h3 class="text-sm font-medium text-yellow-800 dark:text-yellow-200">Important Note About Google Photos</h3>
+                <div class="mt-2 text-sm text-yellow-700 dark:text-yellow-300">
                     <p>All media items uploaded to Google Photos with rclone are stored in full resolution at original quality. These uploads will count towards storage in your Google Account.</p>
                 </div>
             </div>

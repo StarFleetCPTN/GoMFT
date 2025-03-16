@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/glebarez/sqlite"
-	"github.com/starfleetcptn/gomft/internal/auth"
+	"github.com/starfleetcptn/gomft/internal/db/migrations"
 	"gorm.io/gorm"
 )
 
@@ -109,7 +109,8 @@ type TransferConfig struct {
 	DestStartYear       int   `form:"dest_start_year"`       // For Google Photos
 	DestIncludeArchived *bool `form:"dest_include_archived"` // For Google Photos
 	// Security fields
-	UseBuiltinAuth           *bool `form:"use_builtin_auth"` // For Google and other OAuth services
+	UseBuiltinAuthSource     *bool `form:"use_builtin_auth_source"` // For Google and other OAuth services
+	UseBuiltinAuthDest       *bool `form:"use_builtin_auth_dest"`   // For Google and other OAuth services
 	GoogleDriveAuthenticated *bool // Whether Google Drive auth is completed
 	// General fields
 	ArchivePath            string `form:"archive_path"`
@@ -250,10 +251,10 @@ func Initialize(dbPath string) (*DB, error) {
 		return nil, fmt.Errorf("failed to connect to database: %v", err)
 	}
 
-	// Auto migrate the schema
-	err = db.AutoMigrate(&User{}, &auth.PasswordHistory{}, &PasswordResetToken{}, &TransferConfig{}, &Job{}, &JobHistory{}, &FileMetadata{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to migrate database: %v", err)
+	// Initialize and run migrations
+	m := migrations.InitMigrations(db)
+	if err := m.Migrate(); err != nil {
+		return nil, fmt.Errorf("failed to run migrations: %v", err)
 	}
 
 	return &DB{DB: db}, nil
@@ -627,7 +628,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create source config: %v\nOutput: %s", err, output)
 		}
-	case "google_drive":
+	case "gdrive":
 		args := []string{
 			"config", "create", sourceName, "drive",
 			"client_id", config.SourceClientID,
@@ -904,24 +905,6 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 		// Add include_archived if specified
 		if config.DestIncludeArchived != nil && *config.DestIncludeArchived {
 			args = append(args, "include_archived", "true")
-		}
-
-		cmd := exec.Command(rclonePath, args...)
-		if output, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("failed to create destination config: %v\nOutput: %s", err, output)
-		}
-	case "google_drive":
-		args := []string{
-			"config", "create", destName, "drive",
-			"client_id", config.DestClientID,
-			"client_secret", config.DestClientSecret,
-			"--non-interactive",
-			"--config", configPath,
-			"--log-level", "ERROR",
-		}
-
-		if config.DestTeamDrive != "" {
-			args = append(args, "team_drive", config.DestTeamDrive)
 		}
 
 		cmd := exec.Command(rclonePath, args...)
@@ -1460,4 +1443,30 @@ func (db *DB) GetGDriveCredentialsFromConfig(config *TransferConfig) (string, st
 	}
 
 	return "", ""
+}
+
+// GetUseBuiltinAuthSource returns the value of UseBuiltinAuthSource with a default if nil
+func (tc *TransferConfig) GetUseBuiltinAuthSource() bool {
+	if tc.UseBuiltinAuthSource == nil {
+		return true // Default to true if not set
+	}
+	return *tc.UseBuiltinAuthSource
+}
+
+// SetUseBuiltinAuthSource sets the UseBuiltinAuthSource field
+func (tc *TransferConfig) SetUseBuiltinAuthSource(value bool) {
+	tc.UseBuiltinAuthSource = &value
+}
+
+// GetUseBuiltinAuthDest returns the value of UseBuiltinAuthDest with a default if nil
+func (tc *TransferConfig) GetUseBuiltinAuthDest() bool {
+	if tc.UseBuiltinAuthDest == nil {
+		return true // Default to true if not set
+	}
+	return *tc.UseBuiltinAuthDest
+}
+
+// SetUseBuiltinAuthDest sets the UseBuiltinAuthDest field
+func (tc *TransferConfig) SetUseBuiltinAuthDest(value bool) {
+	tc.UseBuiltinAuthDest = &value
 }

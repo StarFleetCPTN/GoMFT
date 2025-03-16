@@ -72,7 +72,7 @@ func TestGenerateRcloneConfigWithoutRclone(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Test configs for different source types
-	sourceTypes := []string{"sftp", "s3", "minio", "b2", "smb", "ftp", "webdav", "nextcloud", "onedrive", "google_drive"}
+	sourceTypes := []string{"sftp", "s3", "minio", "b2", "smb", "ftp", "webdav", "nextcloud", "onedrive", "gdrive"}
 
 	for _, sourceType := range sourceTypes {
 		testConfig := &TransferConfig{
@@ -102,7 +102,7 @@ func TestGenerateRcloneConfigWithoutRclone(t *testing.T) {
 	}
 
 	// Test configs for different destination types
-	destTypes := []string{"sftp", "s3", "minio", "b2", "smb", "ftp", "webdav", "nextcloud", "onedrive", "google_drive"}
+	destTypes := []string{"sftp", "s3", "minio", "b2", "smb", "ftp", "webdav", "nextcloud", "onedrive", "gdrive"}
 
 	for _, destType := range destTypes {
 		testConfig := &TransferConfig{
@@ -164,7 +164,7 @@ func TestGoogleDriveRcloneConfig(t *testing.T) {
 	// Create Google Drive source config
 	googleSourceConfig := &TransferConfig{
 		Name:               "Google Drive Source Rclone Test",
-		SourceType:         "google_drive",
+		SourceType:         "gdrive",
 		SourcePath:         "/path/in/google/drive",
 		SourceClientID:     "source_google_client_id",
 		SourceClientSecret: "source_google_client_secret",
@@ -209,7 +209,7 @@ func TestGoogleDriveRcloneConfig(t *testing.T) {
 		Name:             "Google Drive Dest Rclone Test",
 		SourceType:       "local",
 		SourcePath:       "/local/source/path",
-		DestinationType:  "google_drive",
+		DestinationType:  "gdrive",
 		DestinationPath:  "/dest/path/in/google/drive",
 		DestClientID:     "dest_google_client_id",
 		DestClientSecret: "dest_google_client_secret",

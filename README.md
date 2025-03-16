@@ -1,35 +1,38 @@
-# GoMFT - Go Managed File Transfer
+<p align="center">
+  <img src="static/img/logo.svg" alt="GoMFT Logo" width="200">
+</p>
+
+<h1 align="center">GoMFT - Go Managed File Transfer</h1>
 
 GoMFT is a web-based managed file transfer application built with Go, leveraging rclone for robust file transfer capabilities. It provides a user-friendly interface for configuring, scheduling, and monitoring file transfers across various storage providers.
 
+<div style="background-color: #fff3e0; border-left: 4px solid #ff9800; padding: 1rem; margin: 1rem 0;">
+  <p style="margin: 0; display: flex; align-items: center; color: #e65100;">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" style="margin-right: 0.5rem; fill: currentColor;">
+      <path d="M12 2L1 21h22M12 6l7.53 13H4.47M11 10v4h2v-4m-2 6v2h2v-2" />
+    </svg>
+    <strong>WARNING:</strong>&nbsp;GoMFT is in active development and configuration may change often. Please make sure to carefully read the release notes before updating.
+  </p>
+</div>
+
 ## Screenshots
 
-### Dashboard
-![Dashboard Overview](screenshots/dashboard.gomft.png)
-*Dashboard showing active transfers and system status*
-
-![Dashboard Overview Dark](screenshots/dashboard.dark.gomft.png)
-*Dashboard dark mode showing active transfers and system status*
-
-### Configuration Interface
-![Transfer Configuration](screenshots/new.configuration.gomft.png)
-*Setting up transfer configurations with multiple storage options*
-
-### Job Management
-![Job Scheduling](screenshots/new.job.gomft.png)
-*Scheduling transfers with flexible cron expressions*
-
-### File Metadata
-![File Metadata](screenshots/file.metadata.gomft.png)
-*Track and manage file metadata with detailed information about transferred files*
-
-### User Management
-![User Management](screenshots/user.management.gomft.png)
-*Create user accounts and manage them*
-
-### Admin Tools
-![Admin Tools](screenshots/admin.tools.gomft.png)
-*Admin dashboard with log viewer and system management tools*
+<table>
+<tr>
+  <td width="33%">
+    <a href="screenshots/dashboard.gomft.png">
+      <img src="screenshots/dashboard.gomft.png" alt="Dashboard Overview" width="100%">
+    </a>
+    <p align="center"><em>Dashboard showing active transfers</em></p>
+  </td>
+  <td width="33%">
+    <a href="screenshots/dashboard.dark.gomft.png">
+      <img src="screenshots/dashboard.dark.gomft.png" alt="Dashboard Dark Mode" width="100%">
+    </a>
+    <p align="center"><em>Dashboard dark mode</em></p>
+  </td>
+</tr>
+</table>
 
 ## Features
 
@@ -345,8 +348,8 @@ User management features:
 ### Transfer Configuration Options
 
 1. **Source/Destination Types**:
-   - Google Drive (with built-in or custom authentication)
-   - Google Photos (with built-in or custom authentication)
+   - Google Drive
+   - Google Photos
    - Local filesystem
    - Amazon S3
    - MinIO (S3-compatible storage)
@@ -562,10 +565,6 @@ air
 4. Push to the branch
 5. Create a Pull Request
 
-## License
-
-MIT License - see LICENSE file for details
-
 ## Directory Structure
 
 GoMFT uses the following directory structure:
@@ -585,3 +584,14 @@ volumes:
 ```
 
 These paths can be customized using the environment variables `DATA_DIR`, `BACKUP_DIR`, and `LOGS_DIR`.
+
+
+## License
+
+[MIT License](LICENSE) - see the full license terms
+
+The GoMFT logo is licensed under the Creative Commons Attribution 4.0 International Public License.
+
+The gopher design is from https://github.com/egonelbre/gophers.
+
+The original Go gopher was designed by Renee French (http://reneefrench.blogspot.com/).

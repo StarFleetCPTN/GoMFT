@@ -32,6 +32,9 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 		authorized.POST("/configs/:id", h.HandleUpdateConfig)
 		authorized.DELETE("/configs/:id", h.HandleDeleteConfig)
 
+		// Path validation endpoint
+		authorized.GET("/check-path", h.HandleCheckPath)
+
 		// Google Drive authentication routes
 		authorized.GET("/configs/:id/gdrive-auth", h.HandleGDriveAuth)
 		authorized.GET("/configs/gdrive-callback", h.HandleGDriveAuthCallback)
