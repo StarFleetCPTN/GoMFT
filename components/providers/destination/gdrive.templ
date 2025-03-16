@@ -14,11 +14,11 @@ templ GoogleDriveDestinationForm() {
                     class="sr-only"
                     x-model="useBuiltinAuth"
                 />
-                <div class="block bg-gray-200 w-14 h-8 rounded-full"></div>
-                <div class="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"
+                <div class="block bg-secondary-200 dark:bg-secondary-700 w-14 h-8 rounded-full"></div>
+                <div class="dot absolute left-1 top-1 bg-white dark:bg-secondary-100 w-6 h-6 rounded-full transition"
                     :class="useBuiltinAuth ? 'transform translate-x-6 bg-primary-500' : ''"></div>
             </div>
-            <div class="ml-3 text-gray-700 font-medium">
+            <div class="ml-3 text-secondary-700 dark:text-secondary-300 font-medium">
                 Use rclone's built-in Google authentication (recommended)
             </div>
         </label>
@@ -112,47 +112,43 @@ templ GoogleDriveDestinationForm() {
         </p>
     </div>
 
-    <div class="p-4 bg-amber-50 rounded-lg border border-amber-100">
+    <div class="p-4 bg-amber-50 dark:bg-amber-900/50 rounded-lg border border-amber-100 dark:border-amber-700">
         <div class="flex">
             <div class="flex-shrink-0">
-                <i class="fas fa-exclamation-triangle text-amber-500"></i>
+                <i class="fas fa-exclamation-triangle text-amber-500 dark:text-amber-400"></i>
             </div>
             <div class="ml-3">
-                <h3 class="text-sm font-medium text-amber-800">Important: Authentication Required</h3>
-                <div class="mt-2 text-sm text-amber-700">
-                    <p><strong>After saving this configuration</strong>, you will need to authenticate with Google Drive.</p>
-                    <p class="mt-1">The authentication process will require you to:</p>
-                    <ol class="list-decimal list-inside mt-1 space-y-1">
-                        <li>Visit a Google authorization URL</li>
-                        <li>Sign in to your Google account</li>
-                        <li>Grant permission to access your Google Drive</li>
-                        <li>Copy the authorization code back to this application</li>
+                <h3 class="text-sm font-medium text-amber-800 dark:text-amber-200">Authentication Required</h3>
+                <div class="mt-2 text-sm text-amber-700 dark:text-amber-300">
+                    <p>After saving this configuration, you'll need to authenticate with Google Drive:</p>
+                    <ol class="list-decimal list-inside mt-2 space-y-1">
+                        <li>Go to the configurations page</li>
+                        <li>Click the "Authenticate" button for this configuration</li>
+                        <li>You'll be redirected to Google to grant access permissions</li>
+                        <li>After granting permission, you'll be automatically redirected back to GoMFT</li>
                     </ol>
-                    <p class="mt-2 text-xs">
-                        This is a one-time process for each configuration. The application will store your authorization token securely.
-                    </p>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="p-4 bg-blue-50 rounded-lg border border-blue-100">
+    <div class="p-4 bg-blue-50 dark:bg-blue-900/50 rounded-lg border border-blue-100 dark:border-blue-700">
         <div class="flex">
             <div class="flex-shrink-0">
-                <i class="fas fa-info-circle text-blue-400"></i>
+                <i class="fas fa-info-circle text-blue-400 dark:text-blue-300"></i>
             </div>
             <div class="ml-3">
-                <h3 class="text-sm font-medium text-blue-800">Authentication Information</h3>
-                <div class="mt-2 text-sm text-blue-700">
+                <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200">Authentication Information</h3>
+                <div class="mt-2 text-sm text-blue-700 dark:text-blue-300">
                     <template x-if="useBuiltinAuth">
                         <div>
                             <p>You're using rclone's built-in authentication, which simplifies the setup process:</p>
                             <ul class="list-disc list-inside mt-1 space-y-1">
                                 <li>No need to create your own Google API credentials</li>
-                                <li>Authentication happens through a browser window</li>
-                                <li>You will need to manually copy the authorization code back</li>
+                                <li>Authentication happens through Google's secure OAuth flow</li>
+                                <li>Automatic redirection back to GoMFT after authentication</li>
                             </ul>
-                            <p class="mt-2 text-xs text-amber-600">
+                            <p class="mt-2 text-xs text-amber-600 dark:text-amber-400">
                                 <i class="fas fa-exclamation-triangle mr-1"></i> 
                                 Note: The built-in authentication uses shared credentials which have rate limits across all rclone users.
                                 If you plan to transfer large amounts of data or run many concurrent transfers, consider creating your own credentials.
@@ -163,10 +159,10 @@ templ GoogleDriveDestinationForm() {
                         <div>
                             <p>To use Google Drive with your own credentials:</p>
                             <ol class="list-decimal list-inside mt-1 space-y-1">
-                                <li>Go to the <a href="https://console.cloud.google.com/" target="_blank" class="text-blue-600 underline">Google Cloud Console</a></li>
+                                <li>Go to the <a href="https://console.cloud.google.com/" target="_blank" class="text-blue-600 dark:text-blue-400 underline">Google Cloud Console</a></li>
                                 <li>Create a project and enable the Google Drive API</li>
                                 <li>Create OAuth 2.0 credentials (Client ID & Secret)</li>
-                                <li>Set authorized redirect URI to <code class="bg-blue-100 px-1 py-0.5 rounded">http://localhost:53682/</code></li>
+                                <li>Set authorized redirect URI to <code class="bg-blue-100 dark:bg-blue-800 px-1 py-0.5 rounded">http://localhost:53682/</code></li>
                             </ol>
                         </div>
                     </template>
