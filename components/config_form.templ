@@ -75,6 +75,7 @@ func getInitialData(config *db.TransferConfig) string {
 	skipProcessedFiles := true
 	maxConcurrentTransfers := 4
 	rcloneFlags := ""
+	useBuiltinAuth := true
 
 	// If editing an existing config, populate with those values
 	if config != nil {
@@ -96,7 +97,7 @@ func getInitialData(config *db.TransferConfig) string {
 		sourceEndpoint = config.SourceEndpoint
 		sourceShare = config.SourceShare
 		sourceDomain = config.SourceDomain
-		sourcePassiveMode = config.SourcePassiveMode
+		sourcePassiveMode = config.GetSourcePassiveMode()
 		sourceClientId = config.SourceClientID
 		sourceClientSecret = config.SourceClientSecret
 		sourceDriveId = config.SourceDriveID
@@ -122,18 +123,21 @@ func getInitialData(config *db.TransferConfig) string {
 		destEndpoint = config.DestEndpoint
 		destShare = config.DestShare
 		destDomain = config.DestDomain
-		destPassiveMode = config.DestPassiveMode
+		destPassiveMode = config.GetDestPassiveMode()
 		destClientId = config.DestClientID
 		destClientSecret = config.DestClientSecret
 		destDriveId = config.DestDriveID
 		destTeamDrive = config.DestTeamDrive
 		
 		archivePath = config.ArchivePath
-		archiveEnabled = config.ArchiveEnabled
-		deleteAfterTransfer = config.DeleteAfterTransfer
+		archiveEnabled = config.GetArchiveEnabled()
+		deleteAfterTransfer = config.GetDeleteAfterTransfer()
 		skipProcessedFiles = config.GetSkipProcessedFiles()
 		maxConcurrentTransfers = config.MaxConcurrentTransfers
 		rcloneFlags = config.RcloneFlags
+		if destClientId != "" || destClientSecret != "" {
+			useBuiltinAuth = false
+		}
 	}
 
 	// Return the JSON-formatted string with all the data
@@ -183,6 +187,7 @@ func getInitialData(config *db.TransferConfig) string {
 		destClientSecret: '%s',
 		destDriveId: '%s',
 		destTeamDrive: '%s',
+		useBuiltinAuth: %v,
 		
 		archivePath: '%s',
 		archiveEnabled: %v,
@@ -198,6 +203,7 @@ func getInitialData(config *db.TransferConfig) string {
 	destinationType, destinationPath, destHost, destPort, destUser, destPassword, destKeyFile, destAuthType,
 	destBucket, destRegion, destAccessKey, destSecretKey, destEndpoint, destShare, destDomain, destPassiveMode,
 	destClientId, destClientSecret, destDriveId, destTeamDrive,
+	useBuiltinAuth,
 	archivePath, archiveEnabled, deleteAfterTransfer, skipProcessedFiles, maxConcurrentTransfers, rcloneFlags)
 }
 
@@ -277,6 +283,9 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 					@source.NextCloudSourceForm()
 				</template>
 
+				<template x-if="sourceType === 'google_drive'">
+					@source.GoogleDriveSourceForm()
+				</template>
 				
 				<!-- File pattern fields -->
 				@common.FilePatternFields()
@@ -315,6 +324,10 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 
 				<template x-if="destinationType === 'webdav'">
 					@destination.WebDAVDestinationForm()
+				</template>
+
+				<template x-if="destinationType === 'gdrive'">
+					@destination.GoogleDriveDestinationForm()
 				</template>
 				
 				

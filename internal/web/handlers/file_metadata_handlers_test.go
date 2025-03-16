@@ -43,7 +43,7 @@ func setupFileMetadataHandlers(t *testing.T) (*FileMetadataHandler, *gin.Engine,
 		Name:      "Test Job for File Metadata",
 		ConfigID:  testConfig.ID,
 		Schedule:  "0 * * * *", // Run hourly
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: testUser.ID,
 	}
 	err = handlers.DB.CreateJob(testJob)

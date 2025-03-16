@@ -1,6 +1,7 @@
 package db
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -18,10 +19,10 @@ type User struct {
 	ID                  uint   `gorm:"primarykey"`
 	Email               string `gorm:"unique;not null"`
 	PasswordHash        string `gorm:"not null"`
-	IsAdmin             bool   `gorm:"default:false"`
+	IsAdmin             *bool  `gorm:"default:false"`
 	LastPasswordChange  time.Time
-	FailedLoginAttempts int  `gorm:"default:0"`
-	AccountLocked       bool `gorm:"default:false"`
+	FailedLoginAttempts int   `gorm:"default:0"`
+	AccountLocked       *bool `gorm:"default:false"`
 	LockoutUntil        *time.Time
 	Theme               string `gorm:"default:'light'"`
 	CreatedAt           time.Time
@@ -42,7 +43,7 @@ type PasswordResetToken struct {
 	User      User      `gorm:"foreignkey:UserID"`
 	Token     string    `gorm:"not null"`
 	ExpiresAt time.Time `gorm:"not null"`
-	Used      bool      `gorm:"default:false"`
+	Used      *bool     `gorm:"default:false"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -67,7 +68,7 @@ type TransferConfig struct {
 	SourceShare  string `form:"source_share"`
 	SourceDomain string `form:"source_domain"`
 	// FTP source fields
-	SourcePassiveMode bool `gorm:"default:true" form:"source_passive_mode"`
+	SourcePassiveMode *bool `gorm:"default:true" form:"source_passive_mode"`
 	// OneDrive and Google Drive source fields
 	SourceClientID     string `form:"source_client_id"`
 	SourceClientSecret string `form:"source_client_secret" gorm:"-"` // Not stored in DB, only used for form
@@ -93,17 +94,19 @@ type TransferConfig struct {
 	DestShare  string `form:"dest_share"`
 	DestDomain string `form:"dest_domain"`
 	// FTP destination fields
-	DestPassiveMode bool `gorm:"default:true" form:"dest_passive_mode"`
+	DestPassiveMode *bool `gorm:"default:true" form:"dest_passive_mode"`
 	// OneDrive and Google Drive destination fields
 	DestClientID     string `form:"dest_client_id"`
 	DestClientSecret string `form:"dest_client_secret" gorm:"-"` // Not stored in DB, only used for form
 	DestDriveID      string `form:"dest_drive_id"`               // For OneDrive
 	DestTeamDrive    string `form:"dest_team_drive"`             // For Google Drive
+	// Google Drive authentication status
+	GoogleDriveAuthenticated *bool `gorm:"default:false"`
 	// General fields
 	ArchivePath            string `form:"archive_path"`
-	ArchiveEnabled         bool   `gorm:"default:false" form:"archive_enabled"`
+	ArchiveEnabled         *bool  `gorm:"default:false" form:"archive_enabled"`
 	RcloneFlags            string `form:"rclone_flags"`
-	DeleteAfterTransfer    bool   `gorm:"default:false" form:"delete_after_transfer"`
+	DeleteAfterTransfer    *bool  `gorm:"default:false" form:"delete_after_transfer"`
 	SkipProcessedFiles     *bool  `gorm:"default:true" form:"skip_processed_files"`
 	MaxConcurrentTransfers int    `gorm:"default:4" form:"max_concurrent_transfers"` // Number of concurrent file transfers
 	CreatedBy              uint
@@ -119,16 +122,16 @@ type Job struct {
 	Config    TransferConfig `gorm:"foreignkey:ConfigID"`
 	ConfigIDs string         `gorm:"column:config_ids"` // Comma-separated list of config IDs
 	Schedule  string         `gorm:"not null" form:"schedule"`
-	Enabled   bool           `gorm:"default:true" form:"enabled"`
+	Enabled   *bool          `gorm:"default:true" form:"enabled"`
 	LastRun   *time.Time
 	NextRun   *time.Time
 	// Webhook notification fields
-	WebhookEnabled  bool   `gorm:"default:false" form:"webhook_enabled"`
+	WebhookEnabled  *bool  `gorm:"default:false" form:"webhook_enabled"`
 	WebhookURL      string `form:"webhook_url"`
 	WebhookSecret   string `form:"webhook_secret"`
 	WebhookHeaders  string `form:"webhook_headers"` // JSON-encoded headers
-	NotifyOnSuccess bool   `gorm:"default:true" form:"notify_on_success"`
-	NotifyOnFailure bool   `gorm:"default:true" form:"notify_on_failure"`
+	NotifyOnSuccess *bool  `gorm:"default:true" form:"notify_on_success"`
+	NotifyOnFailure *bool  `gorm:"default:true" form:"notify_on_failure"`
 	CreatedBy       uint
 	User            User `gorm:"foreignkey:CreatedBy"`
 	CreatedAt       time.Time
@@ -558,7 +561,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--log-level", "ERROR",
 		}
 
-		if config.SourcePassiveMode {
+		if config.SourcePassiveMode != nil && *config.SourcePassiveMode {
 			args = append(args, "passive", "true")
 		}
 
@@ -746,7 +749,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--log-level", "ERROR",
 		}
 
-		if config.DestPassiveMode {
+		if config.DestPassiveMode != nil && *config.DestPassiveMode {
 			args = append(args, "passive", "true")
 		}
 
@@ -803,6 +806,33 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create destination config: %v\nOutput: %s", err, output)
 		}
+	case "gdrive":
+		args := []string{
+			"config", "create", destName, "drive",
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+
+		// Only add client_id and client_secret if they're provided (not empty)
+		// This allows using rclone's built-in authentication
+		if config.DestClientID != "" && config.DestClientSecret != "" {
+			args = append(args, "client_id", config.DestClientID)
+			args = append(args, "client_secret", config.DestClientSecret)
+		}
+
+		if config.DestTeamDrive != "" {
+			args = append(args, "team_drive", config.DestTeamDrive)
+		}
+
+		if config.DestDriveID != "" {
+			args = append(args, "root_folder_id", config.DestDriveID)
+		}
+
+		cmd := exec.Command(rclonePath, args...)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to create destination config: %v\nOutput: %s", err, output)
+		}
 	case "google_drive":
 		args := []string{
 			"config", "create", destName, "drive",
@@ -837,12 +867,14 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 	return nil
 }
 
+// GetActiveJobs returns all active jobs
 func (db *DB) GetActiveJobs() ([]Job, error) {
 	if db.DB == nil {
 		return nil, fmt.Errorf("database connection is nil")
 	}
 	var jobs []Job
-	err := db.Preload("Config").Where("enabled = ?", true).Find(&jobs).Error
+	// For boolean pointer fields, need to check either NULL (for default) or true value
+	err := db.Preload("Config").Where("enabled IS NULL OR enabled = ?", true).Find(&jobs).Error
 	return jobs, err
 }
 
@@ -884,4 +916,570 @@ func (tc *TransferConfig) GetSkipProcessedFiles() bool {
 // SetSkipProcessedFiles sets the SkipProcessedFiles field
 func (tc *TransferConfig) SetSkipProcessedFiles(value bool) {
 	tc.SkipProcessedFiles = &value
+}
+
+// StoreGoogleDriveToken stores the Google Drive auth token for a config
+func (db *DB) StoreGoogleDriveToken(configIDStr string, token string) error {
+	configID, err := strconv.ParseUint(configIDStr, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid config ID: %v", err)
+	}
+
+	// Get the existing config
+	config, err := db.GetTransferConfig(uint(configID))
+	if err != nil {
+		return fmt.Errorf("failed to get config: %v", err)
+	}
+
+	// Mark as authenticated
+	authenticated := true
+	config.GoogleDriveAuthenticated = &authenticated
+
+	// Update the config in the database
+	if err := db.UpdateTransferConfig(config); err != nil {
+		return fmt.Errorf("failed to update config: %v", err)
+	}
+
+	// Get the rclone config path
+	configPath := db.GetConfigRclonePath(config)
+
+	// Read existing config if it exists
+	existingConfig := ""
+	if _, err := os.Stat(configPath); err == nil {
+		data, err := os.ReadFile(configPath)
+		if err != nil {
+			return fmt.Errorf("failed to read existing config: %v", err)
+		}
+		existingConfig = string(data)
+	}
+
+	// Ensure directory exists
+	configDir := filepath.Dir(configPath)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return fmt.Errorf("failed to create config directory: %v", err)
+	}
+
+	// Write the new config with the token
+	destName := fmt.Sprintf("dest_%d", config.ID)
+	newConfig := fmt.Sprintf("[%s]\ntype = drive\ntoken = %s\n", destName, token)
+
+	// If the config has client ID and secret, add them
+	if config.DestClientID != "" && config.DestClientSecret != "" {
+		newConfig += fmt.Sprintf("client_id = %s\nclient_secret = %s\n", config.DestClientID, config.DestClientSecret)
+	}
+
+	// Add root folder ID if specified
+	if config.DestDriveID != "" {
+		newConfig += fmt.Sprintf("root_folder_id = %s\n", config.DestDriveID)
+	}
+
+	// Add team drive if specified
+	if config.DestTeamDrive != "" {
+		newConfig += fmt.Sprintf("team_drive = %s\n", config.DestTeamDrive)
+	}
+
+	// If there's existing config, append to it; otherwise create new file
+	var content string
+	if existingConfig != "" {
+		// Replace/update existing dest section if it exists, otherwise append
+		if strings.Contains(existingConfig, fmt.Sprintf("[%s]", destName)) {
+			// This is a simplistic approach - in production you might want a more robust regex-based replacement
+			// Truncate at the beginning of the dest section
+			parts := strings.SplitN(existingConfig, fmt.Sprintf("[%s]", destName), 2)
+			// Check if there are more sections after this one
+			nextSectionIdx := strings.Index(parts[1], "[")
+			if nextSectionIdx != -1 {
+				content = parts[0] + newConfig + parts[1][nextSectionIdx:]
+			} else {
+				content = parts[0] + newConfig
+			}
+		} else {
+			content = existingConfig + "\n" + newConfig
+		}
+	} else {
+		content = newConfig
+	}
+
+	// Write the config file
+	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
+		return fmt.Errorf("failed to write config: %v", err)
+	}
+
+	return nil
+}
+
+// GenerateRcloneConfigWithToken generates a rclone config file for a transfer config with a provided token
+func (db *DB) GenerateRcloneConfigWithToken(config *TransferConfig, token string) error {
+	// Ensure we have a config directory
+	dataDir := os.Getenv("DATA_DIR")
+	if dataDir == "" {
+		dataDir = "./data"
+	}
+	configDir := filepath.Join(dataDir, "configs")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return err
+	}
+
+	// Generate rclone config based on the config type
+	configPath := filepath.Join(configDir, fmt.Sprintf("config_%d.conf", config.ID))
+
+	// Create a new config content
+	var configContent strings.Builder
+
+	// First add the source configuration
+	sourceName := fmt.Sprintf("source_%d", config.ID)
+
+	// Handle the source configuration based on type
+	switch config.SourceType {
+	case "google_drive":
+		// Create a Google Drive remote using the "source_ID" naming convention for sources
+		sourceSection := fmt.Sprintf("[%s]\ntype = drive\n", sourceName)
+
+		// Add custom client ID and secret if provided
+		if config.SourceClientID != "" && config.SourceClientSecret != "" {
+			sourceSection += fmt.Sprintf("client_id = %s\nclient_secret = %s\n",
+				config.SourceClientID, config.SourceClientSecret)
+		}
+
+		// Add team drive if specified
+		if config.SourceTeamDrive != "" {
+			sourceSection += fmt.Sprintf("team_drive = %s\n", config.SourceTeamDrive)
+		}
+
+		// Clean up token string to prevent syntax errors and ensure it's a single line JSON
+		// First, remove any whitespace from the beginning and end
+		cleanToken := strings.TrimSpace(token)
+
+		// Check if it's already a JSON object
+		if strings.HasPrefix(cleanToken, "{") && strings.HasSuffix(cleanToken, "}") {
+			// It's a JSON object, but we need to make sure it's a single line
+			var jsonObj map[string]interface{}
+			if err := json.Unmarshal([]byte(cleanToken), &jsonObj); err == nil {
+				// Successfully parsed the JSON, now re-marshal it as a compact single line
+				compactJSON, err := json.Marshal(jsonObj)
+				if err == nil {
+					// Use the compact JSON as the token
+					sourceSection += fmt.Sprintf("token = %s\n", string(compactJSON))
+				} else {
+					// If there was an error re-marshaling, use the original but remove newlines
+					// Replace all newlines and carriage returns with empty string
+					singleLineToken := strings.ReplaceAll(cleanToken, "\n", "")
+					singleLineToken = strings.ReplaceAll(singleLineToken, "\r", "")
+					sourceSection += fmt.Sprintf("token = %s\n", singleLineToken)
+				}
+			} else {
+				// If we couldn't parse the JSON, just remove newlines and carriage returns
+				singleLineToken := strings.ReplaceAll(cleanToken, "\n", "")
+				singleLineToken = strings.ReplaceAll(singleLineToken, "\r", "")
+				sourceSection += fmt.Sprintf("token = %s\n", singleLineToken)
+			}
+		} else {
+			// Not a valid JSON, try to fix it
+			// First ensure it starts and ends with braces
+			if !strings.HasPrefix(cleanToken, "{") {
+				cleanToken = "{" + cleanToken
+			}
+			if !strings.HasSuffix(cleanToken, "}") {
+				cleanToken = cleanToken + "}"
+			}
+			// Remove all newlines and carriage returns
+			singleLineToken := strings.ReplaceAll(cleanToken, "\n", "")
+			singleLineToken = strings.ReplaceAll(singleLineToken, "\r", "")
+			sourceSection += fmt.Sprintf("token = %s\n", singleLineToken)
+		}
+
+		configContent.WriteString(sourceSection)
+		configContent.WriteString("\n")
+
+	case "sftp", "s3", "minio", "b2", "smb", "ftp", "webdav", "nextcloud", "onedrive":
+		// For complex source types, use the GenerateRcloneConfig function
+		// to create a temporary file, read it, and then append that content
+		tempDir, err := os.MkdirTemp("", "gomft_temp")
+		if err != nil {
+			return fmt.Errorf("failed to create temp directory: %v", err)
+		}
+		defer os.RemoveAll(tempDir)
+
+		tempConfigPath := filepath.Join(tempDir, "temp_config.conf")
+
+		// Create a temporary file with just the source configuration
+		tempContent := fmt.Sprintf("[%s]\ntype = local\n", sourceName)
+		if err := os.WriteFile(tempConfigPath, []byte(tempContent), 0600); err != nil {
+			return fmt.Errorf("failed to write temporary config: %v", err)
+		}
+
+		// Get rclone path
+		rclonePath := os.Getenv("RCLONE_PATH")
+		if rclonePath == "" {
+			rclonePath = "rclone"
+		}
+
+		// Use the appropriate rclone command to configure the source
+		var args []string
+		switch config.SourceType {
+		case "sftp":
+			args = []string{
+				"config", "create", sourceName, "sftp",
+				"host", config.SourceHost,
+				"user", config.SourceUser,
+				"port", fmt.Sprintf("%d", config.SourcePort),
+				"--non-interactive",
+				"--config", tempConfigPath,
+				"--log-level", "ERROR",
+			}
+			if config.SourcePassword != "" {
+				args = append(args, "pass", config.SourcePassword)
+			}
+			if config.SourceKeyFile != "" {
+				args = append(args, "key_file", config.SourceKeyFile)
+			}
+		case "s3":
+			args = []string{
+				"config", "create", sourceName, "s3",
+				"provider", "AWS",
+				"env_auth", "false",
+				"access_key_id", config.SourceAccessKey,
+				"secret_access_key", config.SourceSecretKey,
+				"region", config.SourceRegion,
+				"--non-interactive",
+				"--config", tempConfigPath,
+				"--log-level", "ERROR",
+			}
+			if config.SourceEndpoint != "" {
+				args = append(args, "endpoint", config.SourceEndpoint)
+			}
+		}
+
+		// If we have arguments, execute the command
+		if len(args) > 0 {
+			cmd := exec.Command(rclonePath, args...)
+			if output, err := cmd.CombinedOutput(); err != nil {
+				return fmt.Errorf("failed to create source config: %v\nOutput: %s", err, output)
+			}
+
+			// Read the generated config
+			sourceConfig, err := os.ReadFile(tempConfigPath)
+			if err != nil {
+				return fmt.Errorf("failed to read temporary config: %v", err)
+			}
+
+			// Add it to our config content
+			configContent.WriteString(string(sourceConfig))
+			configContent.WriteString("\n")
+		}
+	default:
+		// For local source or other simple types
+		sourceSection := fmt.Sprintf("[%s]\ntype = local\n\n", sourceName)
+		configContent.WriteString(sourceSection)
+	}
+
+	// Now add the destination configuration
+	destName := fmt.Sprintf("dest_%d", config.ID)
+
+	// Set up the destination section (only supporting Google Drive for now)
+	if config.DestinationType == "gdrive" || config.DestinationType == "google_drive" {
+		// Create a Google Drive remote using "dest_ID" naming convention
+		destSection := fmt.Sprintf("[%s]\ntype = drive\n", destName)
+
+		// Add custom client ID and secret if provided
+		if config.DestClientID != "" && config.DestClientSecret != "" {
+			destSection += fmt.Sprintf("client_id = %s\nclient_secret = %s\n",
+				config.DestClientID, config.DestClientSecret)
+		}
+
+		// Clean up token string to prevent syntax errors and ensure it's a single line JSON
+		// First, remove any whitespace from the beginning and end
+		cleanToken := strings.TrimSpace(token)
+
+		// Check if it's already a JSON object
+		if strings.HasPrefix(cleanToken, "{") && strings.HasSuffix(cleanToken, "}") {
+			// It's a JSON object, but we need to make sure it's a single line
+			var jsonObj map[string]interface{}
+			if err := json.Unmarshal([]byte(cleanToken), &jsonObj); err == nil {
+				// Successfully parsed the JSON, now re-marshal it as a compact single line
+				compactJSON, err := json.Marshal(jsonObj)
+				if err == nil {
+					// Use the compact JSON as the token
+					destSection += fmt.Sprintf("token = %s\n", string(compactJSON))
+				} else {
+					// If there was an error re-marshaling, use the original but remove newlines
+					// Replace all newlines and carriage returns with empty string
+					singleLineToken := strings.ReplaceAll(cleanToken, "\n", "")
+					singleLineToken = strings.ReplaceAll(singleLineToken, "\r", "")
+					destSection += fmt.Sprintf("token = %s\n", singleLineToken)
+				}
+			} else {
+				// If we couldn't parse the JSON, just remove newlines and carriage returns
+				singleLineToken := strings.ReplaceAll(cleanToken, "\n", "")
+				singleLineToken = strings.ReplaceAll(singleLineToken, "\r", "")
+				destSection += fmt.Sprintf("token = %s\n", singleLineToken)
+			}
+		} else {
+			// Not a valid JSON, try to fix it
+			// First ensure it starts and ends with braces
+			if !strings.HasPrefix(cleanToken, "{") {
+				cleanToken = "{" + cleanToken
+			}
+			if !strings.HasSuffix(cleanToken, "}") {
+				cleanToken = cleanToken + "}"
+			}
+			// Remove all newlines and carriage returns
+			singleLineToken := strings.ReplaceAll(cleanToken, "\n", "")
+			singleLineToken = strings.ReplaceAll(singleLineToken, "\r", "")
+			destSection += fmt.Sprintf("token = %s\n", singleLineToken)
+		}
+
+		// Add to the config content
+		configContent.WriteString(destSection)
+	} else {
+		// Add a simple local destination for testing or if no specific destination type is handled
+		destSection := fmt.Sprintf("[%s]\ntype = local\n", destName)
+		configContent.WriteString(destSection)
+	}
+
+	// Write the config file
+	return os.WriteFile(configPath, []byte(configContent.String()), 0644)
+}
+
+// GetIsAdmin returns the value of IsAdmin with a default if nil
+func (u *User) GetIsAdmin() bool {
+	if u.IsAdmin == nil {
+		return false // Default to false if not set
+	}
+	return *u.IsAdmin
+}
+
+// SetIsAdmin sets the IsAdmin field
+func (u *User) SetIsAdmin(value bool) {
+	u.IsAdmin = &value
+}
+
+// GetAccountLocked returns the value of AccountLocked with a default if nil
+func (u *User) GetAccountLocked() bool {
+	if u.AccountLocked == nil {
+		return false // Default to false if not set
+	}
+	return *u.AccountLocked
+}
+
+// SetAccountLocked sets the AccountLocked field
+func (u *User) SetAccountLocked(value bool) {
+	u.AccountLocked = &value
+}
+
+// GetUsed returns the value of Used with a default if nil
+func (t *PasswordResetToken) GetUsed() bool {
+	if t.Used == nil {
+		return false // Default to false if not set
+	}
+	return *t.Used
+}
+
+// SetUsed sets the Used field
+func (t *PasswordResetToken) SetUsed(value bool) {
+	t.Used = &value
+}
+
+// GetSourcePassiveMode returns the value of SourcePassiveMode with a default if nil
+func (tc *TransferConfig) GetSourcePassiveMode() bool {
+	if tc.SourcePassiveMode == nil {
+		return true // Default to true if not set
+	}
+	return *tc.SourcePassiveMode
+}
+
+// SetSourcePassiveMode sets the SourcePassiveMode field
+func (tc *TransferConfig) SetSourcePassiveMode(value bool) {
+	tc.SourcePassiveMode = &value
+}
+
+// GetDestPassiveMode returns the value of DestPassiveMode with a default if nil
+func (tc *TransferConfig) GetDestPassiveMode() bool {
+	if tc.DestPassiveMode == nil {
+		return true // Default to true if not set
+	}
+	return *tc.DestPassiveMode
+}
+
+// SetDestPassiveMode sets the DestPassiveMode field
+func (tc *TransferConfig) SetDestPassiveMode(value bool) {
+	tc.DestPassiveMode = &value
+}
+
+// GetGoogleDriveAuthenticated returns the value of GoogleDriveAuthenticated with a default if nil
+func (tc *TransferConfig) GetGoogleDriveAuthenticated() bool {
+	if tc.GoogleDriveAuthenticated == nil {
+		return false // Default to false if not set
+	}
+	return *tc.GoogleDriveAuthenticated
+}
+
+// SetGoogleDriveAuthenticated sets the GoogleDriveAuthenticated field
+func (tc *TransferConfig) SetGoogleDriveAuthenticated(value bool) {
+	tc.GoogleDriveAuthenticated = &value
+}
+
+// GetArchiveEnabled returns the value of ArchiveEnabled with a default if nil
+func (tc *TransferConfig) GetArchiveEnabled() bool {
+	if tc.ArchiveEnabled == nil {
+		return false // Default to false if not set
+	}
+	return *tc.ArchiveEnabled
+}
+
+// SetArchiveEnabled sets the ArchiveEnabled field
+func (tc *TransferConfig) SetArchiveEnabled(value bool) {
+	tc.ArchiveEnabled = &value
+}
+
+// GetDeleteAfterTransfer returns the value of DeleteAfterTransfer with a default if nil
+func (tc *TransferConfig) GetDeleteAfterTransfer() bool {
+	if tc.DeleteAfterTransfer == nil {
+		return false // Default to false if not set
+	}
+	return *tc.DeleteAfterTransfer
+}
+
+// SetDeleteAfterTransfer sets the DeleteAfterTransfer field
+func (tc *TransferConfig) SetDeleteAfterTransfer(value bool) {
+	tc.DeleteAfterTransfer = &value
+}
+
+// GetEnabled returns the value of Enabled with a default if nil
+func (j *Job) GetEnabled() bool {
+	if j.Enabled == nil {
+		return true // Default to true if not set
+	}
+	return *j.Enabled
+}
+
+// SetEnabled sets the Enabled field
+func (j *Job) SetEnabled(value bool) {
+	j.Enabled = &value
+}
+
+// GetWebhookEnabled returns the value of WebhookEnabled with a default if nil
+func (j *Job) GetWebhookEnabled() bool {
+	if j.WebhookEnabled == nil {
+		return false // Default to false if not set
+	}
+	return *j.WebhookEnabled
+}
+
+// SetWebhookEnabled sets the WebhookEnabled field
+func (j *Job) SetWebhookEnabled(value bool) {
+	j.WebhookEnabled = &value
+}
+
+// GetNotifyOnSuccess returns the value of NotifyOnSuccess with a default if nil
+func (j *Job) GetNotifyOnSuccess() bool {
+	if j.NotifyOnSuccess == nil {
+		return true // Default to true if not set
+	}
+	return *j.NotifyOnSuccess
+}
+
+// SetNotifyOnSuccess sets the NotifyOnSuccess field
+func (j *Job) SetNotifyOnSuccess(value bool) {
+	j.NotifyOnSuccess = &value
+}
+
+// GetNotifyOnFailure returns the value of NotifyOnFailure with a default if nil
+func (j *Job) GetNotifyOnFailure() bool {
+	if j.NotifyOnFailure == nil {
+		return true // Default to true if not set
+	}
+	return *j.NotifyOnFailure
+}
+
+// SetNotifyOnFailure sets the NotifyOnFailure field
+func (j *Job) SetNotifyOnFailure(value bool) {
+	j.NotifyOnFailure = &value
+}
+
+// GetGDriveCredentialsFromConfig extracts Google Drive client ID and secret from an existing rclone config file
+func (db *DB) GetGDriveCredentialsFromConfig(config *TransferConfig) (string, string) {
+	configPath := db.GetConfigRclonePath(config)
+	if configPath == "" {
+		return "", ""
+	}
+
+	// Check if the file exists
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return "", ""
+	}
+
+	// Read the rclone config file
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		return "", ""
+	}
+
+	// Parse the content to extract client_id and client_secret from both source and destination sections
+	lines := strings.Split(string(content), "\n")
+
+	// Define section names based on config ID
+	sourceSectionName := fmt.Sprintf("[source_%d]", config.ID)
+	destSectionName := fmt.Sprintf("[dest_%d]", config.ID)
+
+	var inSourceSection, inDestSection bool
+	var sourceClientID, sourceClientSecret, destClientID, destClientSecret string
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+
+		// Check if we're entering a new section
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			inSourceSection = line == sourceSectionName
+			inDestSection = line == destSectionName
+			continue
+		}
+
+		// Extract credentials from source section
+		if inSourceSection {
+			if strings.HasPrefix(line, "client_id") {
+				parts := strings.SplitN(line, "=", 2)
+				if len(parts) == 2 {
+					sourceClientID = strings.TrimSpace(parts[1])
+				}
+			} else if strings.HasPrefix(line, "client_secret") {
+				parts := strings.SplitN(line, "=", 2)
+				if len(parts) == 2 {
+					sourceClientSecret = strings.TrimSpace(parts[1])
+				}
+			}
+		}
+
+		// Extract credentials from destination section
+		if inDestSection {
+			if strings.HasPrefix(line, "client_id") {
+				parts := strings.SplitN(line, "=", 2)
+				if len(parts) == 2 {
+					destClientID = strings.TrimSpace(parts[1])
+				}
+			} else if strings.HasPrefix(line, "client_secret") {
+				parts := strings.SplitN(line, "=", 2)
+				if len(parts) == 2 {
+					destClientSecret = strings.TrimSpace(parts[1])
+				}
+			}
+		}
+
+		// If we found both values in both sections, we can stop processing
+		if sourceClientID != "" && sourceClientSecret != "" && destClientID != "" && destClientSecret != "" {
+			break
+		}
+	}
+
+	// Prefer destination credentials since we're authenticating for destination
+	if destClientID != "" && destClientSecret != "" {
+		return destClientID, destClientSecret
+	}
+
+	// Fall back to source credentials if available
+	if sourceClientID != "" && sourceClientSecret != "" {
+		return sourceClientID, sourceClientSecret
+	}
+
+	return "", ""
 }

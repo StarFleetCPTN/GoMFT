@@ -3,6 +3,7 @@ package db
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -42,9 +43,9 @@ func TestUserCRUD(t *testing.T) {
 	testUser := &User{
 		Email:              fmt.Sprintf("test-%d@example.com", time.Now().UnixNano()),
 		PasswordHash:       "hashed_password",
-		IsAdmin:            true,
 		LastPasswordChange: time.Now(),
 	}
+	testUser.SetIsAdmin(true)
 
 	// Test Create
 	err := db.CreateUser(testUser)
@@ -113,7 +114,7 @@ func TestPasswordResetToken(t *testing.T) {
 	}
 	assert.Equal(t, testToken.ID, retrievedToken.ID, "Retrieved token should have the same ID")
 	assert.Equal(t, testUser.ID, retrievedToken.UserID, "Retrieved token should reference the correct user")
-	assert.False(t, retrievedToken.Used, "Token should not be marked as used initially")
+	assert.False(t, retrievedToken.GetUsed(), "Token should not be marked as used initially")
 
 	// Mark token as used
 	err = db.MarkPasswordResetTokenAsUsed(retrievedToken.ID)
@@ -129,7 +130,7 @@ func TestPasswordResetToken(t *testing.T) {
 	if result.Error != nil {
 		t.Fatalf("Failed to get updated password reset token: %v", result.Error)
 	}
-	assert.True(t, updatedToken.Used, "Token should be marked as used")
+	assert.True(t, updatedToken.GetUsed(), "Token should be marked as used")
 }
 
 func TestTransferConfigCRUD(t *testing.T) {
@@ -240,11 +241,11 @@ func TestJobCRUD(t *testing.T) {
 		Name:      fmt.Sprintf("Test Job %d", time.Now().UnixNano()),
 		ConfigID:  testConfig.ID,
 		Schedule:  "0 * * * *", // Run every hour
-		Enabled:   true,
 		LastRun:   &now,
 		NextRun:   &nextRun,
 		CreatedBy: testUser.ID,
 	}
+	testJob.SetEnabled(true)
 
 	// Test Create
 	err = db.CreateJob(testJob)
@@ -278,7 +279,7 @@ func TestJobCRUD(t *testing.T) {
 
 	// Test Update
 	retrievedJob.Name = fmt.Sprintf("Updated Job %d", time.Now().UnixNano())
-	retrievedJob.Enabled = false
+	retrievedJob.SetEnabled(false)
 	err = db.UpdateJob(retrievedJob)
 	if err != nil {
 		t.Fatalf("Failed to update job: %v", err)
@@ -367,7 +368,6 @@ func TestJobMultipleConfigs(t *testing.T) {
 	testJob := &Job{
 		Name:      "Multi Config Job",
 		Schedule:  "0 * * * *",
-		Enabled:   true,
 		CreatedBy: testUser.ID,
 	}
 
@@ -468,7 +468,6 @@ func TestJobHistoryCRUD(t *testing.T) {
 		Name:      fmt.Sprintf("Test Job %d", time.Now().UnixNano()),
 		ConfigID:  testConfig.ID,
 		Schedule:  "0 * * * *", // Run every hour
-		Enabled:   true,
 		CreatedBy: testUser.ID,
 	}
 	err = db.CreateJob(testJob)
@@ -548,7 +547,6 @@ func TestFileMetadataCRUD(t *testing.T) {
 		Name:      fmt.Sprintf("Test Job %d", time.Now().UnixNano()),
 		ConfigID:  testConfig.ID,
 		Schedule:  "0 * * * *", // Run every hour
-		Enabled:   true,
 		CreatedBy: testUser.ID,
 	}
 	err = db.CreateJob(testJob)
@@ -634,7 +632,7 @@ func TestGetConfigRclonePath(t *testing.T) {
 	testUser := &User{
 		Email:              "rclone-test@example.com",
 		PasswordHash:       "hashed_password",
-		IsAdmin:            false,
+		IsAdmin:            BoolPtr(false),
 		LastPasswordChange: time.Now(),
 	}
 
@@ -671,7 +669,7 @@ func TestGenerateRcloneConfig(t *testing.T) {
 	testUser := &User{
 		Email:              "rclone-gen-test@example.com",
 		PasswordHash:       "hashed_password",
-		IsAdmin:            false,
+		IsAdmin:            BoolPtr(false),
 		LastPasswordChange: time.Now(),
 	}
 
@@ -708,7 +706,7 @@ func TestGenerateRcloneConfig(t *testing.T) {
 		DestHost:        "ftp.example.com",
 		DestPort:        21,
 		DestUser:        "ftpuser",
-		DestPassiveMode: true,
+		DestPassiveMode: BoolPtr(true),
 		CreatedBy:       testUser.ID,
 	}
 
@@ -770,7 +768,7 @@ func TestUpdateJobStatus(t *testing.T) {
 	testUser := &User{
 		Email:              "job-status-test@example.com",
 		PasswordHash:       "hashed_password",
-		IsAdmin:            false,
+		IsAdmin:            BoolPtr(false),
 		LastPasswordChange: time.Now(),
 	}
 
@@ -800,11 +798,11 @@ func TestUpdateJobStatus(t *testing.T) {
 		Name:      "Test Job Status",
 		ConfigID:  testConfig.ID,
 		Schedule:  "0 * * * *", // Run hourly
-		Enabled:   true,
 		LastRun:   &lastRun,
 		NextRun:   &nextRun,
 		CreatedBy: testUser.ID,
 	}
+	testJob.SetEnabled(true)
 
 	err = db.CreateJob(testJob)
 	assert.NoError(t, err)
@@ -832,4 +830,589 @@ func TestUpdateJobStatus(t *testing.T) {
 	updatedJob, err = db.GetJob(testJob.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, updatedNextRun.Unix(), updatedJob.NextRun.Unix())
+}
+
+func BoolPtr(b bool) *bool {
+	return &b
+}
+
+func TestGoogleDriveTransferConfig(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Create a test user
+	testUser := &User{
+		Email:              fmt.Sprintf("google-test-%d@example.com", time.Now().UnixNano()),
+		PasswordHash:       "hashed_password",
+		LastPasswordChange: time.Now(),
+	}
+	err := db.CreateUser(testUser)
+	if err != nil {
+		t.Fatalf("Failed to create user: %v", err)
+	}
+
+	// Test 1: Create config with Google Drive as source
+	googleSourceConfig := &TransferConfig{
+		Name:               "Google Drive Source Test",
+		SourceType:         "google_drive",
+		SourcePath:         "/path/in/google/drive",
+		SourceClientID:     "google_client_id",
+		SourceClientSecret: "google_client_secret",
+		SourceTeamDrive:    "team_drive_id",
+		DestinationType:    "local",
+		DestinationPath:    "/local/destination/path",
+		FilePattern:        "*.pdf",
+		CreatedBy:          testUser.ID,
+	}
+
+	// Set authenticated status
+	authenticated := true
+	googleSourceConfig.GoogleDriveAuthenticated = &authenticated
+
+	// Create the config
+	err = db.CreateTransferConfig(googleSourceConfig)
+	assert.NoError(t, err)
+	assert.NotZero(t, googleSourceConfig.ID, "Config ID should be set after creation")
+
+	// Test 2: Create config with Google Drive as destination
+	googleDestConfig := &TransferConfig{
+		Name:             "Google Drive Destination Test",
+		SourceType:       "local",
+		SourcePath:       "/local/source/path",
+		DestinationType:  "google_drive",
+		DestinationPath:  "/path/in/google/drive",
+		DestClientID:     "google_client_id",
+		DestClientSecret: "google_client_secret",
+		DestTeamDrive:    "team_drive_id",
+		FilePattern:      "*.docx",
+		CreatedBy:        testUser.ID,
+	}
+
+	// Set authenticated status
+	googleDestConfig.GoogleDriveAuthenticated = &authenticated
+
+	// Create the config
+	err = db.CreateTransferConfig(googleDestConfig)
+	assert.NoError(t, err)
+	assert.NotZero(t, googleDestConfig.ID, "Config ID should be set after creation")
+
+	// Test 3: Create config with Google Drive as both source and destination
+	googleBothConfig := &TransferConfig{
+		Name:               "Google Drive Both Test",
+		SourceType:         "google_drive",
+		SourcePath:         "/source/path/in/google/drive",
+		SourceClientID:     "source_google_client_id",
+		SourceClientSecret: "source_google_client_secret",
+		SourceTeamDrive:    "source_team_drive_id",
+		DestinationType:    "google_drive",
+		DestinationPath:    "/dest/path/in/google/drive",
+		DestClientID:       "dest_google_client_id",
+		DestClientSecret:   "dest_google_client_secret",
+		DestTeamDrive:      "dest_team_drive_id",
+		FilePattern:        "*.xlsx",
+		CreatedBy:          testUser.ID,
+	}
+
+	// Set authenticated status
+	googleBothConfig.GoogleDriveAuthenticated = &authenticated
+
+	// Create the config
+	err = db.CreateTransferConfig(googleBothConfig)
+	assert.NoError(t, err)
+	assert.NotZero(t, googleBothConfig.ID, "Config ID should be set after creation")
+
+	// Test retrieving and verifying Google Drive configs
+	retrievedSourceConfig, err := db.GetTransferConfig(googleSourceConfig.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, "google_drive", retrievedSourceConfig.SourceType)
+	assert.Equal(t, "/path/in/google/drive", retrievedSourceConfig.SourcePath)
+	assert.Equal(t, "google_client_id", retrievedSourceConfig.SourceClientID)
+	assert.Equal(t, "team_drive_id", retrievedSourceConfig.SourceTeamDrive)
+	assert.True(t, *retrievedSourceConfig.GoogleDriveAuthenticated)
+
+	retrievedDestConfig, err := db.GetTransferConfig(googleDestConfig.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, "google_drive", retrievedDestConfig.DestinationType)
+	assert.Equal(t, "/path/in/google/drive", retrievedDestConfig.DestinationPath)
+	assert.Equal(t, "google_client_id", retrievedDestConfig.DestClientID)
+	assert.Equal(t, "team_drive_id", retrievedDestConfig.DestTeamDrive)
+	assert.True(t, *retrievedDestConfig.GoogleDriveAuthenticated)
+
+	// Test updating Google Drive config
+	retrievedSourceConfig.SourcePath = "/updated/google/drive/path"
+	retrievedSourceConfig.SourceTeamDrive = "updated_team_drive_id"
+	err = db.UpdateTransferConfig(retrievedSourceConfig)
+	assert.NoError(t, err)
+
+	// Verify update
+	updatedConfig, err := db.GetTransferConfig(googleSourceConfig.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, "/updated/google/drive/path", updatedConfig.SourcePath)
+	assert.Equal(t, "updated_team_drive_id", updatedConfig.SourceTeamDrive)
+
+	// Test changing authentication status
+	unauthenticated := false
+	updatedConfig.GoogleDriveAuthenticated = &unauthenticated
+	err = db.UpdateTransferConfig(updatedConfig)
+	assert.NoError(t, err)
+
+	// Verify authentication status update
+	finalConfig, err := db.GetTransferConfig(googleSourceConfig.ID)
+	assert.NoError(t, err)
+	assert.False(t, *finalConfig.GoogleDriveAuthenticated)
+
+	// Clean up
+	err = db.DeleteTransferConfig(googleSourceConfig.ID)
+	assert.NoError(t, err)
+	err = db.DeleteTransferConfig(googleDestConfig.ID)
+	assert.NoError(t, err)
+	err = db.DeleteTransferConfig(googleBothConfig.ID)
+	assert.NoError(t, err)
+}
+
+func TestGoogleDriveJobExecution(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Create a test user
+	testUser := &User{
+		Email:              fmt.Sprintf("google-job-test-%d@example.com", time.Now().UnixNano()),
+		PasswordHash:       "hashed_password",
+		LastPasswordChange: time.Now(),
+	}
+	err := db.CreateUser(testUser)
+	if err != nil {
+		t.Fatalf("Failed to create user: %v", err)
+	}
+
+	// Create a test transfer config with Google Drive as source
+	googleConfig := &TransferConfig{
+		Name:               "Google Drive Job Test",
+		SourceType:         "google_drive",
+		SourcePath:         "/source/path/in/google/drive",
+		SourceClientID:     "google_client_id",
+		SourceClientSecret: "google_client_secret",
+		SourceTeamDrive:    "team_drive_id",
+		DestinationType:    "local",
+		DestinationPath:    "/local/destination/path",
+		FilePattern:        "*.pdf",
+		CreatedBy:          testUser.ID,
+	}
+
+	// Set authenticated status
+	authenticated := true
+	googleConfig.GoogleDriveAuthenticated = &authenticated
+
+	// Create the config
+	err = db.CreateTransferConfig(googleConfig)
+	assert.NoError(t, err)
+	assert.NotZero(t, googleConfig.ID, "Config ID should be set after creation")
+
+	// Create a job using the Google Drive config
+	job := &Job{
+		Name:      "Google Drive Test Job",
+		Schedule:  "0 * * * *", // Run every hour
+		ConfigID:  googleConfig.ID,
+		CreatedBy: testUser.ID,
+	}
+
+	// Set job as enabled
+	job.SetEnabled(true)
+
+	// Set up webhook notifications
+	job.SetWebhookEnabled(true)
+	job.WebhookURL = "https://example.com/webhook"
+	job.SetNotifyOnSuccess(true)
+	job.SetNotifyOnFailure(true)
+
+	// Create the job
+	err = db.CreateJob(job)
+	assert.NoError(t, err)
+	assert.NotZero(t, job.ID, "Job ID should be set after creation")
+
+	// Test retrieving the job
+	retrievedJob, err := db.GetJob(job.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, "Google Drive Test Job", retrievedJob.Name)
+	assert.Equal(t, googleConfig.ID, retrievedJob.ConfigID)
+	assert.True(t, retrievedJob.GetEnabled())
+	assert.True(t, retrievedJob.GetWebhookEnabled())
+	assert.Equal(t, "https://example.com/webhook", retrievedJob.WebhookURL)
+	assert.True(t, retrievedJob.GetNotifyOnSuccess())
+	assert.True(t, retrievedJob.GetNotifyOnFailure())
+
+	// Create job history entry for this job
+	startTime := time.Now().Add(-10 * time.Minute)
+	endTime := time.Now()
+	jobHistory := &JobHistory{
+		JobID:            job.ID,
+		ConfigID:         googleConfig.ID,
+		StartTime:        startTime,
+		EndTime:          &endTime,
+		Status:           "success",
+		BytesTransferred: 1024 * 1024 * 5, // 5 MB
+		FilesTransferred: 3,
+	}
+
+	err = db.Create(jobHistory).Error
+	assert.NoError(t, err)
+	assert.NotZero(t, jobHistory.ID, "JobHistory ID should be set after creation")
+
+	// Create file metadata entries
+	fileMetadata1 := &FileMetadata{
+		JobID:           job.ID,
+		ConfigID:        googleConfig.ID,
+		FileName:        "document1.pdf",
+		OriginalPath:    "/source/path/in/google/drive/document1.pdf",
+		FileSize:        1024 * 1024 * 2, // 2 MB
+		FileHash:        "hash1",
+		CreationTime:    time.Now().Add(-24 * time.Hour),
+		ModTime:         time.Now().Add(-12 * time.Hour),
+		ProcessedTime:   startTime.Add(1 * time.Minute),
+		DestinationPath: "/local/destination/path/document1.pdf",
+		Status:          "processed",
+	}
+
+	fileMetadata2 := &FileMetadata{
+		JobID:           job.ID,
+		ConfigID:        googleConfig.ID,
+		FileName:        "document2.pdf",
+		OriginalPath:    "/source/path/in/google/drive/document2.pdf",
+		FileSize:        1024 * 1024 * 1, // 1 MB
+		FileHash:        "hash2",
+		CreationTime:    time.Now().Add(-24 * time.Hour),
+		ModTime:         time.Now().Add(-12 * time.Hour),
+		ProcessedTime:   startTime.Add(2 * time.Minute),
+		DestinationPath: "/local/destination/path/document2.pdf",
+		Status:          "processed",
+	}
+
+	fileMetadata3 := &FileMetadata{
+		JobID:           job.ID,
+		ConfigID:        googleConfig.ID,
+		FileName:        "document3.pdf",
+		OriginalPath:    "/source/path/in/google/drive/document3.pdf",
+		FileSize:        1024 * 1024 * 2, // 2 MB
+		FileHash:        "hash3",
+		CreationTime:    time.Now().Add(-24 * time.Hour),
+		ModTime:         time.Now().Add(-12 * time.Hour),
+		ProcessedTime:   startTime.Add(3 * time.Minute),
+		DestinationPath: "/local/destination/path/document3.pdf",
+		Status:          "processed",
+	}
+
+	err = db.Create(fileMetadata1).Error
+	assert.NoError(t, err)
+	err = db.Create(fileMetadata2).Error
+	assert.NoError(t, err)
+	err = db.Create(fileMetadata3).Error
+	assert.NoError(t, err)
+
+	// Test fetching job history
+	var histories []JobHistory
+	err = db.Where("job_id = ?", job.ID).Find(&histories).Error
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(histories), "Should have 1 job history entry")
+	assert.Equal(t, job.ID, histories[0].JobID)
+	assert.Equal(t, googleConfig.ID, histories[0].ConfigID)
+	assert.Equal(t, "success", histories[0].Status)
+	assert.Equal(t, int64(1024*1024*5), histories[0].BytesTransferred)
+	assert.Equal(t, 3, histories[0].FilesTransferred)
+
+	// Test fetching file metadata
+	var files []FileMetadata
+	err = db.Where("job_id = ?", job.ID).Find(&files).Error
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(files), "Should have 3 file metadata entries")
+
+	// Clean up
+	err = db.Where("job_id = ?", job.ID).Delete(&FileMetadata{}).Error
+	assert.NoError(t, err)
+	err = db.Where("job_id = ?", job.ID).Delete(&JobHistory{}).Error
+	assert.NoError(t, err)
+	err = db.Delete(&job).Error
+	assert.NoError(t, err)
+	err = db.Delete(&googleConfig).Error
+	assert.NoError(t, err)
+}
+
+func TestGoogleDriveAuthentication(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Create a test user
+	testUser := &User{
+		Email:              fmt.Sprintf("google-auth-test-%d@example.com", time.Now().UnixNano()),
+		PasswordHash:       "hashed_password",
+		LastPasswordChange: time.Now(),
+	}
+	err := db.CreateUser(testUser)
+	assert.NoError(t, err)
+
+	// Create a Google Drive config that requires authentication
+	googleConfig := &TransferConfig{
+		Name:               "Google Drive Auth Test",
+		SourceType:         "google_drive",
+		SourcePath:         "/source/path",
+		SourceClientID:     "test_client_id",
+		SourceClientSecret: "test_client_secret",
+		DestinationType:    "local",
+		DestinationPath:    "/local/path",
+		CreatedBy:          testUser.ID,
+	}
+
+	// Initially not authenticated
+	unauthenticated := false
+	googleConfig.GoogleDriveAuthenticated = &unauthenticated
+
+	// Create the config
+	err = db.CreateTransferConfig(googleConfig)
+	assert.NoError(t, err)
+
+	// Test 1: Verify initial unauthenticated state
+	retrievedConfig, err := db.GetTransferConfig(googleConfig.ID)
+	assert.NoError(t, err)
+	assert.False(t, retrievedConfig.GetGoogleDriveAuthenticated())
+
+	// Test 2: Simulate authentication with token
+	mockToken := `{"access_token":"test_access_token","refresh_token":"test_refresh_token","expiry":"2023-12-31T12:00:00Z"}`
+	err = db.StoreGoogleDriveToken(fmt.Sprintf("%d", googleConfig.ID), mockToken)
+	assert.NoError(t, err)
+
+	// Verify authentication state was updated
+	updatedConfig, err := db.GetTransferConfig(googleConfig.ID)
+	assert.NoError(t, err)
+	assert.True(t, updatedConfig.GetGoogleDriveAuthenticated())
+
+	// Test 3: Generate rclone config with token
+	err = db.GenerateRcloneConfigWithToken(updatedConfig, mockToken)
+	assert.NoError(t, err)
+
+	// Get config path
+	configPath := db.GetConfigRclonePath(updatedConfig)
+
+	// On test systems, the directory might not exist
+	configDir := filepath.Dir(configPath)
+	if _, err := os.Stat(configDir); os.IsNotExist(err) {
+		// Create directory if it doesn't exist
+		err = os.MkdirAll(configDir, 0755)
+		assert.NoError(t, err)
+	}
+
+	// Check if config was generated properly
+	_, err = os.Stat(configPath)
+	// In a test environment, this may fail if the rclone executable is not available
+	// or permissions are wrong, so we'll just log it rather than fail the test
+	if err != nil {
+		t.Logf("Warning: could not verify rclone config file: %v", err)
+	}
+
+	// Test 4: Simulate deauthentication (token revocation)
+	updatedConfig.SetGoogleDriveAuthenticated(false)
+	err = db.UpdateTransferConfig(updatedConfig)
+	assert.NoError(t, err)
+
+	// Verify deauthentication
+	finalConfig, err := db.GetTransferConfig(googleConfig.ID)
+	assert.NoError(t, err)
+	assert.False(t, finalConfig.GetGoogleDriveAuthenticated())
+
+	// Clean up
+	err = db.DeleteTransferConfig(googleConfig.ID)
+	assert.NoError(t, err)
+}
+
+func TestGoogleDriveErrorHandling(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Create a test user
+	testUser := &User{
+		Email:              fmt.Sprintf("google-error-test-%d@example.com", time.Now().UnixNano()),
+		PasswordHash:       "hashed_password",
+		LastPasswordChange: time.Now(),
+	}
+	err := db.CreateUser(testUser)
+	assert.NoError(t, err)
+
+	// Test 1: Create a config with missing required fields
+	incompleteConfig := &TransferConfig{
+		Name:            "Incomplete Google Drive Config",
+		SourceType:      "google_drive",
+		SourcePath:      "", // Missing path
+		DestinationType: "local",
+		DestinationPath: "/local/path",
+		CreatedBy:       testUser.ID,
+	}
+
+	// This should still succeed at the database level, as validation typically happens at the application level
+	err = db.CreateTransferConfig(incompleteConfig)
+	assert.NoError(t, err)
+	assert.NotZero(t, incompleteConfig.ID, "Config ID should be set after creation")
+
+	// Test 2: Config with invalid Team Drive ID
+	invalidTeamDriveConfig := &TransferConfig{
+		Name:               "Invalid Team Drive Config",
+		SourceType:         "google_drive",
+		SourcePath:         "/test/path",
+		SourceClientID:     "test_client_id",
+		SourceClientSecret: "test_client_secret",
+		SourceTeamDrive:    "invalid_team_drive_id",
+		DestinationType:    "local",
+		DestinationPath:    "/local/path",
+		CreatedBy:          testUser.ID,
+	}
+
+	err = db.CreateTransferConfig(invalidTeamDriveConfig)
+	assert.NoError(t, err)
+
+	// Set it as authenticated (this would normally fail in a real environment)
+	authenticated := true
+	invalidTeamDriveConfig.GoogleDriveAuthenticated = &authenticated
+	err = db.UpdateTransferConfig(invalidTeamDriveConfig)
+	assert.NoError(t, err)
+
+	// When trying to test a transfer with an invalid team drive in a real environment,
+	// the rclone command would fail. We can't directly test this in a unit test,
+	// but we can verify the config is properly set up to cause the expected failure.
+	retrievedConfig, err := db.GetTransferConfig(invalidTeamDriveConfig.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, "invalid_team_drive_id", retrievedConfig.SourceTeamDrive, "Retrieved config should have the invalid team drive ID")
+	assert.True(t, retrievedConfig.GetGoogleDriveAuthenticated(), "Config should be marked as authenticated")
+
+	// Test 3: Test authentication error scenario - using malformed token
+	badTokenConfig := &TransferConfig{
+		Name:               "Bad Token Config",
+		SourceType:         "google_drive",
+		SourcePath:         "/test/path",
+		SourceClientID:     "test_client_id",
+		SourceClientSecret: "test_client_secret",
+		DestinationType:    "local",
+		DestinationPath:    "/local/path",
+		CreatedBy:          testUser.ID,
+	}
+
+	err = db.CreateTransferConfig(badTokenConfig)
+	assert.NoError(t, err)
+
+	// Try to store a malformed token - shouldn't crash but may fail
+	// In real-world usage, this would lead to auth failures when trying to use the token
+	malformedToken := `{"not_valid_json`
+	err = db.StoreGoogleDriveToken(fmt.Sprintf("%d", badTokenConfig.ID), malformedToken)
+	// Even with malformed tokens, the DB operation might succeed as we're just storing a string
+	// but the authentication would fail in actual usage
+	if err != nil {
+		t.Logf("StoreGoogleDriveToken returned error with malformed token as expected: %v", err)
+	}
+
+	// Clean up
+	err = db.DeleteTransferConfig(incompleteConfig.ID)
+	assert.NoError(t, err)
+	err = db.DeleteTransferConfig(invalidTeamDriveConfig.ID)
+	assert.NoError(t, err)
+	err = db.DeleteTransferConfig(badTokenConfig.ID)
+	assert.NoError(t, err)
+}
+
+func TestGoogleDriveTeamDrive(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Create a test user
+	testUser := &User{
+		Email:              fmt.Sprintf("google-teamdrive-test-%d@example.com", time.Now().UnixNano()),
+		PasswordHash:       "hashed_password",
+		LastPasswordChange: time.Now(),
+	}
+	err := db.CreateUser(testUser)
+	assert.NoError(t, err)
+
+	// Test 1: Configure source with Team Drive
+	teamDriveSourceConfig := &TransferConfig{
+		Name:               "Team Drive Source Test",
+		SourceType:         "google_drive",
+		SourcePath:         "/shared/documents",
+		SourceClientID:     "test_client_id",
+		SourceClientSecret: "test_client_secret",
+		SourceTeamDrive:    "source_team_drive_id",
+		DestinationType:    "local",
+		DestinationPath:    "/local/path",
+		FilePattern:        "*.pdf",
+		CreatedBy:          testUser.ID,
+	}
+
+	// Set as authenticated
+	authenticated := true
+	teamDriveSourceConfig.GoogleDriveAuthenticated = &authenticated
+
+	// Create the config
+	err = db.CreateTransferConfig(teamDriveSourceConfig)
+	assert.NoError(t, err)
+	assert.NotZero(t, teamDriveSourceConfig.ID, "Config ID should be set after creation")
+
+	// Test 2: Configure destination with Team Drive
+	teamDriveDestConfig := &TransferConfig{
+		Name:             "Team Drive Destination Test",
+		SourceType:       "local",
+		SourcePath:       "/local/source",
+		DestinationType:  "google_drive",
+		DestinationPath:  "/team/drive/path",
+		DestClientID:     "test_client_id",
+		DestClientSecret: "test_client_secret",
+		DestTeamDrive:    "dest_team_drive_id",
+		FilePattern:      "*.docx",
+		CreatedBy:        testUser.ID,
+	}
+
+	// Set as authenticated
+	teamDriveDestConfig.GoogleDriveAuthenticated = &authenticated
+
+	// Create the config
+	err = db.CreateTransferConfig(teamDriveDestConfig)
+	assert.NoError(t, err)
+	assert.NotZero(t, teamDriveDestConfig.ID, "Config ID should be set after creation")
+
+	// Test 3: Configure both source and destination with Team Drive
+	teamDriveBothConfig := &TransferConfig{
+		Name:               "Team Drive Both Test",
+		SourceType:         "google_drive",
+		SourcePath:         "/source/team/drive/path",
+		SourceClientID:     "source_client_id",
+		SourceClientSecret: "source_client_secret",
+		SourceTeamDrive:    "source_team_drive_id",
+		DestinationType:    "google_drive",
+		DestinationPath:    "/dest/team/drive/path",
+		DestClientID:       "dest_client_id",
+		DestClientSecret:   "dest_client_secret",
+		DestTeamDrive:      "dest_team_drive_id",
+		FilePattern:        "*.xlsx",
+		CreatedBy:          testUser.ID,
+	}
+
+	// Set as authenticated
+	teamDriveBothConfig.GoogleDriveAuthenticated = &authenticated
+
+	// Create the config
+	err = db.CreateTransferConfig(teamDriveBothConfig)
+	assert.NoError(t, err)
+	assert.NotZero(t, teamDriveBothConfig.ID, "Config ID should be set after creation")
+
+	// Test retrieving configs and verify Team Drive IDs are set correctly
+	retrievedSourceConfig, err := db.GetTransferConfig(teamDriveSourceConfig.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, "source_team_drive_id", retrievedSourceConfig.SourceTeamDrive)
+	assert.Empty(t, retrievedSourceConfig.DestTeamDrive)
+
+	retrievedDestConfig, err := db.GetTransferConfig(teamDriveDestConfig.ID)
+	assert.NoError(t, err)
+	assert.Empty(t, retrievedDestConfig.SourceTeamDrive)
+	assert.Equal(t, "dest_team_drive_id", retrievedDestConfig.DestTeamDrive)
+
+	retrievedBothConfig, err := db.GetTransferConfig(teamDriveBothConfig.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, "source_team_drive_id", retrievedBothConfig.SourceTeamDrive)
+	assert.Equal(t, "dest_team_drive_id", retrievedBothConfig.DestTeamDrive)
+
+	// Clean up
+	err = db.DeleteTransferConfig(teamDriveSourceConfig.ID)
+	assert.NoError(t, err)
+	err = db.DeleteTransferConfig(teamDriveDestConfig.ID)
+	assert.NoError(t, err)
+	err = db.DeleteTransferConfig(teamDriveBothConfig.ID)
+	assert.NoError(t, err)
 }

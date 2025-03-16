@@ -81,8 +81,8 @@ func setupTestDB(t *testing.T) *db.DB {
 	admin := db.User{
 		Email:        testEmail,
 		PasswordHash: string(hashedPassword),
-		IsAdmin:      true,
 	}
+	admin.SetIsAdmin(true)
 
 	if err := gormDB.Create(&admin).Error; err != nil {
 		t.Fatalf("Failed to create test admin user: %v", err)

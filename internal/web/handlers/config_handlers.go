@@ -17,8 +17,16 @@ func (h *Handlers) HandleConfigs(c *gin.Context) {
 	var configs []db.TransferConfig
 	h.DB.Where("created_by = ?", userID).Find(&configs)
 
+	// Check for error or status parameters in the URL
+	error := c.Query("error")
+	errorDetails := c.Query("details")
+	status := c.Query("status")
+
 	data := components.ConfigsData{
-		Configs: configs,
+		Configs:      configs,
+		Error:        error,
+		ErrorDetails: errorDetails,
+		Status:       status,
 	}
 	components.Configs(c.Request.Context(), data).Render(c, c.Writer)
 }
@@ -72,9 +80,26 @@ func (h *Handlers) HandleCreateConfig(c *gin.Context) {
 	userID := c.GetUint("userID")
 	config.CreatedBy = userID
 
-	// Process skipProcessedFiles value (now using pointer)
-	skipProcessedValue := c.Request.FormValue("skip_processed_files") == "true"
+	// Process Boolean fields
+	skipProcessedVal := c.Request.FormValue("skip_processed_files")
+	skipProcessedValue := skipProcessedVal == "on" || skipProcessedVal == "true"
 	config.SkipProcessedFiles = &skipProcessedValue
+
+	archiveEnabledVal := c.Request.FormValue("archive_enabled")
+	archiveEnabledValue := archiveEnabledVal == "on" || archiveEnabledVal == "true"
+	config.ArchiveEnabled = &archiveEnabledValue
+
+	deleteAfterTransferVal := c.Request.FormValue("delete_after_transfer")
+	deleteAfterTransferValue := deleteAfterTransferVal == "on" || deleteAfterTransferVal == "true"
+	config.DeleteAfterTransfer = &deleteAfterTransferValue
+
+	sourcePassiveModeVal := c.Request.FormValue("source_passive_mode")
+	sourcePassiveModeValue := sourcePassiveModeVal == "on" || sourcePassiveModeVal == "true"
+	config.SourcePassiveMode = &sourcePassiveModeValue
+
+	destPassiveModeVal := c.Request.FormValue("dest_passive_mode")
+	destPassiveModeValue := destPassiveModeVal == "on" || destPassiveModeVal == "true"
+	config.DestPassiveMode = &destPassiveModeValue
 
 	if err := h.DB.Create(&config).Error; err != nil {
 		log.Printf("Error creating config: %v", err)
@@ -125,9 +150,26 @@ func (h *Handlers) HandleUpdateConfig(c *gin.Context) {
 		return
 	}
 
-	// Process skipProcessedFiles value (now using pointer)
-	skipProcessedValue := c.Request.FormValue("skip_processed_files") == "true"
+	// Process Boolean fields
+	skipProcessedVal := c.Request.FormValue("skip_processed_files")
+	skipProcessedValue := skipProcessedVal == "on" || skipProcessedVal == "true"
 	config.SkipProcessedFiles = &skipProcessedValue
+
+	archiveEnabledVal := c.Request.FormValue("archive_enabled")
+	archiveEnabledValue := archiveEnabledVal == "on" || archiveEnabledVal == "true"
+	config.ArchiveEnabled = &archiveEnabledValue
+
+	deleteAfterTransferVal := c.Request.FormValue("delete_after_transfer")
+	deleteAfterTransferValue := deleteAfterTransferVal == "on" || deleteAfterTransferVal == "true"
+	config.DeleteAfterTransfer = &deleteAfterTransferValue
+
+	sourcePassiveModeVal := c.Request.FormValue("source_passive_mode")
+	sourcePassiveModeValue := sourcePassiveModeVal == "on" || sourcePassiveModeVal == "true"
+	config.SourcePassiveMode = &sourcePassiveModeValue
+
+	destPassiveModeVal := c.Request.FormValue("dest_passive_mode")
+	destPassiveModeValue := destPassiveModeVal == "on" || destPassiveModeVal == "true"
+	config.DestPassiveMode = &destPassiveModeValue
 
 	// Preserve fields that shouldn't be updated
 	config.CreatedBy = oldConfig.CreatedBy

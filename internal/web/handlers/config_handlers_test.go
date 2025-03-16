@@ -341,7 +341,7 @@ func TestHandleDeleteConfig(t *testing.T) {
 		Name:      "Test Job",
 		Schedule:  "*/5 * * * *",
 		ConfigID:  configWithJob.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	if err := database.Create(job).Error; err != nil {

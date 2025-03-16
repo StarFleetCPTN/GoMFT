@@ -25,7 +25,7 @@ func setupJobsTest(t *testing.T) (*Handlers, *gin.Engine, *db.DB, *db.User, *db.
 	user := &db.User{
 		Email:              "jobtest@example.com",
 		PasswordHash:       "hashedpassword",
-		IsAdmin:            false,
+		IsAdmin:            BoolPtr(false),
 		LastPasswordChange: time.Now(),
 	}
 	database.Create(user)
@@ -34,7 +34,7 @@ func setupJobsTest(t *testing.T) (*Handlers, *gin.Engine, *db.DB, *db.User, *db.
 	adminUser := &db.User{
 		Email:              "jobadmin@example.com",
 		PasswordHash:       "hashedpassword",
-		IsAdmin:            true,
+		IsAdmin:            BoolPtr(true),
 		LastPasswordChange: time.Now(),
 	}
 	database.Create(adminUser)
@@ -99,7 +99,7 @@ func TestHandleJobs(t *testing.T) {
 		Name:      "Test Job 1",
 		Schedule:  "*/5 * * * *",
 		ConfigID:  1,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	database.Create(job1)
@@ -108,7 +108,7 @@ func TestHandleJobs(t *testing.T) {
 		Name:      "Test Job 2",
 		Schedule:  "*/10 * * * *",
 		ConfigID:  1,
-		Enabled:   false,
+		Enabled:   BoolPtr(false),
 		CreatedBy: user.ID,
 	}
 	database.Create(job2)
@@ -117,7 +117,7 @@ func TestHandleJobs(t *testing.T) {
 	otherUser := &db.User{
 		Email:              "other@example.com",
 		PasswordHash:       "hashedpassword",
-		IsAdmin:            false,
+		IsAdmin:            BoolPtr(false),
 		LastPasswordChange: time.Now(),
 	}
 	database.Create(otherUser)
@@ -126,7 +126,7 @@ func TestHandleJobs(t *testing.T) {
 		Name:      "Other User Job",
 		Schedule:  "*/15 * * * *",
 		ConfigID:  1,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: otherUser.ID,
 	}
 	database.Create(otherJob)
@@ -178,7 +178,7 @@ func TestHandleEditJob(t *testing.T) {
 		Name:      "Test Job",
 		Schedule:  "*/5 * * * *",
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	database.Create(job)
@@ -187,7 +187,7 @@ func TestHandleEditJob(t *testing.T) {
 	otherUser := &db.User{
 		Email:              "other@example.com",
 		PasswordHash:       "hashedpassword",
-		IsAdmin:            false,
+		IsAdmin:            BoolPtr(false),
 		LastPasswordChange: time.Now(),
 	}
 	database.Create(otherUser)
@@ -196,7 +196,7 @@ func TestHandleEditJob(t *testing.T) {
 		Name:      "Other User Job",
 		Schedule:  "*/15 * * * *",
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: otherUser.ID,
 	}
 	database.Create(otherJob)
@@ -232,7 +232,7 @@ func TestHandleEditJob(t *testing.T) {
 		Name:      "Other User Job",
 		Schedule:  "*/15 * * * *",
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: otherUser.ID,
 	}
 	database.Create(adminOtherJob)
@@ -287,13 +287,13 @@ func TestHandleCreateJob(t *testing.T) {
 	assert.Equal(t, jobName, job.Name)
 	assert.Equal(t, "*/15 * * * *", job.Schedule)
 	assert.Equal(t, config.ID, job.ConfigID)
-	assert.True(t, job.Enabled)
+	assert.True(t, job.GetEnabled())
 
 	// Test case 2: Try to use another user's config
 	otherUser := &db.User{
 		Email:              "other@example.com",
 		PasswordHash:       "hashedpassword",
-		IsAdmin:            false,
+		IsAdmin:            BoolPtr(false),
 		LastPasswordChange: time.Now(),
 	}
 	database.Create(otherUser)
@@ -420,7 +420,7 @@ func TestHandleUpdateJob(t *testing.T) {
 		Name:      jobName,
 		Schedule:  "*/5 * * * *",
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 
@@ -435,7 +435,7 @@ func TestHandleUpdateJob(t *testing.T) {
 	assert.NoError(t, err, "Should find the newly created job")
 	assert.Equal(t, jobName, createdJob.Name, "Created job should have the expected name")
 	assert.Equal(t, "*/5 * * * *", createdJob.Schedule, "Created job should have the expected schedule")
-	assert.True(t, createdJob.Enabled, "Created job should be enabled")
+	assert.True(t, createdJob.GetEnabled(), "Created job should be enabled")
 
 	// Add route
 	router.PUT("/jobs/:id", handlers.HandleUpdateJob)
@@ -482,7 +482,7 @@ func TestHandleUpdateJob(t *testing.T) {
 	// Verify individual fields one by one
 	assert.Equal(t, updatedName, updatedJob.Name, "Job name should be updated")
 	assert.Equal(t, "0 0 * * *", updatedJob.Schedule, "Job schedule should be updated")
-	assert.False(t, updatedJob.Enabled, "Enabled status should be false")
+	assert.False(t, updatedJob.GetEnabled(), "Enabled status should be false")
 
 	// Make sure the ConfigIDs are still correct
 	configIDs := updatedJob.GetConfigIDsList()
@@ -493,7 +493,7 @@ func TestHandleUpdateJob(t *testing.T) {
 	otherUser := &db.User{
 		Email:              "other@example.com",
 		PasswordHash:       "hashedpassword",
-		IsAdmin:            false,
+		IsAdmin:            BoolPtr(false),
 		LastPasswordChange: time.Now(),
 	}
 	result = database.Create(otherUser)
@@ -504,7 +504,7 @@ func TestHandleUpdateJob(t *testing.T) {
 		Name:      "Other User Job " + time.Now().Format("20060102150405"),
 		Schedule:  "*/15 * * * *",
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: otherUser.ID,
 	}
 	// Make sure the other job also has a config list set
@@ -557,7 +557,7 @@ func TestHandleUpdateJobWithMultipleConfigs(t *testing.T) {
 		Name:      "Test Job for Multi-config Update",
 		Schedule:  "*/5 * * * *",
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	// Set initial configs (just config1)
@@ -596,7 +596,7 @@ func TestHandleUpdateJobWithMultipleConfigs(t *testing.T) {
 
 	assert.Equal(t, "Updated Multi-Config Job", updatedJob.Name)
 	assert.Equal(t, "0 * * * *", updatedJob.Schedule)
-	assert.True(t, updatedJob.Enabled)
+	assert.True(t, updatedJob.GetEnabled())
 
 	// The primary ConfigID should be updated to the first config in the new list
 	assert.Equal(t, config2.ID, updatedJob.ConfigID)
@@ -623,7 +623,7 @@ func TestHandleDeleteJob(t *testing.T) {
 		Name:      "Test Job",
 		Schedule:  "*/5 * * * *",
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	database.Create(job)
@@ -651,7 +651,7 @@ func TestHandleDeleteJob(t *testing.T) {
 	otherUser := &db.User{
 		Email:              "other@example.com",
 		PasswordHash:       "hashedpassword",
-		IsAdmin:            false,
+		IsAdmin:            BoolPtr(false),
 		LastPasswordChange: time.Now(),
 	}
 	database.Create(otherUser)
@@ -660,7 +660,7 @@ func TestHandleDeleteJob(t *testing.T) {
 		Name:      "Other User Job",
 		Schedule:  "*/15 * * * *",
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: otherUser.ID,
 	}
 	database.Create(otherJob)
@@ -683,7 +683,7 @@ func TestHandleRunJob(t *testing.T) {
 		Name:      "Test Job",
 		Schedule:  "*/5 * * * *",
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	database.Create(job)
@@ -711,7 +711,7 @@ func TestHandleRunJob(t *testing.T) {
 	otherUser := &db.User{
 		Email:              "other@example.com",
 		PasswordHash:       "hashedpassword",
-		IsAdmin:            false,
+		IsAdmin:            BoolPtr(false),
 		LastPasswordChange: time.Now(),
 	}
 	database.Create(otherUser)
@@ -720,7 +720,7 @@ func TestHandleRunJob(t *testing.T) {
 		Name:      "Other User Job",
 		Schedule:  "*/15 * * * *",
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: otherUser.ID,
 	}
 	database.Create(otherJob)
@@ -744,7 +744,7 @@ func TestHandleJobRunDetails(t *testing.T) {
 		Name:      "Test Job",
 		Schedule:  "*/5 * * * *",
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	database.Create(job)
@@ -791,7 +791,7 @@ func TestHandleJobsFilter(t *testing.T) {
 		Name:      "Test Job 1",
 		Schedule:  "*/5 * * * *",
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	database.Create(job1)
@@ -800,7 +800,7 @@ func TestHandleJobsFilter(t *testing.T) {
 		Name:      "Test Job 2",
 		Schedule:  "*/10 * * * *",
 		ConfigID:  config.ID,
-		Enabled:   false,
+		Enabled:   BoolPtr(false),
 		CreatedBy: user.ID,
 	}
 	database.Create(job2)
@@ -809,7 +809,7 @@ func TestHandleJobsFilter(t *testing.T) {
 	otherUser := &db.User{
 		Email:              "other@example.com",
 		PasswordHash:       "hashedpassword",
-		IsAdmin:            false,
+		IsAdmin:            BoolPtr(false),
 		LastPasswordChange: time.Now(),
 	}
 	database.Create(otherUser)
@@ -818,7 +818,7 @@ func TestHandleJobsFilter(t *testing.T) {
 		Name:      "Other User Job",
 		Schedule:  "*/15 * * * *",
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: otherUser.ID,
 	}
 	database.Create(otherJob)
@@ -881,7 +881,7 @@ func TestHandleJobHistory(t *testing.T) {
 		Name:      "Test Job",
 		Schedule:  "*/5 * * * *",
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	database.Create(job)
@@ -976,7 +976,7 @@ func TestHandleJobSchedule(t *testing.T) {
 		Name:      "Test Job",
 		Schedule:  "*/5 * * * *",
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	database.Create(job)
@@ -1060,7 +1060,7 @@ func TestHandleJobSchedule(t *testing.T) {
 	otherUser := &db.User{
 		Email:              "other@example.com",
 		PasswordHash:       "hashedpassword",
-		IsAdmin:            false,
+		IsAdmin:            BoolPtr(false),
 		LastPasswordChange: time.Now(),
 	}
 	database.Create(otherUser)
@@ -1069,7 +1069,7 @@ func TestHandleJobSchedule(t *testing.T) {
 		Name:      "Other User Job",
 		Schedule:  "*/15 * * * *",
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: otherUser.ID,
 	}
 	database.Create(otherJob)

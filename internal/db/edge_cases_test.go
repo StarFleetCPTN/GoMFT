@@ -66,7 +66,7 @@ func TestDeleteTransferConfigEdgeCases(t *testing.T) {
 		Name:      "Job for Config",
 		ConfigID:  configWithJob.ID,
 		Schedule:  "0 * * * *",
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: testUser.ID,
 	}
 	err = db.CreateJob(job)
@@ -122,7 +122,7 @@ func TestDeleteJobEdgeCases(t *testing.T) {
 			Name:      fmt.Sprintf("Edge Job %d", i),
 			ConfigID:  config.ID,
 			Schedule:  "0 * * * *",
-			Enabled:   true,
+			Enabled:   BoolPtr(true),
 			CreatedBy: testUser.ID,
 		}
 		err = db.CreateJob(job)
@@ -145,7 +145,7 @@ func TestDeleteJobEdgeCases(t *testing.T) {
 		Name:      "Job with History",
 		ConfigID:  config.ID,
 		Schedule:  "0 * * * *",
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: testUser.ID,
 	}
 	err = db.CreateJob(jobWithHistory)

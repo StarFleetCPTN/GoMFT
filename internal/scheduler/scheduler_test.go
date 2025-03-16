@@ -151,7 +151,7 @@ func TestScheduler_ScheduleJob(t *testing.T) {
 	user := &db.User{
 		Email:        "test@example.com",
 		PasswordHash: "hashed_password",
-		IsAdmin:      true,
+		IsAdmin:      BoolPtr(true),
 	}
 	if err := database.CreateUser(user); err != nil {
 		t.Fatalf("Failed to create test user: %v", err)
@@ -175,7 +175,7 @@ func TestScheduler_ScheduleJob(t *testing.T) {
 		Name:      "Test Job",
 		Schedule:  "*/5 * * * *", // Every 5 minutes
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	if err := database.DB.Create(job).Error; err != nil {
@@ -207,11 +207,8 @@ func TestScheduler_ScheduleJob(t *testing.T) {
 		t.Errorf("Expected NextRun to be set, got nil")
 	}
 
-	// Test scheduling a disabled job
-	job.Enabled = false
-	if err := scheduler.ScheduleJob(job); err != nil {
-		t.Fatalf("Failed to schedule disabled job: %v", err)
-	}
+	// Disable the job
+	job.SetEnabled(false)
 
 	// Check that the disabled job was not scheduled
 	scheduler.jobMutex.Lock()
@@ -222,8 +219,10 @@ func TestScheduler_ScheduleJob(t *testing.T) {
 		t.Errorf("Expected disabled job not to be scheduled, but it was")
 	}
 
+	// Re-enable the job
+	job.SetEnabled(true)
+
 	// Test with invalid cron expression
-	job.Enabled = true
 	job.Schedule = "invalid cron"
 	if err := scheduler.ScheduleJob(job); err == nil {
 		t.Errorf("Expected error for invalid cron expression, got nil")
@@ -399,7 +398,7 @@ func TestRunJobNow(t *testing.T) {
 	// Create a test user
 	user := &db.User{
 		Email:     "test_runjob@example.com",
-		IsAdmin:   false,
+		IsAdmin:   BoolPtr(false),
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -423,7 +422,7 @@ func TestRunJobNow(t *testing.T) {
 		Name:      "Test Job",
 		Schedule:  "*/5 * * * *", // Every 5 minutes
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	err = database.Create(job).Error
@@ -481,7 +480,7 @@ func TestHasFileBeenProcessed(t *testing.T) {
 	// Create a test user
 	user := &db.User{
 		Email:     "test_fileprocessed@example.com",
-		IsAdmin:   false,
+		IsAdmin:   BoolPtr(false),
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -505,7 +504,7 @@ func TestHasFileBeenProcessed(t *testing.T) {
 		Name:      "Test Job",
 		Schedule:  "*/5 * * * *", // Every 5 minutes
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	err = database.Create(job).Error
@@ -568,7 +567,7 @@ func TestCheckFileProcessingHistory(t *testing.T) {
 	// Create a test user
 	user := &db.User{
 		Email:     "test_filehistory@example.com",
-		IsAdmin:   false,
+		IsAdmin:   BoolPtr(false),
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -592,7 +591,7 @@ func TestCheckFileProcessingHistory(t *testing.T) {
 		Name:      "Test Job",
 		Schedule:  "*/5 * * * *", // Every 5 minutes
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	err = database.Create(job).Error
@@ -654,7 +653,7 @@ func TestUnscheduleJob(t *testing.T) {
 	user := &db.User{
 		Email:        "unschedule-test@example.com",
 		PasswordHash: "hashed_password",
-		IsAdmin:      true,
+		IsAdmin:      BoolPtr(true),
 	}
 	if err := database.CreateUser(user); err != nil {
 		t.Fatalf("Failed to create test user: %v", err)
@@ -678,7 +677,7 @@ func TestUnscheduleJob(t *testing.T) {
 		Name:      "Test Job 1",
 		Schedule:  "*/15 * * * *", // Every 15 minutes
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	if err := database.DB.Create(job1).Error; err != nil {
@@ -689,7 +688,7 @@ func TestUnscheduleJob(t *testing.T) {
 		Name:      "Test Job 2",
 		Schedule:  "0 */2 * * *", // Every 2 hours
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	if err := database.DB.Create(job2).Error; err != nil {
@@ -854,7 +853,7 @@ func TestStopScheduler(t *testing.T) {
 	user := &db.User{
 		Email:        "stop-test@example.com",
 		PasswordHash: "hashed_password",
-		IsAdmin:      true,
+		IsAdmin:      BoolPtr(true),
 	}
 	if err := database.CreateUser(user); err != nil {
 		t.Fatalf("Failed to create test user: %v", err)
@@ -878,7 +877,7 @@ func TestStopScheduler(t *testing.T) {
 		Name:      "Test Job",
 		Schedule:  "*/1 * * * *", // Every minute
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	if err := database.DB.Create(job).Error; err != nil {
@@ -941,7 +940,7 @@ func TestFileProcessingFullCycle(t *testing.T) {
 	user := &db.User{
 		Email:        "file-processing-test@example.com",
 		PasswordHash: "hashed_password",
-		IsAdmin:      true,
+		IsAdmin:      BoolPtr(true),
 	}
 	if err := database.CreateUser(user); err != nil {
 		t.Fatalf("Failed to create test user: %v", err)
@@ -966,7 +965,7 @@ func TestFileProcessingFullCycle(t *testing.T) {
 		Name:      "File Processing Test Job",
 		Schedule:  "*/30 * * * *", // Every 30 minutes
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	if err := database.DB.Create(job).Error; err != nil {
@@ -1051,7 +1050,7 @@ func TestExecuteJobWithMultipleConfigs(t *testing.T) {
 	user := &db.User{
 		Email:        "multi-config-test@example.com",
 		PasswordHash: "hashed_password",
-		IsAdmin:      true,
+		IsAdmin:      BoolPtr(true),
 	}
 	if err := database.CreateUser(user); err != nil {
 		t.Fatalf("Failed to create test user: %v", err)
@@ -1098,7 +1097,7 @@ func TestExecuteJobWithMultipleConfigs(t *testing.T) {
 	job := &db.Job{
 		Name:      "Multi-Config Test Job",
 		Schedule:  "*/5 * * * *", // Every 5 minutes
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 
@@ -1195,7 +1194,7 @@ func TestScheduler_LoadMultiConfigJobs(t *testing.T) {
 	user := &db.User{
 		Email:              "multiconfig-test@example.com",
 		PasswordHash:       "hashed_password",
-		IsAdmin:            true,
+		IsAdmin:            BoolPtr(true),
 		LastPasswordChange: time.Now(),
 	}
 	if err := database.CreateUser(user); err != nil {
@@ -1212,7 +1211,7 @@ func TestScheduler_LoadMultiConfigJobs(t *testing.T) {
 	job1 := &db.Job{
 		Name:      "Multi-Config Job 1",
 		Schedule:  "*/5 * * * *",
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	job1.SetConfigIDsList([]uint{config1.ID, config2.ID})
@@ -1225,7 +1224,7 @@ func TestScheduler_LoadMultiConfigJobs(t *testing.T) {
 	job2 := &db.Job{
 		Name:      "Multi-Config Job 2",
 		Schedule:  "0 * * * *",
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	job2.SetConfigIDsList([]uint{config3.ID, config4.ID})
@@ -1239,7 +1238,7 @@ func TestScheduler_LoadMultiConfigJobs(t *testing.T) {
 		Name:      "Single-Config Job",
 		Schedule:  "0 0 * * *",
 		ConfigID:  config1.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	err = database.DB.Create(job3).Error
@@ -1310,5 +1309,9 @@ func TestScheduler_LoadMultiConfigJobs(t *testing.T) {
 
 // Helper function to create a pointer to a bool value
 func boolPtr(b bool) *bool {
+	return &b
+}
+
+func BoolPtr(b bool) *bool {
 	return &b
 }

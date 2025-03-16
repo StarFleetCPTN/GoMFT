@@ -66,7 +66,7 @@ func TestInitializeWithExistingDB(t *testing.T) {
 	user := &User{
 		Email:        "test@example.com",
 		PasswordHash: "hash",
-		IsAdmin:      true,
+		IsAdmin:      BoolPtr(true),
 	}
 	err = db1.CreateUser(user)
 	assert.NoError(t, err)

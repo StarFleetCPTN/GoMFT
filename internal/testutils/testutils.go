@@ -66,9 +66,9 @@ func CreateTestUser(t *testing.T, database *db.DB, email string, isAdmin bool) *
 	user := &db.User{
 		Email:              email,
 		PasswordHash:       string(hashedPassword),
-		IsAdmin:            isAdmin,
 		LastPasswordChange: time.Now(),
 	}
+	user.SetIsAdmin(isAdmin)
 
 	if err := database.CreateUser(user); err != nil {
 		t.Fatalf("Failed to create test user: %v", err)

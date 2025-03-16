@@ -14,22 +14,22 @@ import (
 )
 
 type RegisterRequest struct {
-	Email string `json:"email" binding:"required,min=3,max=50"`
+	Email    string `json:"email" binding:"required,min=3,max=50"`
 	Password string `json:"password" binding:"required,min=8"`
 }
 
 type LoginRequest struct {
-	Email string `json:"email" binding:"required"`
+	Email    string `json:"email" binding:"required"`
 	Password string `json:"password" binding:"required"`
 }
 
 type LoginResponse struct {
-	Token string `json:"token"`
+	Token string       `json:"token"`
 	User  UserResponse `json:"user"`
 }
 
 type UserResponse struct {
-	ID       uint   `json:"id"`
+	ID    uint   `json:"id"`
 	Email string `json:"email"`
 }
 
@@ -94,7 +94,7 @@ func handleRegister(database *db.DB) gin.HandlerFunc {
 
 		// Create user
 		user := &db.User{
-			Email:     req.Email,
+			Email:        req.Email,
 			PasswordHash: string(hashedPassword),
 		}
 
@@ -136,7 +136,7 @@ func handleLogin(database *db.DB, jwtSecret string) gin.HandlerFunc {
 		c.JSON(http.StatusOK, LoginResponse{
 			Token: token,
 			User: UserResponse{
-				ID:       user.ID,
+				ID:    user.ID,
 				Email: user.Email,
 			},
 		})
@@ -384,7 +384,7 @@ func handleCreateJob(database *db.DB, scheduler *scheduler.Scheduler) gin.Handle
 		}
 
 		// Schedule the job if enabled
-		if job.Enabled {
+		if job.GetEnabled() {
 			if err := scheduler.ScheduleJob(&job); err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to schedule job"})
 				return
@@ -484,7 +484,7 @@ func handleUpdateJob(database *db.DB, scheduler *scheduler.Scheduler) gin.Handle
 		}
 
 		// Check if schedule or enabled status changed
-		scheduleChanged := updatedJob.Schedule != existingJob.Schedule || updatedJob.Enabled != existingJob.Enabled
+		scheduleChanged := updatedJob.Schedule != existingJob.Schedule || updatedJob.GetEnabled() != existingJob.GetEnabled()
 
 		if err := database.UpdateJob(&updatedJob); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update job"})
@@ -493,7 +493,7 @@ func handleUpdateJob(database *db.DB, scheduler *scheduler.Scheduler) gin.Handle
 
 		// Update the scheduler if needed
 		if scheduleChanged {
-			if updatedJob.Enabled {
+			if updatedJob.GetEnabled() {
 				if err := scheduler.ScheduleJob(&updatedJob); err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update job schedule"})
 					return
@@ -610,12 +610,8 @@ func handleEnableJob(database *db.DB, scheduler *scheduler.Scheduler) gin.Handle
 			return
 		}
 
-		// Update job status
-		job.Enabled = true
-		if err := database.UpdateJob(job); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update job"})
-			return
-		}
+		// Enable the job
+		job.SetEnabled(true)
 
 		// Add to scheduler
 		if err := scheduler.ScheduleJob(job); err != nil {
@@ -654,12 +650,8 @@ func handleDisableJob(database *db.DB, scheduler *scheduler.Scheduler) gin.Handl
 			return
 		}
 
-		// Update job status
-		job.Enabled = false
-		if err := database.UpdateJob(job); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update job"})
-			return
-		}
+		// Disable the job
+		job.SetEnabled(false)
 
 		// Remove from scheduler
 		scheduler.UnscheduleJob(jobID)

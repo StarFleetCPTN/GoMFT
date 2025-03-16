@@ -36,7 +36,7 @@ func TestHandleAdminTools(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Create a test request
@@ -81,7 +81,7 @@ func TestHandleBackupDatabase(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Set up the context with the user
@@ -131,7 +131,7 @@ func TestHandleVacuumDatabase(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Set up the context with the user
@@ -186,7 +186,7 @@ func TestHandleClearJobHistory(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Set up the context with the user
@@ -228,7 +228,7 @@ func TestHandleExportConfigs(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	config := &db.TransferConfig{
@@ -267,8 +267,7 @@ func TestHandleExportConfigs(t *testing.T) {
 
 	// Parse the response as JSON
 	var configs []map[string]interface{}
-	var err error
-	err = json.Unmarshal(w.Body.Bytes(), &configs)
+	var err = json.Unmarshal(w.Body.Bytes(), &configs)
 	assert.NoError(t, err)
 	assert.Greater(t, len(configs), 0)
 }
@@ -281,7 +280,7 @@ func TestHandleExportJobs(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Create a test config
@@ -301,7 +300,7 @@ func TestHandleExportJobs(t *testing.T) {
 		Name:      "Test Job",
 		Schedule:  "*/5 * * * *", // Every 5 minutes
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: testUser.ID,
 	}
 	handlers.DB.DB.Create(job)
@@ -332,8 +331,7 @@ func TestHandleExportJobs(t *testing.T) {
 
 	// Parse the response as JSON
 	var jobs []map[string]interface{}
-	var err error
-	err = json.Unmarshal(w.Body.Bytes(), &jobs)
+	var err = json.Unmarshal(w.Body.Bytes(), &jobs)
 	assert.NoError(t, err)
 	assert.Greater(t, len(jobs), 0)
 }
@@ -346,7 +344,7 @@ func TestHandleImportConfigs(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Set up the route
@@ -407,7 +405,7 @@ func TestHandleImportJobs(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Set up the context with the user - must be done BEFORE registering routes
@@ -481,7 +479,7 @@ func TestHandleExportConfigsUnauthorized(t *testing.T) {
 	testUser := &db.User{
 		ID:      2,
 		Email:   "user@example.com",
-		IsAdmin: false,
+		IsAdmin: BoolPtr(false),
 	}
 
 	// Set up the context with the non-admin user
@@ -519,7 +517,7 @@ func TestHandleBackupDatabaseError(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Set up the context with the user
@@ -589,7 +587,7 @@ func TestHandleListBackups(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Set up the context with the user - must be done BEFORE registering routes
@@ -636,7 +634,7 @@ func TestHandleSystemInfo(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Set up the context with the user - must be done BEFORE registering routes
@@ -705,7 +703,7 @@ func TestHandleImportConfigsFromFile(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Set up the route
@@ -768,7 +766,7 @@ func TestHandleImportJobsFromFile(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Set up the context with the user - must be done BEFORE registering routes
@@ -868,7 +866,7 @@ func TestHandleImportConfigsInvalidJSON(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Set up the context with the user - must be done BEFORE registering routes
@@ -937,7 +935,7 @@ func TestHandleDeleteLogFile(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Set up the context with the user - must be done BEFORE registering routes
@@ -982,7 +980,7 @@ func TestHandleSystemMaintenanceCheck(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Set up the context with the user - this must be done BEFORE registering the routes
@@ -1024,7 +1022,7 @@ func TestHandleUpdateSystemSettings(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Set up the context with the user - must be done BEFORE registering routes
@@ -1088,7 +1086,7 @@ func TestHandleViewLog(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Set up the context with the user - must be done BEFORE registering routes
@@ -1134,7 +1132,7 @@ func TestHandleViewLogNotFound(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Set up the context with the user - must be done BEFORE registering routes
@@ -1187,7 +1185,7 @@ func TestHandleDownloadLog(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Set up the context with the user - must be done BEFORE registering routes
@@ -1241,7 +1239,7 @@ func TestHandleDeleteBackup(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Set up the context with the user - must be done BEFORE registering routes
@@ -1301,7 +1299,7 @@ func TestHandleDownloadBackup(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Set up the context with the user - must be done BEFORE registering routes
@@ -1353,7 +1351,7 @@ func TestHandleRefreshLogs(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Set up the context with the user - must be done BEFORE registering routes
@@ -1414,7 +1412,7 @@ func TestHandleRefreshBackups(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Set up the context with the user - must be done BEFORE registering routes

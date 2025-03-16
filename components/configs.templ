@@ -68,6 +68,9 @@ script triggerConfigDelete(dialogId string, configID uint, configName string) {
 
 type ConfigsData struct {
 	Configs []db.TransferConfig
+	Error string
+	ErrorDetails string
+	Status string
 }
 
 templ Configs(ctx context.Context, data ConfigsData) {
@@ -105,6 +108,27 @@ templ Configs(ctx context.Context, data ConfigsData) {
 				});
 				console.log("Notyf initialized:", window.notyf);
 			}
+
+			// Show status messages based on URL parameters
+			document.addEventListener('DOMContentLoaded', function() {
+				// Check for error message
+				const urlParams = new URLSearchParams(window.location.search);
+				const errorMsg = urlParams.get('error');
+				const errorDetails = urlParams.get('details');
+				const status = urlParams.get('status');
+				
+				if (errorMsg) {
+					let message = errorMsg;
+					if (errorDetails) {
+						message += ": " + errorDetails;
+					}
+					window.notyf.error(message);
+				}
+				
+				if (status === 'gdrive_auth_success') {
+					window.notyf.success("Google Drive authentication completed successfully");
+				}
+			});
 
 			// Track all HTMX events for debugging
 			document.addEventListener('htmx:beforeRequest', function(event) {
@@ -244,8 +268,32 @@ templ Configs(ctx context.Context, data ConfigsData) {
 														<p class="text-sm font-medium text-primary-600 dark:text-primary-400 truncate">
 															{ config.Name }
 														</p>
+
+														<!-- Google Drive Authentication Badge -->
+														if (config.DestinationType == "gdrive" || config.SourceType == "gdrive" || config.DestinationType == "drive") && !config.GetGoogleDriveAuthenticated() {
+															<span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100">
+																<i class="fas fa-exclamation-triangle mr-1 flex items-center"></i>
+																Authentication Required
+															</span>
+														}
+														
+														<!-- Google Drive Authentication Status Indicator -->
+														if (config.DestinationType == "gdrive" || config.SourceType == "gdrive" || config.DestinationType == "drive") && config.GetGoogleDriveAuthenticated() {
+															<span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">
+																<i class="fas fa-check-circle mr-1 flex items-center"></i>
+																Authenticated
+															</span>
+														}
 													</div>
 													<div class="ml-2 flex-shrink-0 flex space-x-2">
+														<!-- Google Drive Authentication Button -->
+														if (config.DestinationType == "gdrive" || config.SourceType == "gdrive") && !config.GetGoogleDriveAuthenticated() {
+															<a href={ templ.SafeURL(fmt.Sprintf("/configs/%d/gdrive-auth", config.ID)) } class="btn-warning btn-sm">
+																<i class="fab fa-google-drive mr-1"></i>
+																Authenticate
+															</a>
+														}
+														
 														<a href={ templ.SafeURL(fmt.Sprintf("/configs/%d", config.ID)) } class="btn-secondary btn-sm">
 															<i class="fas fa-edit mr-1"></i>
 															Edit
@@ -302,6 +350,14 @@ templ Configs(ctx context.Context, data ConfigsData) {
 					<p class="text-sm text-secondary-500 dark:text-secondary-400">
 						<i class="fas fa-info-circle mr-1 text-primary-500"></i>
 						Configurations define how files are transferred between systems
+					</p>
+				</div>
+				
+				<!-- Google Drive Auth Help -->
+				<div class="mt-4 text-center">
+					<p class="text-sm text-secondary-500 dark:text-secondary-400">
+						<i class="fab fa-google-drive mr-1 text-blue-500 inline-flex items-center"></i>
+						Google Drive configurations require authentication. Click the "Authenticate" button to complete setup.
 					</p>
 				</div>
 			</div>

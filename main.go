@@ -71,11 +71,11 @@ func main() {
 
 		// Create admin user
 		adminUser := &db.User{
-			Email:           "admin@example.com",
+			Email:              "admin@example.com",
 			PasswordHash:       string(hashedPassword),
-			IsAdmin:            true,
 			LastPasswordChange: time.Now(),
 		}
+		adminUser.SetIsAdmin(true)
 
 		if err := database.CreateUser(adminUser); err != nil {
 			log.Fatalf("Failed to create admin user: %v", err)

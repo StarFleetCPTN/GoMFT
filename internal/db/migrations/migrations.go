@@ -16,6 +16,7 @@ func InitMigrations(db *gorm.DB) *gormigrate.Gormigrate {
 		AddMultiConfigSupport(),
 		UpdateSkipProcessedFilesToNullable(),
 		AddWebhookSupport(),
+		AddGoogleDriveAuthenticated(),
 	}
 
 	return gormigrate.New(db, gormigrate.DefaultOptions, migrations)

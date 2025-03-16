@@ -35,7 +35,7 @@ func TestHandleImportJobsFixed(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Set up middleware to add the user to the context
@@ -99,7 +99,7 @@ func TestHandleImportJobsFixed(t *testing.T) {
 		ConfigID:  testJobs[0].ConfigID,
 		ConfigIDs: testJobs[0].ConfigIDs,
 		Schedule:  testJobs[0].Schedule,
-		Enabled:   testJobs[0].Enabled,
+		Enabled:   BoolPtr(testJobs[0].Enabled),
 		CreatedBy: testJobs[0].CreatedBy,
 	}
 
@@ -138,7 +138,7 @@ func TestHandleImportJobsFromFileFixed(t *testing.T) {
 	testUser := &db.User{
 		ID:      1,
 		Email:   "admin@example.com",
-		IsAdmin: true,
+		IsAdmin: BoolPtr(true),
 	}
 
 	// Set up middleware to add the user to the context - must be done BEFORE registering routes
@@ -218,7 +218,7 @@ func TestHandleImportJobsFromFileFixed(t *testing.T) {
 		ConfigID:  testJobs[0].ConfigID,
 		ConfigIDs: testJobs[0].ConfigIDs,
 		Schedule:  testJobs[0].Schedule,
-		Enabled:   testJobs[0].Enabled,
+		Enabled:   BoolPtr(testJobs[0].Enabled),
 		CreatedBy: testJobs[0].CreatedBy,
 	}
 

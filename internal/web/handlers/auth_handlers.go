@@ -17,6 +17,15 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// Define a custom type for context keys to avoid string collisions
+type contextKey string
+
+// Context keys
+const (
+	themeKey contextKey = "theme"
+	emailKey contextKey = "email"
+)
+
 // AuthMiddleware is a middleware function that checks if the user is authenticated
 func (h *Handlers) AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -152,16 +161,16 @@ func (h *Handlers) HandleLoginPage(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/dashboard")
 		return
 	}
-	
+
 	// Create template context and set email if available
 	ctx := components.CreateTemplateContext(c)
 	if email, exists := c.Get("email"); exists {
-		ctx = context.WithValue(ctx, "email", email)
+		ctx = context.WithValue(ctx, emailKey, email)
 	}
-	
+
 	// Check for message query param (used for password expired, etc.)
 	message := c.Query("message")
-	
+
 	// User is not logged in, show login page
 	if message != "" {
 		components.Login(ctx, message).Render(c.Request.Context(), c.Writer)
@@ -183,10 +192,10 @@ func (h *Handlers) HandleLogin(c *gin.Context) {
 	}
 
 	// Check if account is locked
-	if user.AccountLocked {
+	if user.GetAccountLocked() {
 		if user.LockoutUntil != nil && time.Now().After(*user.LockoutUntil) {
 			// Lockout period has expired, reset the lockout
-			user.AccountLocked = false
+			user.SetAccountLocked(false)
 			user.FailedLoginAttempts = 0
 			user.LockoutUntil = nil
 			h.DB.Save(&user)
@@ -201,18 +210,18 @@ func (h *Handlers) HandleLogin(c *gin.Context) {
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
 		// Increment failed login attempts
 		user.FailedLoginAttempts++
-		
+
 		// Check if we need to lock the account
 		policy := auth.DefaultPasswordPolicy()
 		if user.FailedLoginAttempts >= policy.MaxLoginAttempts {
-			user.AccountLocked = true
+			user.SetAccountLocked(true)
 			lockoutTime := time.Now().Add(policy.LockoutDuration)
 			user.LockoutUntil = &lockoutTime
 			h.DB.Save(&user)
 			components.Login(components.CreateTemplateContext(c), "Account is locked due to too many failed login attempts. Please try again later.").Render(c, c.Writer)
 			return
 		}
-		
+
 		h.DB.Save(&user)
 		components.Login(components.CreateTemplateContext(c), "Invalid credentials").Render(c, c.Writer)
 		return
@@ -220,7 +229,7 @@ func (h *Handlers) HandleLogin(c *gin.Context) {
 
 	// Reset failed login attempts on successful login
 	user.FailedLoginAttempts = 0
-	user.AccountLocked = false
+	user.SetAccountLocked(false)
 	user.LockoutUntil = nil
 	h.DB.Save(&user)
 
@@ -276,7 +285,7 @@ func (h *Handlers) HandleChangePassword(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/login")
 		return
 	}
-	
+
 	claims, err := auth.ValidateToken(tokenCookie, h.JWTSecret)
 	if err != nil {
 		if c.GetHeader("HX-Request") == "true" {
@@ -290,12 +299,12 @@ func (h *Handlers) HandleChangePassword(c *gin.Context) {
 		return
 	}
 	userID := claims.UserID
-	
+
 	// Get form values
 	currentPassword := c.PostForm("current_password")
 	newPassword := c.PostForm("new_password")
 	confirmPassword := c.PostForm("confirm_password")
-	
+
 	// Validate new password matches confirmation
 	if newPassword != confirmPassword {
 		c.Data(http.StatusOK, "text/html", []byte(`<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4" role="alert">
@@ -303,7 +312,7 @@ func (h *Handlers) HandleChangePassword(c *gin.Context) {
 		</div>`))
 		return
 	}
-	
+
 	// Get user
 	var user db.User
 	if err := h.DB.First(&user, userID).Error; err != nil {
@@ -312,7 +321,7 @@ func (h *Handlers) HandleChangePassword(c *gin.Context) {
 		</div>`))
 		return
 	}
-	
+
 	// Verify current password
 	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(currentPassword)) != nil {
 		c.Data(http.StatusOK, "text/html", []byte(`<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4" role="alert">
@@ -320,7 +329,7 @@ func (h *Handlers) HandleChangePassword(c *gin.Context) {
 		</div>`))
 		return
 	}
-	
+
 	// Validate password against policy
 	policy := auth.DefaultPasswordPolicy()
 	if err := auth.ValidatePassword(newPassword, policy); err != nil {
@@ -330,7 +339,7 @@ func (h *Handlers) HandleChangePassword(c *gin.Context) {
 		c.Data(http.StatusOK, "text/html", []byte(errorMsg))
 		return
 	}
-	
+
 	// Check password history
 	if err := auth.CheckPasswordHistory(user.ID, newPassword, user.PasswordHash, h.DB.DB, policy); err != nil {
 		errorMsg := `<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4" role="alert">
@@ -339,7 +348,7 @@ func (h *Handlers) HandleChangePassword(c *gin.Context) {
 		c.Data(http.StatusOK, "text/html", []byte(errorMsg))
 		return
 	}
-	
+
 	// Hash the new password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
@@ -348,7 +357,7 @@ func (h *Handlers) HandleChangePassword(c *gin.Context) {
 		</div>`))
 		return
 	}
-	
+
 	// Update password history
 	if err := auth.UpdatePasswordHistory(user.ID, string(hashedPassword), h.DB.DB, policy); err != nil {
 		c.Data(http.StatusOK, "text/html", []byte(`<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4" role="alert">
@@ -356,7 +365,7 @@ func (h *Handlers) HandleChangePassword(c *gin.Context) {
 		</div>`))
 		return
 	}
-	
+
 	// Update user's password
 	user.PasswordHash = string(hashedPassword)
 	user.LastPasswordChange = time.Now()
@@ -366,7 +375,7 @@ func (h *Handlers) HandleChangePassword(c *gin.Context) {
 		</div>`))
 		return
 	}
-	
+
 	// Return success message
 	c.Data(http.StatusOK, "text/html", []byte(`<div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4" role="alert">
 		<span class="block sm:inline">Password updated successfully!</span>
@@ -375,7 +384,7 @@ func (h *Handlers) HandleChangePassword(c *gin.Context) {
 
 // HandleForgotPasswordPage displays the forgot password form
 func (h *Handlers) HandleForgotPasswordPage(c *gin.Context) {
-	ctx := context.WithValue(c.Request.Context(), "theme", "light")
+	ctx := context.WithValue(c.Request.Context(), themeKey, "light")
 	components.ForgotPassword(ctx, "", "").Render(c.Request.Context(), c.Writer)
 }
 
@@ -383,7 +392,7 @@ func (h *Handlers) HandleForgotPasswordPage(c *gin.Context) {
 func (h *Handlers) HandleForgotPassword(c *gin.Context) {
 	email := c.PostForm("email")
 	if email == "" {
-		ctx := context.WithValue(c.Request.Context(), "theme", "light")
+		ctx := context.WithValue(c.Request.Context(), themeKey, "light")
 		components.ForgotPassword(ctx, "Email is required", "").Render(c.Request.Context(), c.Writer)
 		return
 	}
@@ -394,7 +403,7 @@ func (h *Handlers) HandleForgotPassword(c *gin.Context) {
 		// Don't reveal that the email doesn't exist for security reasons
 		// But we'll log it for debugging
 		log.Printf("Password reset requested for non-existent email: %s", email)
-		ctx := context.WithValue(c.Request.Context(), "theme", "light")
+		ctx := context.WithValue(c.Request.Context(), themeKey, "light")
 		components.ForgotPassword(ctx, "", "If your email is registered, you will receive a password reset link.").Render(c.Request.Context(), c.Writer)
 		return
 	}
@@ -403,7 +412,7 @@ func (h *Handlers) HandleForgotPassword(c *gin.Context) {
 	token, err := generateResetToken(32)
 	if err != nil {
 		log.Printf("Error generating reset token: %v", err)
-		ctx := context.WithValue(c.Request.Context(), "theme", "light")
+		ctx := context.WithValue(c.Request.Context(), themeKey, "light")
 		components.ForgotPassword(ctx, "An error occurred. Please try again later.", "").Render(c.Request.Context(), c.Writer)
 		return
 	}
@@ -411,33 +420,33 @@ func (h *Handlers) HandleForgotPassword(c *gin.Context) {
 	// Save token in database with expiration time (15 minutes)
 	expiration := time.Now().Add(15 * time.Minute)
 	resetToken := &db.PasswordResetToken{
-		UserID:     user.ID,
-		Token:      token,
-		ExpiresAt:  expiration,
+		UserID:    user.ID,
+		Token:     token,
+		ExpiresAt: expiration,
 	}
-	
+
 	if err := h.DB.CreatePasswordResetToken(resetToken); err != nil {
 		log.Printf("Error saving reset token: %v", err)
-		ctx := context.WithValue(c.Request.Context(), "theme", "light")
+		ctx := context.WithValue(c.Request.Context(), themeKey, "light")
 		components.ForgotPassword(ctx, "An error occurred. Please try again later.", "").Render(c.Request.Context(), c.Writer)
 		return
 	}
-	
+
 	// Send password reset email
 	err = h.Email.SendPasswordResetEmail(user.Email, user.Email, token)
 	if err != nil {
 		// If email sending fails, log the error but don't expose this to the user
 		log.Printf("Error sending password reset email: %v", err)
-		
+
 		// If email is disabled, log the reset link
 		if strings.Contains(err.Error(), "email service is disabled") {
 			log.Printf("Email service is disabled, reset link: %v", err)
 		}
 	}
-	
+
 	// Show success message regardless of whether email was sent
 	// This prevents user enumeration attacks
-	ctx := context.WithValue(c.Request.Context(), "theme", "light")
+	ctx := context.WithValue(c.Request.Context(), themeKey, "light")
 	components.ForgotPassword(ctx, "", "If your email is registered, you will receive a password reset link.").Render(c.Request.Context(), c.Writer)
 }
 
@@ -457,7 +466,7 @@ func (h *Handlers) HandleResetPasswordPage(c *gin.Context) {
 		return
 	}
 
-	ctx := context.WithValue(c.Request.Context(), "theme", "light")
+	ctx := context.WithValue(c.Request.Context(), themeKey, "light")
 	components.ResetPassword(ctx, token, "").Render(c.Request.Context(), c.Writer)
 }
 
@@ -473,19 +482,19 @@ func (h *Handlers) HandleResetPassword(c *gin.Context) {
 	}
 
 	if password == "" || confirmPassword == "" {
-		ctx := context.WithValue(c.Request.Context(), "theme", "light")
+		ctx := context.WithValue(c.Request.Context(), themeKey, "light")
 		components.ResetPassword(ctx, token, "Both password fields are required.").Render(c.Request.Context(), c.Writer)
 		return
 	}
 
 	if password != confirmPassword {
-		ctx := context.WithValue(c.Request.Context(), "theme", "light")
+		ctx := context.WithValue(c.Request.Context(), themeKey, "light")
 		components.ResetPassword(ctx, token, "Passwords do not match.").Render(c.Request.Context(), c.Writer)
 		return
 	}
 
 	if len(password) < 8 {
-		ctx := context.WithValue(c.Request.Context(), "theme", "light")
+		ctx := context.WithValue(c.Request.Context(), themeKey, "light")
 		components.ResetPassword(ctx, token, "Password must be at least 8 characters long.").Render(c.Request.Context(), c.Writer)
 		return
 	}
@@ -510,7 +519,7 @@ func (h *Handlers) HandleResetPassword(c *gin.Context) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		log.Printf("Error hashing password: %v", err)
-		ctx := context.WithValue(c.Request.Context(), "theme", "light")
+		ctx := context.WithValue(c.Request.Context(), themeKey, "light")
 		components.ResetPassword(ctx, token, "An error occurred. Please try again later.").Render(c.Request.Context(), c.Writer)
 		return
 	}
@@ -520,7 +529,7 @@ func (h *Handlers) HandleResetPassword(c *gin.Context) {
 	user.LastPasswordChange = time.Now()
 	if err := h.DB.UpdateUser(user); err != nil {
 		log.Printf("Error updating user password: %v", err)
-		ctx := context.WithValue(c.Request.Context(), "theme", "light")
+		ctx := context.WithValue(c.Request.Context(), themeKey, "light")
 		components.ResetPassword(ctx, token, "An error occurred. Please try again later.").Render(c.Request.Context(), c.Writer)
 		return
 	}

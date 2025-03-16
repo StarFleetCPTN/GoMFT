@@ -17,8 +17,8 @@ func TestMockScheduler_MultiConfig(t *testing.T) {
 		Name:     "Multi-Config Test Job",
 		Schedule: "*/5 * * * *",
 		ConfigID: 1, // Primary config ID
-		Enabled:  true,
 	}
+	job.SetEnabled(true)
 
 	// Set multiple config IDs
 	job.SetConfigIDsList([]uint{1, 2, 3})
@@ -55,8 +55,8 @@ func TestMockScheduler_MultiConfig(t *testing.T) {
 		Name:     "Single Config Job",
 		Schedule: "0 0 * * *",
 		ConfigID: 4,
-		Enabled:  true,
 	}
+	singleConfigJob.SetEnabled(true)
 
 	// Set a single config ID
 	singleConfigJob.SetConfigIDsList([]uint{4})

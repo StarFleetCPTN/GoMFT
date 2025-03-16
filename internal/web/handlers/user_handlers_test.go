@@ -299,7 +299,7 @@ func TestHandleRegister(t *testing.T) {
 	err := database.Where("email = ?", formData.Get("email")).First(&user).Error
 	assert.NoError(t, err)
 	assert.Equal(t, formData.Get("email"), user.Email)
-	assert.True(t, user.IsAdmin)
+	assert.True(t, user.GetIsAdmin())
 
 	// Verify JWT cookie was set
 	cookies := resp.Result().Cookies()

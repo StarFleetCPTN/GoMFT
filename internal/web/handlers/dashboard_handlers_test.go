@@ -37,7 +37,7 @@ func setupDashboardTest(t *testing.T) (*Handlers, *gin.Engine, *db.DB) {
 		Name:      "Test Job",
 		Schedule:  "*/5 * * * *",
 		ConfigID:  config.ID,
-		Enabled:   true,
+		Enabled:   BoolPtr(true),
 		CreatedBy: user.ID,
 	}
 	if err := database.DB.Create(job).Error; err != nil {
