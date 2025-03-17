@@ -9,7 +9,6 @@ import (
 func InitMigrations(db *gorm.DB) *gormigrate.Gormigrate {
 	migrations := []*gormigrate.Migration{
 		InitialSchema(),
-		UpdateBuiltinAuthFields(),
 		UpdateGDriveType(),
 	}
 
