@@ -1,0 +1,150 @@
+package components
+
+import "context"
+
+type TwoFactorSetupData struct {
+	QRCodeURL    string
+	Secret       string
+	BackupCodes  []string
+	ErrorMessage string
+}
+
+templ TwoFactorSetup(ctx context.Context, data TwoFactorSetupData) {
+	@LayoutWithContext("Two-Factor Authentication Setup", ctx) {
+		<div class="min-h-screen bg-secondary-50 dark:bg-secondary-900 py-12">
+			<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+				<div class="bg-white dark:bg-secondary-800 shadow rounded-lg p-6">
+					<div class="text-center mb-8">
+						<h2 class="text-3xl font-bold text-secondary-900 dark:text-secondary-100">Set Up Two-Factor Authentication</h2>
+						<p class="mt-2 text-secondary-600 dark:text-secondary-400">Enhance your account security with 2FA</p>
+					</div>
+
+					if data.ErrorMessage != "" {
+						<div class="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-6" role="alert">
+							<div class="flex items-center">
+								<i class="fas fa-exclamation-circle mr-2"></i>
+								<span class="block sm:inline">{ data.ErrorMessage }</span>
+							</div>
+						</div>
+					}
+
+					<div class="space-y-8">
+						<div>
+							<h3 class="text-xl font-semibold text-secondary-900 dark:text-secondary-100 mb-4">1. Scan QR Code</h3>
+							<p class="text-secondary-600 dark:text-secondary-400 mb-4">
+								Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
+							</p>
+							<div class="flex justify-center mb-4">
+								<img src={ data.QRCodeURL } alt="QR Code" class="border border-secondary-200 dark:border-secondary-700 rounded-lg p-2 bg-white"/>
+							</div>
+							<div class="text-center">
+								<p class="text-sm text-secondary-600 dark:text-secondary-400">
+									Can't scan the QR code? Use this code instead:
+								</p>
+								<code class="block mt-2 p-2 bg-secondary-100 dark:bg-secondary-700 rounded font-mono text-sm">
+									{ data.Secret }
+								</code>
+							</div>
+						</div>
+
+						<div>
+							<h3 class="text-xl font-semibold text-secondary-900 dark:text-secondary-100 mb-4">2. Verify Setup</h3>
+							<form 
+								method="POST"
+								action="/profile/2fa/verify"
+								class="space-y-4"
+								x-data="{ code: '', loading: false }"
+								@submit="loading = true">
+								<div>
+									<label for="code" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+										Enter the 6-digit code from your authenticator app
+									</label>
+									<input 
+										type="text" 
+										id="code"
+										name="code"
+										x-model="code"
+										class="form-input block w-full"
+										pattern="[0-9]*"
+										inputmode="numeric"
+										maxlength="6"
+										required/>
+								</div>
+								<button 
+									type="submit"
+									class="btn-primary w-full"
+									x-bind:disabled="code.length !== 6 || loading">
+									<span x-show="!loading">Verify and Enable 2FA</span>
+									<span x-show="loading" class="flex items-center justify-center">
+										<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+											<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+											<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+										</svg>
+										Verifying...
+									</span>
+								</button>
+							</form>
+						</div>
+
+						if len(data.BackupCodes) > 0 {
+							<div>
+								<h3 class="text-xl font-semibold text-secondary-900 dark:text-secondary-100 mb-4">3. Save Backup Codes</h3>
+								<p class="text-secondary-600 dark:text-secondary-400 mb-4">
+									Store these backup codes in a safe place. You can use them to access your account if you lose your authenticator device.
+								</p>
+								<div class="grid grid-cols-2 gap-4 mb-4">
+									for _, code := range data.BackupCodes {
+										<div class="p-2 bg-secondary-100 dark:bg-secondary-700 rounded font-mono text-sm text-center">
+											{ code }
+										</div>
+									}
+								</div>
+								<div class="text-center">
+									<button 
+										class="btn-secondary"
+										onclick="downloadBackupCodes(this)">
+										<i class="fas fa-download mr-2"></i>
+										Download Backup Codes
+									</button>
+									<script>
+										function downloadBackupCodes(button) {
+											// Get backup codes from the displayed elements
+											const codes = Array.from(
+												document.querySelectorAll('.bg-secondary-100.dark\\:bg-secondary-700')
+											).map(el => el.textContent.trim());
+											
+											// Create content for the file
+											const content = 
+												"2FA Backup Codes - Keep these safe!\n" +
+												"=====================================\n\n" +
+												codes.join("\n") +
+												"\n\n" +
+												"Generated: " + new Date().toISOString().split('T')[0] + "\n" +
+												"These codes can be used to access your account if you lose access to your authenticator app.\n" +
+												"Each code can only be used once. Keep these codes safe and secure.";
+											
+											// Create blob and download link
+											const blob = new Blob([content], { type: 'text/plain' });
+											const url = window.URL.createObjectURL(blob);
+											const a = document.createElement('a');
+											a.href = url;
+											a.download = '2fa-backup-codes.txt';
+											
+											// Trigger download
+											document.body.appendChild(a);
+											a.click();
+											
+											// Cleanup
+											window.URL.revokeObjectURL(url);
+											document.body.removeChild(a);
+										}
+									</script>
+								</div>
+							</div>
+						}
+					</div>
+				</div>
+			</div>
+		</div>
+	}
+} 

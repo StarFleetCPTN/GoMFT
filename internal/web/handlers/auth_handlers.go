@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -56,11 +57,21 @@ func (h *Handlers) AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
+		// Safely extract claims with type assertions and defaults
+		userID, _ := claims["user_id"].(float64)
+		email, _ := claims["email"].(string)
+		username, _ := claims["username"].(string)
+		isAdmin, _ := claims["is_admin"].(bool)
+
 		// Set user information in the context
-		c.Set("userID", uint(claims["user_id"].(float64)))
-		c.Set("email", claims["email"].(string))
-		c.Set("username", claims["username"].(string))
-		c.Set("isAdmin", claims["is_admin"].(bool))
+		c.Set("userID", uint(userID))
+		if email != "" {
+			c.Set("email", email)
+		}
+		if username != "" {
+			c.Set("username", username)
+		}
+		c.Set("isAdmin", isAdmin)
 
 		c.Next()
 	}
@@ -142,10 +153,11 @@ func (h *Handlers) APIAdminMiddleware() gin.HandlerFunc {
 }
 
 // GenerateJWT generates a JWT token for the given user
-func (h *Handlers) GenerateJWT(userID uint, username string, isAdmin bool) (string, error) {
+func (h *Handlers) GenerateJWT(userID uint, email string, isAdmin bool) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id":  userID,
-		"username": username,
+		"email":    email,
+		"username": strings.Split(email, "@")[0], // Use email prefix as username
 		"is_admin": isAdmin,
 		"exp":      time.Now().Add(time.Hour * 24).Unix(),
 	})
@@ -243,24 +255,30 @@ func (h *Handlers) HandleLogin(c *gin.Context) {
 		return
 	}
 
-	// Generate JWT token with all necessary user information
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id":  user.ID,
-		"email":    user.Email,
-		"username": strings.Split(user.Email, "@")[0], // Use email prefix as username
-		"is_admin": user.IsAdmin,
-		"exp":      time.Now().Add(time.Hour * 24).Unix(),
-	})
+	// Check if 2FA is enabled
+	if user.TwoFactorEnabled {
+		// Store user ID temporarily for 2FA verification
+		c.SetCookie("temp_user_id", fmt.Sprintf("%d", user.ID), 300, "/", "", false, true) // 5 minutes expiry
 
-	// Sign the token
-	tokenString, err := token.SignedString([]byte(h.JWTSecret))
+		// Redirect to 2FA verification page
+		c.Redirect(http.StatusFound, "/login/verify")
+		return
+	}
+
+	// If 2FA is not enabled, proceed with normal login
+	// Generate JWT token with all necessary user information
+	isAdmin := false
+	if user.IsAdmin != nil {
+		isAdmin = *user.IsAdmin
+	}
+	token, err := h.GenerateJWT(user.ID, user.Email, isAdmin)
 	if err != nil {
 		components.Login(components.CreateTemplateContext(c), "Authentication error").Render(c, c.Writer)
 		return
 	}
 
 	// Set token in cookie
-	c.SetCookie("jwt_token", tokenString, 86400, "/", "", false, true)
+	c.SetCookie("jwt_token", token, 86400, "/", "", false, true)
 	c.Redirect(http.StatusFound, "/dashboard")
 }
 

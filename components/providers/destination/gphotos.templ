@@ -74,6 +74,7 @@ templ GooglePhotosDestinationForm() {
                 <input id="dest_read_only" name="dest_read_only" type="checkbox" 
                     class="sr-only"
                     x-model="destReadOnly"
+                    :value="destReadOnly ? 'true' : 'false'"
                 />
                 <div class="block bg-secondary-200 dark:bg-secondary-700 w-14 h-8 rounded-full"></div>
                 <div class="dot absolute left-1 top-1 bg-white dark:bg-secondary-100 w-6 h-6 rounded-full transition"
@@ -109,6 +110,7 @@ templ GooglePhotosDestinationForm() {
                 <input id="dest_include_archived" name="dest_include_archived" type="checkbox" 
                     class="sr-only"
                     x-model="destIncludeArchived"
+                    :value="destIncludeArchived ? 'true' : 'false'"
                 />
                 <div class="block bg-secondary-200 dark:bg-secondary-700 w-14 h-8 rounded-full"></div>
                 <div class="dot absolute left-1 top-1 bg-white dark:bg-secondary-100 w-6 h-6 rounded-full transition"

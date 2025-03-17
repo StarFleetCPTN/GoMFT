@@ -25,6 +25,9 @@ type User struct {
 	AccountLocked       *bool `gorm:"default:false"`
 	LockoutUntil        *time.Time
 	Theme               string `gorm:"default:'light'"`
+	TwoFactorSecret     string `gorm:"type:varchar(32)"`
+	TwoFactorEnabled    bool   `gorm:"default:false"`
+	BackupCodes         string `gorm:"type:text"` // Comma-separated backup codes
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }
