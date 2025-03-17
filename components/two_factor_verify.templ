@@ -1,0 +1,83 @@
+package components
+
+import "context"
+
+type TwoFactorVerifyData struct {
+	ErrorMessage string
+}
+
+templ TwoFactorVerify(ctx context.Context, data TwoFactorVerifyData) {
+	@LayoutWithContext("Two-Factor Authentication", ctx) {
+		<div class="min-h-screen bg-secondary-50 dark:bg-secondary-900 py-12">
+			<div class="max-w-md mx-auto px-4 sm:px-6 lg:px-8">
+				<div class="bg-white dark:bg-secondary-800 shadow rounded-lg p-6">
+					<div class="text-center mb-8">
+						<div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary-100 dark:bg-primary-900 mb-4">
+							<i class="fas fa-shield-alt text-primary-600 dark:text-primary-400 text-3xl"></i>
+						</div>
+						<h2 class="text-3xl font-bold text-secondary-900 dark:text-secondary-100">Two-Factor Authentication</h2>
+						<p class="mt-2 text-secondary-600 dark:text-secondary-400">Enter the code from your authenticator app</p>
+					</div>
+
+					if data.ErrorMessage != "" {
+						<div class="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-6" role="alert">
+							<div class="flex items-center">
+								<i class="fas fa-exclamation-circle mr-2"></i>
+								<span class="block sm:inline">{ data.ErrorMessage }</span>
+							</div>
+						</div>
+					}
+
+					<form 
+						method="POST" 
+						action="/login/verify"
+						class="space-y-6"
+						x-data="{ code: '', loading: false }"
+						@submit="loading = true">
+						<div>
+							<label for="code" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+								Authentication Code
+							</label>
+							<div class="relative">
+								<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+									<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+								</div>
+								<input 
+									type="text" 
+									id="code"
+									name="code"
+									x-model="code"
+									class="form-input pl-10 w-full"
+									pattern="[0-9]*"
+									inputmode="numeric"
+									maxlength="6"
+									placeholder="Enter 6-digit code"
+									required/>
+							</div>
+						</div>
+
+						<button 
+							type="submit"
+							class="btn-primary w-full"
+							x-bind:disabled="code.length !== 6 || loading">
+							<span x-show="!loading">Verify</span>
+							<span x-show="loading" class="flex items-center justify-center">
+								<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+								</svg>
+								Verifying...
+							</span>
+						</button>
+
+						<div class="text-center">
+							<a href="/backup-code" class="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-500 dark:hover:text-primary-300">
+								Use a backup code instead
+							</a>
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+	}
+} 
