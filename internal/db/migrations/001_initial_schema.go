@@ -60,29 +60,6 @@ func InitialSchema() *gormigrate.Migration {
 				}
 			}()
 
-			// Change the table name from job_histories to job_history
-			if err := tx.Raw("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='job_histories'").Scan(&count).Error; err != nil {
-				return err
-			}
-
-			if count > 0 {
-				if err := tx.Exec("ALTER TABLE job_histories RENAME TO job_history").Error; err != nil {
-					return err
-				}
-			}
-
-			// Change the table name from password_histories to password_history
-			count = 0
-			if err := tx.Raw("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='password_histories'").Scan(&count).Error; err != nil {
-				return err
-			}
-
-			if count > 0 {
-				if err := tx.Exec("ALTER TABLE password_histories RENAME TO password_history").Error; err != nil {
-					return err
-				}
-			}
-
 			// Create Users table
 			if err := tx.Exec(`CREATE TABLE IF NOT EXISTS users (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -101,7 +78,7 @@ func InitialSchema() *gormigrate.Migration {
 			}
 
 			// Create PasswordHistory table
-			if err := tx.Exec(`CREATE TABLE IF NOT EXISTS password_history (
+			if err := tx.Exec(`CREATE TABLE IF NOT EXISTS password_histories (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				user_id INTEGER NOT NULL,
 				password_hash VARCHAR(255) NOT NULL,
@@ -212,7 +189,7 @@ func InitialSchema() *gormigrate.Migration {
 			}
 
 			// Create JobHistory table
-			if err := tx.Exec(`CREATE TABLE IF NOT EXISTS job_history (
+			if err := tx.Exec(`CREATE TABLE IF NOT EXISTS job_histories (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				job_id INTEGER NOT NULL,
 				config_id INTEGER DEFAULT 0,
@@ -260,11 +237,11 @@ func InitialSchema() *gormigrate.Migration {
 			// Drop tables in reverse order to handle foreign key constraints
 			tables := []string{
 				"file_metadata",
-				"job_history",
+				"job_histories",
 				"jobs",
 				"transfer_configs",
 				"password_reset_tokens",
-				"password_history",
+				"password_histories",
 				"users",
 			}
 			for _, table := range tables {
