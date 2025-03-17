@@ -8,7 +8,7 @@ import (
 // UpdateGDriveType updates the source_type and destination_type from 'google_drive' to 'gdrive'
 func UpdateGDriveType() *gormigrate.Migration {
 	return &gormigrate.Migration{
-		ID: "003_update_gdrive_type",
+		ID: "002_update_gdrive_type",
 		Migrate: func(tx *gorm.DB) error {
 			// Update source_type
 			if err := tx.Exec(`UPDATE transfer_configs SET source_type = 'gdrive' WHERE source_type = 'google_drive'`).Error; err != nil {
