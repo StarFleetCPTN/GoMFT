@@ -340,6 +340,36 @@ User management features:
 - JWT-based authentication with tokens
 - User theme preference settings (light/dark)
 
+### Two-Factor Authentication (2FA) Implementation
+
+#### Overview
+This implementation adds TOTP-based (Time-based One-Time Password) two-factor authentication support to the application, compatible with standard authenticator apps like Google Authenticator, Authy, and others.
+
+#### Features
+- TOTP-based authentication (RFC 6238 compliant)
+- QR code setup for easy enrollment
+- Backup codes for account recovery
+- Rate-limited verification attempts
+- Secure secret storage
+
+#### Database Changes
+The following fields have been added to the `users` table:
+- `two_factor_secret`: Stores the TOTP secret key
+- `two_factor_enabled`: Boolean flag indicating if 2FA is enabled
+- `backup_codes`: Stores recovery backup codes
+
+#### Setup Process
+1. Navigate to `/profile/2fa/setup`
+2. Scan the displayed QR code with your authenticator app
+3. Enter the verification code to confirm setup
+4. Save your backup codes in a secure location
+
+#### Login Flow
+1. Enter email and password as usual
+2. If 2FA is enabled:
+   - Enter the 6-digit code from your authenticator app
+   - Alternatively, use a backup code if you can't access your authenticator
+
 ### Transfer Configuration Options
 
 1. **Source/Destination Types**:
