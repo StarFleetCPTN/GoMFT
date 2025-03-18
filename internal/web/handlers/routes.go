@@ -12,6 +12,7 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 	router.POST("/login", h.HandleLogin)
 	router.GET("/login/verify", h.Handle2FAVerifyPage)
 	router.POST("/login/verify", h.Handle2FAVerify)
+	router.GET("/login/backup-code", h.Handle2FABackupCodePage)
 	router.GET("/forgot-password", h.HandleForgotPasswordPage)
 	router.POST("/forgot-password", h.HandleForgotPassword)
 	router.GET("/reset-password", h.HandleResetPasswordPage)
@@ -28,6 +29,8 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 	authorized.GET("/profile/2fa/setup", h.Handle2FASetup)
 	authorized.POST("/profile/2fa/verify", h.Handle2FAVerifySetup)
 	authorized.POST("/profile/2fa/disable", h.Handle2FADisable)
+	authorized.GET("/profile/2fa/backup-codes", h.Handle2FABackupCodes)
+	authorized.POST("/profile/2fa/regenerate-codes", h.Handle2FARegenerateCodes)
 
 	{
 		authorized.GET("/dashboard", h.HandleDashboard)
