@@ -9,12 +9,13 @@ import (
 )
 
 type Config struct {
-	ServerAddress string      `json:"server_address"`
-	DataDir       string      `json:"data_dir"`
-	BackupDir     string      `json:"backup_dir"`
-	JWTSecret     string      `json:"jwt_secret"`
-	Email         EmailConfig `json:"email"`
-	BaseURL       string      `json:"base_url"` // Base URL for generating links in emails
+	ServerAddress  string      `json:"server_address"`
+	DataDir        string      `json:"data_dir"`
+	BackupDir      string      `json:"backup_dir"`
+	JWTSecret      string      `json:"jwt_secret"`
+	Email          EmailConfig `json:"email"`
+	BaseURL        string      `json:"base_url"`         // Base URL for generating links in emails
+	TOTPEncryptKey string      `json:"totp_encrypt_key"` // Encryption key for TOTP secrets
 }
 
 type EmailConfig struct {
@@ -33,11 +34,12 @@ type EmailConfig struct {
 func Load() (*Config, error) {
 	// Default configuration
 	cfg := &Config{
-		ServerAddress: ":8080",
-		DataDir:       "./data",
-		BackupDir:     "./backups",
-		JWTSecret:     "change_this_to_a_secure_random_string",
-		BaseURL:       "http://localhost:8080",
+		ServerAddress:  ":8080",
+		DataDir:        "./data",
+		BackupDir:      "./backups",
+		JWTSecret:      "change_this_to_a_secure_random_string",
+		BaseURL:        "http://localhost:8080",
+		TOTPEncryptKey: "this-is-a-dev-key-not-for-production!", // Default development key
 		Email: EmailConfig{
 			Enabled:     false,
 			Host:        "smtp.example.com",
@@ -79,6 +81,9 @@ func Load() (*Config, error) {
 		}
 		if baseURL := os.Getenv("BASE_URL"); baseURL != "" {
 			cfg.BaseURL = baseURL
+		}
+		if totpKey := os.Getenv("TOTP_ENCRYPTION_KEY"); totpKey != "" {
+			cfg.TOTPEncryptKey = totpKey
 		}
 
 		// Email configuration
@@ -124,6 +129,13 @@ func Load() (*Config, error) {
 			"BACKUP_DIR=" + cfg.BackupDir,
 			"JWT_SECRET=" + cfg.JWTSecret,
 			"BASE_URL=" + cfg.BaseURL,
+			"",
+			"# Google OAuth configuration (optional, for built-in authentication)",
+			"GOOGLE_CLIENT_ID=your_google_client_id",
+			"GOOGLE_CLIENT_SECRET=your_google_client_secret",
+			"",
+			"# Two-Factor Authentication configuration",
+			"TOTP_ENCRYPTION_KEY=" + cfg.TOTPEncryptKey,
 			"",
 			"# Email configuration",
 			"EMAIL_ENABLED=" + strconv.FormatBool(cfg.Email.Enabled),

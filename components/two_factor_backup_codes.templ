@@ -1,0 +1,170 @@
+package components
+
+import "context"
+import "strings"
+
+type TwoFactorBackupCodesData struct {
+	BackupCodes  []string
+	ErrorMessage string
+	SuccessMessage string
+}
+
+templ TwoFactorBackupCodes(ctx context.Context, data TwoFactorBackupCodesData) {
+	@LayoutWithContext("Two-Factor Authentication Backup Codes", ctx) {
+		<div class="min-h-screen bg-secondary-50 dark:bg-secondary-900 py-12">
+			<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+				<div class="bg-white dark:bg-secondary-800 shadow rounded-lg p-6">
+					<div class="text-center mb-6">
+						<h2 class="text-3xl font-bold text-secondary-900 dark:text-secondary-100">2FA Backup Codes</h2>
+						<p class="mt-2 text-secondary-600 dark:text-secondary-400">These codes can be used to login if you lose access to your authenticator app</p>
+					</div>
+
+					if data.ErrorMessage != "" {
+						<div class="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mb-6" role="alert">
+							<div class="flex items-center">
+								<i class="fas fa-exclamation-circle mr-2"></i>
+								<span class="block sm:inline">{ data.ErrorMessage }</span>
+							</div>
+						</div>
+					}
+
+					if data.SuccessMessage != "" {
+						if (strings.Contains(data.SuccessMessage, "IMPORTANT")) {
+							// Show important messages with a different style and icon
+							<div class="bg-yellow-100 dark:bg-yellow-900 border border-yellow-400 dark:border-yellow-700 text-yellow-700 dark:text-yellow-300 px-4 py-3 rounded-lg mb-6" role="alert">
+								<div class="flex items-center">
+									<i class="fas fa-exclamation-triangle mr-2"></i>
+									<span class="block sm:inline font-bold">{ data.SuccessMessage }</span>
+								</div>
+							</div>
+						} else {
+							<div class="bg-green-100 dark:bg-green-900 border border-green-400 dark:border-green-700 text-green-700 dark:text-green-300 px-4 py-3 rounded-lg mb-6" role="alert">
+								<div class="flex items-center">
+									<i class="fas fa-info-circle mr-2"></i>
+									<span class="block sm:inline">{ data.SuccessMessage }</span>
+								</div>
+							</div>
+						}
+					}
+
+					<div class="space-y-8">
+						if len(data.BackupCodes) > 0 {
+							<div>
+								<h3 class="text-xl font-semibold text-secondary-900 dark:text-secondary-100 mb-4">Your Backup Codes</h3>
+								
+								<div class="p-4 border border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 rounded-lg mb-6">
+									<div class="flex items-start">
+										<div class="flex-shrink-0 mt-0.5">
+											<i class="fas fa-shield-alt text-amber-600 dark:text-amber-400 text-lg"></i>
+										</div>
+										<div class="ml-3">
+											<h4 class="text-sm font-medium text-amber-800 dark:text-amber-300">Security information</h4>
+											<div class="mt-1 text-sm text-amber-700 dark:text-amber-400 space-y-2">
+												<p><strong>These codes are your backup method to access your account.</strong></p>
+												<ul class="list-disc pl-5 space-y-1">
+													<li>Each code can only be used once.</li>
+													<li>Store these codes in a secure password manager.</li>
+													<li>These codes allow access to your account - keep them safe!</li>
+													<li>For security, you can only view codes immediately after generating them.</li>
+												</ul>
+											</div>
+										</div>
+									</div>
+								</div>
+								
+								<div class="grid grid-cols-2 gap-4 mb-6">
+									for _, code := range data.BackupCodes {
+										if strings.Contains(code, "REDACTED") {
+											<div class="p-2 bg-secondary-200 dark:bg-secondary-700 rounded font-mono text-sm text-center text-secondary-500 dark:text-secondary-400">
+												{ code }
+											</div>
+										} else {
+											<div class="p-2 bg-secondary-100 dark:bg-secondary-700 rounded font-mono text-sm text-center font-bold">
+												{ code }
+											</div>
+										}
+									}
+								</div>
+								<div class="flex justify-center space-x-4 mt-6">
+									if !strings.Contains(data.BackupCodes[0], "REDACTED") {
+										<button 
+											class="btn-secondary"
+											onclick="downloadBackupCodes(this)">
+											<i class="fas fa-download mr-2"></i>
+											Download Backup Codes
+										</button>
+									}
+									<form method="POST" action="/profile/2fa/regenerate-codes" class="inline">
+										<button type="submit" class="btn-primary">
+											<i class="fas fa-sync-alt mr-2"></i>
+											Generate New Codes
+										</button>
+									</form>
+								</div>
+								<script>
+									function downloadBackupCodes(button) {
+										// Get backup codes from the displayed elements that don't contain "REDACTED"
+										const codes = Array.from(
+											document.querySelectorAll('.bg-secondary-100.dark\\:bg-secondary-700')
+										).map(el => el.textContent.trim());
+										
+										// Create content for the file
+										const content = 
+											"2FA BACKUP CODES - KEEP THESE SAFE!\n" +
+											"=====================================\n\n" +
+											codes.join("\n") +
+											"\n\n" +
+											"Generated: " + new Date().toISOString().split('T')[0] + "\n" +
+											"SECURITY WARNINGS:\n" +
+											"* These codes can be used to access your account if you lose access to your authenticator app.\n" +
+											"* Each code can only be used once.\n" +
+											"* Keep these codes in a secure location like a password manager.\n" + 
+											"* Treat these codes with the same security as your password.";
+										
+										// Create blob and download link
+										const blob = new Blob([content], { type: 'text/plain' });
+										const url = window.URL.createObjectURL(blob);
+										const a = document.createElement('a');
+										a.href = url;
+										a.download = '2fa-backup-codes-secure.txt';
+										
+										// Trigger download
+										document.body.appendChild(a);
+										a.click();
+										
+										// Cleanup
+										window.URL.revokeObjectURL(url);
+										document.body.removeChild(a);
+									}
+								</script>
+							</div>
+						} else {
+							<div class="text-center py-8">
+								<div class="rounded-full bg-secondary-100 dark:bg-secondary-700 p-4 mx-auto w-16 h-16 flex items-center justify-center mb-4">
+									<i class="fas fa-key text-secondary-500 dark:text-secondary-400 text-2xl"></i>
+								</div>
+								<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100 mb-2">No Backup Codes Available</h3>
+								<p class="text-secondary-600 dark:text-secondary-400 mb-6">You don't have any backup codes. Generate new ones for account recovery.</p>
+								<form method="POST" action="/profile/2fa/regenerate-codes">
+									<button type="submit" class="btn-primary">
+										<i class="fas fa-sync-alt mr-2"></i>
+										Generate Backup Codes
+									</button>
+								</form>
+							</div>
+						}
+					</div>
+
+					<div class="mt-8 pt-6 border-t border-secondary-200 dark:border-secondary-700">
+						<div class="flex justify-between items-center">
+							<a href="/profile" class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">
+								<i class="fas fa-arrow-left mr-2"></i>
+								Back to Profile
+							</a>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	}
+} 

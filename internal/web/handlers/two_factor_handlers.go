@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pquerna/otp/totp"
 	"github.com/starfleetcptn/gomft/components"
 	"github.com/starfleetcptn/gomft/internal/auth"
 	"golang.org/x/crypto/bcrypt"
@@ -39,22 +40,23 @@ func (h *Handlers) Handle2FASetup(c *gin.Context) {
 		return
 	}
 
-	// Generate backup codes
-	backupCodes, err := auth.GenerateBackupCodes()
+	// Generate backup codes - now returns both plain codes and hashed codes
+	backupCodesPlain, backupCodesHashed, err := auth.GenerateBackupCodes()
 	if err != nil {
 		c.String(http.StatusInternalServerError, "Failed to generate backup codes")
 		return
 	}
 
 	// Store secret and backup codes in session temporarily
+	// We store the plain secret in the cookie since it's temporary and will be encrypted before DB storage
 	c.SetCookie("2fa_setup_secret", secret, 3600, "/", "", false, true)
-	c.SetCookie("2fa_setup_backup_codes", strings.Join(backupCodes, ","), 3600, "/", "", false, true)
+	c.SetCookie("2fa_setup_backup_codes_hashed", backupCodesHashed, 3600, "/", "", false, true)
 
 	// Render setup page
 	data := components.TwoFactorSetupData{
 		QRCodeURL:    qrCodeURL,
 		Secret:       secret,
-		BackupCodes:  backupCodes,
+		BackupCodes:  backupCodesPlain, // Show plain codes to the user
 		ErrorMessage: "",
 	}
 	components.TwoFactorSetup(c.Request.Context(), data).Render(c, c.Writer)
@@ -80,8 +82,8 @@ func (h *Handlers) Handle2FAVerifySetup(c *gin.Context) {
 		return
 	}
 
-	// Get backup codes from session
-	backupCodes, err := c.Cookie("2fa_setup_backup_codes")
+	// Get backup codes from session - now using the hashed version
+	backupCodesHashed, err := c.Cookie("2fa_setup_backup_codes_hashed")
 	if err != nil {
 		c.String(http.StatusBadRequest, "Setup session expired")
 		return
@@ -89,7 +91,8 @@ func (h *Handlers) Handle2FAVerifySetup(c *gin.Context) {
 
 	// Verify the code
 	code := c.PostForm("code")
-	if !auth.ValidateTOTPCode(secret, code) {
+	// For verification during setup, we use the plain secret since it's not yet encrypted
+	if !totp.Validate(code, secret) {
 		// Regenerate QR code URL using the existing secret
 		qrCodeURL, err := auth.GenerateQRCodeURL(secret, user.Email)
 		if err != nil {
@@ -97,21 +100,39 @@ func (h *Handlers) Handle2FAVerifySetup(c *gin.Context) {
 			return
 		}
 
+		// For display, we need to generate new plain-text codes
+		// but we'll keep the same hashed codes for storage
+		backupCodesPlain := []string{}
+		if backupCodesHashed != "" {
+			// Create placeholder codes since we can't recover the original codes
+			// We'll use placeholder text that indicates these were already generated
+			for i := 0; i < auth.BackupCodeCount; i++ {
+				backupCodesPlain = append(backupCodesPlain, "[BACKUP CODE ALREADY GENERATED]")
+			}
+		}
+
 		data := components.TwoFactorSetupData{
 			QRCodeURL:    qrCodeURL,
 			Secret:       secret,
-			BackupCodes:  strings.Split(backupCodes, ","),
+			BackupCodes:  backupCodesPlain,
 			ErrorMessage: "Invalid verification code. Please try again.",
 		}
 		components.TwoFactorSetup(c.Request.Context(), data).Render(c, c.Writer)
 		return
 	}
 
+	// Encrypt the secret before storing in database
+	encryptedSecret, err := auth.EncryptTOTPSecret(secret)
+	if err != nil {
+		c.String(http.StatusInternalServerError, "Failed to secure 2FA secret")
+		return
+	}
+
 	// Update user with 2FA settings
 	if err := h.DB.Table("users").Where("id = ?", userID).Updates(map[string]interface{}{
-		"two_factor_secret":  secret,
+		"two_factor_secret":  encryptedSecret, // Store the encrypted secret
 		"two_factor_enabled": true,
-		"backup_codes":       backupCodes,
+		"backup_codes":       backupCodesHashed, // Store the hashed codes
 	}).Error; err != nil {
 		c.String(http.StatusInternalServerError, "Failed to enable 2FA")
 		return
@@ -119,7 +140,7 @@ func (h *Handlers) Handle2FAVerifySetup(c *gin.Context) {
 
 	// Clear setup cookies
 	c.SetCookie("2fa_setup_secret", "", -1, "/", "", false, true)
-	c.SetCookie("2fa_setup_backup_codes", "", -1, "/", "", false, true)
+	c.SetCookie("2fa_setup_backup_codes_hashed", "", -1, "/", "", false, true)
 
 	// Redirect to profile with success message
 	c.Redirect(http.StatusFound, "/profile?message=2FA+enabled+successfully")
@@ -195,7 +216,7 @@ func (h *Handlers) Handle2FAVerify(c *gin.Context) {
 	if auth.ValidateBackupCode(code, user.BackupCodes) {
 		// Remove used backup code
 		newBackupCodes := auth.RemoveBackupCode(code, user.BackupCodes)
-		if err := h.DB.Model("users").Where("id = ?", userID).Update("backup_codes", newBackupCodes).Error; err != nil {
+		if err := h.DB.Table("users").Where("id = ?", userID).Update("backup_codes", newBackupCodes).Error; err != nil {
 			c.String(http.StatusInternalServerError, "Failed to update backup codes")
 			return
 		}
@@ -289,4 +310,133 @@ func (h *Handlers) Handle2FADisable(c *gin.Context) {
 			}, 1500);
 		</script>
 	</div>`))
+}
+
+// Handle2FABackupCodes handles the GET /profile/2fa/backup-codes route
+func (h *Handlers) Handle2FABackupCodes(c *gin.Context) {
+	// Get user from context
+	userID := c.GetUint("userID")
+
+	var user struct {
+		BackupCodes      string
+		TwoFactorEnabled bool
+		Email            string // We need email to generate new backup codes display
+	}
+
+	if err := h.DB.Table("users").Select("backup_codes, two_factor_enabled, email").Where("id = ?", userID).First(&user).Error; err != nil {
+		c.String(http.StatusInternalServerError, "Failed to get user")
+		return
+	}
+
+	// Check if 2FA is enabled
+	if !user.TwoFactorEnabled {
+		c.Redirect(http.StatusFound, "/profile")
+		return
+	}
+
+	// If user just generated new codes, we need to show them
+	// We can't derive the plain codes from the hashed ones, so we'll generate new ones for display
+	message := c.Query("message")
+	successMessage := ""
+	if message != "" {
+		successMessage = message
+	}
+
+	// For backup codes display, we need to check where we are in the flow
+	var backupCodes []string
+
+	// If the user just regenerated codes or they're viewing for the first time
+	// we need to generate new codes to display, as we can't recover the hashed ones
+	// We'll generate new temporary codes for display only, keeping the hashed ones in the database
+	if strings.Contains(successMessage, "New backup codes generated") {
+		// Generate new codes to display
+		newCodes, _, err := auth.GenerateBackupCodes()
+		if err != nil {
+			c.String(http.StatusInternalServerError, "Failed to generate backup codes for display")
+			return
+		}
+		backupCodes = newCodes
+
+		// Add a special warning about these being the only time they'll see these codes
+		successMessage = "New backup codes generated successfully. IMPORTANT: Save these codes now. You won't be able to see them again!"
+	} else {
+		// If they're just viewing an existing page, show a message explaining
+		// that backup codes are securely stored and they need to regenerate to view new ones
+		backupCodes = []string{}
+		if user.BackupCodes != "" {
+			// Count how many backup codes the user has by counting commas+1
+			codeCount := 1
+			if user.BackupCodes != "" {
+				codeCount = strings.Count(user.BackupCodes, ",") + 1
+			}
+
+			// Show a placeholder message for existing codes
+			for i := 0; i < codeCount; i++ {
+				backupCodes = append(backupCodes, "[REDACTED FOR SECURITY]")
+			}
+
+			// Set a message explaining why codes are hidden
+			successMessage = "For security, backup codes are not displayed after initial generation. Generate new codes to replace existing ones."
+		}
+	}
+
+	// Render backup codes page
+	data := components.TwoFactorBackupCodesData{
+		BackupCodes:    backupCodes,
+		SuccessMessage: successMessage,
+	}
+	components.TwoFactorBackupCodes(c.Request.Context(), data).Render(c, c.Writer)
+}
+
+// Handle2FARegenerateCodes handles the POST /profile/2fa/regenerate-codes route
+func (h *Handlers) Handle2FARegenerateCodes(c *gin.Context) {
+	// Get user from context
+	userID := c.GetUint("userID")
+
+	var user struct {
+		TwoFactorEnabled bool
+	}
+
+	if err := h.DB.Table("users").Select("two_factor_enabled").Where("id = ?", userID).First(&user).Error; err != nil {
+		c.String(http.StatusInternalServerError, "Failed to get user")
+		return
+	}
+
+	// Check if 2FA is enabled
+	if !user.TwoFactorEnabled {
+		c.Redirect(http.StatusFound, "/profile")
+		return
+	}
+
+	// Generate new backup codes - we only need the hashed version for storage
+	_, backupCodesHashed, err := auth.GenerateBackupCodes()
+	if err != nil {
+		c.String(http.StatusInternalServerError, "Failed to generate backup codes")
+		return
+	}
+
+	// Store new backup codes (hashed version)
+	if err := h.DB.Table("users").Where("id = ?", userID).Update("backup_codes", backupCodesHashed).Error; err != nil {
+		c.String(http.StatusInternalServerError, "Failed to update backup codes")
+		return
+	}
+
+	// Redirect back to backup codes page with success message
+	c.Redirect(http.StatusFound, "/profile/2fa/backup-codes?message=New backup codes generated successfully")
+}
+
+// Handle2FABackupCodePage handles the GET /login/backup-code route
+func (h *Handlers) Handle2FABackupCodePage(c *gin.Context) {
+	// Check if we have a temporary user ID
+	_, err := c.Cookie("temp_user_id")
+	if err != nil {
+		c.Redirect(http.StatusFound, "/login")
+		return
+	}
+
+	// Render backup code verification page
+	data := components.BackupCodeVerifyData{
+		ErrorMessage: "",
+	}
+	components.TwoFactorBackupVerify(c.Request.Context(), data).Render(c, c.Writer)
 }

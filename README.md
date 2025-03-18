@@ -153,6 +153,8 @@ services:
       # Google OAuth configuration (optional)
       - GOOGLE_CLIENT_ID=your_google_client_id
       - GOOGLE_CLIENT_SECRET=your_google_client_secret
+      # Two-Factor Authentication configuration
+      - TOTP_ENCRYPTION_KEY=your_32_byte_secure_encryption_key
       # Email configuration
       - EMAIL_ENABLED=true
       - EMAIL_HOST=smtp.example.com
@@ -225,6 +227,9 @@ EMAIL_ENABLE_TLS=true
 EMAIL_REQUIRE_AUTH=true
 EMAIL_USERNAME=smtp_username
 EMAIL_PASSWORD=smtp_password
+
+# Two-Factor Authentication configuration
+TOTP_ENCRYPTION_KEY=your_32_byte_encryption_key_here
 ```
 
 ### Configuration Options
@@ -248,6 +253,14 @@ EMAIL_PASSWORD=smtp_password
   - `EMAIL_REPLY_TO`: Optional reply-to email address
   - `EMAIL_ENABLE_TLS`: Set to `true` to use TLS for secure email transmission
   - `EMAIL_REQUIRE_AUTH`: Set to `true` to require authentication for SMTP connections, or `false` for servers that don't need authentication
+
+- Two-Factor Authentication (2FA) configuration:
+  - `TOTP_ENCRYPTION_KEY`: Secret key used to encrypt/decrypt TOTP secrets (for 2FA)
+    - Should be exactly 32 bytes (characters) for optimal security
+    - If not set, a default development key will be used (not secure for production)
+    - If shorter than 32 bytes, it will be automatically padded (less secure)
+    - If longer than 32 bytes, it will be truncated to 32 bytes
+    - Example: `TOTP_ENCRYPTION_KEY=abcdefghijklmnopqrstuvwxyz123456`
 
 ### Logging Configuration
 
@@ -369,6 +382,13 @@ The following fields have been added to the `users` table:
 2. If 2FA is enabled:
    - Enter the 6-digit code from your authenticator app
    - Alternatively, use a backup code if you can't access your authenticator
+
+#### Security Considerations
+- The TOTP secrets are encrypted using AES-256-GCM
+- You must set the `TOTP_ENCRYPTION_KEY` environment variable in production
+- This key should be 32 bytes (characters) long and kept confidential
+- Changing this key after users have set up 2FA will invalidate their existing 2FA configurations
+- For high-security deployments, store this key in a secure vault and inject it at runtime
 
 ### Transfer Configuration Options
 
