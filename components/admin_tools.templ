@@ -513,7 +513,92 @@ templ AdminTools(ctx context.Context, data AdminToolsData) {
 										{ fmt.Sprint(data.TotalJobs) }
 									</dd>
 								</div>
+								
+								<div class="sm:col-span-1">
+									<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">Application Version</dt>
+									<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100">
+										<div class="flex items-center">
+											<span>{ AppVersion }</span>
+											if AppVersion == "dev" {
+												<a href="https://github.com/starfleetcptn/gomft/releases"
+													class="ml-2 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
+													target="_blank" rel="noopener">
+													<i class="fas fa-external-link-alt text-xs"></i>
+												</a>
+											} else if AppVersion == "1.0.0" {
+												<a href="https://github.com/starfleetcptn/gomft/releases/tag/v1.0.0"
+													class="ml-2 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
+													target="_blank" rel="noopener">
+													<i class="fas fa-external-link-alt text-xs"></i>
+												</a>
+											} else if AppVersion == "1.1.0" {
+												<a href="https://github.com/starfleetcptn/gomft/releases/tag/v1.1.0"
+													class="ml-2 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
+													target="_blank" rel="noopener">
+													<i class="fas fa-external-link-alt text-xs"></i>
+												</a>
+											} else {
+												<a href="https://github.com/starfleetcptn/gomft/releases"
+													class="ml-2 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
+													target="_blank" rel="noopener">
+													<i class="fas fa-external-link-alt text-xs"></i>
+												</a>
+											}
+										</div>
+									</dd>
+								</div>
 							</dl>
+						</div>
+					</div>
+				</div>
+				
+				<!-- Build Information -->
+				<div class="mt-6">
+					<div class="card">
+						<div class="card-header">
+							<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100">
+								<i class="fas fa-code-branch mr-2 text-primary-500"></i>
+								Build Information
+							</h3>
+						</div>
+						<div class="card-body">
+							<div class="relative overflow-hidden bg-secondary-50 dark:bg-secondary-900 rounded-lg">
+								<div class="px-4 py-5 sm:p-6">
+									<dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-3">
+										<div class="sm:col-span-1">
+											<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">Version</dt>
+											<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100 font-mono">
+												{ AppVersion }
+											</dd>
+										</div>
+										
+										<div class="sm:col-span-1">
+											<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">Build Time</dt>
+											<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100 font-mono">
+												{ getBuildTime() }
+											</dd>
+										</div>
+										
+										<div class="sm:col-span-1">
+											<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">Commit</dt>
+											<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100 font-mono">
+												{ getCommit() }
+											</dd>
+										</div>
+									</dl>
+									
+									<div class="mt-6 flex justify-end">
+										<a 
+											href="https://github.com/starfleetcptn/gomft"
+											class="inline-flex items-center px-4 py-2 text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
+											target="_blank" rel="noopener"
+										>
+											<i class="fab fa-github mr-2"></i>
+											View on GitHub
+										</a>
+									</div>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -896,4 +981,22 @@ templ AdminLogContent(data AdminToolsData) {
 			</script>
 		}
 	</div>
+}
+
+// getBuildTime returns the build time of the application
+// This can be set using ldflags during build
+// Example: go build -ldflags "-X github.com/starfleetcptn/gomft/components.BuildTime=2023-01-01T00:00:00Z"
+var BuildTime = "unknown"
+
+func getBuildTime() string {
+	return BuildTime
+}
+
+// getCommit returns the commit hash of the application
+// This can be set using ldflags during build
+// Example: go build -ldflags "-X github.com/starfleetcptn/gomft/components.Commit=abcdef123456"
+var Commit = "unknown"
+
+func getCommit() string {
+	return Commit
 }

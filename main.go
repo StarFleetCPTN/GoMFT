@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	// "github.com/starfleetcptn/gomft/internal/api"
+	"github.com/starfleetcptn/gomft/components"
 	"github.com/starfleetcptn/gomft/internal/config"
 	"github.com/starfleetcptn/gomft/internal/db"
 	"github.com/starfleetcptn/gomft/internal/scheduler"
@@ -27,7 +28,7 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	log.Printf("Starting GoMFT server...")
+	log.Printf("Starting GoMFT server version %s...", components.AppVersion)
 
 	// Initialize configuration
 	cfg, err := config.Load()

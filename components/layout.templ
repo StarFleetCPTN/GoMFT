@@ -3,7 +3,19 @@ package components
 import (
 	"context"
 	"github.com/gin-gonic/gin"
+	"time"
+	"fmt"
 )
+
+// AppVersion will be set at build time using ldflags
+// Example build command: 
+// go build -ldflags "-X github.com/starfleetcptn/gomft/components.AppVersion=1.2.3"
+var AppVersion = "dev"
+
+// GetReleaseURL returns the URL to the specific GitHub release
+func GetReleaseURL() templ.SafeURL {
+	return templ.SafeURL(fmt.Sprintf("https://github.com/starfleetcptn/gomft/releases/tag/v%s", AppVersion))
+}
 
 // CreateTemplateContext creates a new context with user information from Gin's context
 func CreateTemplateContext(c *gin.Context) context.Context {
@@ -437,6 +449,18 @@ templ LayoutWithContext(title string, ctx context.Context) {
 					<p class="text-center text-sm text-secondary-500 dark:text-secondary-400">
 						GoMFT &copy; { getCurrentYear() } | Secure File Transfer Solution
 					</p>
+					<div class="flex justify-center items-center space-x-4 mt-1">
+						<p class="text-xs text-secondary-400 dark:text-secondary-500">
+							<a href="https://github.com/starfleetcptn/gomft" class="hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200" target="_blank" rel="noopener">
+								<i class="fab fa-github mr-1"></i>GitHub
+							</a>
+						</p>
+						<p class="text-xs text-secondary-400 dark:text-secondary-500">
+							<a href={ GetReleaseURL() } class="hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200" target="_blank" rel="noopener">
+								<i class="fas fa-tag mr-1"></i>Version { AppVersion }
+							</a>
+						</p>
+					</div>
 				</div>
 			</footer>
 			
@@ -544,5 +568,5 @@ func getUserEmail(ctx context.Context) string {
 
 // Helper function to get current year
 func getCurrentYear() string {
-	return "2025"
+	return time.Now().Format("2006")
 }

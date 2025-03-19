@@ -9,6 +9,7 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
 > [!WARNING]  
 > This application is actively under development. As such, any aspect of the application—including configurations, data structures, and database fields—may change rapidly and without prior notice. Please review all release notes thoroughly before updating.
 
+---
 
 ## Screenshots
 
@@ -28,6 +29,8 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
   </td>
 </tr>
 </table>
+
+---
 
 ## Features
 
@@ -80,11 +83,15 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
 - **Docker Support**: Easy deployment with Docker images and Docker Compose support
 - **Portable Deployment**: Run on any platform that supports Docker or Go
 
+---
+
 ## Prerequisites
 
 - Go 1.21 or later
 - rclone installed and configured
 - SQLite 3
+
+---
 
 ## Installation
 
@@ -116,6 +123,8 @@ docker pull starfleetcptn/gomft:latest
 ```
 
 2. Run the container:
+
+#### Basic run
 ```bash
 docker run -d \
   --name gomft \
@@ -125,6 +134,42 @@ docker run -d \
   starfleetcptn/gomft:latest
 ```
 
+#### Run with specific user ID and group ID (using environment variables)
+```bash
+docker run -d \
+  --name gomft \
+  -p 8080:8080 \
+  -v /path/to/data:/app/data \
+  -v /path/to/backups:/app/backups \
+  -e PUID=$(id -u) \
+  -e PGID=$(id -g) \
+  starfleetcptn/gomft:latest
+```
+
+#### Or specify user IDs directly
+```bash
+docker run -d \
+  --name gomft \
+  -p 8080:8080 \
+  -v /path/to/data:/app/data \
+  -v /path/to/backups:/app/backups \
+  -e PUID=1001 \
+  -e PGID=1001 \
+  starfleetcptn/gomft:latest
+```
+
+#### Using a .env file for configuration
+```bash
+docker run -d \
+  --name gomft \
+  -p 8080:8080 \
+  -v /path/to/data:/app/data \
+  -v /path/to/backups:/app/backups \
+  -v /path/to/.env:/app/.env \
+  -e PUID=$(id -u) \
+  -e PGID=$(id -g) \
+  starfleetcptn/gomft:latest
+```
 3. Access the web interface at `http://localhost:8080`
 
 #### Docker Compose Example
@@ -143,19 +188,19 @@ services:
     volumes:
       - ./data:/app/data
       - ./backups:/app/backups
+      - ./.env:/app/.env
     environment:
+      - PUID=1000
+      - PGID=1000
       - TZ=UTC
       - SERVER_ADDRESS=:8080
       - DATA_DIR=/app/data
       - BACKUP_DIR=/app/backups
       - JWT_SECRET=change_this_to_a_secure_random_string
       - BASE_URL=http://localhost:8080
-      # Google OAuth configuration (optional)
       - GOOGLE_CLIENT_ID=your_google_client_id
       - GOOGLE_CLIENT_SECRET=your_google_client_secret
-      # Two-Factor Authentication configuration
-      - TOTP_ENCRYPTION_KEY=your_32_byte_secure_encryption_key
-      # Email configuration
+      - TOTP_ENCRYPTION_KEY=your_32_byte_encryption_key_here
       - EMAIL_ENABLED=true
       - EMAIL_HOST=smtp.example.com
       - EMAIL_PORT=587
@@ -165,34 +210,14 @@ services:
       - EMAIL_REQUIRE_AUTH=true
       - EMAIL_USERNAME=smtp_username
       - EMAIL_PASSWORD=smtp_password
-      # Logging configuration
       - LOGS_DIR=/app/data/logs
       - LOG_MAX_SIZE=10
       - LOG_MAX_BACKUPS=5
       - LOG_MAX_AGE=30
       - LOG_COMPRESS=true
       - LOG_LEVEL=info
+    # The user directive is no longer needed when using PUID/PGID environment variables
 ```
-
-Alternatively, you can mount your own .env file to the container:
-
-```yaml
-version: '3'
-services:
-  gomft:
-    image: starfleetcptn/gomft:latest
-    container_name: gomft
-    restart: unless-stopped
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./data:/app/data
-      - ./backups:/app/backups
-      - ./.env:/app/.env
-    environment:
-      - TZ=UTC
-```
-
 Save this as `docker-compose.yml` and run:
 
 ```bash
@@ -201,11 +226,14 @@ docker-compose up -d
 
 For more information and available tags, visit the [GoMFT Docker Hub page](https://hub.docker.com/r/starfleetcptn/gomft).
 
+---
+
 ## Configuration
 
 GoMFT uses an environment file located at `.env` in the root directory of the application. On first run, a default configuration will be created:
 
-```
+```ini
+# Basic configuration
 SERVER_ADDRESS=:8080
 DATA_DIR=/app/data
 BACKUP_DIR=/app/backups
@@ -230,6 +258,10 @@ EMAIL_PASSWORD=smtp_password
 
 # Two-Factor Authentication configuration
 TOTP_ENCRYPTION_KEY=your_32_byte_encryption_key_here
+
+# UserID and GroupID
+PUID=1000
+PGID=1000
 ```
 
 ### Configuration Options
@@ -277,6 +309,8 @@ GoMFT provides configurable logging with rotation support through the following 
   - `debug`: Show all messages including detailed debugging information
 
 Log files contain detailed information about file transfers, job execution, and system operations, which can be useful for troubleshooting and auditing.
+
+---
 
 ## Usage
 
@@ -552,6 +586,8 @@ The Admin Tools interface also includes database management capabilities:
 - View system statistics
 - Optimize the database with maintenance tools
 
+---
+
 ## Development
 
 ### Project Structure
@@ -602,6 +638,8 @@ templ generate
 air
 ```
 
+---
+
 ## Contributing
 
 1. Fork the repository
@@ -609,6 +647,8 @@ air
 3. Commit your changes
 4. Push to the branch
 5. Create a Pull Request
+
+---
 
 ## Directory Structure
 
@@ -630,6 +670,83 @@ volumes:
 
 These paths can be customized using the environment variables `DATA_DIR`, `BACKUP_DIR`, and `LOGS_DIR`.
 
+---
+
+## Security Considerations
+
+### Running as a Non-Root User
+
+By default, Docker containers run as the root user, which can pose security risks. GoMFT supports running as a non-root user, which is recommended for production environments.
+
+#### Benefits of Running as Non-Root
+
+- **Improved Security**: Limits the potential damage if the container is compromised
+- **Better File Permissions**: Files created by the container will match your host user permissions
+- **Compliance**: Many security policies and best practices require containers to run as non-root
+
+#### Methods to Run as Non-Root
+
+1. **Using PUID/PGID environment variables (recommended)**:
+   ```bash
+   # Using current user's ID
+   docker run -e PUID=$(id -u) -e PGID=$(id -g) starfleetcptn/gomft:latest
+   
+   # Or in docker-compose.yml
+   environment:
+     - PUID=1000
+     - PGID=1000
+   ```
+   This is the most flexible method as it allows changing the user at runtime without rebuilding the image.
+
+2. **Using the `--user` flag with Docker run**:
+   ```bash
+   docker run --user $(id -u):$(id -g) starfleetcptn/gomft:latest
+   ```
+
+3. **Using Docker Compose with environment variables for `user` directive**:
+   ```yaml
+   services:
+     gomft:
+       image: starfleetcptn/gomft:latest
+       user: "${UID:-1000}:${GID:-1000}"
+   ```
+
+4. **Building a custom image with specified UID/GID**:
+   ```yaml
+   services:
+     gomft:
+       build:
+         context: .
+         args:
+           UID: ${UID:-1000}
+           GID: ${GID:-1000}
+   ```
+
+#### Environment Variables for User Management
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PUID`   | User ID to run as | Built-in user ID (1000) |
+| `PGID`   | Group ID to run as | Built-in group ID (1000) |
+| `USERNAME` | Username to use | `gomft` |
+
+These environment variables allow you to change the user/group IDs at runtime without rebuilding the image.
+
+#### Volume Permissions
+
+When mounting volumes, ensure that the directories on the host have appropriate permissions for the container user:
+
+```bash
+# Create directories with correct ownership
+mkdir -p data backups
+chown -R $(id -u):$(id -g) data backups
+
+# Or adjust permissions to allow the container user to write
+mkdir -p data backups
+chmod -R 777 data backups  # Less secure, but easier for testing
+```
+
+---
 
 ## License
 
