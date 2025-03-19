@@ -3,6 +3,7 @@ package migrations
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/go-gormigrate/gormigrate/v2"
@@ -33,8 +34,25 @@ func InitialSchema() *gormigrate.Migration {
 					return fmt.Errorf("failed to get database path: %v", err)
 				}
 
-				// Create backup file with timestamp
-				backupFile := fmt.Sprintf("%s.backup.%s", dbPath, time.Now().Format("20060102_150405"))
+				// Get backup directory from environment variable or use default
+				backupDir := os.Getenv("BACKUP_DIR")
+				if backupDir == "" {
+					backupDir = "/app/backups" // Default Docker path
+					// Check if we're not in Docker
+					if _, err := os.Stat(backupDir); os.IsNotExist(err) {
+						backupDir = "backups" // Fallback to local directory
+					}
+				}
+
+				// Create backup directory if it doesn't exist
+				if err := os.MkdirAll(backupDir, 0755); err != nil {
+					return fmt.Errorf("failed to create backup directory: %v", err)
+				}
+
+				// Create backup file with timestamp in the backup directory
+				dbFileName := filepath.Base(dbPath)
+				backupFileName := fmt.Sprintf("%s.backup.%s", dbFileName, time.Now().Format("20060102_150405"))
+				backupFile := filepath.Join(backupDir, backupFileName)
 
 				// Read original database
 				data, err := os.ReadFile(dbPath)

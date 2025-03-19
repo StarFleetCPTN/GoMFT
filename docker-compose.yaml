@@ -3,6 +3,15 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # Set the UID/GID to match your host user for better file permissions
+        # Default is 1000:1000 if not specified
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+        # Version information
+        VERSION: ${VERSION:-dev}
+        BUILD_TIME: ${BUILD_TIME:-unknown}
+        COMMIT: ${COMMIT:-unknown}
     container_name: gomft
     restart: unless-stopped
     ports:
@@ -22,6 +31,9 @@ services:
       # - LOG_LEVEL=info
     networks:
       - gomft-network
+    # For non-root installs, the container needs to run with the same UID
+    # as the host user to access mounted volumes properly
+    user: ${UID:-1000}:${GID:-1000}
 
 networks:
   gomft-network:
