@@ -14,7 +14,7 @@ var AppVersion = "dev"
 
 // GetReleaseURL returns the URL to the specific GitHub release
 func GetReleaseURL() templ.SafeURL {
-	return templ.SafeURL(fmt.Sprintf("https://github.com/starfleetcptn/gomft/releases/tag/v%s", AppVersion))
+	return templ.SafeURL(fmt.Sprintf("https://github.com/starfleetcptn/gomft/releases/tag/%s", AppVersion))
 }
 
 // CreateTemplateContext creates a new context with user information from Gin's context
