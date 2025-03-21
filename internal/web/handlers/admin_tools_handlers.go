@@ -63,17 +63,28 @@ func (h *Handlers) HandleAdminTools(c *gin.Context) {
 		data.TotalUsers = int(totalUsers)
 	}
 
-	// Get last backup time and backup count
-	data.LastBackupTime, data.BackupCount = h.getBackupInfo()
+	// Get backup info (last backup time and count)
+	lastBackup, backupCount := h.getBackupInfo()
+	data.LastBackupTime = lastBackup
+	data.BackupCount = backupCount
 
 	// Get list of backup files
 	data.BackupFiles = h.getBackupFiles()
 
-	// Check for maintenance issues
+	// Get maintenance message if any
 	data.MaintenanceMessage = h.checkMaintenanceIssues()
 
-	// Render the admin tools page
-	components.AdminTools(components.CreateTemplateContext(c), data).Render(c, c.Writer)
+	// Add SMTP server info if available
+	if h.Email != nil && h.Email.Config != nil && h.Email.Config.Email.Host != "" {
+		smtpServer := h.Email.Config.Email.Host
+		if h.Email.Config.Email.Port != 0 {
+			data.SmtpServer = fmt.Sprintf("%s:%d", smtpServer, h.Email.Config.Email.Port)
+		} else {
+			data.SmtpServer = smtpServer
+		}
+	}
+
+	components.AdminTools(c.Request.Context(), data).Render(c.Request.Context(), c.Writer)
 }
 
 // HandleBackupDatabase handles the backup database request
@@ -1367,4 +1378,44 @@ func (h *Handlers) HandleImportConfigsFromFile(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("%d configs imported successfully", imported)})
+}
+
+// HandleTestEmail handles the POST /admin/test-email route
+func (h *Handlers) HandleTestEmail(c *gin.Context) {
+	// Parse the form
+	recipient := c.PostForm("recipient")
+	subject := c.PostForm("subject")
+	message := c.PostForm("message")
+
+	// Validate required fields
+	if recipient == "" {
+		components.EmailTestToast(false, "Recipient email is required").Render(c.Request.Context(), c.Writer)
+		return
+	}
+
+	// Get SMTP server info for display
+	smtpServer := ""
+	if h.Email != nil && h.Email.Config != nil && h.Email.Config.Email.Host != "" {
+		smtpServer = h.Email.Config.Email.Host
+		if h.Email.Config.Email.Port != 0 {
+			smtpServer = fmt.Sprintf("%s:%d", smtpServer, h.Email.Config.Email.Port)
+		}
+	}
+
+	// Send the test email
+	if h.Email == nil {
+		components.EmailTestToast(false, "Email service is not configured").Render(c.Request.Context(), c.Writer)
+		return
+	}
+
+	err := h.Email.SendTestEmail(recipient, subject, message)
+	if err != nil {
+		// Failed to send email
+		components.EmailTestToast(false, fmt.Sprintf("Failed to send email: %v", err)).Render(c.Request.Context(), c.Writer)
+		return
+	}
+
+	// Email sent successfully
+	successMsg := fmt.Sprintf("Test email sent successfully to %s", recipient)
+	components.EmailTestToast(true, successMsg).Render(c.Request.Context(), c.Writer)
 }

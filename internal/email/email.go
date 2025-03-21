@@ -270,3 +270,182 @@ func (s *Service) sendEmail(toEmail, subject, htmlContent string) error {
 		return client.Quit()
 	}
 }
+
+// SendTestEmail sends a test email to verify email configuration
+func (s *Service) SendTestEmail(toEmail, subject, message string) error {
+	if !s.Config.Email.Enabled {
+		return fmt.Errorf("email service is disabled")
+	}
+
+	// Use default subject if not provided
+	if subject == "" {
+		subject = "Test Email from GoMFT"
+	}
+
+	// Use default message if not provided
+	if message == "" {
+		message = "This is a test email from GoMFT to verify the email configuration is working correctly."
+	}
+
+	// Create email data for template
+	data := map[string]interface{}{
+		"Subject":     subject,
+		"Message":     message,
+		"AppName":     "GoMFT",
+		"Year":        time.Now().Year(),
+		"SMTPServer":  s.Config.Email.Host,
+		"SMTPPort":    s.Config.Email.Port,
+		"FromEmail":   s.Config.Email.FromEmail,
+		"CurrentTime": time.Now().Format(time.RFC1123Z),
+	}
+
+	// Generate email content
+	htmlContent, err := s.generateTestEmailHTML(data)
+	if err != nil {
+		return err
+	}
+
+	// Send the email
+	return s.sendEmail(toEmail, subject, htmlContent)
+}
+
+// generateTestEmailHTML generates the HTML content for test emails
+func (s *Service) generateTestEmailHTML(data map[string]interface{}) (string, error) {
+	// HTML template for test email
+	tmpl, err := template.New("testEmail").Parse(`
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Subject}}</title>
+    <style>
+        /* Base styles */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f9fafb;
+            color: #374151;
+            line-height: 1.5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .logo {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 15px;
+            background-color: #2563eb;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .logo-icon {
+            font-size: 24px;
+            color: white;
+            font-weight: bold;
+        }
+        h1 {
+            color: #111827;
+            font-size: 24px;
+            margin: 0;
+        }
+        .content {
+            padding: 30px 20px;
+        }
+        p {
+            margin: 0 0 15px;
+            color: #4b5563;
+        }
+        .info-box {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f3f4f6;
+            border-radius: 6px;
+            color: #4b5563;
+        }
+        .info-item {
+            display: flex;
+            margin-bottom: 8px;
+        }
+        .info-label {
+            font-weight: bold;
+            width: 140px;
+        }
+        .note {
+            font-size: 14px;
+            color: #6b7280;
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #9ca3af;
+            padding: 20px 0;
+            background-color: #f9fafb;
+            border-radius: 0 0 8px 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon">G</div>
+            </div>
+            <h1>{{.Subject}}</h1>
+        </div>
+        <div class="content">
+            <p>{{.Message}}</p>
+            
+            <div class="info-box">
+                <div class="info-item">
+                    <div class="info-label">SMTP Server:</div>
+                    <div>{{.SMTPServer}}:{{.SMTPPort}}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">From:</div>
+                    <div>{{.FromEmail}}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Sent:</div>
+                    <div>{{.CurrentTime}}</div>
+                </div>
+            </div>
+            
+            <div class="note">
+                <p>This is a test email sent from the GoMFT admin interface. If you've received this email, your email configuration is working correctly.</p>
+            </div>
+        </div>
+        <div class="footer">
+            <p>&copy; {{.Year}} {{.AppName}}. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
+`)
+	if err != nil {
+		return "", err
+	}
+
+	var result bytes.Buffer
+	if err := tmpl.Execute(&result, data); err != nil {
+		return "", err
+	}
+
+	return result.String(), nil
+}
