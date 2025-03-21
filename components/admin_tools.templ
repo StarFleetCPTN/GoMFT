@@ -653,12 +653,7 @@ templ AdminTools(ctx context.Context, data AdminToolsData) {
 											name="webhook_payload" 
 											rows="5" 
 											class="form-textarea w-full font-mono text-sm" 
-											placeholder='{
-  "event_type": "job_execution",
-  "job_id": 123,
-  "job_name": "Test Job",
-  "status": "completed"
-}'></textarea>
+											placeholder='{"event_type": "job_execution","job_id": 123,"job_name": "Test Job","status": "completed"}'></textarea>
 										<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
 											<i class="fas fa-info-circle mr-1"></i>
 											Leave empty to use default test payload
@@ -692,27 +687,27 @@ templ AdminTools(ctx context.Context, data AdminToolsData) {
 								</h4>
 								<div class="mt-2 bg-white dark:bg-secondary-900 p-3 rounded border border-secondary-200 dark:border-secondary-700 overflow-auto">
 									<pre class="text-xs text-secondary-600 dark:text-secondary-400 font-mono">&#123;
-  "event_type": "job_execution",
-  "job_id": 123,
-  "job_name": "Test Job",
-  "config_id": 456,
-  "config_name": "Test Config",
-  "status": "completed",
-  "start_time": "2023-06-18T15:30:45Z",
-  "end_time": "2023-06-18T15:35:12Z",
-  "duration_seconds": 267,
-  "history_id": 789,
-  "bytes_transferred": 1048576,
-  "files_transferred": 5,
-  "source": &#123;
-    "type": "local",
-    "path": "/path/to/source"
-  &#125;,
-  "destination": &#123;
-    "type": "s3",
-    "path": "bucket/path"
-  &#125;
-&#125;</pre>
+										"event_type": "job_execution",
+										"job_id": 123,
+										"job_name": "Test Job",
+										"config_id": 456,
+										"config_name": "Test Config",
+										"status": "completed",
+										"start_time": "2023-06-18T15:30:45Z",
+										"end_time": "2023-06-18T15:35:12Z",
+										"duration_seconds": 267,
+										"history_id": 789,
+										"bytes_transferred": 1048576,
+										"files_transferred": 5,
+										"source": &#123;
+											"type": "local",
+											"path": "/path/to/source"
+										&#125;,
+										"destination": &#123;
+											"type": "s3",
+											"path": "bucket/path"
+										&#125;
+										&#125;</pre>
 								</div>
 							</div>
 						</div>
@@ -880,28 +875,28 @@ templ AdminTools(ctx context.Context, data AdminToolsData) {
 							</p>
 							
 							<div class="bg-secondary-50 dark:bg-secondary-900 p-4 rounded-lg overflow-auto font-mono text-sm">
-<pre>&#123;
-  "event_type": "job_execution",
-  "job_id": 123,
-  "job_name": "Daily Backup",
-  "config_id": 456,
-  "config_name": "Backup Config",
-  "status": "completed",
-  "start_time": "2023-06-18T15:30:45Z",
-  "end_time": "2023-06-18T15:35:12Z",
-  "duration_seconds": 267,
-  "history_id": 789,
-  "bytes_transferred": 1048576,
-  "files_transferred": 5,
-  "source": &#123;
-    "type": "local",
-    "path": "/path/to/source"
-  &#125;,
-  "destination": &#123;
-    "type": "s3",
-    "path": "bucket/path"
-  &#125;
-&#125;</pre>
+							<pre>&#123;
+							"event_type": "job_execution",
+							"job_id": 123,
+							"job_name": "Daily Backup",
+							"config_id": 456,
+							"config_name": "Backup Config",
+							"status": "completed",
+							"start_time": "2023-06-18T15:30:45Z",
+							"end_time": "2023-06-18T15:35:12Z",
+							"duration_seconds": 267,
+							"history_id": 789,
+							"bytes_transferred": 1048576,
+							"files_transferred": 5,
+							"source": &#123;
+								"type": "local",
+								"path": "/path/to/source"
+							&#125;,
+							"destination": &#123;
+								"type": "s3",
+								"path": "bucket/path"
+							&#125;
+							&#125;</pre>
 							</div>
 							
 							<h4 class="text-lg font-medium text-secondary-900 dark:text-secondary-100 mt-6 mb-2">Authentication</h4>
