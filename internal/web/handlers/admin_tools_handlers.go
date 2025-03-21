@@ -84,7 +84,10 @@ func (h *Handlers) HandleAdminTools(c *gin.Context) {
 		}
 	}
 
-	components.AdminTools(c.Request.Context(), data).Render(c.Request.Context(), c.Writer)
+	// Create template context with user information
+	ctx := components.CreateTemplateContext(c)
+
+	components.AdminTools(ctx, data).Render(ctx, c.Writer)
 }
 
 // HandleBackupDatabase handles the backup database request
