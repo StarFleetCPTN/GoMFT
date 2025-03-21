@@ -347,14 +347,45 @@ func (s *Scheduler) executeJob(jobID uint) {
 		return
 	}
 
-	s.log.LogDebug("Processing %d configurations: %+v", len(configs), configs)
+	s.log.LogDebug("Loaded %d configurations for job %d", len(configs), jobID)
 
 	if len(configs) == 0 {
 		s.log.LogError("Error: job %d has no associated configurations", jobID)
 		return
 	}
 
-	s.log.LogInfo("Loaded job %d with %d configurations", jobID, len(configs))
+	// Get the ordered config IDs from the job
+	orderedConfigIDs := job.GetConfigIDsList()
+	s.log.LogDebug("Ordered config IDs for job %d: %v", jobID, orderedConfigIDs)
+
+	// Create a map of configs for easy lookup
+	configMap := make(map[uint]db.TransferConfig)
+	for _, config := range configs {
+		configMap[config.ID] = config
+	}
+
+	// Process configurations in the specified order
+	var orderedConfigs []db.TransferConfig
+
+	// First, add configs in the order specified in the job's ConfigIDs
+	for _, configID := range orderedConfigIDs {
+		if config, exists := configMap[configID]; exists {
+			orderedConfigs = append(orderedConfigs, config)
+			delete(configMap, configID) // Remove from map to avoid duplicates
+		}
+	}
+
+	// Add any remaining configs not in the ordered list (shouldn't happen, but just in case)
+	for _, config := range configMap {
+		orderedConfigs = append(orderedConfigs, config)
+	}
+
+	s.log.LogInfo("Processing job %d with %d configurations in specified order", jobID, len(orderedConfigs))
+
+	// Log the order of execution
+	for i, config := range orderedConfigs {
+		s.log.LogDebug("Execution order %d/%d: Config ID %d (%s)", i+1, len(orderedConfigs), config.ID, config.Name)
+	}
 
 	// Update job last run time
 	startTime := time.Now()
@@ -363,9 +394,9 @@ func (s *Scheduler) executeJob(jobID uint) {
 		s.log.LogError("Error updating job last run time for job %d: %v", jobID, err)
 	}
 
-	// Process each configuration
-	for i, config := range configs {
-		s.processConfiguration(&job, &config, i+1, len(configs))
+	// Process each configuration in the specified order
+	for i, config := range orderedConfigs {
+		s.processConfiguration(&job, &config, i+1, len(orderedConfigs))
 	}
 
 	// Update next run time after execution

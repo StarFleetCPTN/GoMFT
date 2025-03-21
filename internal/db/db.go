@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -185,6 +186,9 @@ func (j *Job) SetConfigIDsList(ids []uint) {
 
 	// Join with commas
 	j.ConfigIDs = strings.Join(strIDs, ",")
+
+	// Debug log the final ConfigIDs string
+	log.Printf("SetConfigIDsList: Setting ConfigIDs to: %s (from %v)", j.ConfigIDs, ids)
 
 	// If there's at least one ID, set ConfigID to the first one for backward compatibility
 	if len(ids) > 0 {
@@ -376,8 +380,25 @@ func (db *DB) GetJob(id uint) (*Job, error) {
 }
 
 func (db *DB) UpdateJob(job *Job) error {
+	log.Printf("UpdateJob: Updating job ID: %d, ConfigIDs: %s", job.ID, job.ConfigIDs)
+
 	// Use Omit to prevent GORM from updating or creating a new config
-	return db.Omit("Config").Save(job).Error
+	return db.Model(&Job{}).
+		Where("id = ?", job.ID).
+		Omit("Config").
+		Updates(map[string]interface{}{
+			"name":              job.Name,
+			"config_id":         job.ConfigID,
+			"config_ids":        job.ConfigIDs, // Explicitly update config_ids
+			"schedule":          job.Schedule,
+			"enabled":           job.Enabled,
+			"webhook_enabled":   job.WebhookEnabled,
+			"webhook_url":       job.WebhookURL,
+			"webhook_secret":    job.WebhookSecret,
+			"webhook_headers":   job.WebhookHeaders,
+			"notify_on_success": job.NotifyOnSuccess,
+			"notify_on_failure": job.NotifyOnFailure,
+		}).Error
 }
 
 func (db *DB) DeleteJob(id uint) error {
@@ -965,7 +986,21 @@ func (db *DB) GetConfigsForJob(jobID uint) ([]TransferConfig, error) {
 		return nil, err
 	}
 
-	return configs, nil
+	// Create a map for quick lookup
+	configMap := make(map[uint]TransferConfig)
+	for _, config := range configs {
+		configMap[config.ID] = config
+	}
+
+	// Create a new slice with configs in the correct order
+	orderedConfigs := make([]TransferConfig, 0, len(configs))
+	for _, configID := range configIDs {
+		if config, exists := configMap[configID]; exists {
+			orderedConfigs = append(orderedConfigs, config)
+		}
+	}
+
+	return orderedConfigs, nil
 }
 
 // GetSkipProcessedFiles returns the value of SkipProcessedFiles with a default if nil
