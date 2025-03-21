@@ -173,6 +173,11 @@ func NewLogger() *Logger {
 			filepath.Join(logsDir, "scheduler.log"), maxSize, maxBackups, maxAge, compress, logLevel.String())
 	}
 
+	if logLevel >= LogLevelDebug {
+		logger.Debug.Printf("Log rotation details: file=%s, maxSize=%dMB, maxBackups=%d, maxAge=%d days, compress=%v",
+			filepath.Join(logsDir, "scheduler.log"), maxSize, maxBackups, maxAge, compress)
+	}
+
 	return logger
 }
 
@@ -258,6 +263,8 @@ func (s *Scheduler) loadJobs() {
 }
 
 func (s *Scheduler) ScheduleJob(job *db.Job) error {
+	s.log.LogDebug("Attempting to schedule job ID %d: %+v", job.ID, job)
+
 	s.log.LogInfo("Scheduling job %d: %s with schedule %s", job.ID, job.Name, job.Schedule)
 
 	// Remove existing job if it exists
@@ -279,12 +286,16 @@ func (s *Scheduler) ScheduleJob(job *db.Job) error {
 		schedule = "0 " + schedule
 	}
 
+	s.log.LogDebug("Converted schedule from '%s' to '%s'", job.Schedule, schedule)
+
 	// Validate cron expression
 	parser := cron.NewParser(cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
 	_, err := parser.Parse(schedule)
 	if err != nil {
 		return fmt.Errorf("invalid cron expression '%s': %w", job.Schedule, err)
 	}
+
+	s.log.LogDebug("Validated cron expression '%s' for job %d", schedule, job.ID)
 
 	// Schedule the job
 	entryID, err := s.cron.AddFunc(job.Schedule, func() {
@@ -295,6 +306,8 @@ func (s *Scheduler) ScheduleJob(job *db.Job) error {
 		s.log.LogError("Error scheduling job %d: %v", job.ID, err)
 		return err
 	}
+
+	s.log.LogDebug("Scheduled job %d with cron entry ID %d", job.ID, entryID)
 
 	// Store mapping of job ID to cron entry ID
 	s.jobMutex.Lock()
@@ -313,6 +326,9 @@ func (s *Scheduler) ScheduleJob(job *db.Job) error {
 }
 
 func (s *Scheduler) executeJob(jobID uint) {
+	s.log.LogDebug("Entering executeJob for job ID %d", jobID)
+	defer s.log.LogDebug("Exiting executeJob for job ID %d", jobID)
+
 	s.log.LogInfo("Starting execution of job %d", jobID)
 
 	// Get job details
@@ -322,6 +338,8 @@ func (s *Scheduler) executeJob(jobID uint) {
 		return
 	}
 
+	s.log.LogDebug("Loaded job details: %+v", job)
+
 	// Get all configurations associated with this job
 	configs, err := s.db.GetConfigsForJob(jobID)
 	if err != nil {
@@ -329,12 +347,45 @@ func (s *Scheduler) executeJob(jobID uint) {
 		return
 	}
 
+	s.log.LogDebug("Loaded %d configurations for job %d", len(configs), jobID)
+
 	if len(configs) == 0 {
 		s.log.LogError("Error: job %d has no associated configurations", jobID)
 		return
 	}
 
-	s.log.LogInfo("Loaded job %d with %d configurations", jobID, len(configs))
+	// Get the ordered config IDs from the job
+	orderedConfigIDs := job.GetConfigIDsList()
+	s.log.LogDebug("Ordered config IDs for job %d: %v", jobID, orderedConfigIDs)
+
+	// Create a map of configs for easy lookup
+	configMap := make(map[uint]db.TransferConfig)
+	for _, config := range configs {
+		configMap[config.ID] = config
+	}
+
+	// Process configurations in the specified order
+	var orderedConfigs []db.TransferConfig
+
+	// First, add configs in the order specified in the job's ConfigIDs
+	for _, configID := range orderedConfigIDs {
+		if config, exists := configMap[configID]; exists {
+			orderedConfigs = append(orderedConfigs, config)
+			delete(configMap, configID) // Remove from map to avoid duplicates
+		}
+	}
+
+	// Add any remaining configs not in the ordered list (shouldn't happen, but just in case)
+	for _, config := range configMap {
+		orderedConfigs = append(orderedConfigs, config)
+	}
+
+	s.log.LogInfo("Processing job %d with %d configurations in specified order", jobID, len(orderedConfigs))
+
+	// Log the order of execution
+	for i, config := range orderedConfigs {
+		s.log.LogDebug("Execution order %d/%d: Config ID %d (%s)", i+1, len(orderedConfigs), config.ID, config.Name)
+	}
 
 	// Update job last run time
 	startTime := time.Now()
@@ -343,9 +394,9 @@ func (s *Scheduler) executeJob(jobID uint) {
 		s.log.LogError("Error updating job last run time for job %d: %v", jobID, err)
 	}
 
-	// Process each configuration
-	for i, config := range configs {
-		s.processConfiguration(&job, &config, i+1, len(configs))
+	// Process each configuration in the specified order
+	for i, config := range orderedConfigs {
+		s.processConfiguration(&job, &config, i+1, len(orderedConfigs))
 	}
 
 	// Update next run time after execution
@@ -366,6 +417,8 @@ func (s *Scheduler) executeJob(jobID uint) {
 
 // processConfiguration processes a single configuration for a job
 func (s *Scheduler) processConfiguration(job *db.Job, config *db.TransferConfig, index int, totalConfigs int) {
+	s.log.LogDebug("Processing configuration %d: %+v", config.ID, config)
+
 	s.log.LogInfo("Processing configuration %d (%d/%d) for job %d: source=%s:%s, dest=%s:%s",
 		config.ID,
 		index,
@@ -392,12 +445,16 @@ func (s *Scheduler) processConfiguration(job *db.Job, config *db.TransferConfig,
 		return
 	}
 
+	s.log.LogDebug("Creating job history record: %+v", history)
+
 	// Execute the configuration transfer
 	s.executeConfigTransfer(*job, *config, history)
 }
 
 // executeConfigTransfer performs the actual file transfer for a single configuration
 func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, history *db.JobHistory) {
+	s.log.LogDebug("Starting transfer for config %d with params: %+v", config.ID, config)
+
 	// Track files already processed in this job execution to prevent duplicates
 	processedFiles := make(map[string]bool)
 
@@ -447,13 +504,26 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 	listArgs = append(listArgs, sourceListPath)
 
 	// Execute lsjson command
-	s.log.LogInfo("Listing files with metadata for job %d, config %d: rclone %s", job.ID, config.ID, strings.Join(listArgs, " "))
+	s.log.LogDebug("Full lsjson command: %s %v", os.Getenv("RCLONE_PATH"), listArgs)
 	rclonePath := os.Getenv("RCLONE_PATH")
 	if rclonePath == "" {
 		rclonePath = "rclone"
 	}
 	listCmd := exec.Command(rclonePath, listArgs...)
 	listOutput, listErr := listCmd.CombinedOutput()
+
+	// Add debug logging of raw output
+	if listErr == nil {
+		s.log.LogDebug("Raw lsjson output for job %d config %d:\n%s",
+			job.ID,
+			config.ID,
+			string(listOutput))
+	} else {
+		s.log.LogDebug("Raw lsjson output (error case) for job %d config %d:\n%s",
+			job.ID,
+			config.ID,
+			string(listOutput))
+	}
 
 	if listErr != nil {
 		s.log.LogError("Error listing files for job %d, config %d: %v", job.ID, config.ID, listErr)
@@ -550,7 +620,7 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 	concurrencySemaphore := make(chan struct{}, maxConcurrent)
 
 	// Process each file individually
-	for _, fileEntry := range files {
+	for i, fileEntry := range files {
 		fileName, ok := fileEntry["Path"].(string)
 		if !ok || fileName == "" {
 			continue
@@ -666,7 +736,8 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 		currentModTime := modTime
 
 		// Log the file information that will be processed
-		s.log.LogDebug("Processing file: %s, size: %d, hash: %s", currentFileName, currentFileSize, currentFileHash)
+		s.log.LogDebug("Processing file %d/%d: %s (Size: %d, Hash: %s)",
+			i+1, len(files), currentFileName, currentFileSize, currentFileHash)
 
 		// Start goroutine for concurrent processing
 		go func() {
@@ -740,13 +811,8 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 			transferArgs = append(transferArgs, sourcePath, destPath)
 
 			// Execute transfer for this file
-			s.log.LogInfo("Executing rclone transfer command for job %d, config %d, file %s: rclone %s",
-				job.ID, config.ID, currentFileName, strings.Join(transferArgs, " "))
-			// Get the rclone path from the environment variable or use the default path
-			rclonePath := os.Getenv("RCLONE_PATH")
-			if rclonePath == "" {
-				rclonePath = "rclone"
-			}
+			s.log.LogDebug("Full transfer command: %s %v", rclonePath, transferArgs)
+			s.log.LogDebug("Environment: RCLONE_PATH=%s", os.Getenv("RCLONE_PATH"))
 			cmd := exec.Command(rclonePath, transferArgs...)
 			fileOutput, fileErr := cmd.CombinedOutput()
 
@@ -1087,6 +1153,8 @@ func (s *Scheduler) sendWebhookNotification(job *db.Job, history *db.JobHistory,
 		return
 	}
 
+	s.log.LogDebug("Webhook payload: %s", string(jsonPayload))
+
 	// Create HTTP request
 	req, err := http.NewRequest("POST", job.WebhookURL, bytes.NewBuffer(jsonPayload))
 	if err != nil {
@@ -1115,6 +1183,8 @@ func (s *Scheduler) sendWebhookNotification(job *db.Job, history *db.JobHistory,
 			}
 		}
 	}
+
+	s.log.LogDebug("Webhook headers: %+v", req.Header)
 
 	// Send the request with a timeout
 	client := &http.Client{

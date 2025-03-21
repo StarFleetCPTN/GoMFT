@@ -36,6 +36,13 @@ type AdminToolsData struct {
 	LogFiles           []LogFile
 	LogContent         string
 	CurrentLogFile     string
+	EmailTestSuccess   *bool
+	EmailTestMessage   string
+	SmtpServer         string
+	WebhookTestSuccess *bool
+	WebhookTestMessage string
+	WebhookStatusCode  int
+	WebhookResponse    string
 }
 
 // Dialog component for confirmation dialogs
@@ -459,6 +466,255 @@ templ AdminTools(ctx context.Context, data AdminToolsData) {
 								</form>
 							</div>
 
+						</div>
+					</div>
+				</div>
+				
+				<!-- Email Testing Tools -->
+				<div class="mt-8">
+					<div class="card">
+						<div class="card-header">
+							<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100">
+								<i class="fas fa-envelope mr-2 text-primary-500"></i>
+								Email Testing
+							</h3>
+						</div>
+						<div class="card-body">
+							<p class="text-sm text-secondary-600 dark:text-secondary-400 mb-4">
+								Test your email configuration by sending a test email to verify the server can send emails properly.
+							</p>
+							
+							<form id="test-email-form" hx-post="/admin/test-email" hx-target="#email-test-result" hx-swap="outerHTML" hx-indicator="#email-test-indicator">
+								<div class="space-y-4">
+									<div>
+										<label for="test-email-recipient" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+											Recipient Email
+										</label>
+										<input 
+											type="email" 
+											id="test-email-recipient" 
+											name="recipient" 
+											class="form-input w-full" 
+											placeholder="recipient@example.com" 
+											required 
+										/>
+									</div>
+									
+									<div>
+										<label for="test-email-subject" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+											Subject (Optional)
+										</label>
+										<input 
+											type="text" 
+											id="test-email-subject" 
+											name="subject" 
+											class="form-input w-full" 
+											placeholder="Test Email from GoMFT" 
+										/>
+									</div>
+									
+									<div>
+										<label for="test-email-message" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+											Message (Optional)
+										</label>
+										<textarea 
+											id="test-email-message" 
+											name="message" 
+											rows="3" 
+											class="form-textarea w-full" 
+											placeholder="This is a test email from GoMFT."
+										></textarea>
+									</div>
+									
+									<div class="flex justify-end">
+										<button type="submit" class="btn-primary flex items-center justify-center" onclick="fadeInAnimation()">
+											<i class="fas fa-paper-plane mr-2"></i>
+											<span>Send Test Email</span>
+											<div id="email-test-indicator" class="htmx-indicator ml-2">
+												<i class="fas fa-circle-notch fa-spin"></i>
+											</div>
+										</button>
+									</div>
+								</div>
+							</form>
+							
+							<!-- Toast container for email test results -->
+							<div id="email-test-result" class="mt-4 hidden">
+								if data.EmailTestSuccess != nil {
+									@EmailTestToast(*data.EmailTestSuccess, data.EmailTestMessage)
+								}
+							</div>
+							
+							<!-- Email settings reminder -->
+							<div class="mt-6 bg-secondary-50 dark:bg-secondary-800/50 p-4 rounded-lg">
+								<h4 class="text-sm font-medium text-secondary-900 dark:text-secondary-100 flex items-center">
+									<i class="fas fa-info-circle mr-2 text-blue-500"></i>
+									Email Configuration
+								</h4>
+								if data.SmtpServer != "" {
+									<p class="mt-2 text-xs text-secondary-600 dark:text-secondary-400">
+										Current SMTP server: <span class="font-mono">{ data.SmtpServer }</span>
+									</p>
+								} else {
+									<p class="mt-2 text-xs text-secondary-600 dark:text-secondary-400">
+										Email settings are configured in your application configuration file. Make sure SMTP settings are properly configured before testing.
+									</p>
+								}
+							</div>
+						</div>
+					</div>
+				</div>
+				
+				<!-- Notification Testing Tools -->
+				<div class="mt-8">
+					<div class="card">
+						<div class="card-header">
+							<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100">
+								<i class="fas fa-bell mr-2 text-primary-500"></i>
+								Webhook Notification Testing
+							</h3>
+						</div>
+						<div class="card-body">
+							<p class="text-sm text-secondary-600 dark:text-secondary-400 mb-4">
+								Test webhook notifications by sending a sample job execution payload to your webhook endpoint.
+							</p>
+							
+							<form id="webhook-test-form" hx-post="/admin/test-webhook" hx-target="#webhook-test-result" hx-swap="outerHTML" hx-indicator="#webhook-test-indicator">
+								<div class="space-y-4">
+									<div>
+										<label for="webhook-url" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+											Webhook URL
+										</label>
+										<div class="relative">
+											<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+												<i class="fas fa-link text-secondary-400 dark:text-secondary-600"></i>
+											</div>
+											<input 
+												type="url" 
+												id="webhook-url" 
+												name="webhook_url" 
+												class="form-input pl-10 w-full" 
+												placeholder="https://example.com/webhook" 
+												required 
+											/>
+										</div>
+									</div>
+									
+									<div>
+										<label for="webhook-secret" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+											Webhook Secret <span class="text-secondary-500 dark:text-secondary-400">(optional)</span>
+										</label>
+										<div class="relative">
+											<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+												<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+											</div>
+											<input 
+												type="password" 
+												id="webhook-secret" 
+												name="webhook_secret" 
+												class="form-input pl-10 w-full" 
+												placeholder="Secret token for signing requests"
+											/>
+										</div>
+										<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+											<i class="fas fa-info-circle mr-1"></i>
+											Used to sign webhook payloads (X-Hub-Signature-256 header)
+										</p>
+									</div>
+									
+									<div>
+										<label for="webhook-headers" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+											Custom Headers <span class="text-secondary-500 dark:text-secondary-400">(optional)</span>
+										</label>
+										<div class="relative">
+											<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+												<i class="fas fa-code text-secondary-400 dark:text-secondary-600"></i>
+											</div>
+											<input 
+												type="text" 
+												id="webhook-headers" 
+												name="webhook_headers" 
+												class="form-input pl-10 w-full" 
+												placeholder='{"X-Custom-Header": "value"}'
+											/>
+										</div>
+										<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+											<i class="fas fa-info-circle mr-1"></i>
+											Additional HTTP headers as JSON
+										</p>
+									</div>
+									
+									<div>
+										<label for="webhook-payload" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+											Custom Payload <span class="text-secondary-500 dark:text-secondary-400">(optional)</span>
+										</label>
+										<textarea 
+											id="webhook-payload" 
+											name="webhook_payload" 
+											rows="5" 
+											class="form-textarea w-full font-mono text-sm" 
+											placeholder='{
+  "event_type": "job_execution",
+  "job_id": 123,
+  "job_name": "Test Job",
+  "status": "completed"
+}'></textarea>
+										<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+											<i class="fas fa-info-circle mr-1"></i>
+											Leave empty to use default test payload
+										</p>
+									</div>
+									
+									<div class="flex justify-end">
+										<button type="submit" class="btn-primary flex items-center justify-center" onclick="fadeInAnimation()">
+											<i class="fas fa-paper-plane mr-2"></i>
+											<span>Send Test Webhook</span>
+											<div id="webhook-test-indicator" class="htmx-indicator ml-2">
+												<i class="fas fa-circle-notch fa-spin"></i>
+											</div>
+										</button>
+									</div>
+								</div>
+							</form>
+							
+							<!-- Result container for webhook test -->
+							<div id="webhook-test-result" class="mt-4 hidden">
+								if data.WebhookTestSuccess != nil {
+									@WebhookTestToast(*data.WebhookTestSuccess, data.WebhookTestMessage, data.WebhookStatusCode, data.WebhookResponse)
+								}
+							</div>
+							
+							<!-- Sample payload section -->
+							<div class="mt-6 bg-secondary-50 dark:bg-secondary-800/50 p-4 rounded-lg">
+								<h4 class="text-sm font-medium text-secondary-900 dark:text-secondary-100 flex items-center">
+									<i class="fas fa-info-circle mr-2 text-blue-500"></i>
+									Default Webhook Test Payload
+								</h4>
+								<div class="mt-2 bg-white dark:bg-secondary-900 p-3 rounded border border-secondary-200 dark:border-secondary-700 overflow-auto">
+									<pre class="text-xs text-secondary-600 dark:text-secondary-400 font-mono">&#123;
+  "event_type": "job_execution",
+  "job_id": 123,
+  "job_name": "Test Job",
+  "config_id": 456,
+  "config_name": "Test Config",
+  "status": "completed",
+  "start_time": "2023-06-18T15:30:45Z",
+  "end_time": "2023-06-18T15:35:12Z",
+  "duration_seconds": 267,
+  "history_id": 789,
+  "bytes_transferred": 1048576,
+  "files_transferred": 5,
+  "source": &#123;
+    "type": "local",
+    "path": "/path/to/source"
+  &#125;,
+  "destination": &#123;
+    "type": "s3",
+    "path": "bucket/path"
+  &#125;
+&#125;</pre>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -999,4 +1255,140 @@ var Commit = "unknown"
 
 func getCommit() string {
 	return Commit
+}
+
+// EmailTestToast is a component for showing email test results
+templ EmailTestToast(success bool, message string) {
+	<div id="email-test-result" class="mt-4 animate-fade-in">
+		<div class={
+			"rounded-lg p-4 flex items-start",
+			templ.KV("bg-green-50 dark:bg-green-900/20 border-l-4 border-green-400", success),
+			templ.KV("bg-red-50 dark:bg-red-900/20 border-l-4 border-red-400", !success),
+		}>
+			<div class="flex-shrink-0">
+				if success {
+					<i class="fas fa-check-circle text-green-400"></i>
+				} else {
+					<i class="fas fa-exclamation-circle text-red-400"></i>
+				}
+			</div>
+			<div class="ml-3">
+				<h3 class={
+					"text-sm font-medium",
+					templ.KV("text-green-800 dark:text-green-300", success),
+					templ.KV("text-red-800 dark:text-red-300", !success),
+				}>
+					if success {
+						Email Sent Successfully
+					} else {
+						Email Sending Failed
+					}
+				</h3>
+				<div class={
+					"mt-1 text-sm",
+					templ.KV("text-green-700 dark:text-green-400", success),
+					templ.KV("text-red-700 dark:text-red-400", !success),
+				}>
+					{ message }
+				</div>
+			</div>
+			<div class="ml-auto pl-3 flex-shrink-0">
+				<button
+					type="button"
+					onclick="document.getElementById('email-test-result').classList.add('hidden');"
+					class={
+						"inline-flex rounded-md p-1.5 focus:outline-none focus:ring-2 focus:ring-offset-2",
+						templ.KV("text-green-500 hover:bg-green-100 dark:hover:bg-green-900/30 focus:ring-green-500", success),
+						templ.KV("text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 focus:ring-red-500", !success),
+					}
+				>
+					<i class="fas fa-times"></i>
+				</button>
+			</div>
+		</div>
+	</div>
+}
+
+// Add a style for the animate-fade-in animation
+script fadeInAnimation() {
+	// Add CSS animation if it doesn't exist
+	if (!document.getElementById('fade-in-animation')) {
+		const style = document.createElement('style');
+		style.id = 'fade-in-animation';
+		style.textContent = `
+			@keyframes fadeIn {
+				from { opacity: 0; transform: translateY(-10px); }
+				to { opacity: 1; transform: translateY(0); }
+			}
+			.animate-fade-in {
+				animation: fadeIn 0.3s ease-out forwards;
+			}
+		`;
+		document.head.appendChild(style);
+	}
+}
+
+// WebhookTestToast is a component for showing webhook test results
+templ WebhookTestToast(success bool, message string, statusCode int, responseBody string) {
+	<div id="webhook-test-result" class="mt-4 animate-fade-in">
+		<div class={
+			"rounded-lg p-4 flex items-start",
+			templ.KV("bg-green-50 dark:bg-green-900/20 border-l-4 border-green-400", success),
+			templ.KV("bg-red-50 dark:bg-red-900/20 border-l-4 border-red-400", !success),
+		}>
+			<div class="flex-shrink-0">
+				if success {
+					<i class="fas fa-check-circle text-green-400"></i>
+				} else {
+					<i class="fas fa-exclamation-circle text-red-400"></i>
+				}
+			</div>
+			<div class="ml-3 flex-grow">
+				<h3 class={
+					"text-sm font-medium",
+					templ.KV("text-green-800 dark:text-green-300", success),
+					templ.KV("text-red-800 dark:text-red-300", !success),
+				}>
+					if success {
+						Webhook Sent Successfully
+					} else {
+						Webhook Sending Failed
+					}
+				</h3>
+				<div class={
+					"mt-1 text-sm",
+					templ.KV("text-green-700 dark:text-green-400", success),
+					templ.KV("text-red-700 dark:text-red-400", !success),
+				}>
+					{ message }
+				</div>
+				
+				<!-- Additional response details -->
+				<div class="mt-3 text-sm">
+					<div class="font-medium text-secondary-700 dark:text-secondary-300">Status Code: { fmt.Sprint(statusCode) }</div>
+					if responseBody != "" {
+						<div class="mt-2">
+							<div class="font-medium text-secondary-700 dark:text-secondary-300 mb-1">Response:</div>
+							<div class="bg-white dark:bg-secondary-900 p-2 rounded border border-secondary-200 dark:border-secondary-700">
+								<pre class="text-xs text-secondary-600 dark:text-secondary-400 font-mono overflow-auto max-h-40">{ responseBody }</pre>
+							</div>
+						</div>
+					}
+				</div>
+			</div>
+			<div class="ml-auto pl-3 flex-shrink-0">
+				<button
+					type="button"
+					onclick="document.getElementById('webhook-test-result').classList.add('hidden');"
+					class={
+						"inline-flex rounded-md p-1.5 focus:outline-none focus:ring-2 focus:ring-offset-2",
+						templ.KV("text-green-500 hover:bg-green-100 dark:hover:bg-green-900/30 focus:ring-green-500", success),
+						templ.KV("text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 focus:ring-red-500", !success),
+					}
+				>
+					<i class="fas fa-times"></i>
+				</button>
+			</div>
+		</div>
+	</div>
 }

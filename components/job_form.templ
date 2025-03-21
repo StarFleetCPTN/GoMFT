@@ -72,6 +72,172 @@ templ configSearchScript() {
 					});
 				});
 			}
+
+			// Handle job ordering
+			const setupJobOrdering = (configListId, selectedListId, formId, savedOrder) => {
+				const configList = document.getElementById(configListId);
+				const selectedList = document.getElementById(selectedListId);
+				const form = document.getElementById(formId);
+				
+				if (!configList || !selectedList || !form) return;
+
+				// Get saved order if available
+				const orderedIds = savedOrder ? savedOrder.split(',').map(id => id.trim()) : [];
+				console.log('Initial saved order:', orderedIds);
+
+				// Initialize selected items from checked checkboxes
+				const updateSelectedItems = (initialLoad = false) => {
+					// Clear current list
+					selectedList.innerHTML = '';
+					
+					// Get all checked checkboxes
+					const checkedItems = configList.querySelectorAll('input[type="checkbox"]:checked');
+					
+					if (checkedItems.length === 0) {
+						selectedList.innerHTML = '<div class="text-center py-4 text-secondary-500 dark:text-secondary-400">No configurations selected</div>';
+						return;
+					}
+					
+					// Create a map of config items for easy access
+					const configItems = {};
+					checkedItems.forEach(checkbox => {
+						configItems[checkbox.value] = {
+							checkbox: checkbox,
+							configId: checkbox.value,
+							configName: checkbox.nextElementSibling.textContent.trim()
+						};
+					});
+					
+					// If we have a saved order and this is the initial load, use that order
+					let itemsToShow = [];
+					if (initialLoad && orderedIds.length > 0) {
+						// First add items in the saved order
+						orderedIds.forEach(id => {
+							if (configItems[id]) {
+								itemsToShow.push(configItems[id]);
+								delete configItems[id]; // Remove from map to avoid duplicates
+							}
+						});
+						
+						// Then add any remaining checked items not in the saved order
+						Object.values(configItems).forEach(item => {
+							itemsToShow.push(item);
+						});
+					} else {
+						// Just add all checked items in their current order
+						itemsToShow = Object.values(configItems);
+					}
+					
+					// Add each item to the selected list
+					itemsToShow.forEach((item, index) => {
+						const configId = item.configId;
+						const configName = item.configName;
+						
+						const listItem = document.createElement('div');
+						listItem.className = 'flex items-center justify-between p-2 mb-2 bg-white dark:bg-secondary-800 border border-secondary-200 dark:border-secondary-700 rounded-lg';
+						listItem.setAttribute('data-id', configId);
+						
+						listItem.innerHTML = `
+							<div class="flex items-center">
+								<span class="inline-flex items-center justify-center h-6 w-6 rounded-full bg-primary-100 dark:bg-primary-900 mr-2 text-primary-700 dark:text-primary-300 text-sm">${index + 1}</span>
+								<span class="font-medium text-secondary-700 dark:text-secondary-300">${configName}</span>
+							</div>
+							<div class="flex space-x-1">
+								<button type="button" class="move-up p-1 rounded hover:bg-secondary-100 dark:hover:bg-secondary-700" title="Move up">
+									<i class="fas fa-arrow-up text-secondary-500"></i>
+								</button>
+								<button type="button" class="move-down p-1 rounded hover:bg-secondary-100 dark:hover:bg-secondary-700" title="Move down">
+									<i class="fas fa-arrow-down text-secondary-500"></i>
+								</button>
+							</div>
+						`;
+						
+						selectedList.appendChild(listItem);
+					});
+					
+					// Update hidden order inputs
+					updateOrderInputs();
+				};
+				
+				// Update hidden inputs with the current order
+				const updateOrderInputs = () => {
+					const items = selectedList.querySelectorAll('.flex.items-center.justify-between');
+					if (items.length === 0) return;
+					
+					// Remove any existing order input to avoid duplicates
+					const existingOrderInput = form.querySelector('input[name="config_order"]');
+					if (existingOrderInput) {
+						existingOrderInput.remove();
+					}
+					
+					// Create a new input with the current order
+					const orderedIds = Array.from(items).map(item => item.getAttribute('data-id'));
+					
+					// Create a hidden input to store the order
+					const configOrderInput = document.createElement('input');
+					configOrderInput.type = 'hidden';
+					configOrderInput.name = 'config_order';
+					configOrderInput.value = orderedIds.join(',');
+					
+					// Add the input to the form
+					form.appendChild(configOrderInput);
+					
+					// Update the visible order numbers
+					items.forEach((item, index) => {
+						const orderNum = index + 1;
+						const orderSpan = item.querySelector('span.rounded-full');
+						if (orderSpan) {
+							orderSpan.textContent = orderNum;
+						}
+					});
+					
+					console.log('Updated order input:', configOrderInput.value);
+				};
+				
+				// Initialize the selected list with saved order if available
+				updateSelectedItems(true);
+				
+				// Handle checkbox changes
+				configList.addEventListener('change', (e) => {
+					if (e.target.matches('input[type="checkbox"]')) {
+						updateSelectedItems(false);
+					}
+				});
+				
+				// Handle reordering
+				selectedList.addEventListener('click', (e) => {
+					const listItem = e.target.closest('.flex.items-center.justify-between');
+					if (!listItem) return;
+					
+					if (e.target.closest('.move-up')) {
+						const prev = listItem.previousElementSibling;
+						if (prev) {
+							selectedList.insertBefore(listItem, prev);
+							updateOrderInputs();
+						}
+					} else if (e.target.closest('.move-down')) {
+						const next = listItem.nextElementSibling;
+						if (next) {
+							selectedList.insertBefore(next, listItem);
+							updateOrderInputs();
+						}
+					}
+				});
+				
+				// Ensure the order input is updated before submission
+				form.addEventListener('submit', function(e) {
+					updateOrderInputs();
+					console.log('Form submitted with order:', form.querySelector('input[name="config_order"]')?.value);
+				});
+			};
+			
+			// Setup ordering for new job form
+			setupJobOrdering('config-list', 'selected-configs', 'new-job-form', null);
+			
+			// Setup ordering for edit job form
+			const editJobForm = document.getElementById('edit-job-form');
+			const savedOrderEdit = editJobForm ? editJobForm.getAttribute('data-config-order') : null;
+			setupJobOrdering('config-list-edit', 'selected-configs-edit', 'edit-job-form', savedOrderEdit);
 		});
 	</script>
 }
@@ -95,6 +261,7 @@ templ JobForm(ctx context.Context, data JobFormData) {
 						
 						if data.IsNew {
 							<form 
+								id="new-job-form"
 								class="space-y-6" 
 								hx-post="/jobs"
 								hx-target="body"
@@ -161,10 +328,19 @@ templ JobForm(ctx context.Context, data JobFormData) {
 											</div>
 										</div>
 
-										<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
-											<i class="fas fa-info-circle mr-1"></i>
-											Select one or more configurations to run on this schedule.
-										</p>
+										<!-- Selected Configurations Order List -->
+										<div class="mt-4">
+											<label class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
+												<i class="fas fa-sort-amount-down mr-1"></i> Execution Order
+											</label>
+											<div id="selected-configs" class="border border-secondary-300 dark:border-secondary-700 rounded-md p-3 min-h-20 bg-secondary-50 dark:bg-secondary-900">
+												<!-- Selected items will be populated by JavaScript -->
+											</div>
+											<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
+												<i class="fas fa-info-circle mr-1"></i>
+												Use the arrows to change the order in which configurations will execute.
+											</p>
+										</div>
 									</div>
 									
 									<div>
@@ -341,10 +517,12 @@ templ JobForm(ctx context.Context, data JobFormData) {
 							</form>
 						} else {
 							<form 
+								id="edit-job-form"
 								class="space-y-6" 
 								hx-post={ fmt.Sprintf("/jobs/%d", data.Job.ID) }
 								hx-target="body"
-								hx-boost="true">
+								hx-boost="true"
+								data-config-order={ data.Job.ConfigIDs }>
 								<div class="space-y-6">
 									<div>
 										<label for="name" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Job Name</label>
@@ -411,10 +589,19 @@ templ JobForm(ctx context.Context, data JobFormData) {
 											</div>
 										</div>
 
-										<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
-											<i class="fas fa-info-circle mr-1"></i>
-											Select one or more configurations to run on this schedule.
-										</p>
+										<!-- Selected Configurations Order List for edit -->
+										<div class="mt-4">
+											<label class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
+												<i class="fas fa-sort-amount-down mr-1"></i> Execution Order
+											</label>
+											<div id="selected-configs-edit" class="border border-secondary-300 dark:border-secondary-700 rounded-md p-3 min-h-20 bg-secondary-50 dark:bg-secondary-900">
+												<!-- Selected items will be populated by JavaScript -->
+											</div>
+											<p class="mt-2 text-sm text-secondary-500 dark:text-secondary-400">
+												<i class="fas fa-info-circle mr-1"></i>
+												Use the arrows to change the order in which configurations will execute.
+											</p>
+										</div>
 									</div>
 									
 									<div>
@@ -599,7 +786,7 @@ templ JobForm(ctx context.Context, data JobFormData) {
 					<div class="px-8 py-4 bg-secondary-50 dark:bg-secondary-800 border-t border-secondary-200 dark:border-secondary-700 text-center">
 						<p class="text-sm text-secondary-600 dark:text-secondary-400">
 							<i class="fas fa-info-circle mr-1"></i>
-							Jobs will run according to their schedule and execute the selected transfer configuration
+							Jobs will run according to their schedule and execute the selected transfer configurations in the order specified
 						</p>
 					</div>
 				</div>

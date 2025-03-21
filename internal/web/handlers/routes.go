@@ -110,6 +110,9 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 		admin.GET("/logs/refresh", h.HandleRefreshLogs)
 		admin.GET("/logs/view/:fileName", h.HandleViewLog)
 		admin.GET("/logs/download/:fileName", h.HandleDownloadLog)
+
+		// Email test route
+		admin.POST("/test-email", h.HandleTestEmail)
 	}
 
 	// API routes
