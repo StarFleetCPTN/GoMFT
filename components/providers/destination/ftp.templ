@@ -1,109 +1,79 @@
 package destination
 
 templ FTPDestinationForm() {
-	<div class="sm:col-span-6 space-y-6">
-		<div class="sm:col-span-4">
-			<label for="dest_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Host</label>
+	<div class="space-y-6 mt-4">
+		<div>
+			<label for="dest_host" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">FTP Host</label>
 			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-server text-secondary-400 dark:text-secondary-600"></i>
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-server text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input
-					type="text"
-					name="dest_host"
-					id="dest_host"
-					x-model="destHost"
-					required
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="ftp.example.com"/>
+				<input type="text" id="dest_host" name="dest_host" x-model="destinationHost" required
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="ftp.example.com" />
 			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Hostname or IP address of the FTP server</p>
 		</div>
 
-		<div class="sm:col-span-4">
-			<label for="dest_port" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Port</label>
+		<div>
+			<label for="dest_port" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Port</label>
 			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-plug text-secondary-400 dark:text-secondary-600"></i>
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-network-wired text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input
-					type="number"
-					name="dest_port"
-					id="dest_port"
-					x-model="destPort"
-					required
-					min="1"
-					max="65535"
-					value="21"
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="21"/>
+				<input type="number" id="dest_port" name="dest_port" x-model="destinationPort"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="21" min="1" max="65535" />
 			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">FTP port number (default: 21)</p>
 		</div>
 
-		<div class="sm:col-span-4">
-			<label for="destination_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Remote Path</label>
+		<div>
+			<label for="dest_user" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Username</label>
 			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-folder text-secondary-400 dark:text-secondary-600"></i>
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-user text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input
-					type="text"
-					name="destination_path"
-					id="destination_path"
-					x-model="destinationPath"
-					required
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="/path/to/destination"/>
+				<input type="text" id="dest_user" name="dest_user" x-model="destinationUser" required
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="username" />
 			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">FTP username for authentication</p>
 		</div>
 
-		<div class="sm:col-span-4">
-			<label for="dest_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
+		<div>
+			<label for="dest_password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Password</label>
 			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-lock text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input
-					type="text"
-					name="dest_user"
-					id="dest_user"
-					x-model="destUser"
-					required
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
+				<input type="password" id="dest_password" name="dest_password" x-model="destinationPassword" required
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="Enter password" />
 			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">FTP password for authentication</p>
 		</div>
 
-		<div class="sm:col-span-4">
-			<label for="dest_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password</label>
-			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
-				</div>
-				<input
-					type="password"
-					name="dest_password"
-					id="dest_password"
-					x-model="destPassword"
-					required
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="Password"/>
-			</div>
-			<input type="hidden" name="dest_password" :value="destPassword"/>
+		<div class="flex items-center mb-6">
+			<label class="relative inline-flex items-center cursor-pointer">
+				<input type="checkbox" id="dest_passive_mode" name="dest_passive_mode" x-model="destPassiveMode" 
+					class="sr-only peer" :value="destPassiveMode ? 'true' : 'false'">
+				<div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+				<span class="ms-3 text-sm font-medium text-gray-900 dark:text-white">Use Passive Mode</span>
+			</label>
 		</div>
 
-		<div class="flex items-start mb-4">
-			<div class="flex items-center h-5">
-				<input 
-					id="dest_passive_mode" 
-					name="dest_passive_mode" 
-					type="checkbox" 
-					x-model="destPassiveMode"
-					:value="destPassiveMode ? 'true' : 'false'"
-					class="focus:ring-primary-500 h-4 w-4 text-primary-600 border-secondary-300 dark:border-secondary-700 rounded">
+		<div>
+			<label for="destination_path" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Remote Path</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-folder-open text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<input type="text" id="destination_path" name="destination_path" x-model="destinationPath" required
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="/remote/path/to/files" />
 			</div>
-			<div class="ml-3 text-sm">
-				<label for="dest_passive_mode" class="font-medium text-secondary-700 dark:text-secondary-300">Use Passive Mode</label>
-				<p class="text-secondary-500 dark:text-secondary-400">Enable passive mode for FTP connection</p>
-			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Full path to the directory on the FTP server</p>
 		</div>
 	</div>
 } 

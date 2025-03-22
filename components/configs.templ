@@ -6,39 +6,30 @@ import (
 	"github.com/starfleetcptn/gomft/internal/db"
 )
 
-// Dialog component for confirmation dialogs
+// Dialog component for confirmation dialogs using Flowbite modal
 templ ConfigDialog(id string, title string, message string, confirmClass string, confirmText string, action string, configID uint, configName string) {
-	<div id={ id } class="hidden fixed inset-0 bg-secondary-900/50 dark:bg-secondary-900/80 backdrop-blur-sm z-50 flex items-center justify-center">
-		<div class="bg-white dark:bg-secondary-800 rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden">
-			<div class="px-6 pt-5 pb-3 text-center">
-				<div class="flex justify-center mb-2">
-					<i class="fas fa-exclamation-triangle text-yellow-400 text-3xl"></i>
+	<div id={ id } tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-gray-900/50 dark:bg-gray-900/80 backdrop-blur-sm">
+		<div class="relative p-4 w-full max-w-md max-h-full mx-auto">
+			<div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
+				<div class="p-6 text-center">
+					<i class="fas fa-exclamation-circle text-yellow-400 fa-3x flex-shrink-0 mx-auto mb-4"></i>
+					<h3 class="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">{ message }</h3>
+					<button 
+						type="button" 
+						class={ confirmClass } 
+						hx-delete={ fmt.Sprintf("/configs/%d", configID) }
+						hx-target="closest li"
+						hx-swap="delete"
+						data-config-name={ configName }
+						data-config-id={ fmt.Sprint(configID) }
+						id={ fmt.Sprintf("delete-config-btn-%d", configID) }
+						onclick={ triggerConfigDelete(id, configID, configName) }>
+						{ confirmText }
+					</button>
+					<button type="button" class="py-2.5 px-5 ms-3 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700" onclick={ hideConfigDialog(id) }>
+						Cancel
+					</button>
 				</div>
-				<h3 class="text-xl font-medium text-secondary-900 dark:text-secondary-100">
-					{ title }
-				</h3>
-			</div>
-			<div class="px-6 py-4 text-center">
-				<p class="text-secondary-700 dark:text-secondary-300">
-					{ message }
-				</p>
-			</div>
-			<div class="px-6 py-4 flex justify-end space-x-3">
-				<button type="button" class="btn-secondary" onclick={ hideConfigDialog(id) }>
-					Cancel
-				</button>
-				<button 
-					type="button" 
-					class={ confirmClass }
-					hx-delete={ fmt.Sprintf("/configs/%d", configID) }
-					hx-target="closest li"
-					hx-swap="delete"
-					data-config-name={ configName }
-					data-config-id={ fmt.Sprint(configID) }
-					id={ fmt.Sprintf("delete-config-btn-%d", configID) }
-					onclick={ triggerConfigDelete(id, configID, configName) }>
-					{ confirmText }
-				</button>
 			</div>
 		</div>
 	</div>
@@ -50,11 +41,13 @@ script hideConfigDialog(id string) {
 
 script showConfigDialog(id string) {
 	document.getElementById(id).classList.remove("hidden");
+	document.getElementById(id).classList.add("flex");
 }
 
 script triggerConfigDelete(dialogId string, configID uint, configName string) {
 	// Hide the dialog
 	document.getElementById(dialogId).classList.add("hidden");
+	document.getElementById(dialogId).classList.remove("flex");
 		
 	// Store data in a way that's accessible to event handlers
 	window.lastDeletedConfig = {
@@ -228,59 +221,57 @@ templ Configs(ctx context.Context, data ConfigsData) {
 			});
 		</script>
 		
-		<div class="py-6">
-			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-				<div class="flex justify-between items-center mb-8">
-					<h1 class="text-3xl font-bold text-secondary-900 dark:text-secondary-100">
-						<i class="fas fa-cogs mr-2 text-primary-600 dark:text-primary-400"></i>
+		<div id="configs-container" style="min-height: 100vh; background-color: rgb(249, 250, 251);" class="configs-page bg-gray-50 dark:bg-gray-900">
+			<div class="pb-8 w-full">
+				<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+					<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+						<i class="fas fa-exchange-alt w-6 h-6 mr-2 text-blue-500 dark:text-blue-400"></i>
 						Transfer Configurations
 					</h1>
-					<a href="/configs/new" class="btn-primary">
-						<i class="fas fa-plus mr-2"></i>
+					<a href="/configs/new" class="flex items-center justify-center text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+						<i class="fas fa-plus w-4 h-4 mr-2"></i>
 						New Configuration
 					</a>
 				</div>
 				
 				<div class="mt-6">
 					if len(data.Configs) == 0 {
-						<div class="card p-12 flex flex-col items-center justify-center text-center">
-							<div class="inline-block p-4 rounded-full bg-secondary-100 dark:bg-secondary-700 mb-4">
-								<i class="fas fa-folder-open text-secondary-400 dark:text-secondary-500 text-3xl"></i>
+						<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 p-8 flex flex-col items-center justify-center text-center">
+							<div class="inline-flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 mb-4 dark:bg-gray-700">
+								<i class="fas fa-exchange-alt text-gray-400 dark:text-gray-500 text-3xl"></i>
 							</div>
-							<h3 class="mt-2 text-lg font-medium text-secondary-900 dark:text-secondary-100">No configurations</h3>
-							<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">Get started by creating a new transfer configuration.</p>
-							<div class="mt-6">
-								<a href="/configs/new" class="btn-primary">
-									<i class="fas fa-plus mr-2"></i>
-									Create First Configuration
-								</a>
-							</div>
+							<h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">No configurations</h3>
+							<p class="text-gray-500 dark:text-gray-400 mb-4">Get started by creating a new transfer configuration.</p>
+							<a href="/configs/new" class="inline-flex items-center px-3 py-2 text-sm font-medium text-center text-white bg-blue-700 rounded-lg hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+								<i class="fas fa-plus w-4 h-4 mr-2"></i>
+								Create First Configuration
+							</a>
 						</div>
 					} else {
-						<div class="card overflow-hidden">
-							<ul role="list" class="divide-y divide-secondary-200 dark:divide-secondary-700">
+						<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 overflow-hidden">
+							<ul class="divide-y divide-gray-200 dark:divide-gray-700">
 								for _, config := range data.Configs {
 									<li>
-										<div class="block hover:bg-secondary-50 dark:hover:bg-secondary-750 transition-colors">
+										<div class="block hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
 											<div class="px-4 py-4 sm:px-6">
 												<div class="flex items-center justify-between">
 													<div class="flex items-center">
-														<p class="text-sm font-medium text-primary-600 dark:text-primary-400 truncate">
+														<p class="text-sm font-medium text-blue-600 dark:text-blue-400 truncate">
 															{ config.Name }
 														</p>
 
 														<!-- Google Drive Authentication Badge -->
 														if (config.DestinationType == "gdrive" || config.SourceType == "gdrive" || config.SourceType == "gphotos" || config.DestinationType == "gphotos") && !config.GetGoogleAuthenticated() {
-															<span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-100">
-																<i class="fas fa-exclamation-triangle mr-1 flex items-center"></i>
+															<span class="ml-2 bg-yellow-100 text-yellow-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full dark:bg-yellow-900 dark:text-yellow-300">
+																<i class="fas fa-exclamation-triangle w-3 h-3 mr-1 inline"></i>
 																Authentication Required
 															</span>
 														}
 														
 														<!-- Google Drive Authentication Status Indicator -->
 														if (config.DestinationType == "gdrive" || config.SourceType == "gdrive" || config.SourceType == "gphotos" || config.DestinationType == "gphotos") && config.GetGoogleAuthenticated() {
-															<span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100">
-																<i class="fas fa-check-circle mr-1 flex items-center"></i>
+															<span class="ml-2 bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full dark:bg-green-900 dark:text-green-300">
+																<i class="fas fa-check-circle w-3 h-3 mr-1 inline"></i>
 																Authenticated
 															</span>
 														}
@@ -288,14 +279,14 @@ templ Configs(ctx context.Context, data ConfigsData) {
 													<div class="ml-2 flex-shrink-0 flex space-x-2">
 														<!-- Google Drive Authentication Button -->
 														if (config.DestinationType == "gdrive" || config.SourceType == "gdrive" || config.SourceType == "gphotos" || config.DestinationType == "gphotos") && !config.GetGoogleAuthenticated() {
-															<a href={ templ.SafeURL(fmt.Sprintf("/configs/%d/gdrive-auth", config.ID)) } class="btn-warning btn-sm">
-																<i class="fab fa-google mr-1"></i>
+															<a href={ templ.SafeURL(fmt.Sprintf("/configs/%d/gdrive-auth", config.ID)) } class="text-yellow-700 bg-yellow-100 hover:bg-yellow-200 focus:ring-4 focus:outline-none focus:ring-yellow-300 font-medium rounded-lg text-sm px-3 py-1.5 text-center inline-flex items-center dark:bg-yellow-900 dark:text-yellow-300 dark:hover:bg-yellow-800 dark:focus:ring-yellow-800">
+																<i class="fas fa-key w-3.5 h-3.5 mr-1.5"></i>
 																Authenticate
 															</a>
 														}
 														
-														<a href={ templ.SafeURL(fmt.Sprintf("/configs/%d", config.ID)) } class="btn-secondary btn-sm">
-															<i class="fas fa-edit mr-1"></i>
+														<a href={ templ.SafeURL(fmt.Sprintf("/configs/%d", config.ID)) } class="text-gray-700 bg-gray-100 hover:bg-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-lg text-sm px-3 py-1.5 text-center inline-flex items-center dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 dark:focus:ring-gray-700">
+															<i class="fas fa-edit w-3.5 h-3.5 mr-1.5"></i>
 															Edit
 														</a>
 														<!-- Add delete dialog for each configuration -->
@@ -303,7 +294,7 @@ templ Configs(ctx context.Context, data ConfigsData) {
 															fmt.Sprintf("delete-config-dialog-%d", config.ID),
 															"Delete Configuration",
 															fmt.Sprintf("Are you sure you want to delete the configuration '%s'? This cannot be undone.", config.Name),
-															"btn-danger",
+															"text-white bg-red-600 hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 dark:focus:ring-red-800 font-medium rounded-lg text-sm inline-flex items-center px-5 py-2.5 text-center",
 															"Delete",
 															"delete",
 															config.ID,
@@ -312,25 +303,25 @@ templ Configs(ctx context.Context, data ConfigsData) {
 														<button 
 															type="button"
 															onclick={ showConfigDialog(fmt.Sprintf("delete-config-dialog-%d", config.ID)) }
-															class="btn-danger btn-sm">
-															<i class="fas fa-trash-alt mr-1"></i>
+															class="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm px-3 py-1.5 text-center inline-flex items-center dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-800">
+															<i class="fas fa-trash-alt w-3.5 h-3.5 mr-1.5"></i>
 															Delete
 														</button>
 													</div>
 												</div>
-												<div class="mt-2 sm:flex sm:justify-between">
-													<div class="sm:flex">
-														<p class="flex items-center text-sm text-secondary-500 dark:text-secondary-400">
-															<i class="fas fa-upload flex-shrink-0 mr-1.5 h-5 w-5 text-secondary-400 dark:text-secondary-500"></i>
+												<div class="mt-3 sm:flex sm:justify-between">
+													<div class="sm:flex flex-col md:flex-row gap-2 md:gap-6">
+														<p class="flex items-center text-sm text-gray-500 dark:text-gray-400">
+															<i class="fas fa-upload w-4 h-4 mr-1.5 text-gray-400 dark:text-gray-500"></i>
 															Source: { config.SourceType }: { config.SourcePath }
 														</p>
-														<p class="mt-2 flex items-center text-sm text-secondary-500 dark:text-secondary-400 sm:mt-0 sm:ml-6">
-															<i class="fas fa-download flex-shrink-0 mr-1.5 h-5 w-5 text-secondary-400 dark:text-secondary-500"></i>
+														<p class="mt-2 md:mt-0 flex items-center text-sm text-gray-500 dark:text-gray-400">
+															<i class="fas fa-download w-4 h-4 mr-1.5 text-gray-400 dark:text-gray-500"></i>
 															Destination: { config.DestinationType }: { config.DestinationPath }
 														</p>
 													</div>
-													<div class="mt-2 flex items-center text-sm text-secondary-500 dark:text-secondary-400 sm:mt-0">
-														<i class="fas fa-calendar-alt flex-shrink-0 mr-1.5 h-5 w-5 text-secondary-400 dark:text-secondary-500"></i>
+													<div class="mt-2 md:mt-0 flex items-center text-sm text-gray-500 dark:text-gray-400">
+														<i class="far fa-clock w-4 h-4 mr-1.5 text-gray-400 dark:text-gray-500"></i>
 														<p>
 															Updated: { config.UpdatedAt.Format("2006-01-02 15:04:05") }
 														</p>
@@ -345,22 +336,47 @@ templ Configs(ctx context.Context, data ConfigsData) {
 					}
 				</div>
 				
-				<!-- Help Notice -->
-				<div class="mt-8 text-center">
-					<p class="text-sm text-secondary-500 dark:text-secondary-400">
-						<i class="fas fa-info-circle mr-1 text-primary-500"></i>
-						Configurations define how files are transferred between systems
-					</p>
-				</div>
-				
-				<!-- Google Drive Auth Help -->
-				<div class="mt-4 text-center">
-					<p class="text-sm text-secondary-500 dark:text-secondary-400">
-						<i class="fab fa-google mr-1 text-blue-500 inline-flex items-center"></i>
-						Google Drive and Google Photos configurations require authentication. Click the "Authenticate" button to complete setup.
-					</p>
+				<!-- Help Section -->
+				<div class="bg-gray-50 dark:bg-gray-800 rounded-lg shadow-sm mt-8 p-4 border border-gray-200 dark:border-gray-700">
+					<div class="flex items-start mb-2">
+						<div class="flex items-center h-5">
+							<i class="fas fa-info-circle w-4 h-4 text-blue-500 dark:text-blue-400 mr-2"></i>
+						</div>
+						<div class="ml-2 text-sm">
+							<p class="text-gray-700 dark:text-gray-300">Configurations define how files are transferred between systems</p>
+						</div>
+					</div>
+
+					<div class="flex items-start mt-4">
+						<div class="flex items-center h-5">
+							<i class="fab fa-google-drive w-4 h-4 text-blue-500 dark:text-blue-400 mr-2"></i>
+						</div>
+						<div class="ml-2 text-sm">
+							<p class="text-gray-700 dark:text-gray-300">Google Drive and Google Photos configurations require authentication. Click the "Authenticate" button to complete setup.</p>
+						</div>
+					</div>
 				</div>
 			</div>
 		</div>
+		
+		<script>
+			// Set dark background color if in dark mode
+			if (document.documentElement.classList.contains('dark')) {
+				document.getElementById('configs-container').style.backgroundColor = '#111827';
+			}
+			
+			// Add event listener for theme changes
+			document.addEventListener('DOMContentLoaded', function() {
+				const themeToggle = document.getElementById('theme-toggle');
+				if (themeToggle) {
+					themeToggle.addEventListener('click', function() {
+						setTimeout(function() {
+							const isDark = document.documentElement.classList.contains('dark');
+							document.getElementById('configs-container').style.backgroundColor = isDark ? '#111827' : 'rgb(249, 250, 251)';
+						}, 50);
+					});
+				}
+			});
+		</script>
 	}
 }

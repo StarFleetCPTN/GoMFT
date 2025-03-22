@@ -1,0 +1,125 @@
+package components
+
+import (
+    "context"
+)
+
+// AdminLayout renders the main admin dashboard
+templ AdminLayout(ctx context.Context) {
+    @LayoutWithContext("Administration", ctx) {
+        <div class="flex flex-col md:flex-row bg-gray-50 dark:bg-gray-900 min-h-screen">
+            <!-- Sidebar Navigation -->
+            <nav class="md:w-64 md:min-h-screen bg-white border-r border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+                <div class="p-4 overflow-y-auto">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Admin Console</h2>
+                    <ul class="space-y-2">
+                        <li>
+                            <a href="/admin" class="flex items-center p-2 text-gray-900 rounded-lg dark:text-white bg-gray-100 dark:bg-gray-700 group">
+                                <i class="fas fa-tachometer-alt w-5 h-5 text-gray-500 dark:text-gray-400 mr-3"></i>
+                                Dashboard
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/admin/users" class="flex items-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group">
+                                <i class="fas fa-users w-5 h-5 text-gray-500 dark:text-gray-400 mr-3"></i>
+                                User Management
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/admin/roles" class="flex items-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group">
+                                <i class="fas fa-user-shield w-5 h-5 text-gray-500 dark:text-gray-400 mr-3"></i>
+                                Role Management
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/admin/audit" class="flex items-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group">
+                                <i class="fas fa-clipboard-list w-5 h-5 text-gray-500 dark:text-gray-400 mr-3"></i>
+                                Audit Logs
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/admin/database" class="flex items-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group">
+                                <i class="fas fa-database w-5 h-5 text-gray-500 dark:text-gray-400 mr-3"></i>
+                                Database Tools
+                            </a>
+                        </li>
+                        <li>
+                            <a href="/admin/settings" class="flex items-center p-2 text-gray-900 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 group">
+                                <i class="fas fa-cog w-5 h-5 text-gray-500 dark:text-gray-400 mr-3"></i>
+                                System Settings
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <div class="flex-1 p-8">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <!-- Statistics Cards -->
+                    <div class="bg-white p-6 rounded-lg shadow-sm dark:bg-gray-800">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Total Users</p>
+                                <p class="text-2xl font-bold text-gray-900 dark:text-white">1,234</p>
+                            </div>
+                            <div class="bg-blue-100 p-3 rounded-full dark:bg-blue-900">
+                                <i class="fas fa-users text-blue-500 w-6 h-6 dark:text-blue-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-lg shadow-sm dark:bg-gray-800">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Active Sessions</p>
+                                <p class="text-2xl font-bold text-gray-900 dark:text-white">42</p>
+                            </div>
+                            <div class="bg-green-100 p-3 rounded-full dark:bg-green-900">
+                                <i class="fas fa-signal text-green-500 w-6 h-6 dark:text-green-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-lg shadow-sm dark:bg-gray-800">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">System Health</p>
+                                <p class="text-2xl font-bold text-green-500 dark:text-green-400">98%</p>
+                            </div>
+                            <div class="bg-green-100 p-3 rounded-full dark:bg-green-900">
+                                <i class="fas fa-heartbeat text-green-500 w-6 h-6 dark:text-green-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity Table -->
+                <div class="bg-white rounded-lg shadow-sm dark:bg-gray-800">
+                    <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Recent Activity</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50 dark:bg-gray-700">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">User</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Action</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Timestamp</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                                <!-- Example Rows -->
+                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">admin@example.com</td>
+                                    <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">Updated user permissions</td>
+                                    <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">2024-02-20 14:32:10</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}

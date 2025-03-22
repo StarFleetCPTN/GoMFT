@@ -1,0 +1,457 @@
+package components
+
+import (
+	"fmt"
+	"context"
+)
+
+type NotificationService struct {
+	ID              uint
+	Name            string
+	Type            string // "email", "slack", "webhook", etc.
+	IsEnabled       bool
+	Config          map[string]string
+	Description     string
+	EventTriggers   []string
+	PayloadTemplate string
+	SecretKey       string
+	RetryPolicy     string
+	SuccessCount    int
+	FailureCount    int
+}
+
+type SettingsData struct {
+	NotificationServices []NotificationService
+	ErrorMessage         string
+	SuccessMessage       string
+}
+
+templ Settings(ctx context.Context, data SettingsData) {
+	@LayoutWithContext("Application Settings", ctx) {
+		<div class="p-4 md:p-6 2xl:p-10">
+			<div class="mb-6">
+				<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+					<i class="fas fa-cog w-6 h-6 mr-2 text-blue-500"></i>
+					Application Settings
+				</h1>
+				<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+					Configure global settings for your GoMFT instance.
+				</p>
+			</div>
+
+			<!-- Success Message -->
+			if data.SuccessMessage != "" {
+				<div class="p-4 mb-6 text-sm text-green-800 rounded-lg bg-green-50 dark:bg-green-900 dark:text-green-400" role="alert">
+					<div class="flex items-center">
+						<i class="fas fa-check-circle mr-2"></i>
+						<span>{ data.SuccessMessage }</span>
+					</div>
+				</div>
+			}
+
+			<!-- Error Message -->
+			if data.ErrorMessage != "" {
+				<div class="p-4 mb-6 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-red-900 dark:text-red-400" role="alert">
+					<div class="flex items-center">
+						<i class="fas fa-exclamation-circle mr-2"></i>
+						<span>{ data.ErrorMessage }</span>
+					</div>
+				</div>
+			}
+
+			<!-- Tabs -->
+			<div class="mb-4 border-b border-gray-200 dark:border-gray-700">
+				<ul class="flex flex-wrap -mb-px text-sm font-medium text-center" id="settingsTabs" role="tablist">
+					<li class="mr-2" role="presentation">
+						<button class="inline-block p-4 border-b-2 rounded-t-lg border-blue-600 text-blue-600 dark:text-blue-500 dark:border-blue-500" id="notifications-tab" data-tabs-target="#notifications" type="button" role="tab" aria-controls="notifications" aria-selected="true">
+							<i class="fas fa-bell mr-2"></i>Notifications
+						</button>
+					</li>
+					<li class="mr-2" role="presentation">
+						<button class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:border-gray-300 hover:text-gray-600 dark:hover:text-gray-300" id="general-tab" data-tabs-target="#general" type="button" role="tab" aria-controls="general" aria-selected="false">
+							<i class="fas fa-sliders-h mr-2"></i>General
+						</button>
+					</li>
+					<li role="presentation">
+						<button class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:border-gray-300 hover:text-gray-600 dark:hover:text-gray-300" id="security-tab" data-tabs-target="#security" type="button" role="tab" aria-controls="security" aria-selected="false">
+							<i class="fas fa-shield-alt mr-2"></i>Security
+						</button>
+					</li>
+				</ul>
+			</div>
+
+			<!-- Tab Content -->
+			<div id="settingsTabContent">
+				<!-- Notifications Tab -->
+				<div class="block p-4 rounded-lg bg-white dark:bg-gray-800" id="notifications" role="tabpanel" aria-labelledby="notifications-tab">
+					<div class="flex justify-between items-center mb-4">
+						<h2 class="text-xl font-semibold text-gray-900 dark:text-white">Notification Services</h2>
+						<button 
+							type="button" 
+							class="px-4 py-2 text-sm font-medium text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 rounded-lg dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
+							data-modal-target="add-notification-modal"
+							data-modal-toggle="add-notification-modal"
+						>
+							<i class="fas fa-plus mr-2"></i>Add Service
+						</button>
+					</div>
+
+					if len(data.NotificationServices) == 0 {
+						<div class="text-center py-8">
+							<div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900 mb-4">
+								<i class="fas fa-bell text-2xl text-blue-600 dark:text-blue-400"></i>
+							</div>
+							<h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">No notification services configured</h3>
+							<p class="text-gray-500 dark:text-gray-400 mb-4">Add your first notification service to start receiving alerts about jobs and system events.</p>
+							<button
+								type="button"
+								class="px-4 py-2 text-sm font-medium text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 rounded-lg dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
+								data-modal-target="add-notification-modal"
+								data-modal-toggle="add-notification-modal"
+							>
+								<i class="fas fa-plus mr-2"></i>Add Notification Service
+							</button>
+						</div>
+					} else {
+						<div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+							for _, service := range data.NotificationServices {
+								<div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+									<div class="flex items-center justify-between mb-3">
+										<div class="flex items-center">
+											if service.Type == "email" {
+												<div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 dark:bg-blue-900 dark:text-blue-400">
+													<i class="fas fa-envelope"></i>
+												</div>
+											} else if service.Type == "slack" {
+												<div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 dark:bg-purple-900 dark:text-purple-400">
+													<i class="fab fa-slack"></i>
+												</div>
+											} else if service.Type == "webhook" {
+												<div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 dark:bg-green-900 dark:text-green-400">
+													<i class="fas fa-code"></i>
+												</div>
+											} else {
+												<div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+													<i class="fas fa-bell"></i>
+												</div>
+											}
+											<h3 class="ml-3 text-lg font-semibold text-gray-900 dark:text-white">{ service.Name }</h3>
+										</div>
+										<div class="flex">
+											<div class="inline-flex">
+												<button 
+													type="button" 
+													class="text-gray-500 bg-white focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 rounded-lg text-sm p-2 mr-1 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white dark:focus:ring-gray-700"
+													data-modal-target="edit-notification-modal"
+													data-modal-toggle="edit-notification-modal"
+													data-service-id={ fmt.Sprint(service.ID) }
+												>
+													<i class="fas fa-edit"></i>
+												</button>
+												<button 
+													type="button" 
+													class="text-red-500 bg-white focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 rounded-lg text-sm p-2 dark:bg-gray-800 dark:text-red-400 dark:hover:bg-gray-700 dark:hover:text-white dark:focus:ring-gray-700"
+													hx-delete={ "/settings/notifications/" + fmt.Sprint(service.ID) }
+													hx-confirm="Are you sure you want to delete this notification service? This cannot be undone."
+													hx-target="body"
+												>
+													<i class="fas fa-trash-alt"></i>
+												</button>
+											</div>
+										</div>
+									</div>
+									<div class="flex items-center mb-2">
+										<span class={ "px-2 py-1 text-xs font-medium rounded-full", 
+											templ.KV("bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300", service.IsEnabled),
+											templ.KV("bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300", !service.IsEnabled) }>
+											if service.IsEnabled {
+												Active
+											} else {
+												Disabled
+											}
+										</span>
+										<span class="ml-2 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 rounded-full">
+											{ service.Type }
+										</span>
+                                        if len(service.EventTriggers) > 0 && service.Type == "webhook" {
+                                            <span class="ml-2 px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300 rounded-full">
+                                                { fmt.Sprintf("%d triggers", len(service.EventTriggers)) }
+                                            </span>
+                                        }
+                                        if service.SuccessCount > 0 || service.FailureCount > 0 {
+                                            <span class="ml-2 px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 rounded-full">
+                                                { fmt.Sprintf("%d/%d", service.SuccessCount, service.SuccessCount + service.FailureCount) }
+                                            </span>
+                                        }
+									</div>
+									<p class="text-sm text-gray-500 dark:text-gray-400 mb-2">{ service.Description }</p>
+                                    if service.Type == "webhook" {
+                                        <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                                            <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Webhook Configuration</h4>
+                                            <div class="grid grid-cols-2 gap-2">
+                                                <div class="text-xs">
+                                                    <span class="text-gray-500 dark:text-gray-400">Events:</span>
+                                                    <span class="ml-1 text-gray-900 dark:text-gray-300">
+                                                        if len(service.EventTriggers) == 0 {
+                                                            None
+                                                        } else {
+                                                            for i, trigger := range service.EventTriggers {
+                                                                if i > 0 {
+                                                                    <span>, </span>
+                                                                }
+                                                                { trigger }
+                                                            }
+                                                        }
+                                                    </span>
+                                                </div>
+                                                <div class="text-xs">
+                                                    <span class="text-gray-500 dark:text-gray-400">Retry:</span>
+                                                    <span class="ml-1 text-gray-900 dark:text-gray-300">
+                                                        if service.RetryPolicy == "" {
+                                                            Default
+                                                        } else {
+                                                            { service.RetryPolicy }
+                                                        }
+                                                    </span>
+                                                </div>
+                                                <div class="text-xs">
+                                                    <span class="text-gray-500 dark:text-gray-400">Secret Key:</span>
+                                                    <span class="ml-1 text-gray-900 dark:text-gray-300">
+                                                        if service.SecretKey == "" {
+                                                            None
+                                                        } else {
+                                                            <i class="fas fa-check-circle text-green-500"></i> Configured
+                                                        }
+                                                    </span>
+                                                </div>
+                                                <div class="text-xs">
+                                                    <span class="text-gray-500 dark:text-gray-400">Custom Payload:</span>
+                                                    <span class="ml-1 text-gray-900 dark:text-gray-300">
+                                                        if service.PayloadTemplate == "" {
+                                                            Default
+                                                        } else {
+                                                            <i class="fas fa-check-circle text-green-500"></i> Custom
+                                                        }
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+								</div>
+							}
+						</div>
+					}
+				</div>
+
+				<!-- General Tab -->
+				<div class="hidden p-4 rounded-lg bg-white dark:bg-gray-800" id="general" role="tabpanel" aria-labelledby="general-tab">
+					<h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">General Settings</h2>
+					<form class="space-y-6" action="/settings/general" method="POST">
+						<div class="grid gap-6 mb-6 md:grid-cols-2">
+							<div>
+								<label for="app_name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Application Name</label>
+								<input type="text" id="app_name" name="app_name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" value="GoMFT" />
+							</div>
+							<div>
+								<label for="base_url" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Base URL</label>
+								<input type="url" id="base_url" name="base_url" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" value="http://localhost:8080" />
+							</div>
+						</div>
+						<button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Save Settings</button>
+					</form>
+				</div>
+
+				<!-- Security Tab -->
+				<div class="hidden p-4 rounded-lg bg-white dark:bg-gray-800" id="security" role="tabpanel" aria-labelledby="security-tab">
+					<h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Security Settings</h2>
+					<form class="space-y-6" action="/settings/security" method="POST">
+						<div class="grid gap-6 mb-6 md:grid-cols-2">
+							<div>
+								<label for="session_timeout" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Session Timeout (minutes)</label>
+								<input type="number" id="session_timeout" name="session_timeout" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" value="60" min="5" max="1440" />
+							</div>
+							<div>
+								<label for="password_policy" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Password Policy</label>
+								<select id="password_policy" name="password_policy" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+									<option value="standard">Standard (8+ chars, 1 uppercase, 1 number)</option>
+									<option value="strong">Strong (12+ chars, uppercase, number, symbol)</option>
+									<option value="very_strong">Very Strong (16+ chars, uppercase, number, symbol)</option>
+								</select>
+							</div>
+						</div>
+						<div class="flex items-start mb-6">
+							<div class="flex items-center h-5">
+								<input id="enable_2fa" name="enable_2fa" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800" checked />
+							</div>
+							<div class="ml-3 text-sm">
+								<label for="enable_2fa" class="font-medium text-gray-900 dark:text-white">Enable Two-Factor Authentication</label>
+								<p class="text-xs font-normal text-gray-500 dark:text-gray-400">Require 2FA for all admin users</p>
+							</div>
+						</div>
+						<button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Save Settings</button>
+					</form>
+				</div>
+			</div>
+		</div>
+
+		<!-- Add Notification Service Modal -->
+		<div id="add-notification-modal" tabindex="-1" aria-hidden="true" class="fixed top-0 left-0 right-0 z-50 hidden w-full p-4 overflow-x-hidden overflow-y-auto md:inset-0 h-[calc(100%-1rem)] max-h-full">
+			<div class="relative w-full max-w-2xl max-h-full">
+				<div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
+					<div class="flex items-start justify-between p-4 border-b rounded-t dark:border-gray-600">
+						<h3 class="text-xl font-semibold text-gray-900 dark:text-white">
+							Add Notification Service
+						</h3>
+						<button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ml-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white" data-modal-hide="add-notification-modal">
+							<i class="fas fa-times"></i>
+							<span class="sr-only">Close modal</span>
+						</button>
+					</div>
+					<div class="p-6 space-y-6">
+						<form id="add-notification-form" hx-post="/settings/notifications" hx-target="body">
+							<div class="mb-6">
+								<label for="notification_type" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Notification Type</label>
+								<select id="notification_type" name="type" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+									<option value="">Select a type</option>
+									<option value="email">Email</option>
+									<option value="slack">Slack</option>
+									<option value="webhook">Webhook</option>
+								</select>
+							</div>
+							<div class="mb-6">
+								<label for="notification_name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Name</label>
+								<input type="text" id="notification_name" name="name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="My Email Notification" required />
+							</div>
+							<div class="mb-6">
+								<label for="notification_description" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Description</label>
+								<textarea id="notification_description" name="description" rows="3" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Description for this notification service"></textarea>
+							</div>
+							
+							<!-- Dynamic fields based on notification type -->
+							<div id="email_fields" class="hidden notification-fields">
+								<div class="mb-6">
+									<label for="smtp_host" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">SMTP Host</label>
+									<input type="text" id="smtp_host" name="smtp_host" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="smtp.example.com" />
+								</div>
+								<div class="mb-6">
+									<label for="smtp_port" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">SMTP Port</label>
+									<input type="number" id="smtp_port" name="smtp_port" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="587" />
+								</div>
+								<div class="mb-6">
+									<label for="smtp_username" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">SMTP Username</label>
+									<input type="text" id="smtp_username" name="smtp_username" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="user@example.com" />
+								</div>
+								<div class="mb-6">
+									<label for="smtp_password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">SMTP Password</label>
+									<input type="password" id="smtp_password" name="smtp_password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
+								</div>
+								<div class="mb-6">
+									<label for="from_email" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">From Email</label>
+									<input type="email" id="from_email" name="from_email" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="notifications@example.com" />
+								</div>
+							</div>
+							
+							<div id="slack_fields" class="hidden notification-fields">
+								<div class="mb-6">
+									<label for="webhook_url" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Webhook URL</label>
+									<input type="url" id="webhook_url" name="webhook_url" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="https://hooks.slack.com/services/..." />
+								</div>
+								<div class="mb-6">
+									<label for="channel" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Channel</label>
+									<input type="text" id="channel" name="channel" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="#general" />
+								</div>
+							</div>
+							
+							<div id="webhook_fields" class="hidden notification-fields">
+								<div class="mb-6">
+									<label for="webhook_url" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Webhook URL</label>
+									<input type="url" id="webhook_url" name="webhook_url" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="https://api.example.com/webhook" />
+								</div>
+								<div class="mb-6">
+									<label for="method" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">HTTP Method</label>
+									<select id="method" name="method" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+										<option value="POST">POST</option>
+										<option value="PUT">PUT</option>
+									</select>
+								</div>
+								<div class="mb-6">
+									<label for="headers" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Headers (JSON)</label>
+									<textarea id="headers" name="headers" rows="3" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder='{"Content-Type": "application/json", "Authorization": "Bearer token"}'></textarea>
+								</div>
+                                <div class="mb-6">
+                                    <label for="payload_template" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Payload Template (JSON)</label>
+                                    <textarea id="payload_template" name="payload_template" rows="5" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder='{"job_id": "{{job.id}}", "status": "{{job.status}}", "message": "{{job.message}}", "timestamp": "{{job.timestamp}}"}'></textarea>
+                                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Use {`job.field`} as placeholders for job data</p>
+                                </div>
+                                <div class="mb-6">
+                                    <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Event Triggers</label>
+                                    <div class="space-y-2">
+                                        <div class="flex items-center">
+                                            <input id="trigger_job_start" name="trigger_job_start" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800" checked />
+                                            <label for="trigger_job_start" class="ml-2 text-sm font-medium text-gray-900 dark:text-white">Job Start</label>
+                                        </div>
+                                        <div class="flex items-center">
+                                            <input id="trigger_job_complete" name="trigger_job_complete" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800" checked />
+                                            <label for="trigger_job_complete" class="ml-2 text-sm font-medium text-gray-900 dark:text-white">Job Complete</label>
+                                        </div>
+                                        <div class="flex items-center">
+                                            <input id="trigger_job_error" name="trigger_job_error" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800" checked />
+                                            <label for="trigger_job_error" class="ml-2 text-sm font-medium text-gray-900 dark:text-white">Job Error</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mb-6">
+                                    <label for="secret_key" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Secret Key (for signature verification)</label>
+                                    <input type="text" id="secret_key" name="secret_key" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Optional signature verification key" />
+                                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">If provided, all webhooks will include an X-GoMFT-Signature header</p>
+                                </div>
+                                <div class="mb-6">
+                                    <label for="retry_policy" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Retry Policy</label>
+                                    <select id="retry_policy" name="retry_policy" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                                        <option value="none">No retries</option>
+                                        <option value="simple" selected>Simple (3 retries)</option>
+                                        <option value="exponential">Exponential backoff</option>
+                                    </select>
+                                </div>
+							</div>
+							
+							<div class="flex items-start mb-6">
+								<div class="flex items-center h-5">
+									<input id="is_enabled" name="is_enabled" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800" checked />
+								</div>
+								<div class="ml-3 text-sm">
+									<label for="is_enabled" class="font-medium text-gray-900 dark:text-white">Enable this notification service</label>
+								</div>
+							</div>
+						</form>
+					</div>
+					<div class="flex items-center justify-end p-6 space-x-2 border-t border-gray-200 rounded-b dark:border-gray-600">
+						<button data-modal-hide="add-notification-modal" type="button" class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600">Cancel</button>
+						<button form="add-notification-form" type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Add Service</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	}
+}
+
+script toggleNotificationFields() {
+	document.addEventListener('DOMContentLoaded', function() {
+		const typeSelector = document.getElementById('notification_type');
+		const allFields = document.querySelectorAll('.notification-fields');
+		
+		typeSelector.addEventListener('change', function() {
+			// Hide all fields first
+			allFields.forEach(field => field.classList.add('hidden'));
+			
+			// Show the selected type's fields
+			const selectedType = this.value;
+			if (selectedType) {
+				const fieldsToShow = document.getElementById(`${selectedType}_fields`);
+				if (fieldsToShow) {
+					fieldsToShow.classList.remove('hidden');
+				}
+			}
+		});
+	});
+} 

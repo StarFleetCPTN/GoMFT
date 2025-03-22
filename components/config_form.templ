@@ -7,7 +7,6 @@ import (
 	"github.com/starfleetcptn/gomft/components/providers/source"
 	"github.com/starfleetcptn/gomft/components/providers/destination"
 	"github.com/starfleetcptn/gomft/components/providers/common"
-	"strconv"
 )
 
 type ConfigFormData struct {
@@ -47,7 +46,7 @@ func getInitialData(config *db.TransferConfig) string {
 	sourceTeamDrive := ""
 	// Google Photos source fields
 	sourceReadOnly := false
-	sourceStartYear, _ := strconv.Atoi(getCurrentYear())
+	sourceStartYear := 2025
 	sourceIncludeArchived := false
 	
 	filePattern := ""
@@ -75,7 +74,7 @@ func getInitialData(config *db.TransferConfig) string {
 	destTeamDrive := ""
 	// Google Photos destination fields
 	destReadOnly := false
-	destStartYear, _ := strconv.Atoi(getCurrentYear()) // Default to current year int
+	destStartYear := 2025
 	destIncludeArchived := false
 	
 	archivePath := ""
@@ -117,7 +116,7 @@ func getInitialData(config *db.TransferConfig) string {
 		if config.SourceReadOnly != nil {
 			sourceReadOnly = *config.SourceReadOnly
 		}
-		sourceStartYear = config.SourceStartYear
+		// sourceStartYear = config.SourceStartYear
 		if config.SourceIncludeArchived != nil {
 			sourceIncludeArchived = *config.SourceIncludeArchived
 		}
@@ -152,7 +151,7 @@ func getInitialData(config *db.TransferConfig) string {
 		if config.DestReadOnly != nil {
 			destReadOnly = *config.DestReadOnly
 		}
-		destStartYear = config.DestStartYear
+		// destStartYear = config.DestStartYear
 		if config.DestIncludeArchived != nil {
 			destIncludeArchived = *config.DestIncludeArchived
 		}
@@ -280,166 +279,240 @@ func getInitialData(config *db.TransferConfig) string {
 
 templ ConfigForm(ctx context.Context, data ConfigFormData) {
 	@LayoutWithContext(getConfigFormTitle(data.IsNew), ctx) {
-	<div class="flex flex-col items-center justify-center min-h-screen bg-secondary-50 dark:bg-secondary-900 py-12 px-4 sm:px-6 lg:px-8">
-		<div class="max-w-3xl w-full bg-white dark:bg-secondary-800 rounded-lg shadow-md p-8 border border-secondary-200 dark:border-secondary-700">
-			<div class="flex justify-center mb-6">
-				<div class="p-4 bg-primary-100 dark:bg-primary-900 rounded-full">
-					<i class="fas fa-cog text-primary-500 dark:text-primary-400 text-2xl"></i>
+		<!-- Main Content -->
+		<section class="py-8 px-4">
+			<div class="mx-auto max-w-3xl">
+				<div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-6 md:p-8">
+					<!-- Form Header -->
+					<div class="mb-8 text-center">
+						<div class="flex justify-center mb-4">
+							<span class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 dark:bg-blue-900">
+								<i class="fas fa-cog text-blue-600 dark:text-blue-300 text-2xl"></i>
+							</span>
+						</div>
+						<h1 class="text-2xl font-bold text-gray-900 dark:text-white">
+							{ getConfigFormTitle(data.IsNew) }
+						</h1>
+						<p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+							Configure your file transfer settings using the form below
+						</p>
+					</div>
+
+					<!-- Main Form -->
+					<form 
+						class="space-y-6" 
+						if data.IsNew {
+							hx-post="/configs"
+						} else {
+							hx-post={ fmt.Sprintf("/configs/%d", data.Config.ID) }
+						}
+						hx-target="body"
+						hx-redirect="/configs"
+						hx-boost="true"
+						x-data={ getInitialData(data.Config) }
+						x-init="$nextTick(() => { 
+							// Ensure initial form state displays correctly on load
+							sourceType = sourceType || 'local';
+							destinationType = destinationType || 'local';
+							sourcePort = sourcePort || 22;
+							destPort = destPort || 22;
+						})"
+						>
+						
+						<!-- Configuration Details Section -->
+						<div class="p-4 mb-4 bg-blue-50 border border-blue-100 rounded-lg dark:bg-blue-900/20 dark:border-blue-900">
+							<div class="flex items-center mb-2">
+								<i class="fas fa-info-circle text-blue-600 dark:text-blue-400 mr-2"></i>
+								<h3 class="text-lg font-medium text-blue-600 dark:text-blue-400">Configuration Details</h3>
+							</div>
+							<p class="text-sm text-blue-700 dark:text-blue-300">
+								Give your configuration a descriptive name and set up the source and destination locations.
+							</p>
+						</div>
+							
+						<!-- Name field -->
+						<div class="mb-2">
+							<label for="name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Configuration Name</label>
+							<input 
+								type="text" 
+								id="name" 
+								name="name" 
+								x-model="name" 
+								required 
+								class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
+								placeholder="My Transfer Configuration"
+							/>
+							<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Choose a descriptive name to identify this configuration.</p>
+						</div>
+						
+						<!-- Source Configuration Section -->
+						<div class="p-5 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+							<h3 class="mb-4 text-xl font-bold text-gray-900 dark:text-white flex items-center">
+								<i class="fas fa-upload mr-2 text-blue-500 dark:text-blue-400"></i>Source Configuration
+							</h3>
+							
+							<!-- Source selection -->
+							@common.SourceSelection()
+							
+							<!-- Source type specific forms -->
+							<template x-if="sourceType === 'local'">
+								@source.LocalSourceForm()
+							</template>
+							
+							<template x-if="sourceType === 'sftp'">
+								@source.SFTPSourceForm()
+							</template>
+
+							<template x-if="sourceType === 'ftp'">
+								@source.FTPSourceForm()
+							</template>
+							
+							<template x-if="sourceType === 's3'">
+								@source.S3SourceForm()
+							</template>
+							
+							<template x-if="sourceType === 'minio'">
+								@source.MinIOSourceForm()
+							</template>
+
+							<template x-if="sourceType === 'smb'">
+								@source.SMBSourceForm()
+							</template>
+							
+							<template x-if="sourceType === 'webdav'">
+								@source.WebDAVSourceForm()
+							</template>
+							
+							<template x-if="sourceType === 'nextcloud'">
+								@source.NextCloudSourceForm()
+							</template>
+
+							<template x-if="sourceType === 'gdrive'">
+								@source.GoogleDriveSourceForm()
+							</template>
+							
+							<template x-if="sourceType === 'gphotos'">
+								@source.GooglePhotosSourceForm()
+							</template>
+						</div>
+						
+						<!-- File Pattern Section -->
+						<div class="p-5 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+							<h3 class="mb-4 text-xl font-bold text-gray-900 dark:text-white flex items-center">
+								<i class="fas fa-filter mr-2 text-blue-500 dark:text-blue-400"></i>File Patterns
+							</h3>
+							
+							<!-- File pattern fields -->
+							@common.FilePatternFields()
+						</div>
+						
+						<!-- Destination Configuration Section -->
+						<div class="p-5 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+							<h3 class="mb-4 text-xl font-bold text-gray-900 dark:text-white flex items-center">
+								<i class="fas fa-download mr-2 text-blue-500 dark:text-blue-400"></i>Destination Configuration
+							</h3>
+							
+							<!-- Destination selection -->
+							@common.DestinationSelection()
+							
+							<!-- Destination type specific forms -->
+							<template x-if="destinationType === 'local'">
+								@destination.LocalDestinationForm()
+							</template>
+							
+							<template x-if="destinationType === 'sftp'">
+								@destination.SFTPDestinationForm()
+							</template>
+
+							<template x-if="destinationType === 'ftp'">
+								@destination.FTPDestinationForm()
+							</template>
+							
+							<template x-if="destinationType === 's3'">
+								@destination.S3DestinationForm()
+							</template>
+							
+							<template x-if="destinationType === 'minio'">
+								@destination.MinIODestinationForm()
+							</template>
+							
+							<template x-if="destinationType === 'smb'">
+								@destination.SMBDestinationForm()
+							</template>	
+
+							<template x-if="destinationType === 'nextcloud'">
+								@destination.NextCloudDestinationForm()
+							</template>
+
+							<template x-if="destinationType === 'webdav'">
+								@destination.WebDAVDestinationForm()
+							</template>
+
+							<template x-if="destinationType === 'gdrive'">
+								@destination.GoogleDriveDestinationForm()
+							</template>
+							
+							<template x-if="destinationType === 'gphotos'">
+								@destination.GooglePhotosDestinationForm()
+							</template>
+						</div>
+						
+						<!-- Advanced Options Section -->
+						<div class="p-5 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+							<h3 class="mb-4 text-xl font-bold text-gray-900 dark:text-white flex items-center">
+								<i class="fas fa-cogs mr-2 text-blue-500 dark:text-blue-400"></i>Advanced Options
+							</h3>
+							
+							<!-- Archive options -->
+							<div class="mb-6">
+								<h4 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Archive Settings</h4>
+								@common.ArchiveOptions()
+							</div>
+							
+							<!-- Rclone flags -->
+							<div>
+								<h4 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Rclone Configuration</h4>
+								@common.RcloneFlags()
+							</div>
+						</div>
+						
+						<!-- Form Actions -->
+						<div class="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
+							<a href="/configs" 
+								class="text-white bg-gray-500 hover:bg-gray-600 focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-gray-600 dark:hover:bg-gray-700 dark:focus:ring-gray-800">
+								<i class="fas fa-arrow-left mr-2"></i>Cancel
+							</a>
+							<button 
+								type="submit" 
+								class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+								<span class="flex items-center">
+									<i class="fas fa-save mr-2"></i>
+									if data.IsNew {
+										Create Configuration
+									} else {
+										Save Changes
+									}
+								</span>
+							</button>
+						</div>
+					</form>
+				</div>
+				
+				<!-- Help Card -->
+				<div class="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+					<div class="flex">
+						<div class="flex-shrink-0">
+							<i class="fas fa-lightbulb text-yellow-400 text-xl"></i>
+						</div>
+						<div class="ml-4">
+							<h5 class="text-sm font-medium text-gray-900 dark:text-white">Configuration Tips</h5>
+							<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+								Configure your file transfer settings carefully for optimal performance. Use file patterns to filter which files are transferred, and consider using archive options to keep track of processed files.
+							</p>
+						</div>
+					</div>
 				</div>
 			</div>
-			
-			<h1 class="mt-2 text-center text-3xl font-extrabold text-secondary-900 dark:text-secondary-100">
-				{ getConfigFormTitle(data.IsNew) }
-			</h1>
-			<p class="mt-2 text-center text-sm text-secondary-600 dark:text-secondary-400">
-				Set up your file transfer configuration
-			</p>
-			
-			<form 
-				class="space-y-8"
-				if data.IsNew {
-					hx-post="/configs"
-				} else {
-					hx-post={ fmt.Sprintf("/configs/%d", data.Config.ID) }
-				}
-				hx-target="body"
-				hx-redirect="/configs"
-				hx-boost="true"
-				x-data={ getInitialData(data.Config) }
-				x-init="$nextTick(() => { 
-					// Ensure initial form state displays correctly on load
-					sourceType = sourceType || 'local';
-					destinationType = destinationType || 'local';
-					sourcePort = sourcePort || 22;
-					destPort = destPort || 22;
-				})"
-				>
-				
-				<!-- Name field -->
-				@common.NameField()
-				
-				<!-- Source section -->
-				@common.SourceSelection()
-				
-				<!-- Source type specific forms -->
-				<template x-if="sourceType === 'local'">
-					@source.LocalSourceForm()
-				</template>
-				
-				<template x-if="sourceType === 'sftp'">
-					@source.SFTPSourceForm()
-				</template>
-
-				<template x-if="sourceType === 'ftp'">
-					@source.FTPSourceForm()
-				</template>
-				
-				<template x-if="sourceType === 's3'">
-					@source.S3SourceForm()
-				</template>
-				
-				<template x-if="sourceType === 'minio'">
-					@source.MinIOSourceForm()
-				</template>
-
-				<template x-if="sourceType === 'smb'">
-					@source.SMBSourceForm()
-				</template>
-				
-				<template x-if="sourceType === 'webdav'">
-					@source.WebDAVSourceForm()
-				</template>
-				
-				<template x-if="sourceType === 'nextcloud'">
-					@source.NextCloudSourceForm()
-				</template>
-
-				<template x-if="sourceType === 'gdrive'">
-					@source.GoogleDriveSourceForm()
-				</template>
-				
-				<template x-if="sourceType === 'gphotos'">
-					@source.GooglePhotosSourceForm()
-				</template>
-				
-				<!-- File pattern fields -->
-				@common.FilePatternFields()
-				
-				<!-- Destination section -->
-				@common.DestinationSelection()
-				
-				<!-- Destination type specific forms -->
-				<template x-if="destinationType === 'local'">
-					@destination.LocalDestinationForm()
-				</template>
-				
-				<template x-if="destinationType === 'sftp'">
-					@destination.SFTPDestinationForm()
-				</template>
-
-				<template x-if="destinationType === 'ftp'">
-					@destination.FTPDestinationForm()
-				</template>
-				
-				<template x-if="destinationType === 's3'">
-					@destination.S3DestinationForm()
-				</template>
-				
-				<template x-if="destinationType === 'minio'">
-					@destination.MinIODestinationForm()
-				</template>
-				
-				<template x-if="destinationType === 'smb'">
-					@destination.SMBDestinationForm()
-				</template>	
-
-				<template x-if="destinationType === 'nextcloud'">
-					@destination.NextCloudDestinationForm()
-				</template>
-
-				<template x-if="destinationType === 'webdav'">
-					@destination.WebDAVDestinationForm()
-				</template>
-
-				<template x-if="destinationType === 'gdrive'">
-					@destination.GoogleDriveDestinationForm()
-				</template>
-				
-				<template x-if="destinationType === 'gphotos'">
-					@destination.GooglePhotosDestinationForm()
-				</template>
-				
-				<!-- Archive options -->
-				@common.ArchiveOptions()
-				
-				<!-- Rclone flags -->
-				@common.RcloneFlags()
-				
-				<!-- Form actions -->
-				<div class="flex justify-end mt-8">
-					<a href="/configs" 
-						class="btn-secondary mr-4">
-						Cancel
-					</a>
-					<button 
-						type="submit" 
-						class="btn-primary">
-						<span class="flex items-center">
-							<i class="fas fa-save mr-2"></i>
-							if data.IsNew {
-								Create Configuration
-							} else {
-								Save Changes
-							}
-						</span>
-					</button>
-				</div>
-			</form>
-		</div>
-		
-		<div class="mt-6 text-center text-xs text-secondary-500 dark:text-secondary-400">
-			<p>Configure your file transfer settings carefully for optimal performance</p>
-		</div>
-	</div>
+		</section>
 	}
 } 

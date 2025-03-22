@@ -5,54 +5,52 @@ import (
 	"github.com/starfleetcptn/gomft/internal/db"
 )
 
-// Dialog component for 2FA disable confirmation
+// Dialog component for 2FA disable confirmation with Flowbite styling
 templ TwoFactorDisableDialog() {
-	<div id="disable-2fa-dialog" class="hidden fixed inset-0 bg-secondary-900/50 dark:bg-secondary-900/80 backdrop-blur-sm z-50 flex items-center justify-center">
-		<div class="bg-white dark:bg-secondary-800 rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden">
-			<div class="px-6 pt-5 pb-3 text-center">
-				<div class="flex justify-center mb-2">
-					<i class="fas fa-shield-alt text-yellow-400 text-3xl"></i>
-				</div>
-				<h3 class="text-xl font-medium text-secondary-900 dark:text-secondary-100">
-					Disable Two-Factor Authentication
-				</h3>
-			</div>
-			<div class="px-6 py-4">
-				<p class="text-secondary-700 dark:text-secondary-300 mb-4">
-					Are you sure you want to disable two-factor authentication? This will make your account less secure.
-				</p>
-				<div class="space-y-4">
-					<div>
-						<label for="current-password-2fa" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
+	<div id="disable-2fa-dialog" tabindex="-1" aria-hidden="true" class="hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full inset-0 overflow-y-auto overflow-x-hidden bg-gray-900/50 dark:bg-gray-900/80 backdrop-blur-sm">
+		<div class="relative p-4 w-full max-w-md max-h-full mx-auto">
+			<div class="relative bg-white rounded-lg shadow-xl dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+				<div class="p-5 text-center">
+					<div class="h-14 w-14 rounded-full bg-yellow-100 dark:bg-yellow-900 p-2 flex items-center justify-center mx-auto mb-5">
+						<i class="fas fa-shield-alt text-yellow-500 dark:text-yellow-300 text-xl"></i>
+					</div>
+					<h3 class="mb-5 text-xl font-semibold text-gray-900 dark:text-white">
+						Disable Two-Factor Authentication
+					</h3>
+					<p class="mb-6 text-gray-500 dark:text-gray-400">
+						Are you sure you want to disable two-factor authentication? This will make your account less secure.
+					</p>
+					<div class="mb-6">
+						<label for="current-password-2fa" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
 							<i class="fas fa-lock mr-1"></i> Current Password
 						</label>
 						<div class="relative">
-							<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-								<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+							<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+								<i class="fas fa-key text-gray-400 dark:text-gray-500"></i>
 							</div>
 							<input 
 								type="password" 
 								id="current-password-2fa" 
 								name="current_password"
-								class="form-input pl-10 w-full" 
+								class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
 								placeholder="Enter your current password"
 								required/>
 						</div>
 					</div>
-					<div id="disable-2fa-result"></div>
+					<div id="disable-2fa-result" class="mb-5"></div>
+					<div class="flex justify-center space-x-4">
+						<button 
+							type="button" 
+							class="text-white bg-red-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 inline-flex items-center dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-800"
+							onclick="submitDisable2FA()">
+							<i class="fas fa-times mr-2"></i>
+							Disable 2FA
+						</button>
+						<button type="button" class="py-2.5 px-5 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700" onclick="hideDisable2FADialog()">
+							Cancel
+						</button>
+					</div>
 				</div>
-			</div>
-			<div class="px-6 py-4 flex justify-end space-x-3">
-				<button type="button" class="btn-secondary" onclick="hideDisable2FADialog()">
-					Cancel
-				</button>
-				<button 
-					type="button" 
-					class="btn-danger"
-					onclick="submitDisable2FA()">
-					<i class="fas fa-times mr-1"></i>
-					Disable 2FA
-				</button>
 			</div>
 		</div>
 	</div>
@@ -68,6 +66,7 @@ templ Profile(ctx context.Context, user db.User) {
 				// Global functions for dialog control
 				window.hideDisable2FADialog = function() {
 					document.getElementById('disable-2fa-dialog').classList.add('hidden');
+					document.getElementById('disable-2fa-dialog').classList.remove('flex');
 					document.getElementById('current-password-2fa').value = '';
 					document.getElementById('disable-2fa-result').innerHTML = '';
 				};
@@ -75,14 +74,18 @@ templ Profile(ctx context.Context, user db.User) {
 				window.showDisable2FADialog = function() {
 					console.log('Showing 2FA disable dialog');
 					document.getElementById('disable-2fa-dialog').classList.remove('hidden');
+					document.getElementById('disable-2fa-dialog').classList.add('flex');
 				};
 
 				window.submitDisable2FA = function() {
 					const password = document.getElementById('current-password-2fa').value;
 					if (!password) {
 						document.getElementById('disable-2fa-result').innerHTML = `
-							<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded" role="alert">
-								<span class="block sm:inline">Current password is required</span>
+							<div class="p-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-red-900 dark:text-red-400" role="alert">
+								<div class="flex items-center">
+									<i class="fas fa-exclamation-circle mr-2"></i>
+									<span>Current password is required</span>
+								</div>
 							</div>`;
 						return;
 					}
@@ -111,64 +114,88 @@ templ Profile(ctx context.Context, user db.User) {
 		</script>
 
 		@TwoFactorDisableDialog()
-		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-			<div class="flex items-center justify-between mb-6">
-				<h1 class="text-3xl font-bold text-secondary-900 dark:text-secondary-100">
-					<i class="fas fa-user-circle mr-2 text-primary-600 dark:text-primary-400"></i>
+		<div class="p-4 md:p-6 2xl:p-10">
+			<!-- Profile Header -->
+			<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+				<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+					<i class="fas fa-user-circle w-6 h-6 mr-2 text-blue-500"></i>
 					Profile
 				</h1>
 			</div>
-
+		
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
 				<!-- Profile Information Card -->
-				<div class="card">
-					<div class="card-header">
-						<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100">
-							<i class="fas fa-id-card mr-2 text-primary-500"></i>
-							Profile Information
-						</h3>
-						<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">Personal details and application settings.</p>
+				<div class="bg-white border border-gray-200 rounded-xl shadow-sm dark:border-gray-700 dark:bg-gray-800 transition-all duration-200 hover:shadow-md">
+					<div class="p-5 border-b border-gray-200 dark:border-gray-700">
+						<div class="flex items-center space-x-3">
+							<div class="h-10 w-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+								<i class="fas fa-id-card text-blue-600 dark:text-blue-300"></i>
+							</div>
+							<div>
+								<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+									Profile Information
+								</h3>
+								<p class="text-sm text-gray-500 dark:text-gray-400">Personal details and application settings</p>
+							</div>
+						</div>
 					</div>
-					<div class="card-body">
+					<div class="p-5">
 						<dl class="space-y-6">
 							<div class="flex flex-col sm:flex-row">
-								<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400 sm:w-1/3 mb-1 sm:mb-0">Email</dt>
-								<dd class="text-sm text-secondary-900 dark:text-secondary-100 sm:w-2/3">{ user.Email }</dd>
+								<dt class="text-sm font-medium text-gray-500 dark:text-gray-400 sm:w-1/3 mb-1 sm:mb-0">Email</dt>
+								<dd class="text-sm font-medium text-gray-900 dark:text-white sm:w-2/3">{ user.Email }</dd>
 							</div>
 							<div class="flex flex-col sm:flex-row">
-								<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400 sm:w-1/3 mb-1 sm:mb-0">Role</dt>
-								<dd class="text-sm text-secondary-900 dark:text-secondary-100 sm:w-2/3">
-									if user.GetIsAdmin() {
-										<span class="badge badge-success">
-											<i class="fas fa-user-shield mr-1"></i> Administrator
-										</span>
-									} else {
-										<span class="badge badge-info">
-											<i class="fas fa-user mr-1"></i> Regular User
-										</span>
-									}
+								<dt class="text-sm font-medium text-gray-500 dark:text-gray-400 sm:w-1/3 mb-1 sm:mb-0">Roles</dt>
+								<dd class="text-sm font-medium text-gray-900 dark:text-white sm:w-2/3">
+									<div class="flex flex-wrap gap-2">
+										if user.GetIsAdmin() {
+											<span class="bg-blue-100 text-blue-800 text-xs font-medium px-3 py-1 rounded-full dark:bg-blue-900 dark:text-blue-300 inline-flex items-center">
+												<i class="fas fa-user-shield w-3 h-3 mr-1.5"></i> Administrator
+											</span>
+										}
+										for _, role := range user.Roles {
+											<span class="bg-gray-100 text-gray-800 text-xs font-medium px-3 py-1 rounded-full dark:bg-gray-700 dark:text-gray-300 inline-flex items-center">
+												<i class="fas fa-user-tag w-3 h-3 mr-1.5"></i> { role.Name }
+											</span>
+										}
+									</div>
 								</dd>
 							</div>
 							<div class="flex flex-col sm:flex-row">
-								<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400 sm:w-1/3 mb-1 sm:mb-0">Two-Factor Authentication</dt>
-								<dd class="text-sm text-secondary-900 dark:text-secondary-100 sm:w-2/3">
+								<dt class="text-sm font-medium text-gray-500 dark:text-gray-400 sm:w-1/3 mb-1 sm:mb-0">Permissions</dt>
+								<dd class="text-sm font-medium text-gray-900 dark:text-white sm:w-2/3">
+									<div class="flex flex-wrap gap-1">
+										for _, role := range user.Roles {
+											for _, perm := range role.GetPermissions() {
+												<span class="bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded dark:bg-green-900 dark:text-green-300">
+													{ perm }
+												</span>
+											}
+										}
+									</div>
+								</dd>
+							</div>
+							<div class="flex flex-col sm:flex-row">
+								<dt class="text-sm font-medium text-gray-500 dark:text-gray-400 sm:w-1/3 mb-1 sm:mb-0">Two-Factor Authentication</dt>
+								<dd class="text-sm font-medium text-gray-900 dark:text-white sm:w-2/3">
 									if user.TwoFactorEnabled {
 										<div class="flex flex-col space-y-3">
 											<div class="flex items-center">
-												<span class="badge badge-success">
-													<i class="fas fa-shield-alt mr-1"></i> Enabled
+												<span class="bg-green-100 text-green-800 text-xs font-medium px-3 py-1 rounded-full dark:bg-green-900 dark:text-green-300 inline-flex items-center">
+													<i class="fas fa-shield-alt w-3 h-3 mr-1.5"></i> Enabled
 												</span>
 											</div>
-											<div class="flex flex-wrap gap-2">
-												<a href="/profile/2fa/backup-codes" class="btn-secondary btn-sm">
-													<i class="fas fa-key mr-1"></i>
+											<div class="flex flex-wrap gap-2 mt-2">
+												<a href="/profile/2fa/backup-codes" class="py-2 px-3 text-xs font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700 inline-flex items-center shadow-sm">
+													<i class="fas fa-key w-3 h-3 mr-1.5"></i>
 													Manage Backup Codes
 												</a>
 												<button
 													type="button"
-													class="btn-danger btn-sm"
+													class="text-white bg-red-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-xs px-3 py-2 text-center inline-flex items-center dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-800 shadow-sm"
 													onclick="showDisable2FADialog()">
-													<i class="fas fa-times mr-1"></i>
+													<i class="fas fa-times w-3 h-3 mr-1.5"></i>
 													Disable 2FA
 												</button>
 											</div>
@@ -176,13 +203,13 @@ templ Profile(ctx context.Context, user db.User) {
 									} else {
 										<div class="flex flex-col space-y-3">
 											<div class="flex items-center">
-												<span class="badge badge-warning">
-													<i class="fas fa-shield-alt mr-1"></i> Disabled
+												<span class="bg-yellow-100 text-yellow-800 text-xs font-medium px-3 py-1 rounded-full dark:bg-yellow-900 dark:text-yellow-300 inline-flex items-center">
+													<i class="fas fa-shield-alt w-3 h-3 mr-1.5"></i> Disabled
 												</span>
 											</div>
-											<div>
-												<a href="/profile/2fa/setup" class="btn-primary btn-sm">
-													<i class="fas fa-lock mr-1"></i>
+											<div class="mt-2">
+												<a href="/profile/2fa/setup" class="text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-xs px-3 py-2 text-center inline-flex items-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 shadow-sm">
+													<i class="fas fa-lock w-3 h-3 mr-1.5"></i>
 													Enable 2FA
 												</a>
 											</div>
@@ -191,12 +218,12 @@ templ Profile(ctx context.Context, user db.User) {
 								</dd>
 							</div>
 							<div class="flex flex-col sm:flex-row">
-								<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400 sm:w-1/3 mb-1 sm:mb-0">Theme</dt>
-								<dd class="text-sm text-secondary-900 dark:text-secondary-100 sm:w-2/3">
+								<dt class="text-sm font-medium text-gray-500 dark:text-gray-400 sm:w-1/3 mb-1 sm:mb-0">Theme</dt>
+								<dd class="text-sm font-medium text-gray-900 dark:text-white sm:w-2/3">
 									<form 
 										hx-post="/profile/theme" 
 										hx-swap="none"
-										class="flex items-center space-x-4">
+										class="flex items-center space-x-5">
 										<div class="flex items-center">
 											<input 
 												type="radio" 
@@ -206,9 +233,9 @@ templ Profile(ctx context.Context, user db.User) {
 												checked?={ user.Theme == "light" || user.Theme == "" }
 												hx-trigger="change"
 												hx-post="/profile/theme"
-												class="form-checkbox" />
-											<label for="theme-light" class="ml-2 block text-sm text-secondary-700 dark:text-secondary-300">
-												<i class="fas fa-sun mr-1"></i> Light
+												class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
+											<label for="theme-light" class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">
+												<i class="fas fa-sun mr-1.5"></i> Light
 											</label>
 										</div>
 										<div class="flex items-center">
@@ -220,9 +247,9 @@ templ Profile(ctx context.Context, user db.User) {
 												checked?={ user.Theme == "dark" }
 												hx-trigger="change"
 												hx-post="/profile/theme"
-												class="form-checkbox" />
-											<label for="theme-dark" class="ml-2 block text-sm text-secondary-700 dark:text-secondary-300">
-												<i class="fas fa-moon mr-1"></i> Dark
+												class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
+											<label for="theme-dark" class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">
+												<i class="fas fa-moon mr-1.5"></i> Dark
 											</label>
 										</div>
 										<div class="flex items-center">
@@ -234,9 +261,9 @@ templ Profile(ctx context.Context, user db.User) {
 												checked?={ user.Theme == "system" }
 												hx-trigger="change"
 												hx-post="/profile/theme"
-												class="form-checkbox" />
-											<label for="theme-system" class="ml-2 block text-sm text-secondary-700 dark:text-secondary-300">
-												<i class="fas fa-desktop mr-1"></i> System
+												class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
+											<label for="theme-system" class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">
+												<i class="fas fa-desktop mr-1.5"></i> System
 											</label>
 										</div>
 									</form>
@@ -247,15 +274,21 @@ templ Profile(ctx context.Context, user db.User) {
 				</div>
 
 				<!-- Change Password Card -->
-				<div class="card">
-					<div class="card-header">
-						<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100">
-							<i class="fas fa-key mr-2 text-primary-500"></i>
-							Change Password
-						</h3>
-						<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">Update your password to keep your account secure.</p>
+				<div class="bg-white border border-gray-200 rounded-xl shadow-sm dark:border-gray-700 dark:bg-gray-800 transition-all duration-200 hover:shadow-md">
+					<div class="p-5 border-b border-gray-200 dark:border-gray-700">
+						<div class="flex items-center space-x-3">
+							<div class="h-10 w-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+								<i class="fas fa-key text-blue-600 dark:text-blue-300"></i>
+							</div>
+							<div>
+								<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+									Change Password
+								</h3>
+								<p class="text-sm text-gray-500 dark:text-gray-400">Update your password to keep your account secure</p>
+							</div>
+						</div>
 					</div>
-					<div class="card-body">
+					<div class="p-5">
 						<form 
 							method="POST"
 							action="/change-password"
@@ -264,7 +297,7 @@ templ Profile(ctx context.Context, user db.User) {
 							hx-swap="innerHTML"
 							hx-headers='{"X-Profile-Page": "true"}'
 							hx-indicator="#password-change-indicator"
-							class="space-y-4"
+							class="space-y-5"
 							x-data="{ 
 								currentPassword: '',
 								newPassword: '',
@@ -283,57 +316,57 @@ templ Profile(ctx context.Context, user db.User) {
 							<div id="password-result"></div>
 							
 							<div>
-								<label for="current-password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
-									<i class="fas fa-lock mr-1"></i> Current Password
+								<label for="current-password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+									<i class="fas fa-lock mr-1.5"></i> Current Password
 								</label>
 								<div class="relative">
-									<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-										<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+									<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+										<i class="fas fa-key text-gray-400 dark:text-gray-500"></i>
 									</div>
 									<input 
 										type="password" 
 										id="current-password" 
 										name="current_password"
 										x-model="currentPassword"
-										class="form-input pl-10 w-full" 
+										class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
 										placeholder="••••••••"
 										required/>
 								</div>
 							</div>
 							
 							<div>
-								<label for="new-password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
-									<i class="fas fa-lock-open mr-1"></i> New Password
+								<label for="new-password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+									<i class="fas fa-lock-open mr-1.5"></i> New Password
 								</label>
 								<div class="relative">
-									<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-										<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+									<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+										<i class="fas fa-key text-gray-400 dark:text-gray-500"></i>
 									</div>
 									<input 
 										type="password" 
 										id="new-password" 
 										name="new_password"
 										x-model="newPassword"
-										class="form-input pl-10 w-full" 
+										class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
 										placeholder="••••••••"
 										required/>
 								</div>
 							</div>
 							
 							<div>
-								<label for="confirm-password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">
-									<i class="fas fa-check-double mr-1"></i> Confirm New Password
+								<label for="confirm-password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+									<i class="fas fa-check-double mr-1.5"></i> Confirm New Password
 								</label>
 								<div class="relative">
-									<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-										<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+									<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+										<i class="fas fa-key text-gray-400 dark:text-gray-500"></i>
 									</div>
 									<input 
 										type="password" 
 										id="confirm-password" 
 										name="confirm_password"
 										x-model="confirmPassword"
-										class="form-input pl-10 w-full" 
+										class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
 										placeholder="••••••••"
 										required/>
 								</div>
@@ -342,13 +375,13 @@ templ Profile(ctx context.Context, user db.User) {
 							<div>
 								<button 
 									type="submit" 
-									class="btn-primary w-full flex justify-center py-3"
+									class="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 shadow-sm"
 									x-bind:disabled="!validate() || loading">
-									<span x-show="!loading" class="flex items-center">
+									<span x-show="!loading" class="flex items-center justify-center">
 										<i class="fas fa-save mr-2"></i>
 										Update Password
 									</span>
-									<span x-show="loading" class="flex items-center">
+									<span x-show="loading" class="flex items-center justify-center">
 										<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
 											<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 											<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -359,9 +392,11 @@ templ Profile(ctx context.Context, user db.User) {
 							</div>
 						</form>
 					</div>
-					<div class="px-6 py-4 bg-secondary-50 dark:bg-secondary-800 border-t border-secondary-200 dark:border-secondary-700">
-						<div class="flex items-center text-sm text-secondary-500 dark:text-secondary-400">
-							<i class="fas fa-shield-alt mr-2 text-primary-500"></i>
+					<div class="p-5 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 rounded-b-xl">
+						<div class="flex items-center text-sm text-gray-600 dark:text-gray-400">
+							<div class="mr-3 text-blue-500 flex-shrink-0">
+								<i class="fas fa-shield-alt"></i>
+							</div>
 							<span>Password must be at least 8 characters with letters, numbers, and special characters</span>
 						</div>
 					</div>
@@ -369,10 +404,15 @@ templ Profile(ctx context.Context, user db.User) {
 			</div>
 
 			<!-- Security Notice -->
-			<div class="mt-8 text-center">
-				<div class="inline-flex items-center text-sm text-secondary-500 dark:text-secondary-400">
-					<i class="fas fa-shield-alt mr-2 text-primary-500"></i>
-					<span>All profile changes are securely logged for your protection</span>
+			<div class="mt-8">
+				<div class="p-5 text-sm text-blue-800 rounded-xl bg-blue-50 border border-blue-200 dark:bg-blue-900/50 dark:text-blue-400 dark:border-blue-800 flex items-start shadow-sm">
+					<div class="mr-3 text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5">
+						<i class="fas fa-shield-alt"></i>
+					</div>
+					<div>
+						<h4 class="text-sm font-medium mb-1">Security Information</h4>
+						<p>All profile changes are securely logged for your protection. For security reasons, you'll be required to enter your password for sensitive changes.</p>
+					</div>
 				</div>
 			</div>
 		</div>

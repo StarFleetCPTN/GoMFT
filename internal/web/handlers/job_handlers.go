@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/starfleetcptn/gomft/components"
@@ -297,10 +298,53 @@ func (h *Handlers) HandleCreateJob(c *gin.Context) {
 	// Clear the Config field to prevent GORM from creating a new config
 	job.Config = db.TransferConfig{}
 
+	// Start a transaction
+	tx := h.DB.Begin()
+	if tx.Error != nil {
+		log.Printf("HandleCreateJob: Failed to begin transaction: %v", tx.Error)
+		c.String(http.StatusInternalServerError, "Failed to begin transaction")
+		return
+	}
+
 	// Create the job
-	if err := h.DB.CreateJob(&job); err != nil {
+	if err := tx.Create(&job).Error; err != nil {
+		tx.Rollback()
 		log.Printf("HandleCreateJob: Error creating job: %v", err)
 		c.String(http.StatusInternalServerError, "Failed to create job")
+		return
+	}
+
+	// Create audit log entry
+	auditDetails := map[string]interface{}{
+		"name":              job.Name,
+		"schedule":          job.Schedule,
+		"enabled":           job.GetEnabled(),
+		"config_ids":        configIDsList,
+		"webhook_enabled":   job.GetWebhookEnabled(),
+		"notify_on_success": job.GetNotifyOnSuccess(),
+		"notify_on_failure": job.GetNotifyOnFailure(),
+	}
+
+	auditLog := db.AuditLog{
+		Action:     "create",
+		EntityType: "job",
+		EntityID:   job.ID,
+		UserID:     userID,
+		Details:    auditDetails,
+		Timestamp:  time.Now(),
+	}
+
+	if err := tx.Create(&auditLog).Error; err != nil {
+		tx.Rollback()
+		log.Printf("HandleCreateJob: Error creating audit log: %v", err)
+		c.String(http.StatusInternalServerError, "Failed to create audit log")
+		return
+	}
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		log.Printf("HandleCreateJob: Error committing transaction: %v", err)
+		c.String(http.StatusInternalServerError, "Failed to commit transaction")
 		return
 	}
 
@@ -481,9 +525,61 @@ func (h *Handlers) HandleUpdateJob(c *gin.Context) {
 	// Clear the Config field to prevent GORM from updating or creating a new config
 	job.Config = db.TransferConfig{}
 
-	if err := h.DB.UpdateJob(&job); err != nil {
+	// Start a transaction
+	tx := h.DB.Begin()
+	if tx.Error != nil {
+		log.Printf("HandleUpdateJob: Failed to begin transaction: %v", tx.Error)
+		c.String(http.StatusInternalServerError, "Failed to begin transaction")
+		return
+	}
+
+	if err := tx.Save(&job).Error; err != nil {
+		tx.Rollback()
 		log.Printf("HandleUpdateJob: Error updating job: %v", err)
 		c.String(http.StatusInternalServerError, "Failed to update job")
+		return
+	}
+
+	// Create audit log entry
+	auditDetails := map[string]interface{}{
+		"name":              job.Name,
+		"schedule":          job.Schedule,
+		"enabled":           job.GetEnabled(),
+		"config_ids":        configIDsList,
+		"webhook_enabled":   job.GetWebhookEnabled(),
+		"notify_on_success": job.GetNotifyOnSuccess(),
+		"notify_on_failure": job.GetNotifyOnFailure(),
+		"previous_state": map[string]interface{}{
+			"name":              oldJob.Name,
+			"schedule":          oldJob.Schedule,
+			"enabled":           oldJob.GetEnabled(),
+			"config_ids":        oldJob.GetConfigIDsList(),
+			"webhook_enabled":   oldJob.GetWebhookEnabled(),
+			"notify_on_success": oldJob.GetNotifyOnSuccess(),
+			"notify_on_failure": oldJob.GetNotifyOnFailure(),
+		},
+	}
+
+	auditLog := db.AuditLog{
+		Action:     "update",
+		EntityType: "job",
+		EntityID:   job.ID,
+		UserID:     userID,
+		Details:    auditDetails,
+		Timestamp:  time.Now(),
+	}
+
+	if err := tx.Create(&auditLog).Error; err != nil {
+		tx.Rollback()
+		log.Printf("HandleUpdateJob: Error creating audit log: %v", err)
+		c.String(http.StatusInternalServerError, "Failed to create audit log")
+		return
+	}
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		log.Printf("HandleUpdateJob: Error committing transaction: %v", err)
+		c.String(http.StatusInternalServerError, "Failed to commit transaction")
 		return
 	}
 
@@ -519,14 +615,54 @@ func (h *Handlers) HandleDeleteJob(c *gin.Context) {
 		}
 	}
 
-	// Unschedule the job from the scheduler
-	h.Scheduler.UnscheduleJob(job.ID)
+	// Start a transaction
+	tx := h.DB.Begin()
+	if tx.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to begin transaction"})
+		return
+	}
+
+	// Create audit log before deletion
+	auditDetails := map[string]interface{}{
+		"name":              job.Name,
+		"schedule":          job.Schedule,
+		"enabled":           job.GetEnabled(),
+		"config_ids":        job.GetConfigIDsList(),
+		"webhook_enabled":   job.GetWebhookEnabled(),
+		"notify_on_success": job.GetNotifyOnSuccess(),
+		"notify_on_failure": job.GetNotifyOnFailure(),
+	}
+
+	auditLog := db.AuditLog{
+		Action:     "delete",
+		EntityType: "job",
+		EntityID:   job.ID,
+		UserID:     userID,
+		Details:    auditDetails,
+		Timestamp:  time.Now(),
+	}
+
+	if err := tx.Create(&auditLog).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create audit log"})
+		return
+	}
 
 	// Delete job
-	if err := h.DB.Delete(&job).Error; err != nil {
+	if err := tx.Delete(&job).Error; err != nil {
+		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete job"})
 		return
 	}
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+		return
+	}
+
+	// Unschedule the job from the scheduler
+	h.Scheduler.UnscheduleJob(job.ID)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Job deleted successfully"})
 }
@@ -564,6 +700,21 @@ func (h *Handlers) HandleRunJob(c *gin.Context) {
 		} else {
 			jobName = fmt.Sprintf("Job #%d", job.ID)
 		}
+	}
+
+	// Create audit log for manual job run
+	auditLog := db.AuditLog{
+		Action:     "run_manual",
+		EntityType: "job",
+		EntityID:   job.ID,
+		UserID:     userID,
+		Details:    map[string]interface{}{"name": jobName, "job_id": job.ID},
+		Timestamp:  time.Now(),
+	}
+
+	if err := h.DB.Create(&auditLog).Error; err != nil {
+		log.Printf("HandleRunJob: Warning - Failed to create audit log: %v", err)
+		// Continue anyway, as this is not critical to running the job
 	}
 
 	// Run the job immediately using the scheduler

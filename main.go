@@ -82,6 +82,12 @@ func main() {
 			log.Fatalf("Failed to create admin user: %v", err)
 		}
 		log.Printf("Default admin user created successfully")
+
+		// Assign admin role to admin user
+		if err := database.AssignRoleToUser(adminUser.ID, 1, 1); err != nil {
+			log.Fatalf("Failed to assign admin role to admin user: %v", err)
+		}
+		log.Printf("Admin role assigned to admin user successfully")
 	}
 
 	// Initialize scheduler

@@ -1,6 +1,7 @@
 package db
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -29,6 +30,7 @@ type User struct {
 	TwoFactorSecret     string `gorm:"type:varchar(32)"`
 	TwoFactorEnabled    bool   `gorm:"default:false"`
 	BackupCodes         string `gorm:"type:text"` // Comma-separated backup codes
+	Roles               []Role `gorm:"many2many:user_roles"`
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }
@@ -219,6 +221,8 @@ type JobHistory struct {
 	BytesTransferred int64
 	FilesTransferred int
 	ErrorMessage     string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 // FileMetadata stores information about processed files
@@ -259,9 +263,21 @@ func Initialize(dbPath string) (*DB, error) {
 	}
 
 	// Initialize and run migrations
-	m := migrations.InitMigrations(db)
+	m := migrations.GetMigrations(db)
 	if err := m.Migrate(); err != nil {
 		return nil, fmt.Errorf("failed to run migrations: %v", err)
+	}
+
+	return &DB{DB: db}, nil
+}
+
+// ReopenWithoutMigrations reopens the database connection without running migrations
+// This should be used when temporarily closing and reopening the database
+func ReopenWithoutMigrations(dbPath string) (*DB, error) {
+	// Open database connection with modernc.org/sqlite driver
+	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to database: %v", err)
 	}
 
 	return &DB{DB: db}, nil
@@ -1507,4 +1523,161 @@ func (tc *TransferConfig) GetUseBuiltinAuthDest() bool {
 // SetUseBuiltinAuthDest sets the UseBuiltinAuthDest field
 func (tc *TransferConfig) SetUseBuiltinAuthDest(value bool) {
 	tc.UseBuiltinAuthDest = &value
+}
+
+// HasRole checks if the user has a specific role
+func (u *User) HasRole(roleName string) bool {
+	for _, role := range u.Roles {
+		if role.Name == roleName {
+			return true
+		}
+	}
+	return false
+}
+
+// HasPermission checks if the user has a specific permission through any of their roles
+func (u *User) HasPermission(permission string) bool {
+	for _, role := range u.Roles {
+		if role.HasPermission(permission) {
+			return true
+		}
+	}
+	return false
+}
+
+// GetRoles returns all roles assigned to the user
+func (u *User) GetRoles(tx *gorm.DB) ([]Role, error) {
+	var roles []Role
+	err := tx.Model(u).Association("Roles").Find(&roles)
+	return roles, err
+}
+
+// AssignRole assigns a role to the user
+func (u *User) AssignRole(tx *gorm.DB, roleID uint, assignedByID uint) error {
+	var role Role
+	if err := tx.First(&role, roleID).Error; err != nil {
+		return err
+	}
+	return role.AssignToUser(tx, u.ID, assignedByID)
+}
+
+// UnassignRole removes a role from the user
+func (u *User) UnassignRole(tx *gorm.DB, roleID uint, unassignedByID uint) error {
+	var role Role
+	if err := tx.First(&role, roleID).Error; err != nil {
+		return err
+	}
+	return role.UnassignFromUser(tx, u.ID, unassignedByID)
+}
+
+// Role operations
+func (db *DB) CreateRole(role *Role) error {
+	return db.Create(role).Error
+}
+
+func (db *DB) GetRole(id uint) (*Role, error) {
+	var role Role
+	err := db.First(&role, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &role, nil
+}
+
+func (db *DB) GetRoleByName(name string) (*Role, error) {
+	var role Role
+	err := db.Where("name = ?", name).First(&role).Error
+	if err != nil {
+		return nil, err
+	}
+	return &role, nil
+}
+
+func (db *DB) UpdateRole(role *Role) error {
+	return db.Save(role).Error
+}
+
+func (db *DB) DeleteRole(id uint) error {
+	var role Role
+	if err := db.First(&role, id).Error; err != nil {
+		return err
+	}
+
+	if role.IsSystemRole() {
+		return errors.New("cannot delete system role")
+	}
+
+	// Start transaction
+	tx := db.Begin()
+	if err := tx.Error; err != nil {
+		return err
+	}
+
+	// Delete role assignments
+	if err := tx.Exec("DELETE FROM user_roles WHERE role_id = ?", id).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Delete the role
+	if err := tx.Delete(&role).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
+}
+
+func (db *DB) ListRoles() ([]Role, error) {
+	var roles []Role
+	err := db.Find(&roles).Error
+	return roles, err
+}
+
+func (db *DB) GetUserRoles(userID uint) ([]Role, error) {
+	var user User
+	if err := db.Preload("Roles").First(&user, userID).Error; err != nil {
+		return nil, err
+	}
+	return user.Roles, nil
+}
+
+// AssignRoleToUser assigns a role to a user
+func (db *DB) AssignRoleToUser(roleID, userID, assignedByID uint) error {
+	var role Role
+	if err := db.First(&role, roleID).Error; err != nil {
+		return err
+	}
+
+	tx := db.Begin()
+	if err := tx.Error; err != nil {
+		return err
+	}
+
+	if err := role.AssignToUser(tx, userID, assignedByID); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
+}
+
+// UnassignRoleFromUser removes a role from a user
+func (db *DB) UnassignRoleFromUser(roleID, userID, unassignedByID uint) error {
+	var role Role
+	if err := db.First(&role, roleID).Error; err != nil {
+		return err
+	}
+
+	tx := db.Begin()
+	if err := tx.Error; err != nil {
+		return err
+	}
+
+	if err := role.UnassignFromUser(tx, userID, unassignedByID); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
 }

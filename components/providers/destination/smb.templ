@@ -1,111 +1,112 @@
 package destination
 
 templ SMBDestinationForm() {
-	<div class="sm:col-span-6 space-y-6">
-		<div class="sm:col-span-4">
-			<label for="dest_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Server</label>
-			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-server text-secondary-400 dark:text-secondary-600"></i>
-				</div>
-				<input
-					type="text"
-					name="dest_host"
-					id="dest_host"
-					x-model="destHost"
-					required
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="server.example.com"/>
+	<div class="space-y-6 mt-4">
+		<div class="p-4 mb-4 text-sm text-blue-800 rounded-lg bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300" role="alert">
+			<div class="flex items-center">
+				<i class="fas fa-info-circle mr-2"></i>
+				<span>Configure your SMB/CIFS share connection details below. You'll need server address, share name, and credentials.</span>
 			</div>
 		</div>
-
-		<div class="sm:col-span-4">
-			<label for="dest_share" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Share Name</label>
+		
+		<div class="mb-6">
+			<label for="dest_host" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Server Address</label>
 			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-share-alt text-secondary-400 dark:text-secondary-600"></i>
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-server text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input
-					type="text"
-					name="dest_share"
-					id="dest_share"
-					x-model="destShare"
-					required
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="share_name"/>
+				<input type="text" id="dest_host" name="dest_host" x-model="destinationHost" required
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="192.168.1.100 or server.example.com" />
 			</div>
-		</div>
-
-		<div class="sm:col-span-4">
-			<label for="destination_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Path</label>
-			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-folder text-secondary-400 dark:text-secondary-600"></i>
-				</div>
-				<input
-					type="text"
-					name="destination_path"
-					id="destination_path"
-					x-model="destinationPath"
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="path\to\destination"/>
-			</div>
-			<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
-				Optional. Subdirectory within the share.
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				IP address or hostname of the SMB/CIFS server
 			</p>
 		</div>
 
-		<div class="sm:col-span-4">
-			<label for="dest_domain" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Domain</label>
+		<div class="mb-6">
+			<label for="dest_share" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Share Name</label>
 			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-building text-secondary-400 dark:text-secondary-600"></i>
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-share-alt text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input
-					type="text"
-					name="dest_domain"
-					id="dest_domain"
-					x-model="destDomain"
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="DOMAIN"/>
+				<input type="text" id="dest_share" name="dest_share" x-model="destinationShare" required
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="Documents" />
 			</div>
-			<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
-				Optional. Windows domain for authentication.
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Name of the shared folder on the server (without leading slashes)
 			</p>
 		</div>
 
-		<div class="sm:col-span-4">
-			<label for="dest_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
+		<div class="mb-6">
+			<label for="dest_domain" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Domain (Optional)</label>
 			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-sitemap text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input
-					type="text"
-					name="dest_user"
-					id="dest_user"
-					x-model="destUser"
-					required
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
+				<input type="text" id="dest_domain" name="dest_domain" x-model="destinationDomain"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="WORKGROUP or DOMAIN" />
 			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Windows domain name (if applicable). Default is 'WORKGROUP' for standalone servers.
+			</p>
 		</div>
 
-		<div class="sm:col-span-4">
-			<label for="dest_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password</label>
+		<div class="mb-6">
+			<label for="dest_user" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Username</label>
 			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-user text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input
-					type="password"
-					name="dest_password"
-					id="dest_password"
-					x-model="destPassword"
-					required
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="Password"/>
+				<input type="text" id="dest_user" name="dest_user" x-model="destinationUser" required
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="smb_username" />
 			</div>
-			<input type="hidden" name="dest_password" :value="destPassword"/>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Username for SMB/CIFS authentication
+			</p>
+		</div>
+
+		<div class="mb-6">
+			<label for="dest_password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Password</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-lock text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<input type="password" id="dest_password" name="dest_password" x-model="destinationPassword" required
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="SMB password" />
+			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Password for SMB/CIFS authentication
+			</p>
+		</div>
+
+		<div class="mb-6">
+			<label for="destination_path" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Subfolder Path (Optional)</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-folder-open text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<input type="text" id="destination_path" name="destination_path" x-model="destinationPath"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="path/to/subfolder" />
+			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Path to a subfolder within the share (Optional). Use forward slashes.
+			</p>
+		</div>
+		
+		<div class="p-4 mb-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300" role="alert">
+			<div class="flex">
+				<i class="fas fa-exclamation-triangle mr-2 flex-shrink-0"></i>
+				<div>
+					<h3 class="font-medium">Connection Note</h3>
+					<p class="mt-1">Make sure the SMB server is accessible from this machine and that the share permissions allow the specified user to read the files.</p>
+				</div>
+			</div>
 		</div>
 	</div>
 } 

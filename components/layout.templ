@@ -41,7 +41,7 @@ templ Layout(title string) {
 
 templ LayoutWithContext(title string, ctx context.Context) {
 	<!DOCTYPE html>
-	<html lang="en" class="light h-full p-0 m-0">
+	<html lang="en" class="h-full bg-gray-50 dark:bg-gray-900">
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
@@ -55,7 +55,10 @@ templ LayoutWithContext(title string, ctx context.Context) {
 			<title>{ title } - GoMFT</title>
 			<script src="https://unpkg.com/htmx.org@1.9.10"></script>
 			<script src="https://unpkg.com/alpinejs@3.13.5/dist/cdn.min.js" defer></script>
+			<!-- Tailwind CSS with Flowbite -->
 			<script src="https://cdn.tailwindcss.com"></script>
+			<link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.1/flowbite.min.css" rel="stylesheet" />
+			<script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.1/flowbite.min.js"></script>
 			<script src="/static/js/app.js"></script>
 			<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 			<link rel="stylesheet" href="/static/css/app.css"/>
@@ -113,393 +116,482 @@ templ LayoutWithContext(title string, ctx context.Context) {
 									800: '#075985',
 									900: '#0c4a6e',
 									950: '#082f49',
-								},
-								secondary: {
-									50: '#f8fafc',
-									100: '#f1f5f9',
-									200: '#e2e8f0',
-									300: '#cbd5e1',
-									400: '#94a3b8',
-									500: '#64748b',
-									600: '#475569',
-									700: '#334155',
-									800: '#1e293b',
-									900: '#0f172a',
-									950: '#020617',
-								},
+								}
 							},
 							fontFamily: {
 								sans: ['Inter var', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
-							},
-							boxShadow: {
-								'custom': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-								'custom-lg': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-							},
+							}
 						}
 					}
 				}
 			</script>
-			<style type="text/tailwindcss">
-				/* Reset default browser margins and padding */
+			<style>
 				html, body {
 					margin: 0;
 					padding: 0;
-					overflow-x: hidden; /* Prevent horizontal scrolling */
+					overflow-x: hidden;
 					width: 100%;
 				}
 				
-				@layer components {
-					.btn-primary {
-						@apply px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-all duration-200 shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
-					}
-					.btn-secondary {
-						@apply px-4 py-2 bg-secondary-200 text-secondary-800 rounded-lg hover:bg-secondary-300 transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-secondary-300 focus:ring-offset-2 dark:bg-secondary-700 dark:text-secondary-100 dark:hover:bg-secondary-600;
-					}
-					.btn-danger {
-						@apply px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2;
-					}
-					.btn-warning {
-						@apply px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-all duration-200 shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2;
-					}
-					.form-input {
-						@apply w-full px-3 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 shadow-sm transition-all duration-200 dark:bg-secondary-800 dark:border-secondary-700 dark:text-white;
-					}
-					.form-checkbox {
-						@apply rounded border-secondary-300 text-primary-600 shadow-sm focus:border-primary-300 focus:ring focus:ring-primary-200 focus:ring-opacity-50 dark:border-secondary-700 dark:bg-secondary-800;
-					}
-					.card {
-						@apply bg-white dark:bg-secondary-800 rounded-xl shadow-custom overflow-hidden border border-secondary-200 dark:border-secondary-700 transition-all duration-200 hover:shadow-custom-lg;
-					}
-					.card-header {
-						@apply px-6 py-4 border-b border-secondary-200 dark:border-secondary-700 bg-secondary-50 dark:bg-secondary-900;
-					}
-					.card-body {
-						@apply p-6;
-					}
-					.badge {
-						@apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
-					}
-					.badge-success {
-						@apply bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100;
-					}
-					.badge-warning {
-						@apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100;
-					}
-					.badge-danger {
-						@apply bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100;
-					}
-					.badge-info {
-						@apply bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100;
-					}
-					.table-container {
-						@apply overflow-hidden rounded-lg shadow-sm border border-secondary-200 dark:border-secondary-700;
-					}
-					.table {
-						@apply min-w-full divide-y divide-secondary-200 dark:divide-secondary-700;
-					}
-					.table thead {
-						@apply bg-secondary-50 dark:bg-secondary-900;
-					}
-					.table th {
-						@apply px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider dark:text-secondary-400;
-					}
-					.table tbody {
-						@apply bg-white dark:bg-secondary-800 divide-y divide-secondary-200 dark:divide-secondary-700;
-					}
-					.table td {
-						@apply px-6 py-4 whitespace-nowrap text-sm text-secondary-900 dark:text-secondary-100;
-					}
-					.nav-link {
-						@apply inline-flex items-center px-1 pt-1 text-secondary-500 hover:text-secondary-700 dark:text-secondary-400 dark:hover:text-secondary-200 border-b-2 border-transparent hover:border-primary-500 transition-all duration-200;
-					}
-					.nav-link-active {
-						@apply inline-flex items-center px-1 pt-1 text-primary-600 dark:text-primary-400 border-b-2 border-primary-500;
-					}
-				}
-
-				/* Dark mode styles */
-				.dark body {
-					@apply bg-secondary-900 text-secondary-100;
-				}
-				.dark .bg-white {
-					@apply bg-secondary-800;
-				}
-				.dark .text-secondary-800 {
-					@apply text-secondary-100;
-				}
-				.dark .text-secondary-700 {
-					@apply text-secondary-200;
-				}
-				.dark .text-secondary-500 {
-					@apply text-secondary-300;
-				}
-				.dark .hover\:text-secondary-700:hover {
-					@apply text-secondary-100;
-				}
-				.dark .hover\:bg-secondary-100:hover {
-					@apply bg-secondary-700;
-				}
-				.dark .bg-secondary-50 {
-					@apply bg-secondary-900;
-				}
-				.dark .bg-secondary-200 {
-					@apply bg-secondary-700;
-				}
-				.dark .shadow-sm {
-					@apply shadow-secondary-900;
-				}
-				
-				/* Additional dark mode improvements */
-				.dark .bg-secondary-50 {
-					@apply bg-secondary-900;
-				}
-				.dark .bg-secondary-100 {
-					@apply bg-secondary-800;
-				}
-				.dark .border-secondary-200 {
-					@apply border-secondary-700;
-				}
-				
-				/* Custom animations */
 				@keyframes fadeIn {
 					from { opacity: 0; }
 					to { opacity: 1; }
 				}
+				
 				.animate-fadeIn {
 					animation: fadeIn 0.3s ease-in-out;
 				}
 				
-				/* Custom scrollbar */
-				::-webkit-scrollbar {
-					width: 8px;
-					height: 8px;
+				.pb-mobile-nav {
+					padding-bottom: 4rem;
 				}
-				::-webkit-scrollbar-track {
-					background: theme('colors.secondary.100');
-					border-radius: 4px;
+				
+				@media (min-width: 640px) {
+					.pb-mobile-nav {
+						padding-bottom: 0;
+					}
 				}
-				.dark ::-webkit-scrollbar-track {
-					background: theme('colors.secondary.800');
+				
+				/* Ensure dark mode background extends to full height */
+				body.dark {
+					background-color: #111827; /* gray-900 */
 				}
-				::-webkit-scrollbar-thumb {
-					background: theme('colors.secondary.300');
-					border-radius: 4px;
+				
+				/* Force dark background on specific pages */
+				body.dark .configs-page, 
+				body.dark .jobs-page {
+					background-color: #111827 !important; /* gray-900 */
+					min-height: 100vh;
 				}
-				.dark ::-webkit-scrollbar-thumb {
-					background: theme('colors.secondary.600');
+				
+				/* Ensure dark mode fills entire page */
+				body.dark {
+					background-color: #111827 !important;
 				}
-				::-webkit-scrollbar-thumb:hover {
-					background: theme('colors.secondary.500');
+				
+				/* Force container backgrounds */
+				#jobs-container.dark, #configs-container.dark {
+					background-color: #111827 !important;
+					min-height: 100vh;
 				}
-				.dark ::-webkit-scrollbar-thumb:hover {
-					background: theme('colors.secondary.500');
+				
+				/* Override any white backgrounds in dark mode */
+				body.dark .bg-white {
+					background-color: #1f2937 !important;
 				}
 			</style>
 			<link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+			<script>
+				// Immediate theme application
+				// This script runs before the DOM is fully loaded
+				(function() {
+					const isDark = localStorage.theme === 'dark' || 
+						(!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+					
+					if (isDark) {
+						document.documentElement.classList.add('dark');
+						document.addEventListener('DOMContentLoaded', function() {
+							document.body.classList.add('dark');
+							
+							// Apply dark theme to containers
+							const containers = ['jobs-container', 'configs-container'];
+							containers.forEach(function(id) {
+								const container = document.getElementById(id);
+								if (container) {
+									container.classList.add('dark');
+									container.style.backgroundColor = '#111827';
+								}
+							});
+						});
+					}
+				})();
+			</script>
 		</head>
-		<body class="min-h-screen flex flex-col bg-secondary-50 dark:bg-secondary-900 h-full p-0 m-0">
+		<body class="min-h-full bg-gray-50 dark:bg-gray-900" style="min-height: 100vh; display: flex; flex-direction: column;">
 			if isLoggedIn(ctx) {
-				<nav class="bg-white dark:bg-secondary-800 shadow-sm sticky top-0 z-10 w-full">
-					<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-						<div class="flex justify-between h-16">
-							<div class="flex">
+				<!-- Application Shell -->
+				<div class="flex min-h-screen bg-gray-50 dark:bg-gray-900">
+					<!-- Desktop Sidebar -->
+					<aside class="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
+						<div class="flex flex-col flex-grow pt-5 bg-white dark:bg-gray-800 overflow-y-auto border-r border-gray-200 dark:border-gray-700">
+							<div class="flex items-center flex-shrink-0 px-4">
 								<a href="/" class="flex items-center text-xl font-bold text-primary-600 dark:text-primary-400">
 									<i class="fas fa-exchange-alt mr-2"></i>
 									GoMFT
 								</a>
-								<div class="hidden sm:ml-6 sm:flex sm:space-x-8">
-									<a href="/dashboard" class="nav-link">
-										<i class="fas fa-tachometer-alt mr-1"></i> Dashboard
+							</div>
+							<nav class="flex-1 px-2 py-4 bg-white dark:bg-gray-800">
+								<div class="space-y-1">
+									<a href="/dashboard" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+										<i class="fas fa-tachometer-alt mr-3 text-gray-500 dark:text-gray-400"></i>
+										Dashboard
 									</a>
-									<a href="/configs" class="nav-link">
-										<i class="fas fa-cogs mr-1"></i> Configs
+									<a href="/configs" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+										<i class="fas fa-cogs mr-3 text-gray-500 dark:text-gray-400"></i>
+										Configs
 									</a>
-									<a href="/jobs" class="nav-link">
-										<i class="fas fa-tasks mr-1"></i> Jobs
+									<a href="/jobs" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+										<i class="fas fa-tasks mr-3 text-gray-500 dark:text-gray-400"></i>
+										Jobs
 									</a>
-									<a href="/history" class="nav-link">
-										<i class="fas fa-history mr-1"></i> History
+									<a href="/history" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+										<i class="fas fa-history mr-3 text-gray-500 dark:text-gray-400"></i>
+										History
 									</a>
-									<a href="/files" class="nav-link">
-										<i class="fas fa-file-alt mr-1"></i> Files
+									<a href="/files" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+										<i class="fas fa-file-alt mr-3 text-gray-500 dark:text-gray-400"></i>
+										Files
 									</a>
 									if isAdmin(ctx) {
-										<a href="/admin/users" class="nav-link">
-											<i class="fas fa-users mr-1"></i> Users
-										</a>
-										<a href="/admin/tools" class="nav-link">
-											<i class="fas fa-tools mr-1"></i> Admin Tools
-										</a>
+										<div class="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
+											<p class="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+												Administration
+											</p>
+											<div class="mt-1 space-y-1">
+												<!-- Admin dropdown menu -->
+												<button 
+													type="button" 
+													class="flex items-center w-full p-2 text-sm font-medium text-gray-700 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" 
+													aria-controls="dropdown-admin" 
+													data-collapse-toggle="dropdown-admin"
+													aria-expanded="true"
+												>
+													<i class="fas fa-shield-alt w-5 h-5 text-gray-500 dark:text-gray-400 mr-3"></i>
+													<span class="flex-1 text-left whitespace-nowrap">Admin Console</span>
+													<i class="fas fa-chevron-down w-4 h-4"></i>
+												</button>
+												<ul id="dropdown-admin" class="hidden py-2 space-y-1">
+													<li>
+														<a href="/admin" class="flex items-center p-2 pl-11 w-full text-sm font-normal text-gray-700 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+															<i class="fas fa-tachometer-alt w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
+															Dashboard
+														</a>
+													</li>
+													<li>
+														<a href="/admin/users" class="flex items-center p-2 pl-11 w-full text-sm font-normal text-gray-700 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+															<i class="fas fa-users w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
+															Users
+														</a>
+													</li>
+													<li>
+														<a href="/admin/roles" class="flex items-center p-2 pl-11 w-full text-sm font-normal text-gray-700 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+															<i class="fas fa-user-shield w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
+															Roles
+														</a>
+													</li>
+													<li>
+														<a href="/admin/audit" class="flex items-center p-2 pl-11 w-full text-sm font-normal text-gray-700 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+															<i class="fas fa-clipboard-list w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
+															Audit Logs
+														</a>
+													</li>
+													<li>
+														<a href="/admin/database" class="flex items-center p-2 pl-11 w-full text-sm font-normal text-gray-700 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+															<i class="fas fa-database w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
+															Database Tools
+														</a>
+													</li>
+													<li>
+														<a href="/admin/settings" class="flex items-center p-2 pl-11 w-full text-sm font-normal text-gray-700 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+															<i class="fas fa-cog w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
+															Settings
+														</a>
+													</li>
+												</ul>
+											</div>
+										</div>
 									}
 								</div>
-							</div>
-							<div class="flex items-center space-x-4">
-								<!-- Theme Toggle -->
-								<button
-									id="theme-toggle"
-									type="button"
-									class="text-secondary-500 dark:text-secondary-400 hover:bg-secondary-100 dark:hover:bg-secondary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-lg text-sm p-2"
-									onclick="toggleTheme()"
-								>
-									<i class="fas fa-sun hidden dark:block"></i>
-									<i class="fas fa-moon block dark:hidden"></i>
-								</button>
-								
-								<!-- Mobile menu button -->
-								<div class="sm:hidden flex items-center">
-									<button 
-										id="mobile-menu-button" 
-										class="text-secondary-500 dark:text-secondary-400 hover:bg-secondary-100 dark:hover:bg-secondary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-lg text-sm p-2"
-										x-data="{}" 
-										@click="$dispatch('toggle-mobile-menu')"
-									>
+							</nav>
+						</div>
+					</aside>
+
+					<!-- Mobile menu -->
+					<div class="md:hidden fixed top-0 z-30 w-full">
+						<div class="bg-white dark:bg-gray-800 shadow-sm">
+							<div class="flex items-center justify-between px-4 py-3">
+								<a href="/" class="flex items-center text-primary-600 dark:text-primary-400">
+									<i class="fas fa-exchange-alt text-xl"></i>
+								</a>
+								<div class="flex items-center space-x-3">
+									<button data-drawer-target="mobile-menu" data-drawer-toggle="mobile-menu" class="p-2 text-gray-500 rounded-lg hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700">
 										<i class="fas fa-bars text-lg"></i>
 									</button>
-								</div>
-								
-								<!-- User Menu -->
-								<div x-data="{ open: false }" class="relative">
-									<button @click="open = !open" class="flex text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500">
-										<span class="sr-only">Open user menu</span>
-										<div class="h-8 w-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center dark:bg-primary-900 dark:text-primary-300">
-											<span class="text-sm font-medium">{ getUserInitial(ctx) }</span>
-										</div>
-									</button>
-									<div x-show="open" 
-										@click.away="open = false" 
-										class="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none dark:bg-secondary-800 dark:ring-secondary-700 animate-fadeIn"
-										role="menu" 
-										aria-orientation="vertical" 
-										aria-labelledby="user-menu-button" 
-										tabindex="-1">
-										<div class="px-4 py-2 text-xs text-secondary-500 dark:text-secondary-400 border-b border-secondary-200 dark:border-secondary-700">
-											Signed in as <span class="font-medium">{ getUserEmail(ctx) }</span>
-										</div>
-										<a href="/profile" class="block px-4 py-2 text-sm text-secondary-700 hover:bg-secondary-100 dark:text-secondary-200 dark:hover:bg-secondary-700" role="menuitem">
-											<i class="fas fa-user-circle mr-2"></i> Profile
-										</a>
-										<form method="POST" action="/logout">
-											<button type="submit" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-secondary-100 dark:hover:bg-secondary-700" role="menuitem">
-												<i class="fas fa-sign-out-alt mr-2"></i> Sign out
-											</button>
-										</form>
-									</div>
+									<!-- User menu (same as desktop) -->
 								</div>
 							</div>
 						</div>
 					</div>
-				</nav>
-				
-				<!-- Mobile Navigation Menu -->
-				<div 
-					x-data="{ open: false }" 
-					x-on:toggle-mobile-menu.window="open = !open"
-					x-show="open" 
-					x-transition:enter="transition ease-out duration-200"
-					x-transition:enter-start="opacity-0 transform -translate-y-2"
-					x-transition:enter-end="opacity-100 transform translate-y-0"
-					x-transition:leave="transition ease-in duration-150"
-					x-transition:leave-start="opacity-100 transform translate-y-0"
-					x-transition:leave-end="opacity-0 transform -translate-y-2"
-					class="sm:hidden bg-white dark:bg-secondary-800 shadow-md w-full left-0 right-0"
-				>
-					<div class="max-w-7xl mx-auto px-2 pt-2 pb-3 space-y-1">
-						<a href="/dashboard" class="block px-3 py-2 rounded-md text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-primary-50 dark:hover:bg-secondary-700 hover:text-primary-600 dark:hover:text-primary-400">
-							<i class="fas fa-tachometer-alt mr-2"></i> Dashboard
-						</a>
-						<a href="/configs" class="block px-3 py-2 rounded-md text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-primary-50 dark:hover:bg-secondary-700 hover:text-primary-600 dark:hover:text-primary-400">
-							<i class="fas fa-cogs mr-2"></i> Configs
-						</a>
-						<a href="/jobs" class="block px-3 py-2 rounded-md text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-primary-50 dark:hover:bg-secondary-700 hover:text-primary-600 dark:hover:text-primary-400">
-							<i class="fas fa-tasks mr-2"></i> Jobs
-						</a>
-						<a href="/history" class="block px-3 py-2 rounded-md text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-primary-50 dark:hover:bg-secondary-700 hover:text-primary-600 dark:hover:text-primary-400">
-							<i class="fas fa-history mr-2"></i> History
-						</a>
-						<a href="/files" class="block px-3 py-2 rounded-md text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-primary-50 dark:hover:bg-secondary-700 hover:text-primary-600 dark:hover:text-primary-400">
-							<i class="fas fa-file-alt mr-2"></i> Files
-						</a>
-						if isAdmin(ctx) {
-							<a href="/admin/users" class="block px-3 py-2 rounded-md text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-primary-50 dark:hover:bg-secondary-700 hover:text-primary-600 dark:hover:text-primary-400">
-								<i class="fas fa-users mr-2"></i> Users
-							</a>
-							<a href="/admin/tools" class="block px-3 py-2 rounded-md text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-primary-50 dark:hover:bg-secondary-700 hover:text-primary-600 dark:hover:text-primary-400">
-								<i class="fas fa-tools mr-2"></i> Admin Tools
-							</a>
-						}
-						<a href="/profile" class="block px-3 py-2 rounded-md text-base font-medium text-secondary-700 dark:text-secondary-300 hover:bg-primary-50 dark:hover:bg-secondary-700 hover:text-primary-600 dark:hover:text-primary-400">
-							<i class="fas fa-user-circle mr-2"></i> Profile
-						</a>
-						<form method="POST" action="/logout">
-							<button type="submit" class="w-full text-left block px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900 hover:text-red-700 dark:hover:text-red-400">
-								<i class="fas fa-sign-out-alt mr-2"></i> Sign out
-							</button>
-						</form>
+
+					<!-- Main Content -->
+					<div class="md:pl-64 flex flex-col flex-1 w-full bg-gray-50 dark:bg-gray-900">
+						<!-- Main header -->
+						<header class="bg-white dark:bg-gray-800 shadow-sm">
+							<div class="flex items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+								<div class="flex items-center space-x-3">
+									<button data-drawer-target="desktop-menu" data-drawer-toggle="desktop-menu" class="md:hidden p-2 text-gray-500 rounded-lg hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700">
+										<i class="fas fa-bars text-lg"></i>
+									</button>
+									<h1 class="text-lg font-semibold text-gray-900 dark:text-white">{ title }</h1>
+								</div>
+								<!-- Theme toggle and user menu -->
+								<div class="flex items-center space-x-4">
+									<!-- Theme Toggle -->
+									<button
+										id="theme-toggle"
+										type="button"
+										class="p-2 text-gray-500 rounded-lg hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700 focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600"
+										onclick="toggleTheme()"
+									>
+										<i class="fas fa-sun hidden dark:block"></i>
+										<i class="fas fa-moon block dark:hidden"></i>
+									</button>
+									
+									<!-- Notification Bell -->
+									<div class="relative">
+										<button 
+											type="button" 
+											class="p-2 text-gray-500 rounded-lg hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700 focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600 relative" 
+											id="notification-bell" 
+											data-dropdown-toggle="notification-dropdown" 
+											data-dropdown-placement="bottom-end">
+											<span class="sr-only">View notifications</span>
+											<i class="fas fa-bell"></i>
+											<!-- Notification badge -->
+											<div class="absolute inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full -top-1 -right-1">3</div>
+										</button>
+										
+										<!-- Notification dropdown -->
+										<div class="hidden overflow-hidden z-50 my-4 max-w-sm md:max-w-md w-full text-base list-none bg-white rounded divide-y divide-gray-100 shadow-lg dark:divide-gray-600 dark:bg-gray-700 rounded-xl"
+											 id="notification-dropdown"
+											 style="min-width: 320px; width: 100%;"
+											 data-dropdown-placement="bottom-end">
+											<div class="block py-2 px-4 text-base font-medium text-center text-gray-700 bg-gray-50 dark:bg-gray-600 dark:text-gray-300">
+												Notifications
+											</div>
+											<div>
+												<!-- Job completed notification -->
+												<a href="#" class="flex py-3 px-4 border-b hover:bg-gray-100 dark:hover:bg-gray-600 dark:border-gray-600">
+													<div class="flex-shrink-0">
+														<div class="w-11 h-11 rounded-full bg-green-100 flex items-center justify-center dark:bg-green-900">
+															<i class="fas fa-check-circle text-green-600 dark:text-green-300"></i>
+														</div>
+														<div class="flex absolute justify-center items-center ml-6 -mt-5 w-5 h-5 bg-primary-700 rounded-full border border-white dark:border-gray-700">
+															<i class="fas fa-check text-white text-xs"></i>
+														</div>
+													</div>
+													<div class="pl-3 w-full">
+														<div class="text-gray-500 font-normal text-sm mb-1.5 dark:text-gray-400">
+															<span class="font-semibold text-gray-900 dark:text-white">Job Complete:</span> Daily backup to AWS S3
+														</div>
+														<div class="text-xs font-medium text-primary-600 dark:text-primary-500">
+															10 minutes ago
+														</div>
+													</div>
+												</a>
+												
+												<!-- Job failed notification -->
+												<a href="#" class="flex py-3 px-4 border-b hover:bg-gray-100 dark:hover:bg-gray-600 dark:border-gray-600">
+													<div class="flex-shrink-0">
+														<div class="w-11 h-11 rounded-full bg-red-100 flex items-center justify-center dark:bg-red-900">
+															<i class="fas fa-exclamation-circle text-red-600 dark:text-red-300"></i>
+														</div>
+														<div class="flex absolute justify-center items-center ml-6 -mt-5 w-5 h-5 bg-red-600 rounded-full border border-white dark:border-gray-700">
+															<i class="fas fa-times text-white text-xs"></i>
+														</div>
+													</div>
+													<div class="pl-3 w-full">
+														<div class="text-gray-500 font-normal text-sm mb-1.5 dark:text-gray-400">
+															<span class="font-semibold text-gray-900 dark:text-white">Job Failed:</span> SFTP transfer to customer portal
+														</div>
+														<div class="text-xs font-medium text-primary-600 dark:text-primary-500">
+															1 hour ago
+														</div>
+													</div>
+												</a>
+												
+												<!-- Config updated notification -->
+												<a href="#" class="flex py-3 px-4 border-b hover:bg-gray-100 dark:hover:bg-gray-600 dark:border-gray-600">
+													<div class="flex-shrink-0">
+														<div class="w-11 h-11 rounded-full bg-blue-100 flex items-center justify-center dark:bg-blue-900">
+															<i class="fas fa-cog text-blue-600 dark:text-blue-300"></i>
+														</div>
+														<div class="flex absolute justify-center items-center ml-6 -mt-5 w-5 h-5 bg-blue-500 rounded-full border border-white dark:border-gray-700">
+															<i class="fas fa-wrench text-white text-xs"></i>
+														</div>
+													</div>
+													<div class="pl-3 w-full">
+														<div class="text-gray-500 font-normal text-sm mb-1.5 dark:text-gray-400">
+															<span class="font-semibold text-gray-900 dark:text-white">Config Updated:</span> AWS credentials refreshed
+														</div>
+														<div class="text-xs font-medium text-primary-600 dark:text-primary-500">
+															3 hours ago
+														</div>
+													</div>
+												</a>
+												
+												<!-- New user notification -->
+												<a href="#" class="flex py-3 px-4 hover:bg-gray-100 dark:hover:bg-gray-600">
+													<div class="flex-shrink-0">
+														<div class="w-11 h-11 rounded-full bg-purple-100 flex items-center justify-center dark:bg-purple-900">
+															<i class="fas fa-user-plus text-purple-600 dark:text-purple-300"></i>
+														</div>
+														<div class="flex absolute justify-center items-center ml-6 -mt-5 w-5 h-5 bg-purple-500 rounded-full border border-white dark:border-gray-700">
+															<i class="fas fa-user text-white text-xs"></i>
+														</div>
+													</div>
+													<div class="pl-3 w-full">
+														<div class="text-gray-500 font-normal text-sm mb-1.5 dark:text-gray-400">
+															<span class="font-semibold text-gray-900 dark:text-white">User Added:</span> New admin added to the system
+														</div>
+														<div class="text-xs font-medium text-primary-600 dark:text-primary-500">
+															5 hours ago
+														</div>
+													</div>
+												</a>
+											</div>
+											<a href="/notifications" class="block py-2 text-md font-medium text-center text-gray-900 bg-gray-50 hover:bg-gray-100 dark:bg-gray-600 dark:text-white dark:hover:underline">
+												<div class="inline-flex items-center">
+													<svg aria-hidden="true" class="mr-2 w-4 h-4 text-gray-500 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+														<path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path>
+														<path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"></path>
+													</svg>
+													View all
+												</div>
+											</a>
+										</div>
+									</div>
+									
+									<!-- User menu dropdown -->
+									<div class="relative">
+										<button type="button" 
+												class="flex text-sm rounded-full focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600" 
+												id="user-menu-button" 
+												data-dropdown-toggle="user-dropdown"
+												data-dropdown-placement="bottom-end">
+											<span class="sr-only">Open user menu</span>
+											<div class="h-8 w-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center dark:bg-primary-900 dark:text-primary-300">
+												<span class="text-sm font-medium">{ getUserInitial(ctx) }</span>
+											</div>
+										</button>
+										
+										<!-- Dropdown menu -->
+										<div class="z-50 hidden my-4 text-base list-none bg-white divide-y divide-gray-100 rounded-lg shadow dark:bg-gray-700 dark:divide-gray-600" 
+											 id="user-dropdown">
+											<div class="px-4 py-3">
+												<span class="block text-sm text-gray-900 dark:text-white">{ getUserEmail(ctx) }</span>
+											</div>
+											<ul class="py-2" aria-labelledby="user-menu-button">
+												<li>
+													<a href="/profile" 
+													   class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-gray-200 dark:hover:text-white">
+														<i class="fas fa-user-circle mr-2 w-4"></i>
+														Profile
+													</a>
+												</li>
+												<li>
+													<form method="POST" action="/logout">
+														<button type="submit" 
+																class="w-full text-left flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white">
+															<i class="fas fa-sign-out-alt mr-2 w-4"></i>
+															Sign out
+														</button>
+													</form>
+												</li>
+											</ul>
+										</div>
+									</div>
+								</div>
+							</div>
+						</header>
+
+						<!-- Page Content -->
+						<main class="flex-1 bg-gray-50 dark:bg-gray-900">
+							<div class="py-6 bg-gray-50 dark:bg-gray-900">
+								<div class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
+									<!-- Notification area -->
+									<div id="notification-area" class="hidden" hx-swap-oob="true"></div>
+									{ children... }
+								</div>
+							</div>
+						</main>
+
+						<!-- Footer -->
+						<footer class="bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+							<div class="max-w-screen-2xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+								<div class="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+									<span>GoMFT &copy; { getCurrentYear() }</span>
+									<div class="flex items-center space-x-4">
+										<a href="https://github.com/starfleetcptn/gomft" class="hover:text-primary-600 dark:hover:text-primary-400">
+											<i class="fab fa-github"></i>
+										</a>
+										<a href={ GetReleaseURL() } class="hover:text-primary-600 dark:hover:text-primary-400">
+											<i class="fas fa-tag"></i> { AppVersion }
+										</a>
+									</div>
+								</div>
+							</div>
+						</footer>
 					</div>
+				</div>
+			} else {
+				<!-- Public page layout -->
+				<div class="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900">
+					<main class="flex-grow">
+						{ children... }
+					</main>
+					<footer class="bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+						<div class="max-w-screen-2xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+							<div class="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+								<span>GoMFT &copy; { getCurrentYear() }</span>
+								<div class="flex items-center space-x-4">
+									<a href="https://github.com/starfleetcptn/gomft" class="hover:text-primary-600 dark:hover:text-primary-400">
+										<i class="fab fa-github"></i>
+									</a>
+									<a href={ GetReleaseURL() } class="hover:text-primary-600 dark:hover:text-primary-400">
+										<i class="fas fa-tag"></i> { AppVersion }
+									</a>
+								</div>
+							</div>
+						</div>
+					</footer>
 				</div>
 			}
-			<main class="flex-grow w-full max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 animate-fadeIn pb-mobile-nav">
-				<!-- Hidden notification area for HTMX targets -->
-				<div id="notification-area" class="hidden" hx-swap-oob="true"></div>
-				
-				{ children... }
-			</main>
-			<footer class="bg-white dark:bg-secondary-800 shadow-inner mt-auto w-full">
-				<div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
-					<p class="text-center text-sm text-secondary-500 dark:text-secondary-400">
-						GoMFT &copy; { getCurrentYear() } | Secure File Transfer Solution
-					</p>
-					<div class="flex justify-center items-center space-x-4 mt-1">
-						<p class="text-xs text-secondary-400 dark:text-secondary-500">
-							<a href="https://github.com/starfleetcptn/gomft" class="hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200" target="_blank" rel="noopener">
-								<i class="fab fa-github mr-1"></i>GitHub
-							</a>
-						</p>
-						<p class="text-xs text-secondary-400 dark:text-secondary-500">
-							<a href={ GetReleaseURL() } class="hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-200" target="_blank" rel="noopener">
-								<i class="fas fa-tag mr-1"></i>Version { AppVersion }
-							</a>
-						</p>
-					</div>
-				</div>
-			</footer>
 			
-			if isLoggedIn(ctx) {
-				<!-- Mobile Bottom Navigation -->
-				<div class="sm:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-secondary-800 border-t border-secondary-200 dark:border-secondary-700 shadow-lg w-full p-0 m-0">
-					<div class="grid grid-cols-6 h-16">
-						<a href="/dashboard" class="flex flex-col items-center justify-center text-secondary-500 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400">
-							<i class="fas fa-tachometer-alt text-lg"></i>
-							<span class="text-xs mt-1">Dashboard</span>
-						</a>
-						<a href="/configs" class="flex flex-col items-center justify-center text-secondary-500 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400">
-							<i class="fas fa-cogs text-lg"></i>
-							<span class="text-xs mt-1">Configs</span>
-						</a>
-						<a href="/jobs" class="flex flex-col items-center justify-center text-secondary-500 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400">
-							<i class="fas fa-tasks text-lg"></i>
-							<span class="text-xs mt-1">Jobs</span>
-						</a>
-						<a href="/history" class="flex flex-col items-center justify-center text-secondary-500 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400">
-							<i class="fas fa-history text-lg"></i>
-							<span class="text-xs mt-1">History</span>
-						</a>
-						<a href="/files" class="flex flex-col items-center justify-center text-secondary-500 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400">
-							<i class="fas fa-file-alt text-lg"></i>
-							<span class="text-xs mt-1">Files</span>
-						</a>
-						<button 
-							type="button" 
-							class="flex flex-col items-center justify-center text-secondary-500 dark:text-secondary-400 hover:text-primary-600 dark:hover:text-primary-400"
-							x-data="{}" 
-							@click="$dispatch('toggle-mobile-menu')"
-						>
-							<i class="fas fa-ellipsis-h text-lg"></i>
-							<span class="text-xs mt-1">More</span>
-						</button>
-					</div>
-				</div>
-			}
+			<script>
+				// Add script to ensure dark mode is properly applied
+				document.addEventListener('DOMContentLoaded', function() {
+					// Apply body dark class when theme changes
+					const isDark = document.documentElement.classList.contains('dark');
+					if (isDark) {
+						document.body.classList.add('dark');
+						
+						// Also apply to containers
+						const jobsContainer = document.getElementById('jobs-container');
+						const configsContainer = document.getElementById('configs-container');
+						
+						if (jobsContainer) jobsContainer.classList.add('dark');
+						if (configsContainer) configsContainer.classList.add('dark');
+					}
+
+					// Initialize admin dropdown toggle if available
+					const adminDropdownToggle = document.querySelector('[data-collapse-toggle="dropdown-admin"]');
+					const adminDropdown = document.getElementById('dropdown-admin');
+					
+					if (adminDropdownToggle && adminDropdown) {
+						// Check if we should show the dropdown (if current page is under admin section)
+						const currentPath = window.location.pathname;
+						if (currentPath.startsWith('/admin')) {
+							adminDropdown.classList.remove('hidden');
+						}
+
+						// Add click event listener
+						adminDropdownToggle.addEventListener('click', function() {
+							adminDropdown.classList.toggle('hidden');
+						});
+					}
+				});
+			</script>
 		</body>
 	</html>
 }

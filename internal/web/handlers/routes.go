@@ -6,6 +6,9 @@ import (
 
 // RegisterRoutes registers all the routes for the web interface
 func (h *Handlers) RegisterRoutes(router *gin.Engine) {
+	// Register error handlers first
+	h.RegisterErrorHandlers(router)
+
 	// Public routes
 	router.GET("/", h.HandleHome)
 	router.GET("/login", h.HandleLoginPage)
@@ -84,35 +87,70 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 
 	// Admin-only routes
 	admin := router.Group("/admin")
-	admin.Use(h.AuthMiddleware(), h.AdminMiddleware())
+	admin.Use(h.AuthMiddleware())
 	{
-		admin.GET("/users", h.HandleUsers)
-		admin.GET("/users/new", h.HandleNewUser)
-		admin.POST("/users", h.HandleCreateUser)
-		admin.DELETE("/users/:id", h.HandleDeleteUser)
-		admin.GET("/register", h.HandleRegisterPage)
-		admin.POST("/register", h.HandleRegister)
+		// Main admin dashboard - requires admin role
+		admin.GET("", h.AdminMiddleware(), h.HandleAdminDashboard)
 
-		// Admin tools routes
-		admin.GET("/tools", h.HandleAdminTools)
-		admin.POST("/backup-database", h.HandleBackupDatabase)
-		admin.POST("/restore-database", h.HandleRestoreDatabase)
-		admin.POST("/restore-database/:filename", h.HandleRestoreDatabaseByFilename)
-		admin.GET("/export-configs", h.HandleExportConfigs)
-		admin.GET("/export-jobs", h.HandleExportJobs)
-		admin.POST("/clear-job-history", h.HandleClearJobHistory)
-		admin.POST("/vacuum-database", h.HandleVacuumDatabase)
-		admin.GET("/download-backup/:filename", h.HandleDownloadBackup)
-		admin.DELETE("/delete-backup/:filename", h.HandleDeleteBackup)
-		admin.GET("/refresh-backups", h.HandleRefreshBackups)
+		// User management routes
+		userGroup := admin.Group("/users")
+		userGroup.Use(h.PermissionMiddleware("users.view"))
+		{
+			userGroup.GET("", h.HandleUsers)
+			userGroup.GET("/new", h.PermissionMiddleware("users.create"), h.AdminNewUserPage)
+			userGroup.POST("", h.PermissionMiddleware("users.create"), h.HandleCreateUser)
+			userGroup.GET("/:id/edit", h.PermissionMiddleware("users.edit"), h.HandleEditUser)
+			userGroup.PUT("/:id", h.PermissionMiddleware("users.edit"), h.AdminUpdateUser)
+			userGroup.DELETE("/:id", h.PermissionMiddleware("users.delete"), h.HandleDeleteUser)
+			userGroup.PUT("/:id/toggle-lock", h.PermissionMiddleware("users.edit"), h.AdminToggleLockUser)
+		}
 
-		// Log viewer routes
-		admin.GET("/logs/refresh", h.HandleRefreshLogs)
-		admin.GET("/logs/view/:fileName", h.HandleViewLog)
-		admin.GET("/logs/download/:fileName", h.HandleDownloadLog)
+		// Admin routes for role management
+		adminRoles := admin.Group("/roles")
+		adminRoles.Use(h.PermissionMiddleware("roles.admin"))
+		{
+			adminRoles.GET("", h.AdminRoles)
+			adminRoles.GET("/new", h.AdminNewRolePage)
+			adminRoles.GET("/:id/edit", h.AdminEditRolePage)
+			adminRoles.POST("", h.AdminCreateRole)
+			adminRoles.PUT("/:id", h.AdminUpdateRole)
+			adminRoles.DELETE("/:id", h.AdminDeleteRole)
+		}
 
-		// Email test route
-		admin.POST("/test-email", h.HandleTestEmail)
+		// Audit log routes
+		auditGroup := admin.Group("/audit")
+		auditGroup.Use(h.PermissionMiddleware("audit.view"))
+		{
+			auditGroup.GET("", h.HandleAuditLogs)
+			auditGroup.GET("/export", h.PermissionMiddleware("audit.export"), h.HandleExportAuditLogs)
+		}
+
+		// System settings routes
+		settingsGroup := admin.Group("/settings")
+		settingsGroup.Use(h.PermissionMiddleware("system.settings"))
+		{
+			settingsGroup.GET("", h.HandleSettings)
+			settingsGroup.POST("/notifications", h.HandleCreateNotificationService)
+			settingsGroup.DELETE("/notifications/:id", h.HandleDeleteNotificationService)
+			settingsGroup.POST("/general", h.HandleSettings)  // Placeholder for future implementation
+			settingsGroup.POST("/security", h.HandleSettings) // Placeholder for future implementation
+		}
+
+		// Database tools routes
+		dbGroup := admin.Group("/database")
+		dbGroup.Use(h.PermissionMiddleware("system.backup"))
+		{
+			dbGroup.GET("", h.HandleDatabaseTools)
+			dbGroup.POST("/backup-database", h.HandleBackupDatabase)
+			dbGroup.POST("/restore-database", h.PermissionMiddleware("system.restore"), h.HandleRestoreDatabase)
+			dbGroup.GET("/restore-database/:filename", h.PermissionMiddleware("system.restore"), h.HandleRestoreDatabase)
+			dbGroup.GET("/download-backup/:filename", h.HandleDownloadBackup)
+			dbGroup.POST("/delete-backup/:filename", h.HandleDeleteBackup)
+			dbGroup.GET("/refresh-backups", h.HandleRefreshBackups)
+			dbGroup.POST("/vacuum-database", h.HandleVacuumDatabase)
+			dbGroup.POST("/clear-job-history", h.HandleClearJobHistory)
+		}
+
 	}
 
 	// API routes

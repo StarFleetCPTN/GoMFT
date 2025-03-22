@@ -1,0 +1,241 @@
+package components
+
+import (
+	"context"
+	"github.com/starfleetcptn/gomft/internal/db"
+	"strconv"
+)
+
+type UserEditData struct {
+	User         *db.User
+	Roles        []db.Role
+	UserRoles    []db.Role
+	IsNew        bool
+	ErrorMessage string
+}
+
+templ UserEdit(ctx context.Context, data UserEditData) {
+	@LayoutWithContext("Edit User", ctx) {
+		<div class="p-4 md:p-6 2xl:p-10">
+			<div class="max-w-3xl mx-auto">
+				<div class="mb-8">
+					<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+						<i class="fas fa-user-edit w-6 h-6 mr-2 text-blue-500"></i>
+						if data.IsNew {
+							Add New User
+						} else {
+							Edit User
+						}
+					</h1>
+				</div>
+				
+				<!-- Status and Error Messages -->
+				<div id="status-message" class="hidden mb-4 p-4 text-sm text-green-700 bg-green-100 rounded-lg dark:bg-green-200 dark:text-green-800" role="alert"></div>
+				<div id="error-message" class="hidden mb-4 p-4 text-sm text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800" role="alert">
+					<div class="font-medium error-title"></div>
+					<div class="error-details mt-1"></div>
+				</div>
+				
+				<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 overflow-hidden">
+					<div class="p-6">
+						if data.ErrorMessage != "" {
+							<div class="p-4 mb-6 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-red-900 dark:text-red-400" role="alert">
+								<div class="flex items-center">
+									<i class="fas fa-exclamation-circle mr-2"></i>
+									<span>{ data.ErrorMessage }</span>
+								</div>
+							</div>
+						}
+						
+						<form 
+							class="space-y-6" 
+							if data.IsNew {
+								hx-post="/admin/users"
+							} else {
+								hx-post={ "/admin/users/" + strconv.Itoa(int(data.User.ID)) }
+								hx-method="PUT"
+							}
+							hx-target="body">
+							<div>
+								<div class="mb-6">
+									<h3 class="text-lg font-medium leading-none text-gray-900 dark:text-white">User Information</h3>
+									<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+										if data.IsNew {
+											Create a new user account with appropriate permissions.
+										} else {
+											Update user information and permissions.
+										}
+									</p>
+								</div>
+								
+								<div class="space-y-4">
+									<div>
+										<label for="email" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Email</label>
+										<input 
+											type="email" 
+											name="email" 
+											id="email" 
+											required 
+											class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
+											placeholder="user@example.com"
+											if !data.IsNew {
+												value={ data.User.Email }
+											}
+										/>
+									</div>
+									
+									<div>
+										<label for="password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+											if data.IsNew {
+												Password
+											} else {
+												New Password (leave blank to keep current)
+											}
+										</label>
+										<input 
+											type="password" 
+											name="password" 
+											id="password" 
+											class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
+											placeholder="••••••••" 
+											if data.IsNew {
+												required="true"
+											}
+										/>
+									</div>
+									
+									<div>
+										<label for="confirm_password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Confirm Password</label>
+										<input 
+											type="password" 
+											name="confirm_password" 
+											id="confirm_password" 
+											class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
+											placeholder="••••••••" 
+										/>
+									</div>
+									
+									<div class="pt-2">
+										<div class="flex items-start">
+											<div class="flex items-center h-5">
+												<input 
+													id="is_admin" 
+													name="is_admin" 
+													type="checkbox" 
+													class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800" 
+													if !data.IsNew && data.User.GetIsAdmin() {
+														checked="true"
+													}
+												/>
+											</div>
+											<div class="ml-3 text-sm">
+												<label for="is_admin" class="font-medium text-gray-900 dark:text-white">Administrator</label>
+												<p class="text-xs font-normal text-gray-500 dark:text-gray-400">Grant administrative privileges to this user</p>
+											</div>
+										</div>
+									</div>
+
+									if !data.IsNew {
+										<div class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+											<h4 class="text-base font-medium text-gray-900 dark:text-white mb-2">Account Status</h4>
+											
+											<div class="flex items-start">
+												<div class="flex items-center h-5">
+													<input 
+														id="account_locked" 
+														name="account_locked" 
+														type="checkbox" 
+														class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800" 
+														if data.User.GetAccountLocked() {
+															checked="true"
+														}
+													/>
+												</div>
+												<div class="ml-3 text-sm">
+													<label for="account_locked" class="font-medium text-gray-900 dark:text-white">Lock Account</label>
+													<p class="text-xs font-normal text-gray-500 dark:text-gray-400">Prevent user from logging in</p>
+												</div>
+											</div>
+											
+											<div class="mt-4">
+												<button 
+													type="button"
+													class="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center inline-flex items-center mr-2"
+													hx-put={ "/admin/users/" + strconv.Itoa(int(data.User.ID)) + "/toggle-lock" }
+													hx-confirm="Are you sure you want to toggle this account's lock status?"
+													hx-target="body"
+												>
+													<i class="fas fa-lock w-4 h-4 mr-2"></i>
+													Toggle Lock Status
+												</button>
+											</div>
+										</div>
+									}
+								</div>
+							</div>
+							
+							<div class="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+								<a href="/admin/users" class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600">
+									<i class="fas fa-arrow-left mr-2"></i>
+									Cancel
+								</a>
+								<button 
+									type="submit" 
+									class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+								>
+									<i class="fas fa-save mr-2"></i>
+									if data.IsNew {
+										Create User
+									} else {
+										Update User
+									}
+								</button>
+							</div>
+						</form>
+					</div>
+				</div>
+			</div>
+		</div>
+	}
+}
+
+// JavaScript to handle URL parameters for displaying messages
+script handleUrlParams() {
+	document.addEventListener('DOMContentLoaded', function() {
+		const params = new URLSearchParams(window.location.search);
+		const error = params.get('error');
+		const details = params.get('details');
+		const status = params.get('status');
+		
+		if (error) {
+			const errorMsgEl = document.getElementById('error-message');
+			const errorTitleEl = errorMsgEl.querySelector('.error-title');
+			const errorDetailsEl = errorMsgEl.querySelector('.error-details');
+			
+			errorTitleEl.textContent = error;
+			if (details) {
+				errorDetailsEl.textContent = details;
+			} else {
+				errorDetailsEl.textContent = '';
+			}
+			
+			errorMsgEl.classList.remove('hidden');
+			
+			// If notyf is available, use it
+			if (window.notyf) {
+				window.notyf.error(error);
+			}
+		}
+		
+		if (status) {
+			const statusMsgEl = document.getElementById('status-message');
+			statusMsgEl.textContent = status;
+			statusMsgEl.classList.remove('hidden');
+			
+			// If notyf is available, use it
+			if (window.notyf) {
+				window.notyf.success(status);
+			}
+		}
+	});
+} 

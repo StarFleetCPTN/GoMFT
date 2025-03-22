@@ -83,43 +83,63 @@ function applyTheme(theme) {
 }
 
 // Apply dark theme
-function applyDarkTheme(setClass = true) {
-  if (setClass) {
-    document.documentElement.classList.add('dark');
-    document.documentElement.classList.remove('light');
-  }
-  document.documentElement.style.colorScheme = 'dark';
+function applyDarkTheme() {
+  document.documentElement.classList.add('dark');
+  document.body.classList.add('dark');
+  localStorage.theme = 'dark';
   
-  // Add transition for smooth theme switching
-  document.documentElement.style.transition = 'background-color 0.3s ease, color 0.3s ease';
+  // Apply dark theme to specific containers
+  const jobsContainer = document.getElementById('jobs-container');
+  const configsContainer = document.getElementById('configs-container');
+  
+  if (jobsContainer) {
+    jobsContainer.classList.add('dark');
+    jobsContainer.style.backgroundColor = '#111827';
+  }
+  
+  if (configsContainer) {
+    configsContainer.classList.add('dark');
+    configsContainer.style.backgroundColor = '#111827';
+  }
+  
+  // Override any white backgrounds in card elements
+  document.querySelectorAll('.bg-white').forEach(function(element) {
+    element.classList.add('dark-mode-override');
+    element.classList.remove('bg-white');
+    element.classList.add('bg-gray-800');
+  });
   
   updateThemeColors('dark');
-  
-  // Update theme toggle icon
-  updateThemeToggleIcon('dark');
-  
-  // Store user preference in localStorage as a backup
-  localStorage.setItem('theme', 'dark');
 }
 
 // Apply light theme
-function applyLightTheme(setClass = true) {
-  if (setClass) {
-    document.documentElement.classList.remove('dark');
-    document.documentElement.classList.add('light');
-  }
-  document.documentElement.style.colorScheme = 'light';
+function applyLightTheme() {
+  document.documentElement.classList.remove('dark');
+  document.body.classList.remove('dark');
+  localStorage.theme = 'light';
   
-  // Add transition for smooth theme switching
-  document.documentElement.style.transition = 'background-color 0.3s ease, color 0.3s ease';
+  // Remove dark theme from specific containers
+  const jobsContainer = document.getElementById('jobs-container');
+  const configsContainer = document.getElementById('configs-container');
+  
+  if (jobsContainer) {
+    jobsContainer.classList.remove('dark');
+    jobsContainer.style.backgroundColor = 'rgb(249, 250, 251)';
+  }
+  
+  if (configsContainer) {
+    configsContainer.classList.remove('dark');
+    configsContainer.style.backgroundColor = 'rgb(249, 250, 251)';
+  }
+  
+  // Restore white backgrounds
+  document.querySelectorAll('.dark-mode-override').forEach(function(element) {
+    element.classList.remove('dark-mode-override');
+    element.classList.remove('bg-gray-800');
+    element.classList.add('bg-white');
+  });
   
   updateThemeColors('light');
-  
-  // Update theme toggle icon
-  updateThemeToggleIcon('light');
-  
-  // Store user preference in localStorage as a backup
-  localStorage.setItem('theme', 'light');
 }
 
 // Apply system theme based on user's OS preference

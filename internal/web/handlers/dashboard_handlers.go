@@ -67,12 +67,16 @@ func (h *Handlers) HandleDashboard(c *gin.Context) {
 		}
 	}
 
+	// Get the rclone version
+	rcloneVersion := components.GetRcloneVersion()
+
 	data := components.DashboardData{
 		RecentJobs:      recentHistory,
 		ActiveTransfers: int(totalJobs),
 		CompletedToday:  int(completedJobs),
 		FailedTransfers: int(failedJobs),
 		Configs:         configsMap,
+		RcloneVersion:   rcloneVersion,
 	}
 
 	components.Dashboard(components.CreateTemplateContext(c), data).Render(c, c.Writer)

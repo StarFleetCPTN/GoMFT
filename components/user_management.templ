@@ -1,0 +1,379 @@
+package components
+
+import (
+	"context"
+	"github.com/starfleetcptn/gomft/internal/db"
+	"strconv"
+)
+
+type UserManagementData struct {
+	Users       []db.User
+	Roles       []db.Role
+	ActiveTab   string // "list", "create", or "edit"
+	EditUser    *db.User
+	UserRoles   []db.Role
+	ErrorMessage string
+}
+
+templ UserManagement(ctx context.Context, data UserManagementData) {
+	@LayoutWithContext("User Management", ctx) {
+		<div class="p-4 md:p-6 2xl:p-10">
+			<!-- Header -->
+			<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+				<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+					<i class="fas fa-users w-6 h-6 mr-2 text-blue-500"></i>
+					User Management
+				</h1>
+				<div class="flex items-center space-x-2">
+					<button 
+						class="flex items-center justify-center text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
+						hx-get="/admin/users/new" 
+						hx-target="#user-management-content" 
+						hx-push-url="true"
+					>
+						<i class="fas fa-user-plus w-4 h-4 mr-2"></i>
+						Add User
+					</button>
+					<button 
+						class="flex items-center justify-center text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:ring-gray-300 font-medium rounded-lg px-5 py-2.5 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 dark:focus:ring-gray-700 border border-gray-200 dark:border-gray-600"
+						hx-get="/admin/users" 
+						hx-target="#user-management-content" 
+						hx-push-url="true"
+					>
+						<i class="fas fa-list w-4 h-4 mr-2"></i>
+						View All Users
+					</button>
+				</div>
+			</div>
+			
+			<!-- Status and Error Messages -->
+			<div id="status-message" class="hidden mb-4 p-4 text-sm text-green-700 bg-green-100 rounded-lg dark:bg-green-200 dark:text-green-800" role="alert"></div>
+			
+			if data.ErrorMessage != "" {
+				<div id="error-message" class="mb-4 p-4 text-sm text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800" role="alert">
+					<div class="font-medium">{ data.ErrorMessage }</div>
+				</div>
+			}
+			
+			<!-- Content -->
+			<div id="user-management-content">
+				if data.ActiveTab == "list" || data.ActiveTab == "" {
+					@userList(data.Users)
+				} else if data.ActiveTab == "create" {
+					@userForm(nil, true, data.Roles)
+				} else if data.ActiveTab == "edit" && data.EditUser != nil {
+					@userForm(data.EditUser, false, data.Roles)
+				}
+			</div>
+			
+			<!-- Help Notice -->
+			<div class="mt-8">
+				<div class="flex p-4 text-sm text-blue-800 rounded-lg bg-blue-50 dark:bg-blue-900 dark:text-blue-400" role="alert">
+					<i class="fas fa-shield-alt flex-shrink-0 inline w-4 h-4 me-3 mt-0.5"></i>
+					<span class="sr-only">Info</span>
+					<div>
+						User accounts provide secure access to the GoMFT application with role-based permissions
+					</div>
+				</div>
+			</div>
+		</div>
+	}
+}
+
+// User listing component
+templ userList(users []db.User) {
+	<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 overflow-hidden">
+		<div class="overflow-x-auto">
+			<table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+				<thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+					<tr>
+						<th scope="col" class="px-6 py-3">
+							<div class="flex items-center">
+								<i class="fas fa-envelope w-4 h-4 mr-1"></i>
+								Email
+							</div>
+						</th>
+						<th scope="col" class="px-6 py-3">
+							<div class="flex items-center">
+								<i class="fas fa-user-tag w-4 h-4 mr-1"></i>
+								Role
+							</div>
+						</th>
+						<th scope="col" class="px-6 py-3">
+							<div class="flex items-center">
+								<i class="fas fa-clock w-4 h-4 mr-1"></i>
+								Status
+							</div>
+						</th>
+						<th scope="col" class="px-6 py-3">
+							<span class="sr-only">Actions</span>
+						</th>
+					</tr>
+				</thead>
+				<tbody>
+					if len(users) == 0 {
+						<tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+							<td colspan="4" class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">
+								No users found. Click the "Add User" button to create your first user.
+							</td>
+						</tr>
+					} else {
+						for _, user := range users {
+							<tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+								<td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
+									{ user.Email }
+								</td>
+								<td class="px-6 py-4">
+									if user.GetIsAdmin() {
+										<span class="bg-blue-100 text-blue-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full dark:bg-blue-900 dark:text-blue-300">
+											<i class="fas fa-user-shield w-3 h-3 mr-1"></i> Admin
+										</span>
+									} else {
+										<span class="bg-gray-100 text-gray-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full dark:bg-gray-700 dark:text-gray-300">
+											<i class="fas fa-user w-3 h-3 mr-1"></i> User
+										</span>
+									}
+								</td>
+								<td class="px-6 py-4">
+									if user.GetAccountLocked() {
+										<span class="bg-red-100 text-red-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full dark:bg-red-900 dark:text-red-300">
+											<i class="fas fa-lock w-3 h-3 mr-1"></i> Locked
+										</span>
+									} else {
+										<span class="bg-green-100 text-green-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full dark:bg-green-900 dark:text-green-300">
+											<i class="fas fa-check-circle w-3 h-3 mr-1"></i> Active
+										</span>
+									}
+								</td>
+								<td class="px-6 py-4 text-right">
+									<button
+										class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-3 py-1.5 text-center inline-flex items-center me-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+										hx-get={ "/admin/users/" + strconv.Itoa(int(user.ID)) + "/edit" }
+										hx-target="#user-management-content"
+										hx-push-url="true"
+									>
+										<i class="fas fa-edit w-3.5 h-3.5 mr-1.5"></i> Edit
+									</button>
+									
+									<button
+										class="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm px-3 py-1.5 text-center inline-flex items-center dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-800"
+										hx-delete={ "/admin/users/" + strconv.Itoa(int(user.ID)) }
+										hx-confirm="Are you sure you want to delete this user? This action cannot be undone."
+										hx-target="#user-management-content"
+									>
+										<i class="fas fa-trash-alt w-3.5 h-3.5 mr-1.5"></i> Delete
+									</button>
+								</td>
+							</tr>
+						}
+					}
+				</tbody>
+			</table>
+		</div>
+	</div>
+}
+
+// User form component for creating/editing users
+templ userForm(user *db.User, isNew bool, availableRoles []db.Role) {
+	<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 overflow-hidden">
+		<div class="p-6">
+			<div class="mb-6">
+				<h3 class="text-lg font-medium leading-none text-gray-900 dark:text-white">
+					if isNew {
+						Create New User
+					} else {
+						Edit User: { user.Email }
+					}
+				</h3>
+				<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+					if isNew {
+						Create a new user account with appropriate permissions.
+					} else {
+						Update user information and permissions.
+					}
+				</p>
+			</div>
+			
+			<form 
+				class="space-y-6" 
+				if isNew {
+					hx-post="/admin/users"
+				} else {
+					hx-put={ "/admin/users/" + strconv.Itoa(int(user.ID)) }
+				}
+				hx-target="#user-management-content"
+				x-data="{ 
+					password: '',
+					confirmPassword: '',
+					isAdmin: false,
+					passwordsMatch() {
+						return this.password === this.confirmPassword || this.confirmPassword === '';
+					}
+				}"
+			>
+				<div class="space-y-4">
+					<div>
+						<label for="email" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Email</label>
+						<input 
+							type="email" 
+							name="email" 
+							id="email" 
+							required 
+							class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
+							placeholder="user@example.com"
+							if !isNew {
+								value={ user.Email }
+							}
+						/>
+					</div>
+					
+					<div>
+						<label for="password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+							if isNew {
+								Password
+							} else {
+								New Password (leave blank to keep current)
+							}
+						</label>
+						<input 
+							type="password" 
+							name="password" 
+							id="password" 
+							x-model="password"
+							class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
+							placeholder="••••••••" 
+							if isNew {
+								required="true"
+							}
+						/>
+					</div>
+					
+					<div>
+						<label for="password_confirm" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Confirm Password</label>
+						<input 
+							type="password" 
+							name="password_confirm" 
+							id="password_confirm" 
+							x-model="confirmPassword"
+							class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
+							placeholder="••••••••" 
+							if isNew {
+								required="true"
+							}
+						/>
+						<p class="mt-1 text-sm text-red-600 dark:text-red-500" x-show="!passwordsMatch() && confirmPassword !== ''">
+							Passwords do not match
+						</p>
+					</div>
+					
+					<div class="pt-2">
+						<div class="flex items-start">
+							<div class="flex items-center h-5">
+								<input 
+									id="is_admin" 
+									name="is_admin" 
+									type="checkbox" 
+									class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800" 
+									if !isNew && user.GetIsAdmin() {
+										checked="true"
+									}
+								/>
+							</div>
+							<div class="ml-3 text-sm">
+								<label for="is_admin" class="font-medium text-gray-900 dark:text-white">Administrator</label>
+								<p class="text-xs font-normal text-gray-500 dark:text-gray-400">Grant administrative privileges to this user</p>
+							</div>
+						</div>
+					</div>
+
+					if !isNew {
+						<div class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+							<h4 class="text-base font-medium text-gray-900 dark:text-white mb-2">Account Status</h4>
+							
+							<div class="flex items-start">
+								<div class="flex items-center h-5">
+									<input 
+										id="account_locked" 
+										name="account_locked" 
+										type="checkbox" 
+										class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800" 
+										if user.GetAccountLocked() {
+											checked="true"
+										}
+									/>
+								</div>
+								<div class="ml-3 text-sm">
+									<label for="account_locked" class="font-medium text-gray-900 dark:text-white">Lock Account</label>
+									<p class="text-xs font-normal text-gray-500 dark:text-gray-400">Prevent user from logging in</p>
+								</div>
+							</div>
+						</div>
+					}
+					
+					if len(availableRoles) > 0 {
+						<div class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+							<h4 class="text-base font-medium text-gray-900 dark:text-white mb-2">Roles</h4>
+							<div class="space-y-2">
+								for _, role := range availableRoles {
+									<div class="flex items-start">
+										<div class="flex items-center h-5">
+											<input 
+												id={ "role_" + strconv.Itoa(int(role.ID)) }
+												name="roles[]" 
+												value={ strconv.Itoa(int(role.ID)) }
+												type="checkbox" 
+												class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800"
+												if !isNew && hasRole(user, role.ID) {
+													checked="true"
+												}
+											/>
+										</div>
+										<div class="ml-3 text-sm">
+											<label for={ "role_" + strconv.Itoa(int(role.ID)) } class="font-medium text-gray-900 dark:text-white">{ role.Name }</label>
+											<p class="text-xs font-normal text-gray-500 dark:text-gray-400">{ role.Description }</p>
+										</div>
+									</div>
+								}
+							</div>
+						</div>
+					}
+				</div>
+				
+				<div class="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+					<button
+						type="button"
+						class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600"
+						hx-get="/admin/users"
+						hx-target="#user-management-content"
+						hx-push-url="true"
+					>
+						<i class="fas fa-arrow-left mr-2"></i>
+						Cancel
+					</button>
+					<button 
+						type="submit" 
+						class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+						x-bind:disabled="!passwordsMatch() && confirmPassword !== ''"
+					>
+						<i class="fas fa-save mr-2"></i>
+						if isNew {
+							Create User
+						} else {
+							Update User
+						}
+					</button>
+				</div>
+			</form>
+		</div>
+	</div>
+}
+
+// Helper function to check if a user has a specific role
+func hasRole(user *db.User, roleID uint) bool {
+	for _, role := range user.Roles {
+		if role.ID == roleID {
+			return true
+		}
+	}
+	return false
+} 

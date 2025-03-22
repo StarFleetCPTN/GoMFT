@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -348,8 +347,8 @@ func (h *FileMetadataHandler) SearchFileMetadata(c *gin.Context) {
 		data.TotalPages++
 	}
 
-	// Add HTMX request checking and conditional rendering
-	ctx := context.WithValue(c.Request.Context(), userIDKey, userID)
+	// Create template context using the helper function
+	ctx := components.CreateTemplateContext(c)
 
 	// Check if this is an HTMX request
 	isHtmxRequest := c.GetHeader("HX-Request") == "true" || c.Query("htmx") == "true"
@@ -627,7 +626,9 @@ func (h *FileMetadataHandler) HandleFileMetadataSearchPartial(c *gin.Context) {
 		data.TotalPages++
 	}
 
-	ctx := context.WithValue(c.Request.Context(), userIDKey, userID)
+	// Create template context using the helper function
+	ctx := components.CreateTemplateContext(c)
+
 	c.Header("Content-Type", "text/html")
 	components.FileMetadataSearchContent(data).Render(ctx, c.Writer)
 }

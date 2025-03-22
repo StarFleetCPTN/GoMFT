@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/starfleetcptn/gomft/components"
@@ -127,9 +128,55 @@ func (h *Handlers) HandleCreateConfig(c *gin.Context) {
 	useBuiltinAuthDestValue := useBuiltinAuthDestVal == "on" || useBuiltinAuthDestVal == "true"
 	config.UseBuiltinAuthDest = &useBuiltinAuthDestValue
 
-	if err := h.DB.Create(&config).Error; err != nil {
+	// Start a transaction
+	tx := h.DB.Begin()
+	if tx.Error != nil {
+		log.Printf("Error beginning transaction: %v", tx.Error)
+		c.String(http.StatusInternalServerError, "Failed to begin transaction")
+		return
+	}
+
+	if err := tx.Create(&config).Error; err != nil {
+		tx.Rollback()
 		log.Printf("Error creating config: %v", err)
 		c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to create config: %v", err))
+		return
+	}
+
+	// Create audit log entry
+	auditDetails := map[string]interface{}{
+		"name":                  config.Name,
+		"source_type":           config.SourceType,
+		"dest_type":             config.DestinationType,
+		"source_path":           config.SourcePath,
+		"dest_path":             config.DestinationPath,
+		"skip_processed_files":  *config.SkipProcessedFiles,
+		"archive_enabled":       *config.ArchiveEnabled,
+		"delete_after_transfer": *config.DeleteAfterTransfer,
+		"source_passive_mode":   *config.SourcePassiveMode,
+		"dest_passive_mode":     *config.DestPassiveMode,
+	}
+
+	auditLog := db.AuditLog{
+		Action:     "create",
+		EntityType: "config",
+		EntityID:   config.ID,
+		UserID:     userID,
+		Details:    auditDetails,
+		Timestamp:  time.Now(),
+	}
+
+	if err := tx.Create(&auditLog).Error; err != nil {
+		tx.Rollback()
+		log.Printf("Error creating audit log: %v", err)
+		c.String(http.StatusInternalServerError, "Failed to create audit log")
+		return
+	}
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		log.Printf("Error committing transaction: %v", err)
+		c.String(http.StatusInternalServerError, "Failed to commit transaction")
 		return
 	}
 
@@ -225,9 +272,67 @@ func (h *Handlers) HandleUpdateConfig(c *gin.Context) {
 	// Preserve fields that shouldn't be updated
 	config.CreatedBy = oldConfig.CreatedBy
 
-	if err := h.DB.Save(&config).Error; err != nil {
+	// Start a transaction
+	tx := h.DB.Begin()
+	if tx.Error != nil {
+		log.Printf("Error beginning transaction: %v", tx.Error)
+		c.String(http.StatusInternalServerError, "Failed to begin transaction")
+		return
+	}
+
+	if err := tx.Save(&config).Error; err != nil {
+		tx.Rollback()
 		log.Printf("Error updating config: %v", err)
 		c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to update config: %v", err))
+		return
+	}
+
+	// Create audit log entry
+	auditDetails := map[string]interface{}{
+		"name":                  config.Name,
+		"source_type":           config.SourceType,
+		"dest_type":             config.DestinationType,
+		"source_path":           config.SourcePath,
+		"dest_path":             config.DestinationPath,
+		"skip_processed_files":  *config.SkipProcessedFiles,
+		"archive_enabled":       *config.ArchiveEnabled,
+		"delete_after_transfer": *config.DeleteAfterTransfer,
+		"source_passive_mode":   *config.SourcePassiveMode,
+		"dest_passive_mode":     *config.DestPassiveMode,
+		"previous_state": map[string]interface{}{
+			"name":                  oldConfig.Name,
+			"source_type":           oldConfig.SourceType,
+			"dest_type":             oldConfig.DestinationType,
+			"source_path":           oldConfig.SourcePath,
+			"dest_path":             oldConfig.DestinationPath,
+			"skip_processed_files":  *oldConfig.SkipProcessedFiles,
+			"archive_enabled":       *oldConfig.ArchiveEnabled,
+			"delete_after_transfer": *oldConfig.DeleteAfterTransfer,
+			"source_passive_mode":   *oldConfig.SourcePassiveMode,
+			"dest_passive_mode":     *oldConfig.DestPassiveMode,
+		},
+	}
+
+	auditLog := db.AuditLog{
+		Action:     "update",
+		EntityType: "config",
+		EntityID:   config.ID,
+		UserID:     userID,
+		Details:    auditDetails,
+		Timestamp:  time.Now(),
+	}
+
+	if err := tx.Create(&auditLog).Error; err != nil {
+		tx.Rollback()
+		log.Printf("Error creating audit log: %v", err)
+		c.String(http.StatusInternalServerError, "Failed to create audit log")
+		return
+	}
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		log.Printf("Error committing transaction: %v", err)
+		c.String(http.StatusInternalServerError, "Failed to commit transaction")
 		return
 	}
 
@@ -271,9 +376,52 @@ func (h *Handlers) HandleDeleteConfig(c *gin.Context) {
 		return
 	}
 
+	// Start a transaction
+	tx := h.DB.Begin()
+	if tx.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to begin transaction"})
+		return
+	}
+
+	// Create audit log before deletion
+	auditDetails := map[string]interface{}{
+		"name":                  config.Name,
+		"source_type":           config.SourceType,
+		"dest_type":             config.DestinationType,
+		"source_path":           config.SourcePath,
+		"dest_path":             config.DestinationPath,
+		"skip_processed_files":  *config.SkipProcessedFiles,
+		"archive_enabled":       *config.ArchiveEnabled,
+		"delete_after_transfer": *config.DeleteAfterTransfer,
+		"source_passive_mode":   *config.SourcePassiveMode,
+		"dest_passive_mode":     *config.DestPassiveMode,
+	}
+
+	auditLog := db.AuditLog{
+		Action:     "delete",
+		EntityType: "config",
+		EntityID:   config.ID,
+		UserID:     userID,
+		Details:    auditDetails,
+		Timestamp:  time.Now(),
+	}
+
+	if err := tx.Create(&auditLog).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create audit log"})
+		return
+	}
+
 	// Delete config
-	if err := h.DB.Delete(&config).Error; err != nil {
+	if err := tx.Delete(&config).Error; err != nil {
+		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to delete config: %v", err)})
+		return
+	}
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 		return
 	}
 

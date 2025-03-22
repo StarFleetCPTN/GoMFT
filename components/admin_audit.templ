@@ -1,0 +1,441 @@
+package components
+
+import (
+	"context"
+	"fmt"
+	"time"
+)
+
+// AuditLogEntry represents an audit log entry for display
+type AuditLogEntry struct {
+	ID          uint
+	Action      string
+	EntityType  string
+	EntityID    uint
+	Username    string
+	UserID      uint
+	Timestamp   time.Time
+	Details     map[string]interface{}
+	DetailsSummary string
+}
+
+type AuditLogsData struct {
+	Logs           []AuditLogEntry
+	TotalPages     int
+	CurrentPage    int
+	TotalRecords   int
+	FilterAction   string
+	FilterEntity   string
+	FilterUser     string
+	FilterDateFrom string
+	FilterDateTo   string
+}
+
+// AdminAuditLogs renders the audit logs page
+templ AdminAuditLogs(ctx context.Context, data AuditLogsData) {
+	@LayoutWithContext("Audit Logs", ctx) {
+		<div id="audit-logs-container" style="min-height: 100vh;" class="audit-logs-page bg-gray-50 dark:bg-gray-900">
+			<div class="pb-8 w-full">
+				<!-- Page Header -->
+				<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+					<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+						<i class="fas fa-clipboard-list w-6 h-6 mr-2 text-blue-500 dark:text-blue-400"></i>
+						Audit Logs
+					</h1>
+					<a href="/admin/audit/export" class="flex items-center justify-center text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+						<i class="fas fa-file-export w-4 h-4 mr-2"></i>
+						Export Logs
+					</a>
+				</div>
+				
+				<!-- Toast container for notifications -->
+				<div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2"></div>
+				
+				<!-- Status and Error Messages -->
+				<div id="status-message" class="hidden mb-4 p-4 text-sm text-green-700 bg-green-100 rounded-lg dark:bg-green-200 dark:text-green-800" role="alert"></div>
+				<div id="error-message" class="hidden mb-4 p-4 text-sm text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800" role="alert">
+					<div class="font-medium error-title"></div>
+					<div class="error-details mt-1"></div>
+				</div>
+				
+				<!-- Filters -->
+				<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 mb-6">
+					<div class="p-4 border-b border-gray-200 dark:border-gray-700">
+						<h3 class="text-lg font-semibold text-gray-900 dark:text-white">Filter Logs</h3>
+					</div>
+					<div class="p-4">
+						<form method="GET" action="/admin/audit" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+							<!-- Action filter -->
+							<div>
+								<label for="filter-action" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Action</label>
+								<select id="filter-action" name="action" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+									<option value="">All Actions</option>
+									if data.FilterAction == "create" {
+										<option value="create" selected>Create</option>
+									} else {
+										<option value="create">Create</option>
+									}
+									if data.FilterAction == "update" {
+										<option value="update" selected>Update</option>
+									} else {
+										<option value="update">Update</option>
+									}
+									if data.FilterAction == "delete" {
+										<option value="delete" selected>Delete</option>
+									} else {
+										<option value="delete">Delete</option>
+									}
+									if data.FilterAction == "login" {
+										<option value="login" selected>Login</option>
+									} else {
+										<option value="login">Login</option>
+									}
+									if data.FilterAction == "logout" {
+										<option value="logout" selected>Logout</option>
+									} else {
+										<option value="logout">Logout</option>
+									}
+								</select>
+							</div>
+							
+							<!-- Entity filter -->
+							<div>
+								<label for="filter-entity" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Entity Type</label>
+								<select id="filter-entity" name="entity" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+									<option value="">All Entities</option>
+									if data.FilterEntity == "user" {
+										<option value="user" selected>User</option>
+									} else {
+										<option value="user">User</option>
+									}
+									if data.FilterEntity == "role" {
+										<option value="role" selected>Role</option>
+									} else {
+										<option value="role">Role</option>
+									}
+									if data.FilterEntity == "config" {
+										<option value="config" selected>Config</option>
+									} else {
+										<option value="config">Config</option>
+									}
+									if data.FilterEntity == "job" {
+										<option value="job" selected>Job</option>
+									} else {
+										<option value="job">Job</option>
+									}
+								</select>
+							</div>
+							
+							<!-- User filter -->
+							<div>
+								<label for="filter-user" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Username</label>
+								<input type="text" id="filter-user" name="user" value={data.FilterUser} placeholder="Filter by username" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
+							</div>
+							
+							<!-- Date range -->
+							<div>
+								<label for="filter-date-from" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">From Date</label>
+								<input type="date" id="filter-date-from" name="date_from" value={data.FilterDateFrom} class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
+							</div>
+							
+							<div>
+								<label for="filter-date-to" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">To Date</label>
+								<input type="date" id="filter-date-to" name="date_to" value={data.FilterDateTo} class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
+							</div>
+							
+							<!-- Filter buttons -->
+							<div class="lg:col-span-5 flex items-center justify-end gap-2">
+								<a href="/admin/audit" class="px-4 py-2 text-sm font-medium text-gray-900 bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-2 focus:ring-blue-700 focus:text-blue-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">
+									Clear Filters
+								</a>
+								<button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-blue-700 rounded-lg hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+									Apply Filters
+								</button>
+							</div>
+						</form>
+					</div>
+				</div>
+				
+				<!-- Audit Logs Table -->
+				<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800">
+					<div class="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+						<h3 class="text-lg font-semibold text-gray-900 dark:text-white">Audit Log Entries</h3>
+						<span class="text-sm text-gray-600 dark:text-gray-400">Total entries: {fmt.Sprint(data.TotalRecords)}</span>
+					</div>
+					<div class="overflow-x-auto">
+						<table class="w-full">
+							<thead class="bg-gray-50 dark:bg-gray-700">
+								<tr>
+									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Timestamp</th>
+									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">User</th>
+									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Action</th>
+									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Entity</th>
+									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Details</th>
+								</tr>
+							</thead>
+							<tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+								if len(data.Logs) == 0 {
+									<tr>
+										<td colspan="5" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+											No audit logs found matching your filters.
+										</td>
+									</tr>
+								} else {
+									for _, log := range data.Logs {
+										<tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+											<td class="px-6 py-4 text-sm text-gray-900 dark:text-white">
+												{log.Timestamp.Format("2006-01-02 15:04:05")}
+											</td>
+											<td class="px-6 py-4 text-sm text-gray-900 dark:text-white">
+												{log.Username}
+											</td>
+											<td class="px-6 py-4 text-sm">
+												<span class={getActionClass(log.Action)}>
+													{log.Action}
+												</span>
+											</td>
+											<td class="px-6 py-4 text-sm text-gray-900 dark:text-white">
+												{log.EntityType} 
+												<span class="text-xs text-gray-500 dark:text-gray-400">
+													(ID: {fmt.Sprint(log.EntityID)})
+												</span>
+											</td>
+											<td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+												<button 
+													data-details={log.DetailsSummary}
+													data-modal-target="details-modal"
+													data-modal-toggle="details-modal"
+													class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline text-xs">
+													View Details
+												</button>
+											</td>
+										</tr>
+									}
+								}
+							</tbody>
+						</table>
+					</div>
+					
+					<!-- Pagination -->
+					if data.TotalPages > 1 {
+						<div class="px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600">
+							<div class="flex items-center justify-between">
+								<div class="text-sm text-gray-700 dark:text-gray-400">
+									Showing page {fmt.Sprint(data.CurrentPage)} of {fmt.Sprint(data.TotalPages)}
+								</div>
+								<div class="flex items-center space-x-2">
+									if data.CurrentPage > 1 {
+										<a href={buildPaginationURL(data, data.CurrentPage-1)} class="px-3 py-1 text-sm text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
+											Previous
+										</a>
+									}
+									
+									<!-- Page numbers -->
+									<div class="hidden sm:flex space-x-1">
+										<!-- First page -->
+										if data.CurrentPage > 3 {
+											<a href={buildPaginationURL(data, 1)} class="px-3 py-1 text-sm text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
+												1
+											</a>
+											if data.CurrentPage > 4 {
+												<span class="px-3 py-1 text-sm text-gray-500 dark:text-gray-400">...</span>
+											}
+										}
+										
+										<!-- Pages around current -->
+										for i := max(1, data.CurrentPage-2); i <= min(data.TotalPages, data.CurrentPage+2); i++ {
+											if i == data.CurrentPage {
+												<span class="px-3 py-1 text-sm text-white bg-blue-600 border border-blue-600 rounded-md dark:bg-blue-700">
+													{fmt.Sprint(i)}
+												</span>
+											} else {
+												<a href={buildPaginationURL(data, i)} class="px-3 py-1 text-sm text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
+													{fmt.Sprint(i)}
+												</a>
+											}
+										}
+										
+										<!-- Last page -->
+										if data.CurrentPage < data.TotalPages-2 {
+											if data.CurrentPage < data.TotalPages-3 {
+												<span class="px-3 py-1 text-sm text-gray-500 dark:text-gray-400">...</span>
+											}
+											<a href={buildPaginationURL(data, data.TotalPages)} class="px-3 py-1 text-sm text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
+												{fmt.Sprint(data.TotalPages)}
+											</a>
+										}
+									</div>
+									
+									if data.CurrentPage < data.TotalPages {
+										<a href={buildPaginationURL(data, data.CurrentPage+1)} class="px-3 py-1 text-sm text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
+											Next
+										</a>
+									}
+								</div>
+							</div>
+						</div>
+					}
+				</div>
+			</div>
+		</div>
+		
+		<!-- Details Modal -->
+		<div id="details-modal" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-gray-900/50 dark:bg-gray-900/80 backdrop-blur-sm">
+			<div class="relative p-4 w-full max-w-2xl max-h-full mx-auto">
+				<div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
+					<div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600">
+						<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+							Audit Log Details
+						</h3>
+						<button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white" data-modal-hide="details-modal">
+							<i class="fas fa-times"></i>
+							<span class="sr-only">Close modal</span>
+						</button>
+					</div>
+					<div class="p-4 md:p-5 space-y-4">
+						<pre id="details-content" class="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg text-sm text-gray-900 dark:text-gray-300 overflow-x-auto"></pre>
+					</div>
+					<div class="flex items-center p-4 md:p-5 border-t border-gray-200 rounded-b dark:border-gray-600">
+						<button data-modal-hide="details-modal" type="button" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Close</button>
+					</div>
+				</div>
+			</div>
+		</div>
+		
+		<script>
+			document.addEventListener('DOMContentLoaded', function() {
+				// Initialize Notyf toast notifications
+				const notyf = window.notyfInstance || new Notyf({
+					position: { x: 'right', y: 'top' },
+					duration: 3000,
+					ripple: true,
+					dismissible: true
+				});
+				
+				// Check for URL parameters for success/error messages
+				const urlParams = new URLSearchParams(window.location.search);
+				const errorParam = urlParams.get('error');
+				const successParam = urlParams.get('success');
+				
+				if (errorParam) {
+					notyf.error(decodeURIComponent(errorParam));
+					
+					// Also show in the error box
+					const errorBox = document.getElementById('error-message');
+					const errorTitle = errorBox.querySelector('.error-title');
+					errorTitle.textContent = 'Error';
+					const errorDetails = errorBox.querySelector('.error-details');
+					errorDetails.textContent = decodeURIComponent(errorParam);
+					errorBox.classList.remove('hidden');
+				}
+				
+				if (successParam) {
+					notyf.success(decodeURIComponent(successParam));
+					
+					// Also show in the status box
+					const statusBox = document.getElementById('status-message');
+					statusBox.textContent = decodeURIComponent(successParam);
+					statusBox.classList.remove('hidden');
+				}
+				
+				// Handle details modal
+				const detailsButtons = document.querySelectorAll('[data-modal-target="details-modal"]');
+				detailsButtons.forEach(button => {
+					button.addEventListener('click', function() {
+						const detailsData = this.getAttribute('data-details');
+						const detailsContent = document.getElementById('details-content');
+						detailsContent.textContent = detailsData;
+						
+						// Format JSON if possible
+						try {
+							const jsonData = JSON.parse(detailsData);
+							detailsContent.textContent = JSON.stringify(jsonData, null, 2);
+						} catch (e) {
+							// Not valid JSON, leave as is
+						}
+						
+						// Show the modal
+						const modal = document.getElementById('details-modal');
+						modal.classList.remove('hidden');
+						modal.classList.add('flex');
+					});
+				});
+				
+				// Handle modal hide buttons
+				const hideButtons = document.querySelectorAll('[data-modal-hide]');
+				hideButtons.forEach(button => {
+					button.addEventListener('click', function() {
+						const modalId = this.getAttribute('data-modal-hide');
+						const modal = document.getElementById(modalId);
+						modal.classList.add('hidden');
+						modal.classList.remove('flex');
+					});
+				});
+				
+				// Set dark background color if in dark mode
+				if (document.documentElement.classList.contains('dark')) {
+					document.getElementById('audit-logs-container').style.backgroundColor = '#111827';
+				}
+				
+				// Handle theme changes
+				const themeToggle = document.getElementById('theme-toggle');
+				if (themeToggle) {
+					themeToggle.addEventListener('click', function() {
+						setTimeout(function() {
+							const isDark = document.documentElement.classList.contains('dark');
+							document.getElementById('audit-logs-container').style.backgroundColor = isDark ? '#111827' : 'rgb(249, 250, 251)';
+						}, 50);
+					});
+				}
+			});
+		</script>
+	}
+}
+
+// Helper functions
+func getActionClass(action string) string {
+	baseClass := "px-2 py-1 text-xs rounded-full "
+	
+	switch action {
+	case "create":
+		return baseClass + "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+	case "update":
+		return baseClass + "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+	case "delete":
+		return baseClass + "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+	case "login":
+		return baseClass + "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
+	case "logout":
+		return baseClass + "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+	default:
+		return baseClass + "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+	}
+}
+
+func buildPaginationURL(data AuditLogsData, page int) templ.SafeURL {
+	url := fmt.Sprintf("/admin/audit?page=%d", page)
+	
+	if data.FilterAction != "" {
+		url += fmt.Sprintf("&action=%s", data.FilterAction)
+	}
+	
+	if data.FilterEntity != "" {
+		url += fmt.Sprintf("&entity=%s", data.FilterEntity)
+	}
+	
+	if data.FilterUser != "" {
+		url += fmt.Sprintf("&user=%s", data.FilterUser)
+	}
+	
+	if data.FilterDateFrom != "" {
+		url += fmt.Sprintf("&date_from=%s", data.FilterDateFrom)
+	}
+	
+	if data.FilterDateTo != "" {
+		url += fmt.Sprintf("&date_to=%s", data.FilterDateTo)
+	}
+	
+	return templ.SafeURL(url)
+}
+
+

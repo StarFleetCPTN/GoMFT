@@ -1,91 +1,97 @@
 package destination
 
 templ S3DestinationForm() {
-	<div class="sm:col-span-6 space-y-6">
-		<div class="sm:col-span-4">
-			<label for="dest_bucket" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Bucket Name</label>
-			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-database text-secondary-400 dark:text-secondary-600"></i>
-				</div>
-				<input
-					type="text"
-					name="dest_bucket"
-					id="dest_bucket"
-					x-model="destBucket"
-					required
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="my-bucket"/>
+	<div class="space-y-6 mt-4">
+		<div class="p-4 mb-4 text-sm text-blue-800 rounded-lg bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300" role="alert">
+			<div class="flex items-center">
+				<i class="fas fa-info-circle mr-2"></i>
+				<span>Configure your AWS S3 bucket details below. You'll need your access key, secret key, and bucket information.</span>
 			</div>
 		</div>
-
-		<div class="sm:col-span-4">
-			<label for="dest_region" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">AWS Region</label>
+		
+		<div class="mb-6">
+			<label for="dest_region" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">AWS Region</label>
 			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-globe-americas text-secondary-400 dark:text-secondary-600"></i>
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-globe text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input
-					type="text"
-					name="dest_region"
-					id="dest_region"
-					x-model="destRegion"
-					required
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="us-east-1"/>
+				<input type="text" id="dest_region" name="dest_region" x-model="destinationRegion" required
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="us-east-1" />
 			</div>
-		</div>
-
-		<div class="sm:col-span-4">
-			<label for="destination_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">S3 Path Prefix</label>
-			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-folder text-secondary-400 dark:text-secondary-600"></i>
-				</div>
-				<input
-					type="text"
-					name="destination_path"
-					id="destination_path"
-					x-model="destinationPath"
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="optional/path/prefix/"/>
-			</div>
-			<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
-				Optional. If specified, files will be uploaded to this path in the bucket.
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				AWS Region where your S3 bucket is located (e.g., us-east-1, eu-west-1)
 			</p>
 		</div>
 
-		<div class="sm:col-span-4">
-			<label for="dest_access_key" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Access Key</label>
+		<div class="mb-6">
+			<label for="dest_bucket" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Bucket Name</label>
 			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-archive text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input
-					type="text"
-					name="dest_access_key"
-					id="dest_access_key"
-					x-model="destAccessKey"
-					required
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
+				<input type="text" id="dest_bucket" name="dest_bucket" x-model="destinationBucket" required
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="my-bucket" />
 			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Name of your S3 bucket (case-sensitive)
+			</p>
 		</div>
 
-		<div class="sm:col-span-4">
-			<label for="dest_secret_key" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Secret Key</label>
+		<div class="mb-6">
+			<label for="dest_access_key" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Access Key ID</label>
 			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-lock text-secondary-400 dark:text-secondary-600"></i>
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-key text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input
-					type="password"
-					name="dest_secret_key"
-					id="dest_secret_key"
-					x-model="destSecretKey"
-					required
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
+				<input type="text" id="dest_access_key" name="dest_access_key" x-model="destinationAccessKey" required
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="AKIAIOSFODNN7EXAMPLE" />
 			</div>
-			<input type="hidden" name="dest_secret_key" :value="destSecretKey"/>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Your AWS Access Key ID
+			</p>
+		</div>
+
+		<div class="mb-6">
+			<label for="dest_secret_key" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Secret Access Key</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-lock text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<input type="password" id="dest_secret_key" name="dest_secret_key" x-model="destinationSecretKey" required
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" />
+			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Your AWS Secret Access Key
+			</p>
+		</div>
+
+		<div class="mb-6">
+			<label for="destination_path" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Path in Bucket</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-folder-open text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<input type="text" id="destination_path" name="destination_path" x-model="destinationPath"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="path/to/files/" />
+			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Path prefix within the bucket (e.g., "backups/"). Leave empty to access the entire bucket.
+			</p>
+		</div>
+		
+		<div class="p-4 mb-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300" role="alert">
+			<div class="flex">
+				<i class="fas fa-shield-alt mr-2 flex-shrink-0"></i>
+				<div>
+					<h3 class="font-medium">Security Note</h3>
+					<p class="mt-1">It's recommended to use an IAM user with restricted permissions for this configuration. The IAM user should only have access to the specific S3 bucket and operations needed.</p>
+				</div>
+			</div>
 		</div>
 	</div>
 } 

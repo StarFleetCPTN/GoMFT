@@ -1,0 +1,91 @@
+package components
+
+import (
+	"context"
+	"fmt"
+)
+
+// ErrorPage renders a generic error page with customizable title, message, and details
+templ ErrorPage(ctx context.Context, code int, title, message, details string) {
+	@LayoutWithContext(fmt.Sprintf("Error %d - %s", code, title), ctx) {
+		<div class="min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 lg:px-8">
+			<div class="w-full max-w-lg bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden">
+				<div class="px-6 py-8">
+					<div class="text-center">
+						if code == 404 {
+							<div class="mx-auto flex items-center justify-center h-24 w-24 rounded-full bg-blue-100 dark:bg-blue-900">
+								<svg class="h-14 w-14 text-blue-600 dark:text-blue-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"></path>
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+								</svg>
+							</div>
+						} else if code == 401 {
+							<div class="mx-auto flex items-center justify-center h-24 w-24 rounded-full bg-yellow-100 dark:bg-yellow-900">
+								<svg class="h-14 w-14 text-yellow-600 dark:text-yellow-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+								</svg>
+							</div>
+						} else if code == 500 {
+							<div class="mx-auto flex items-center justify-center h-24 w-24 rounded-full bg-red-100 dark:bg-red-900">
+								<svg class="h-14 w-14 text-red-600 dark:text-red-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+								</svg>
+							</div>
+						} else {
+							<div class="mx-auto flex items-center justify-center h-24 w-24 rounded-full bg-gray-100 dark:bg-gray-700">
+								<svg class="h-14 w-14 text-gray-600 dark:text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+								</svg>
+							</div>
+						}
+						
+						<h1 class="mt-6 text-3xl font-extrabold text-gray-900 dark:text-white">
+							{ fmt.Sprintf("%d - %s", code, title) }
+						</h1>
+						
+						<p class="mt-3 text-lg text-gray-500 dark:text-gray-400">
+							{ message }
+						</p>
+
+						if details != "" {
+							<div class="mt-4 p-4 rounded-md bg-gray-50 dark:bg-gray-700 overflow-auto">
+								<p class="text-sm text-gray-600 dark:text-gray-300 font-mono">
+									{ details }
+								</p>
+							</div>
+						}
+					</div>
+				</div>
+				
+				<div class="px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600 flex justify-between">
+					<a href="/dashboard" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300">
+						← Go to Dashboard
+					</a>
+					<a href="/" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300">
+						Go to Home →
+					</a>
+				</div>
+			</div>
+		</div>
+	}
+}
+
+// NotFoundError renders a 404 Not Found error page
+templ NotFoundError(ctx context.Context) {
+	@ErrorPage(ctx, 404, "Page Not Found", "The page you're looking for doesn't exist or has been moved.", "")
+}
+
+// UnauthorizedError renders a 401 Unauthorized error page
+templ UnauthorizedError(ctx context.Context) {
+	@ErrorPage(ctx, 401, "Unauthorized", "You don't have permission to access this page.", "Please log in or contact your administrator if you believe this is a mistake.")
+}
+
+// ServerError renders a 500 Internal Server Error page
+templ ServerError(ctx context.Context, details string) {
+	@ErrorPage(ctx, 500, "Server Error", "Something went wrong on our end.", details)
+}
+
+// GenericError renders a generic error page
+templ GenericError(ctx context.Context, title, message, details string) {
+	@ErrorPage(ctx, 0, title, message, details)
+} 

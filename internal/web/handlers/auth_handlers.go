@@ -58,7 +58,13 @@ func (h *Handlers) AuthMiddleware() gin.HandlerFunc {
 		}
 
 		// Safely extract claims with type assertions and defaults
-		userID, _ := claims["user_id"].(float64)
+		userID, ok := claims["user_id"].(float64)
+		if !ok || userID <= 0 {
+			c.Redirect(http.StatusFound, "/login")
+			c.Abort()
+			return
+		}
+
 		email, _ := claims["email"].(string)
 		username, _ := claims["username"].(string)
 		isAdmin, _ := claims["is_admin"].(bool)
@@ -73,6 +79,17 @@ func (h *Handlers) AuthMiddleware() gin.HandlerFunc {
 		}
 		c.Set("isAdmin", isAdmin)
 
+		// Load user's roles and permissions
+		var user db.User
+		if h.DB != nil && userID > 0 {
+			if err := h.DB.Preload("Roles").First(&user, uint(userID)).Error; err != nil {
+				log.Printf("Error loading user roles: %v", err)
+				// Continue without roles if there's an error
+			} else {
+				c.Set("user", &user)
+			}
+		}
+
 		c.Next()
 	}
 }
@@ -86,6 +103,51 @@ func (h *Handlers) AdminMiddleware() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+		c.Next()
+	}
+}
+
+// PermissionMiddleware creates a middleware that checks for specific permissions
+func (h *Handlers) PermissionMiddleware(requiredPermissions ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Get user from context
+		user, exists := c.Get("user")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found in context"})
+			c.Abort()
+			return
+		}
+
+		// Type assert to *db.User
+		u, ok := user.(*db.User)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user type in context"})
+			c.Abort()
+			return
+		}
+
+		// Check if user is admin (admins have all permissions)
+		isAdmin, exists := c.Get("isAdmin")
+		if exists && isAdmin.(bool) {
+			c.Next()
+			return
+		}
+
+		// Check each required permission
+		for _, permission := range requiredPermissions {
+			if !u.HasPermission(permission) {
+				// If it's an API request, return JSON
+				if strings.HasPrefix(c.Request.URL.Path, "/api/") {
+					c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+				} else {
+					// For web requests, redirect to dashboard with error message
+					c.Redirect(http.StatusFound, "/dashboard?error=insufficient_permissions")
+				}
+				c.Abort()
+				return
+			}
+		}
+
 		c.Next()
 	}
 }
@@ -129,11 +191,38 @@ func (h *Handlers) APIAuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Set user information in the context
-		c.Set("userID", uint(claims["user_id"].(float64)))
-		c.Set("email", claims["email"].(string))
-		c.Set("username", claims["username"].(string))
-		c.Set("isAdmin", claims["is_admin"].(bool))
+		// Safely extract user ID
+		userIDFloat, ok := claims["user_id"].(float64)
+		if !ok || userIDFloat <= 0 {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid user ID in token"})
+			c.Abort()
+			return
+		}
+
+		userID := uint(userIDFloat)
+		c.Set("userID", userID)
+
+		// Extract other claims
+		if email, ok := claims["email"].(string); ok {
+			c.Set("email", email)
+		}
+		if username, ok := claims["username"].(string); ok {
+			c.Set("username", username)
+		}
+		if isAdmin, ok := claims["is_admin"].(bool); ok {
+			c.Set("isAdmin", isAdmin)
+		}
+
+		// Load user's roles and permissions for API requests
+		if h.DB != nil {
+			var user db.User
+			if err := h.DB.Preload("Roles").First(&user, userID).Error; err != nil {
+				log.Printf("Error loading user roles: %v", err)
+				// Continue without roles
+			} else {
+				c.Set("user", &user)
+			}
+		}
 
 		c.Next()
 	}
