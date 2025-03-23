@@ -12,7 +12,11 @@ templ ConfigDialog(id string, title string, message string, confirmClass string,
 		<div class="relative p-4 w-full max-w-md max-h-full mx-auto">
 			<div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
 				<div class="p-6 text-center">
-					<i class="fas fa-exclamation-circle text-yellow-400 fa-3x flex-shrink-0 mx-auto mb-4"></i>
+					if action == "delete" {
+						<i class="fas fa-trash-alt text-red-400 text-3xl mb-4"></i>
+					} else {
+						<i class="fas fa-exclamation-circle text-yellow-400 text-3xl mb-4"></i>
+					}
 					<h3 class="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">{ message }</h3>
 					<button 
 						type="button" 
@@ -26,7 +30,7 @@ templ ConfigDialog(id string, title string, message string, confirmClass string,
 						onclick={ triggerConfigDelete(id, configID, configName) }>
 						{ confirmText }
 					</button>
-					<button type="button" class="py-2.5 px-5 ms-3 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700" onclick={ hideConfigDialog(id) }>
+					<button type="button" data-modal-hide={ id } class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600">
 						Cancel
 					</button>
 				</div>
@@ -37,6 +41,7 @@ templ ConfigDialog(id string, title string, message string, confirmClass string,
 
 script hideConfigDialog(id string) {
 	document.getElementById(id).classList.add("hidden");
+	document.getElementById(id).classList.remove("flex");
 }
 
 script showConfigDialog(id string) {
@@ -68,38 +73,82 @@ type ConfigsData struct {
 
 templ Configs(ctx context.Context, data ConfigsData) {
 	@LayoutWithContext("Transfer Configurations", ctx) {
+		<!-- Status and Error Messages -->
+		<div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2"></div>
+		
 		<script>
 			// Debug notification system
 			console.log("Configs template loaded, setting up notification system");
 			
-			// Create a global notyf instance if it doesn't exist yet
-			if (!window.notyf) {
-				window.notyf = new Notyf({
-					duration: 3000,
-					position: {
-						x: 'right',
-						y: 'top',
-					},
-					types: [
-						{
-							type: 'success',
-							background: '#38c172',
-							icon: {
-								className: 'fas fa-check-circle',
-								tagName: 'i'
-							}
-						},
-						{
-							type: 'error',
-							background: '#e3342f',
-							icon: {
-								className: 'fas fa-exclamation-circle',
-								tagName: 'i'
-							}
-						}
-					]
+			// Function to create and show a toast
+			function showToast(message, type) {
+				const toastContainer = document.getElementById('toast-container');
+				
+				// Create toast element
+				const toast = document.createElement('div');
+				toast.id = 'toast-' + type + '-' + Date.now();
+				toast.className = 'flex items-center w-full max-w-xs p-4 mb-4 rounded-lg shadow text-gray-500 bg-white dark:text-gray-400 dark:bg-gray-800 transform translate-y-16 opacity-0 transition-all duration-300 ease-out';
+				toast.role = 'alert';
+				
+				// Set toast content based on type
+				let iconClass, bgColorClass, textColorClass;
+				
+				if (type === 'success') {
+					iconClass = 'text-green-500 bg-green-100 dark:bg-green-800 dark:text-green-200';
+					bgColorClass = 'text-green-500 dark:text-green-200';
+					textColorClass = 'text-green-500 dark:text-green-200';
+				} else if (type === 'error') {
+					iconClass = 'text-red-500 bg-red-100 dark:bg-red-800 dark:text-red-200';
+					bgColorClass = 'text-red-500 dark:text-red-200';
+					textColorClass = 'text-red-500 dark:text-red-200';
+				} else {
+					iconClass = 'text-blue-500 bg-blue-100 dark:bg-blue-800 dark:text-blue-200';
+					bgColorClass = 'text-blue-500 dark:text-blue-200';
+					textColorClass = 'text-blue-500 dark:text-blue-200';
+				}
+				
+				// Set inner HTML with appropriate icon and message
+				toast.innerHTML = `
+					<div class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg ${iconClass}">
+						${type === 'success' 
+							? '<i class="fas fa-check"></i>' 
+							: type === 'error' 
+							? '<i class="fas fa-exclamation-circle"></i>'
+							: '<i class="fas fa-info-circle"></i>'}
+					</div>
+					<div class="ml-3 text-sm font-normal">${message}</div>
+					<button type="button" class="ml-auto -mx-1.5 -my-1.5 bg-white text-gray-400 hover:text-gray-900 rounded-lg focus:ring-2 focus:ring-gray-300 p-1.5 hover:bg-gray-100 inline-flex h-8 w-8 dark:text-gray-500 dark:hover:text-white dark:bg-gray-800 dark:hover:bg-gray-700" data-dismiss-target="#${toast.id}" aria-label="Close">
+						<span class="sr-only">Close</span>
+						<i class="fas fa-times"></i>
+					</button>
+				`;
+				
+				// Add toast to container
+				toastContainer.appendChild(toast);
+				
+				// Trigger animation after a small delay to ensure the DOM has updated
+				setTimeout(() => {
+					toast.classList.remove('translate-y-16', 'opacity-0');
+					toast.classList.add('translate-y-0', 'opacity-100');
+				}, 10);
+				
+				// Add event listener to close button
+				const closeButton = toast.querySelector('button[data-dismiss-target]');
+				closeButton.addEventListener('click', function() {
+					// Animate out before removing
+					toast.classList.add('opacity-0', 'translate-y-4');
+					setTimeout(() => {
+						toast.remove();
+					}, 300);
 				});
-				console.log("Notyf initialized:", window.notyf);
+				
+				// Auto-remove toast after 5 seconds
+				setTimeout(() => {
+					toast.classList.add('opacity-0', 'translate-y-4');
+					setTimeout(() => {
+						toast.remove();
+					}, 300);
+				}, 5000);
 			}
 
 			// Show status messages based on URL parameters
@@ -115,12 +164,23 @@ templ Configs(ctx context.Context, data ConfigsData) {
 					if (errorDetails) {
 						message += ": " + errorDetails;
 					}
-					window.notyf.error(message);
+					showToast(message, 'error');
 				}
 				
 				if (status === 'gdrive_auth_success') {
-					window.notyf.success("Google Drive authentication completed successfully");
+					showToast("Google Drive authentication completed successfully", 'success');
 				}
+				
+				// Handle modal hide buttons
+				const hideButtons = document.querySelectorAll('[data-modal-hide]');
+				hideButtons.forEach(button => {
+					button.addEventListener('click', function() {
+						const modalId = this.getAttribute('data-modal-hide');
+						const modal = document.getElementById(modalId);
+						modal.classList.add('hidden');
+						modal.classList.remove('flex');
+					});
+				});
 			});
 
 			// Track all HTMX events for debugging
@@ -180,7 +240,7 @@ templ Configs(ctx context.Context, data ConfigsData) {
 						configName = window.lastDeletedConfig.name;
 					}
 					
-					window.notyf.success(`Configuration "${configName}" deleted successfully`);
+					showToast(`Configuration "${configName}" deleted successfully`, 'success');
 					
 					// Clear flags
 					window.currentlyDeletingConfig = false;
@@ -197,7 +257,7 @@ templ Configs(ctx context.Context, data ConfigsData) {
 				// If this is a successful duplication request, show notification
 				if (isDuplicateRequest && event.detail.successful) {
 					const configName = window.duplicatingConfigName || "configuration";
-					window.notyf.success(`Configuration "${configName}" duplicated successfully`);
+					showToast(`Configuration "${configName}" duplicated successfully`, 'success');
 					
 					// Clear flags
 					window.isConfigDuplicateRequest = false;
@@ -239,7 +299,7 @@ templ Configs(ctx context.Context, data ConfigsData) {
 						errorMsg = `Error: ${error.error}`;
 					}
 					
-					window.notyf.error(errorMsg);
+					showToast(errorMsg, 'error');
 					
 					// Clear flags
 					window.currentlyDeletingConfig = false;
@@ -270,7 +330,7 @@ templ Configs(ctx context.Context, data ConfigsData) {
 						}
 					}
 					
-					window.notyf.error(errorMsg);
+					showToast(errorMsg, 'error');
 					
 					// Clear flags
 					window.isConfigDuplicateRequest = false;

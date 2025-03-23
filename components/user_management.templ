@@ -2,6 +2,7 @@ package components
 
 import (
 	"context"
+	"fmt"
 	"github.com/starfleetcptn/gomft/internal/db"
 	"strconv"
 )
@@ -27,6 +28,225 @@ templ UserManagementContent(data UserManagementData) {
 	// <div id="userManagementContainer" class="px-4 py-8 mx-auto max-w-screen-xl lg:px-6">
 	<div id="userManagementContainer" style="min-height: 100vh;" class="bg-gray-50 dark:bg-gray-900">
 		<div class="pb-8 w-full">
+			<!-- Toast container for status messages -->
+			<div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2"></div>
+			
+			<script>
+				// Function to create and show a toast
+				function showToast(message, type) {
+					const toastContainer = document.getElementById('toast-container');
+					
+					// Create toast element
+					const toast = document.createElement('div');
+					toast.id = 'toast-' + type + '-' + Date.now();
+					toast.className = 'flex items-center w-full max-w-xs p-4 mb-4 rounded-lg shadow text-gray-500 bg-white dark:text-gray-400 dark:bg-gray-800 transform translate-y-16 opacity-0 transition-all duration-300 ease-out';
+					toast.role = 'alert';
+					
+					// Set toast content based on type
+					let iconClass, bgColorClass, textColorClass;
+					
+					if (type === 'success') {
+						iconClass = 'text-green-500 bg-green-100 dark:bg-green-800 dark:text-green-200';
+						bgColorClass = 'text-green-500 dark:text-green-200';
+						textColorClass = 'text-green-500 dark:text-green-200';
+					} else if (type === 'error') {
+						iconClass = 'text-red-500 bg-red-100 dark:bg-red-800 dark:text-red-200';
+						bgColorClass = 'text-red-500 dark:text-red-200';
+						textColorClass = 'text-red-500 dark:text-red-200';
+					} else {
+						iconClass = 'text-blue-500 bg-blue-100 dark:bg-blue-800 dark:text-blue-200';
+						bgColorClass = 'text-blue-500 dark:text-blue-200';
+						textColorClass = 'text-blue-500 dark:text-blue-200';
+					}
+					
+					// Set inner HTML with appropriate icon and message
+					toast.innerHTML = `
+						<div class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg ${iconClass}">
+							${type === 'success' 
+								? '<i class="fas fa-check"></i>' 
+								: type === 'error' 
+								? '<i class="fas fa-exclamation-circle"></i>'
+								: '<i class="fas fa-info-circle"></i>'}
+						</div>
+						<div class="ml-3 text-sm font-normal">${message}</div>
+						<button type="button" class="ml-auto -mx-1.5 -my-1.5 bg-white text-gray-400 hover:text-gray-900 rounded-lg focus:ring-2 focus:ring-gray-300 p-1.5 hover:bg-gray-100 inline-flex h-8 w-8 dark:text-gray-500 dark:hover:text-white dark:bg-gray-800 dark:hover:bg-gray-700" data-dismiss-target="#${toast.id}" aria-label="Close">
+							<span class="sr-only">Close</span>
+							<i class="fas fa-times"></i>
+						</button>
+					`;
+					
+					// Add toast to container
+					toastContainer.appendChild(toast);
+					
+					// Trigger animation after a small delay to ensure the DOM has updated
+					setTimeout(() => {
+						toast.classList.remove('translate-y-16', 'opacity-0');
+						toast.classList.add('translate-y-0', 'opacity-100');
+					}, 10);
+					
+					// Add event listener to close button
+					const closeButton = toast.querySelector('button[data-dismiss-target]');
+					closeButton.addEventListener('click', function() {
+						// Animate out before removing
+						toast.classList.add('opacity-0', 'translate-y-4');
+						setTimeout(() => {
+							toast.remove();
+						}, 300);
+					});
+					
+					// Auto-remove toast after 5 seconds
+					setTimeout(() => {
+						toast.classList.add('opacity-0', 'translate-y-4');
+						setTimeout(() => {
+							toast.remove();
+						}, 300);
+					}, 5000);
+				}
+				
+				// Handle modal hide buttons
+				document.addEventListener('DOMContentLoaded', function() {
+					const hideButtons = document.querySelectorAll('[data-modal-hide]');
+					hideButtons.forEach(button => {
+						button.addEventListener('click', function() {
+							const modalId = this.getAttribute('data-modal-hide');
+							const modal = document.getElementById(modalId);
+							modal.classList.add('hidden');
+							modal.classList.remove('flex');
+						});
+					});
+				});
+				
+				// Track user operations in HTMX events
+				document.addEventListener('htmx:beforeRequest', function(event) {
+					console.log("HTMX before request:", event.detail);
+					
+					// Check if this is a DELETE request for a user
+					const path = event.detail.path;
+					const method = event.detail.verb;
+					
+					console.log(`Request path: ${path}, method: ${method}`);
+					
+					// Pattern match for user deletions (e.g., /admin/users/123)
+					if (path && method === 'DELETE' && path.match(/^\/admin\/users\/\d+$/)) {
+						console.log("Detected user deletion request via URL pattern");
+						
+						// This is definitely a delete request - store this information
+						window.isUserDeleteRequest = true;
+					}
+				});
+				
+				// Track HTMX events for user operations
+				document.addEventListener('htmx:afterRequest', function(event) {
+					// Check if the request was successful
+					if (event.detail.successful) {
+						// Check for POST, PUT, DELETE operations
+						const path = event.detail.pathInfo?.requestPath || '';
+						const method = event.detail.verb || '';
+						
+						// User deletion handling
+						const isDeleteRequest = 
+							window.currentlyDeletingUser ||
+							window.isUserDeleteRequest ||
+							(method === 'DELETE' && path.match(/^\/admin\/users\/\d+$/));
+						
+						if (isDeleteRequest) {
+							let userEmail = "user";
+							
+							// Try multiple sources for user email
+							if (event.detail.elt && event.detail.elt.getAttribute) {
+								userEmail = event.detail.elt.getAttribute('data-user-email') || userEmail;
+							}
+							
+							if (userEmail === "user" && window.lastDeletedUser) {
+								// Fallback to our stored user info
+								userEmail = window.lastDeletedUser.email;
+							}
+							
+							showToast(`User "${userEmail}" deleted successfully`, 'success');
+							
+							// Clear flags
+							window.currentlyDeletingUser = false;
+							window.isUserDeleteRequest = false;
+							window.lastDeletedUser = null;
+							return;
+						}
+						
+						// User creation
+						if (method === 'POST' && path === '/admin/users') {
+							// Find the email from the form data if possible
+							const formData = event.detail.requestConfig?.parameters;
+							let email = "New user";
+							if (formData && formData.email) {
+								email = formData.email;
+							}
+							showToast(`User "${email}" created successfully`, 'success');
+							return;
+						}
+						
+						// User update
+						if (method === 'PUT' && path.match(/^\/admin\/users\/\d+$/)) {
+							// Find the email from the form data if possible
+							const formData = event.detail.requestConfig?.parameters;
+							let email = "User";
+							if (formData && formData.email) {
+								email = formData.email;
+							}
+							showToast(`User "${email}" updated successfully`, 'success');
+							return;
+						}
+					}
+				});
+				
+				// Track HTMX error events
+				document.addEventListener('htmx:responseError', function(event) {
+					console.log("HTMX response error:", event.detail);
+					
+					// Check for delete request errors
+					const isDeleteRequest = 
+						window.currentlyDeletingUser ||
+						window.isUserDeleteRequest ||
+						(event.detail.requestConfig && 
+						 event.detail.requestConfig.verb === 'DELETE' && 
+						 event.detail.pathInfo?.requestPath?.match(/^\/admin\/users\/\d+$/));
+					
+					if (isDeleteRequest) {
+						let userEmail = "user";
+						
+						// Try multiple sources for user email
+						if (event.detail.elt && event.detail.elt.getAttribute) {
+							userEmail = event.detail.elt.getAttribute('data-user-email') || userEmail;
+						}
+						
+						if (userEmail === "user" && window.lastDeletedUser) {
+							userEmail = window.lastDeletedUser.email;
+						}
+						
+						let errorMsg = `Failed to delete user "${userEmail}"`;
+						
+						if (event.detail.xhr && event.detail.xhr.responseText) {
+							errorMsg = `Error: ${event.detail.xhr.responseText}`;
+						}
+						
+						showToast(errorMsg, 'error');
+						
+						// Clear flags
+						window.currentlyDeletingUser = false;
+						window.isUserDeleteRequest = false;
+						window.lastDeletedUser = null;
+						return;
+					}
+					
+					// Generic error handling
+					let errorMsg = 'An error occurred';
+					
+					if (event.detail.xhr && event.detail.xhr.responseText) {
+						errorMsg = `Error: ${event.detail.xhr.responseText}`;
+					}
+					
+					showToast(errorMsg, 'error');
+				});
+			</script>
+			
 			<!-- Header -->
 			<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
 				<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
@@ -45,19 +265,45 @@ templ UserManagementContent(data UserManagementData) {
 					</button>
 				</div>
 			</div>
-			<!-- Status and Error Messages -->
+			
+			<!-- Check for URL parameters after page load to show success/error messages -->
+			<script>
+				document.addEventListener('DOMContentLoaded', function() {
+					// Get URL parameters
+					const urlParams = new URLSearchParams(window.location.search);
+					const successMsg = urlParams.get('success');
+					const errorMsg = urlParams.get('error');
+					
+					// Show success toast if parameter exists
+					if (successMsg) {
+						showToast(decodeURIComponent(successMsg), 'success');
+					}
+					
+					// Show error toast if parameter exists
+					if (errorMsg) {
+						showToast(decodeURIComponent(errorMsg), 'error');
+					}
+				});
+			</script>
+			
+			<!-- Convert existing messages to toasts if present -->
 			if data.SuccessMessage != "" {
-				<div id="status-message" class="mb-4 p-4 text-sm text-green-700 bg-green-100 rounded-lg dark:bg-green-200 dark:text-green-800" role="alert">
-					<div class="font-medium">{ data.SuccessMessage }</div>
-				</div>
-			} else {
-				<div id="status-message" class="hidden mb-4 p-4 text-sm text-green-700 bg-green-100 rounded-lg dark:bg-green-200 dark:text-green-800" role="alert"></div>
+				<script>
+					// Show success message as toast
+					document.addEventListener('DOMContentLoaded', function() {
+						showToast("{ data.SuccessMessage }", 'success');
+					});
+				</script>
 			}
 			if data.ErrorMessage != "" {
-				<div id="error-message" class="mb-4 p-4 text-sm text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800" role="alert">
-					<div class="font-medium">{ data.ErrorMessage }</div>
-				</div>
+				<script>
+					// Show error message as toast
+					document.addEventListener('DOMContentLoaded', function() {
+						showToast("{ data.ErrorMessage }", 'error');
+					});
+				</script>
 			}
+			
 			<!-- Main Content Container -->
 			<div class="bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 dark:bg-gray-800">
 				<!-- Include the appropriate tab -->
@@ -85,6 +331,20 @@ templ UserManagementContent(data UserManagementData) {
 
 // User listing component
 templ userList(users []db.User) {
+	<!-- Dialog Container for User Actions -->
+	for _, user := range users {
+		@UserDialog(
+			fmt.Sprintf("delete-user-dialog-%d", user.ID),
+			"Delete User",
+			fmt.Sprintf("Are you sure you want to delete user \"%s\"? This action cannot be undone.", user.Email),
+			"bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700",
+			"Delete User",
+			"delete",
+			user.ID,
+			user.Email,
+		)
+	}
+	
 	<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 overflow-hidden">
 		<div class="overflow-x-auto">
 			<table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
@@ -159,9 +419,9 @@ templ userList(users []db.User) {
 									</button>
 									<button
 										class="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm px-3 py-1.5 text-center inline-flex items-center dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-800"
-										hx-delete={ "/admin/users/" + strconv.Itoa(int(user.ID)) }
-										hx-confirm="Are you sure you want to delete this user? This action cannot be undone."
-										hx-target="#userManagementContainer"
+										data-user-email={ user.Email }
+										data-user-id={ strconv.Itoa(int(user.ID)) }
+										onclick={ showUserDialog(fmt.Sprintf("delete-user-dialog-%d", user.ID)) }
 									>
 										<i class="fas fa-trash-alt w-3.5 h-3.5 mr-1.5"></i> Delete
 									</button>
@@ -370,4 +630,60 @@ func hasRole(user *db.User, roleID uint) bool {
 		}
 	}
 	return false
+}
+
+// UserDialog for confirmation actions
+templ UserDialog(id string, title string, message string, confirmClass string, confirmText string, action string, userID uint, userEmail string) {
+	<div id={ id } tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-gray-900/50 dark:bg-gray-900/80 backdrop-blur-sm">
+		<div class="relative p-4 w-full max-w-md max-h-full mx-auto">
+			<div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
+				<div class="p-6 text-center">
+					if action == "delete" {
+						<i class="fas fa-user-slash text-red-400 text-3xl mb-4"></i>
+					} else {
+						<i class="fas fa-exclamation-triangle text-yellow-400 text-3xl mb-4"></i>
+					}
+					<h3 class="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">{ message }</h3>
+					<button 
+						type="button" 
+						class="text-white font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 bg-red-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300 dark:bg-red-500 dark:hover:bg-red-600 dark:focus:ring-red-800"
+						hx-delete={ fmt.Sprintf("/admin/users/%d", userID) }
+						hx-target="#userManagementContainer"
+						data-user-email={ userEmail }
+						id={ fmt.Sprintf("delete-user-btn-%d", userID) }
+						onclick={ triggerUserDelete(id, userID, userEmail) }>
+						{ confirmText }
+					</button>
+					<button type="button" data-modal-hide={ id } class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600">
+						Cancel
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+script hideUserDialog(id string) {
+	document.getElementById(id).classList.add("hidden");
+	document.getElementById(id).classList.remove("flex");
+}
+
+script showUserDialog(id string) {
+	document.getElementById(id).classList.remove("hidden");
+	document.getElementById(id).classList.add("flex");
+}
+
+script triggerUserDelete(dialogId string, userID uint, userEmail string) {
+	// Hide the dialog
+	document.getElementById(dialogId).classList.add("hidden");
+	document.getElementById(dialogId).classList.remove("flex");
+		
+	// Store data in a way that's accessible to event handlers
+	window.lastDeletedUser = {
+		id: userID,
+		email: userEmail
+	};
+
+	// Add custom marker to track this deletion
+	window.currentlyDeletingUser = true;
 }

@@ -8,40 +8,31 @@ import (
 
 // Dialog component for confirmation dialogs using Flowbite modal
 templ JobDialog(id string, title string, message string, confirmClass string, confirmText string, action string, jobID uint, jobName string) {
-	<div id={ id } tabindex="-1" aria-hidden="true" class="hidden fixed inset-0 bg-gray-900/50 dark:bg-gray-900/80 backdrop-blur-sm z-50 flex items-center justify-center overflow-y-auto overflow-x-hidden">
-		<div class="relative p-4 w-full max-w-md h-auto">
+	<div id={ id } tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-gray-900/50 dark:bg-gray-900/80 backdrop-blur-sm">
+		<div class="relative p-4 w-full max-w-md max-h-full mx-auto">
 			<div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
-				<div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600">
-					<h3 class="text-xl font-medium text-gray-900 dark:text-white flex items-center">
-						<i class="fas fa-exclamation-triangle text-yellow-400 me-2 fa-2x"></i>
-						{ title }
-					</h3>
-					<button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white" onclick={ hideJobDialog(id) }>
-						<i class="fas fa-times"></i>
-						<span class="sr-only">Close modal</span>
+				<div class="p-6 text-center">
+					if action == "delete" {
+						<i class="fas fa-trash-alt text-red-400 text-3xl mb-4"></i>
+					} else {
+						<i class="fas fa-exclamation-triangle text-yellow-400 text-3xl mb-4"></i>
+					}
+					<h3 class="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">{ message }</h3>
+					<button 
+						type="button" 
+						class={ confirmClass }
+						hx-delete={ fmt.Sprintf("/jobs/%d", jobID) }
+						hx-target="closest li"
+						hx-swap="delete"
+						data-job-name={ jobName }
+						data-job-id={ fmt.Sprint(jobID) }
+						id={ fmt.Sprintf("delete-btn-%d", jobID) }
+						onclick={ triggerJobDelete(id, jobID, jobName) }>
+						{ confirmText }
 					</button>
-				</div>
-				<div class="p-4 md:p-5 text-center">
-					<p class="text-gray-500 dark:text-gray-300 mb-5">
-						{ message }
-					</p>
-					<div class="flex justify-end space-x-3">
-						<button type="button" class="py-2.5 px-5 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700" onclick={ hideJobDialog(id) }>
-							Cancel
-						</button>
-						<button 
-							type="button" 
-							class={ confirmClass }
-							hx-delete={ fmt.Sprintf("/jobs/%d", jobID) }
-							hx-target="closest li"
-							hx-swap="delete"
-							data-job-name={ jobName }
-							data-job-id={ fmt.Sprint(jobID) }
-							id={ fmt.Sprintf("delete-btn-%d", jobID) }
-							onclick={ triggerJobDelete(id, jobID, jobName) }>
-							{ confirmText }
-						</button>
-					</div>
+					<button type="button" data-modal-hide={ id } class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600">
+						Cancel
+					</button>
 				</div>
 			</div>
 		</div>
@@ -50,15 +41,18 @@ templ JobDialog(id string, title string, message string, confirmClass string, co
 
 script hideJobDialog(id string) {
 	document.getElementById(id).classList.add("hidden");
+	document.getElementById(id).classList.remove("flex");
 }
 
 script showJobDialog(id string) {
 	document.getElementById(id).classList.remove("hidden");
+	document.getElementById(id).classList.add("flex");
 }
 
 script triggerJobDelete(dialogId string, jobID uint, jobName string) {
 	// Hide the dialog
 	document.getElementById(dialogId).classList.add("hidden");
+	document.getElementById(dialogId).classList.remove("flex");
 	
 	// Add debugging info
 	console.log(`Job deletion triggered for: ${jobName} (ID: ${jobID})`);
@@ -80,37 +74,83 @@ type JobsData struct {
 
 templ Jobs(ctx context.Context, data JobsData) {
 	@LayoutWithContext("Scheduled Jobs", ctx) {
+		<!-- Status and Error Messages -->
+		<div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2"></div>
+		
 		<script>
 			// Debug notification system
 			console.log("Jobs template loaded, setting up notification system");
 			
-			// Create a global notyf instance immediately
-			window.notyf = new Notyf({
-				duration: 3000,
-				position: {
-					x: 'right',
-					y: 'top',
-				},
-				types: [
-					{
-						type: 'success',
-						background: '#38c172',
-						icon: {
-							className: 'fas fa-check-circle',
-							tagName: 'i'
-						}
-					},
-					{
-						type: 'error',
-						background: '#e3342f',
-						icon: {
-							className: 'fas fa-exclamation-circle',
-							tagName: 'i'
-						}
-					}
-				]
-			});
-			console.log("Notyf initialized:", window.notyf);
+			// Function to create and show a toast
+			function showToast(message, type) {
+				const toastContainer = document.getElementById('toast-container');
+				
+				// Create toast element
+				const toast = document.createElement('div');
+				toast.id = 'toast-' + type + '-' + Date.now();
+				toast.className = 'flex items-center w-full max-w-xs p-4 mb-4 rounded-lg shadow text-gray-500 bg-white dark:text-gray-400 dark:bg-gray-800 transform translate-y-16 opacity-0 transition-all duration-300 ease-out';
+				toast.role = 'alert';
+				
+				// Set toast content based on type
+				let iconClass, bgColorClass, textColorClass;
+				
+				if (type === 'success') {
+					iconClass = 'text-green-500 bg-green-100 dark:bg-green-800 dark:text-green-200';
+					bgColorClass = 'text-green-500 dark:text-green-200';
+					textColorClass = 'text-green-500 dark:text-green-200';
+				} else if (type === 'error') {
+					iconClass = 'text-red-500 bg-red-100 dark:bg-red-800 dark:text-red-200';
+					bgColorClass = 'text-red-500 dark:text-red-200';
+					textColorClass = 'text-red-500 dark:text-red-200';
+				} else {
+					iconClass = 'text-blue-500 bg-blue-100 dark:bg-blue-800 dark:text-blue-200';
+					bgColorClass = 'text-blue-500 dark:text-blue-200';
+					textColorClass = 'text-blue-500 dark:text-blue-200';
+				}
+				
+				// Set inner HTML with appropriate icon and message
+				toast.innerHTML = `
+					<div class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg ${iconClass}">
+						${type === 'success' 
+							? '<i class="fas fa-check"></i>' 
+							: type === 'error' 
+							? '<i class="fas fa-exclamation-circle"></i>'
+							: '<i class="fas fa-info-circle"></i>'}
+					</div>
+					<div class="ml-3 text-sm font-normal">${message}</div>
+					<button type="button" class="ml-auto -mx-1.5 -my-1.5 bg-white text-gray-400 hover:text-gray-900 rounded-lg focus:ring-2 focus:ring-gray-300 p-1.5 hover:bg-gray-100 inline-flex h-8 w-8 dark:text-gray-500 dark:hover:text-white dark:bg-gray-800 dark:hover:bg-gray-700" data-dismiss-target="#${toast.id}" aria-label="Close">
+						<span class="sr-only">Close</span>
+						<i class="fas fa-times"></i>
+					</button>
+				`;
+				
+				// Add toast to container
+				toastContainer.appendChild(toast);
+				
+				// Trigger animation after a small delay to ensure the DOM has updated
+				setTimeout(() => {
+					toast.classList.remove('translate-y-16', 'opacity-0');
+					toast.classList.add('translate-y-0', 'opacity-100');
+				}, 10);
+				
+				// Add event listener to close button
+				const closeButton = toast.querySelector('button[data-dismiss-target]');
+				closeButton.addEventListener('click', function() {
+					// Animate out before removing
+					toast.classList.add('opacity-0', 'translate-y-4');
+					setTimeout(() => {
+						toast.remove();
+					}, 300);
+				});
+				
+				// Auto-remove toast after 5 seconds
+				setTimeout(() => {
+					toast.classList.add('opacity-0', 'translate-y-4');
+					setTimeout(() => {
+						toast.remove();
+					}, 300);
+				}, 5000);
+			}
 			
 			// Global function to handle job running
 			window.runJob = function(button) {
@@ -130,17 +170,30 @@ templ Jobs(ctx context.Context, data JobsData) {
 							displayName = event.detail.headers['HX-Job-Name'];
 						}
 						console.log(`Showing success notification for job: ${displayName}`);
-						window.notyf.success(`Job "${displayName}" started successfully!`);
+						showToast(`Job "${displayName}" started successfully!`, 'success');
 					} else {
 						let errorMsg = `Failed to start job "${jobName}"`;
 						if (event.detail.xhr && event.detail.xhr.responseText) {
 							errorMsg = `Error: ${event.detail.xhr.responseText}`;
 						}
 						console.log(`Showing error notification: ${errorMsg}`);
-						window.notyf.error(errorMsg);
+						showToast(errorMsg, 'error');
 					}
 				}, { once: true });
 			};
+
+			// Handle modal hide buttons
+			document.addEventListener('DOMContentLoaded', function() {
+				const hideButtons = document.querySelectorAll('[data-modal-hide]');
+				hideButtons.forEach(button => {
+					button.addEventListener('click', function() {
+						const modalId = this.getAttribute('data-modal-hide');
+						const modal = document.getElementById(modalId);
+						modal.classList.add('hidden');
+						modal.classList.remove('flex');
+					});
+				});
+			});
 
 			// Track all HTMX events for debugging
 			document.addEventListener('htmx:beforeRequest', function(event) {
@@ -195,7 +248,7 @@ templ Jobs(ctx context.Context, data JobsData) {
 					}
 					
 					console.log(`Showing success notification for deleted job: ${jobName}`);
-					window.notyf.success(`Job "${jobName}" deleted successfully`);
+					showToast(`Job "${jobName}" deleted successfully`, 'success');
 					
 					// Clear flags
 					window.currentlyDeletingJob = false;
@@ -238,7 +291,7 @@ templ Jobs(ctx context.Context, data JobsData) {
 					}
 					
 					console.log(`Showing error notification: ${errorMsg}`);
-					window.notyf.error(errorMsg);
+					showToast(errorMsg, 'error');
 					
 					// Clear flags
 					window.currentlyDeletingJob = false;

@@ -76,87 +76,43 @@ func formatFileSize(size int64) string {
 
 // Updated Dialog component using Flowbite
 templ FileMetadataDialog(id string, title string, message string, confirmClass string, confirmText string, action string, fileID uint, fileName string, section string) {
-	<!-- Modal -->
-	<div id={id} tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
-		<div class="relative p-4 w-full max-w-md max-h-full">
-			<!-- Modal content -->
+	<div id={ id } tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-gray-900/50 dark:bg-gray-900/80 backdrop-blur-sm">
+		<div class="relative p-4 w-full max-w-md max-h-full mx-auto">
 			<div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
-				<!-- Modal header -->
-				<div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600">
-					<h3 class="text-xl font-semibold text-gray-900 dark:text-white">
-						{ title }
-					</h3>
-					<button type="button" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white" onclick={ hideFileDialog(id) }>
-						<svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-							<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-						</svg>
-						<span class="sr-only">Close modal</span>
-					</button>
-				</div>
-				<!-- Modal body -->
-				<div class="p-4 md:p-5 space-y-4">
-					<p class="text-base leading-relaxed text-gray-500 dark:text-gray-400">
-						{ message }
-					</p>
-				</div>
-				<!-- Modal footer -->
-				<div class="flex items-center p-4 md:p-5 border-t border-gray-200 rounded-b dark:border-gray-600">
-					if section == "list" {
-						if confirmClass == "btn-danger" {
-							<button 
-								type="button" 
-								class="text-white font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 bg-red-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300 dark:bg-red-500 dark:hover:bg-red-600 dark:focus:ring-red-800"
-								hx-delete={ fmt.Sprintf("/files/%d", fileID) }
-								hx-target={ fmt.Sprintf("#file-row-%d", fileID) }
-								hx-swap="delete"
-								data-file-name={ fileName }
-								data-file-id={ fmt.Sprint(fileID) }
-								id={ fmt.Sprintf("delete-file-btn-%d", fileID) }
-								onclick={ triggerFileDelete(id, fileID, fileName) }>
-								{ confirmText }
-							</button>
-						} else {
-							<button 
-								type="button" 
-								class="text-white font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-								hx-delete={ fmt.Sprintf("/files/%d", fileID) }
-								hx-target={ fmt.Sprintf("#file-row-%d", fileID) }
-								hx-swap="delete"
-								data-file-name={ fileName }
-								data-file-id={ fmt.Sprint(fileID) }
-								id={ fmt.Sprintf("delete-file-btn-%d", fileID) }
-								onclick={ triggerFileDelete(id, fileID, fileName) }>
-								{ confirmText }
-							</button>
-						}
+				<div class="p-6 text-center">
+					if action == "delete" {
+						<i class="fas fa-trash-alt text-red-400 text-3xl mb-4"></i>
 					} else {
-						if confirmClass == "btn-danger" {
-							<button 
-								type="button" 
-								class="text-white font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 bg-red-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300 dark:bg-red-500 dark:hover:bg-red-600 dark:focus:ring-red-800"
-								hx-delete={ fmt.Sprintf("/files/%d", fileID) }
-								hx-redirect="/files"
-								data-file-name={ fileName }
-								data-file-id={ fmt.Sprint(fileID) }
-								id={ fmt.Sprintf("delete-file-btn-%d", fileID) }
-								onclick={ triggerFileDelete(id, fileID, fileName) }>
-								{ confirmText }
-							</button>
-						} else {
-							<button 
-								type="button" 
-								class="text-white font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-								hx-delete={ fmt.Sprintf("/files/%d", fileID) }
-								hx-redirect="/files"
-								data-file-name={ fileName }
-								data-file-id={ fmt.Sprint(fileID) }
-								id={ fmt.Sprintf("delete-file-btn-%d", fileID) }
-								onclick={ triggerFileDelete(id, fileID, fileName) }>
-								{ confirmText }
-							</button>
-						}
+						<i class="fas fa-exclamation-triangle text-yellow-400 text-3xl mb-4"></i>
 					}
-					<button type="button" class="py-2.5 px-5 ms-3 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700" onclick={ hideFileDialog(id) }>
+					<h3 class="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">{ message }</h3>
+					if section == "list" {
+						<button 
+							type="button" 
+							class="text-white font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 bg-red-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300 dark:bg-red-500 dark:hover:bg-red-600 dark:focus:ring-red-800"
+							hx-delete={ fmt.Sprintf("/files/%d", fileID) }
+							hx-target={ fmt.Sprintf("#file-row-%d", fileID) }
+							hx-swap="delete"
+							data-file-name={ fileName }
+							data-file-id={ fmt.Sprint(fileID) }
+							id={ fmt.Sprintf("delete-file-btn-%d", fileID) }
+							onclick={ triggerFileDelete(id, fileID, fileName) }>
+							{ confirmText }
+						</button>
+					} else {
+						<button 
+							type="button" 
+							class="text-white font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 bg-red-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300 dark:bg-red-500 dark:hover:bg-red-600 dark:focus:ring-red-800"
+							hx-delete={ fmt.Sprintf("/files/%d", fileID) }
+							hx-redirect="/files"
+							data-file-name={ fileName }
+							data-file-id={ fmt.Sprint(fileID) }
+							id={ fmt.Sprintf("delete-file-btn-%d", fileID) }
+							onclick={ triggerFileDelete(id, fileID, fileName) }>
+							{ confirmText }
+						</button>
+					}
+					<button type="button" data-modal-hide={ id } class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600">
 						Cancel
 					</button>
 				</div>
@@ -167,15 +123,18 @@ templ FileMetadataDialog(id string, title string, message string, confirmClass s
 
 script hideFileDialog(id string) {
 	document.getElementById(id).classList.add("hidden");
+	document.getElementById(id).classList.remove("flex");
 }
 
 script showFileDialog(id string) {
 	document.getElementById(id).classList.remove("hidden");
+	document.getElementById(id).classList.add("flex");
 }
 
 script triggerFileDelete(dialogId string, fileID uint, fileName string) {
 	// Hide the dialog
 	document.getElementById(dialogId).classList.add("hidden");
+	document.getElementById(dialogId).classList.remove("flex");
 		
 	// Store data in a way that's accessible to event handlers
 	window.lastDeletedFile = {
@@ -341,6 +300,203 @@ templ FileMetadataListPartial(data FileMetadataListData) {
 // Update the main FileMetadataList template to use the partial template
 templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
 	@LayoutWithContext("File Metadata", ctx) {
+		<!-- Status and Error Messages -->
+		<div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2"></div>
+		
+		<script>
+			// Debug notification system
+			console.log("File Metadata template loaded, setting up notification system");
+			
+			// Function to create and show a toast
+			function showToast(message, type) {
+				const toastContainer = document.getElementById('toast-container');
+				
+				// Create toast element
+				const toast = document.createElement('div');
+				toast.id = 'toast-' + type + '-' + Date.now();
+				toast.className = 'flex items-center w-full max-w-xs p-4 mb-4 rounded-lg shadow text-gray-500 bg-white dark:text-gray-400 dark:bg-gray-800 transform translate-y-16 opacity-0 transition-all duration-300 ease-out';
+				toast.role = 'alert';
+				
+				// Set toast content based on type
+				let iconClass, bgColorClass, textColorClass;
+				
+				if (type === 'success') {
+					iconClass = 'text-green-500 bg-green-100 dark:bg-green-800 dark:text-green-200';
+					bgColorClass = 'text-green-500 dark:text-green-200';
+					textColorClass = 'text-green-500 dark:text-green-200';
+				} else if (type === 'error') {
+					iconClass = 'text-red-500 bg-red-100 dark:bg-red-800 dark:text-red-200';
+					bgColorClass = 'text-red-500 dark:text-red-200';
+					textColorClass = 'text-red-500 dark:text-red-200';
+				} else {
+					iconClass = 'text-blue-500 bg-blue-100 dark:bg-blue-800 dark:text-blue-200';
+					bgColorClass = 'text-blue-500 dark:text-blue-200';
+					textColorClass = 'text-blue-500 dark:text-blue-200';
+				}
+				
+				// Set inner HTML with appropriate icon and message
+				toast.innerHTML = `
+					<div class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg ${iconClass}">
+						${type === 'success' 
+							? '<i class="fas fa-check"></i>' 
+							: type === 'error' 
+							? '<i class="fas fa-exclamation-circle"></i>'
+							: '<i class="fas fa-info-circle"></i>'}
+					</div>
+					<div class="ml-3 text-sm font-normal">${message}</div>
+					<button type="button" class="ml-auto -mx-1.5 -my-1.5 bg-white text-gray-400 hover:text-gray-900 rounded-lg focus:ring-2 focus:ring-gray-300 p-1.5 hover:bg-gray-100 inline-flex h-8 w-8 dark:text-gray-500 dark:hover:text-white dark:bg-gray-800 dark:hover:bg-gray-700" data-dismiss-target="#${toast.id}" aria-label="Close">
+						<span class="sr-only">Close</span>
+						<i class="fas fa-times"></i>
+					</button>
+				`;
+				
+				// Add toast to container
+				toastContainer.appendChild(toast);
+				
+				// Trigger animation after a small delay to ensure the DOM has updated
+				setTimeout(() => {
+					toast.classList.remove('translate-y-16', 'opacity-0');
+					toast.classList.add('translate-y-0', 'opacity-100');
+				}, 10);
+				
+				// Add event listener to close button
+				const closeButton = toast.querySelector('button[data-dismiss-target]');
+				closeButton.addEventListener('click', function() {
+					// Animate out before removing
+					toast.classList.add('opacity-0', 'translate-y-4');
+					setTimeout(() => {
+						toast.remove();
+					}, 300);
+				});
+				
+				// Auto-remove toast after 5 seconds
+				setTimeout(() => {
+					toast.classList.add('opacity-0', 'translate-y-4');
+					setTimeout(() => {
+						toast.remove();
+					}, 300);
+				}, 5000);
+			}
+			
+			// Handle modal hide buttons
+			document.addEventListener('DOMContentLoaded', function() {
+				const hideButtons = document.querySelectorAll('[data-modal-hide]');
+				hideButtons.forEach(button => {
+					button.addEventListener('click', function() {
+						const modalId = this.getAttribute('data-modal-hide');
+						const modal = document.getElementById(modalId);
+						modal.classList.add('hidden');
+						modal.classList.remove('flex');
+					});
+				});
+			});
+			
+			// Track all HTMX events for debugging
+			document.addEventListener('htmx:beforeRequest', function(event) {
+				console.log("HTMX before request:", event.detail);
+				
+				// Check if this is a DELETE request by examining the URL and method
+				const path = event.detail.path;
+				const method = event.detail.verb;
+				
+				console.log(`Request path: ${path}, method: ${method}`);
+				
+				// Pattern match for file deletions (e.g., /files/123)
+				if (path && method === 'DELETE' && path.match(/^\/files\/\d+$/)) {
+					console.log("Detected file deletion request via URL pattern");
+					
+					// This is definitely a delete request - store this information
+					window.isFileDeleteRequest = true;
+				}
+			});
+
+			// Track HTMX after-request events for file deletion
+			document.addEventListener('htmx:afterRequest', function(event) {
+				console.log("HTMX after request:", event.detail);
+				
+				// Check for file deletion multiple ways
+				const isDeleteRequest = 
+					// Check global flag from the triggerFileDelete function
+					window.currentlyDeletingFile ||
+					// Check flag from beforeRequest handler
+					window.isFileDeleteRequest ||
+					// Check URL pattern directly from this event
+					(event.detail.pathInfo && event.detail.pathInfo.requestPath && 
+					 event.detail.pathInfo.requestPath.match(/^\/files\/\d+$/) && 
+					 event.detail.verb === 'DELETE');
+				
+				console.log(`Is delete request: ${isDeleteRequest}`);
+				
+				// If this is a successful delete request, show notification
+				if (isDeleteRequest && event.detail.successful) {
+					console.log("Delete request was successful");
+					
+					let fileName = "Unknown";
+					
+					// Try multiple sources for file name
+					if (event.detail.elt && event.detail.elt.getAttribute) {
+						fileName = event.detail.elt.getAttribute('data-file-name') || fileName;
+					}
+					
+					if (fileName === "Unknown" && window.lastDeletedFile) {
+						// Fallback to our stored file info
+						fileName = window.lastDeletedFile.name;
+					}
+					
+					console.log(`Showing success notification for deleted file: ${fileName}`);
+					showToast(`File "${fileName}" deleted successfully`, 'success');
+					
+					// Clear flags
+					window.currentlyDeletingFile = false;
+					window.isFileDeleteRequest = false;
+					window.lastDeletedFile = null;
+				}
+			});
+			
+			// Track HTMX error events for file deletion
+			document.addEventListener('htmx:responseError', function(event) {
+				console.log("HTMX response error:", event.detail);
+				
+				// Similar logic as success but for errors
+				const isDeleteRequest = 
+					window.currentlyDeletingFile ||
+					window.isFileDeleteRequest ||
+					(event.detail.pathInfo && event.detail.pathInfo.requestPath && 
+					 event.detail.pathInfo.requestPath.match(/^\/files\/\d+$/) && 
+					 event.detail.verb === 'DELETE');
+				
+				if (isDeleteRequest) {
+					console.log("Delete request failed");
+					
+					let fileName = "Unknown";
+					
+					// Try multiple sources for file name
+					if (event.detail.elt && event.detail.elt.getAttribute) {
+						fileName = event.detail.elt.getAttribute('data-file-name') || fileName;
+					}
+					
+					if (fileName === "Unknown" && window.lastDeletedFile) {
+						// Fallback to our stored file info
+						fileName = window.lastDeletedFile.name;
+					}
+					
+					let errorMsg = `Failed to delete file "${fileName}"`;
+					
+					if (event.detail.xhr && event.detail.xhr.responseText) {
+						errorMsg = `Error: ${event.detail.xhr.responseText}`;
+					}
+					
+					console.log(`Showing error notification: ${errorMsg}`);
+					showToast(errorMsg, 'error');
+					
+					// Clear flags
+					window.currentlyDeletingFile = false;
+					window.isFileDeleteRequest = false;
+					window.lastDeletedFile = null;
+				}
+			});
+		</script>
+		
 		<div id="file-metadata-container" style="min-height: 100vh;" class="bg-gray-50 dark:bg-gray-900">
 			<div class="pb-8 w-full">
 				<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -450,6 +606,165 @@ templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
 // FileMetadataDetails renders detailed information about a file
 templ FileMetadataDetails(ctx context.Context, data FileMetadataDetailsData) {
 	@LayoutWithContext("File Details", ctx) {
+		<!-- Status and Error Messages -->
+		<div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2"></div>
+		
+		<script>
+			// Debug notification system
+			console.log("File Details template loaded, setting up notification system");
+			
+			// Function to create and show a toast
+			function showToast(message, type) {
+				const toastContainer = document.getElementById('toast-container');
+				
+				// Create toast element
+				const toast = document.createElement('div');
+				toast.id = 'toast-' + type + '-' + Date.now();
+				toast.className = 'flex items-center w-full max-w-xs p-4 mb-4 rounded-lg shadow text-gray-500 bg-white dark:text-gray-400 dark:bg-gray-800 transform translate-y-16 opacity-0 transition-all duration-300 ease-out';
+				toast.role = 'alert';
+				
+				// Set toast content based on type
+				let iconClass, bgColorClass, textColorClass;
+				
+				if (type === 'success') {
+					iconClass = 'text-green-500 bg-green-100 dark:bg-green-800 dark:text-green-200';
+					bgColorClass = 'text-green-500 dark:text-green-200';
+					textColorClass = 'text-green-500 dark:text-green-200';
+				} else if (type === 'error') {
+					iconClass = 'text-red-500 bg-red-100 dark:bg-red-800 dark:text-red-200';
+					bgColorClass = 'text-red-500 dark:text-red-200';
+					textColorClass = 'text-red-500 dark:text-red-200';
+				} else {
+					iconClass = 'text-blue-500 bg-blue-100 dark:bg-blue-800 dark:text-blue-200';
+					bgColorClass = 'text-blue-500 dark:text-blue-200';
+					textColorClass = 'text-blue-500 dark:text-blue-200';
+				}
+				
+				// Set inner HTML with appropriate icon and message
+				toast.innerHTML = `
+					<div class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg ${iconClass}">
+						${type === 'success' 
+							? '<i class="fas fa-check"></i>' 
+							: type === 'error' 
+							? '<i class="fas fa-exclamation-circle"></i>'
+							: '<i class="fas fa-info-circle"></i>'}
+					</div>
+					<div class="ml-3 text-sm font-normal">${message}</div>
+					<button type="button" class="ml-auto -mx-1.5 -my-1.5 bg-white text-gray-400 hover:text-gray-900 rounded-lg focus:ring-2 focus:ring-gray-300 p-1.5 hover:bg-gray-100 inline-flex h-8 w-8 dark:text-gray-500 dark:hover:text-white dark:bg-gray-800 dark:hover:bg-gray-700" data-dismiss-target="#${toast.id}" aria-label="Close">
+						<span class="sr-only">Close</span>
+						<i class="fas fa-times"></i>
+					</button>
+				`;
+				
+				// Add toast to container
+				toastContainer.appendChild(toast);
+				
+				// Trigger animation after a small delay to ensure the DOM has updated
+				setTimeout(() => {
+					toast.classList.remove('translate-y-16', 'opacity-0');
+					toast.classList.add('translate-y-0', 'opacity-100');
+				}, 10);
+				
+				// Add event listener to close button
+				const closeButton = toast.querySelector('button[data-dismiss-target]');
+				closeButton.addEventListener('click', function() {
+					// Animate out before removing
+					toast.classList.add('opacity-0', 'translate-y-4');
+					setTimeout(() => {
+						toast.remove();
+					}, 300);
+				});
+				
+				// Auto-remove toast after 5 seconds
+				setTimeout(() => {
+					toast.classList.add('opacity-0', 'translate-y-4');
+					setTimeout(() => {
+						toast.remove();
+					}, 300);
+				}, 5000);
+			}
+			
+			// Handle modal hide buttons
+			document.addEventListener('DOMContentLoaded', function() {
+				const hideButtons = document.querySelectorAll('[data-modal-hide]');
+				hideButtons.forEach(button => {
+					button.addEventListener('click', function() {
+						const modalId = this.getAttribute('data-modal-hide');
+						const modal = document.getElementById(modalId);
+						modal.classList.add('hidden');
+						modal.classList.remove('flex');
+					});
+				});
+			});
+			
+			// Track deletion events
+			document.addEventListener('htmx:beforeRequest', function(event) {
+				if (event.detail.path && event.detail.path.match(/^\/files\/\d+$/) && event.detail.verb === 'DELETE') {
+					window.isFileDeleteRequest = true;
+				}
+			});
+			
+			document.addEventListener('htmx:afterRequest', function(event) {
+				const isDeleteRequest = 
+					window.currentlyDeletingFile ||
+					window.isFileDeleteRequest ||
+					(event.detail.pathInfo && event.detail.pathInfo.requestPath && 
+					event.detail.pathInfo.requestPath.match(/^\/files\/\d+$/) && 
+					event.detail.verb === 'DELETE');
+				
+				if (isDeleteRequest && event.detail.successful) {
+					let fileName = "Unknown";
+					
+					if (event.detail.elt && event.detail.elt.getAttribute) {
+						fileName = event.detail.elt.getAttribute('data-file-name') || fileName;
+					}
+					
+					if (fileName === "Unknown" && window.lastDeletedFile) {
+						fileName = window.lastDeletedFile.name;
+					}
+					
+					showToast(`File "${fileName}" deleted successfully`, 'success');
+					
+					window.currentlyDeletingFile = false;
+					window.isFileDeleteRequest = false;
+					window.lastDeletedFile = null;
+				}
+			});
+			
+			document.addEventListener('htmx:responseError', function(event) {
+				const isDeleteRequest = 
+					window.currentlyDeletingFile ||
+					window.isFileDeleteRequest ||
+					(event.detail.pathInfo && event.detail.pathInfo.requestPath && 
+					event.detail.pathInfo.requestPath.match(/^\/files\/\d+$/) && 
+					event.detail.verb === 'DELETE');
+				
+				if (isDeleteRequest) {
+					let fileName = "Unknown";
+					
+					if (event.detail.elt && event.detail.elt.getAttribute) {
+						fileName = event.detail.elt.getAttribute('data-file-name') || fileName;
+					}
+					
+					if (fileName === "Unknown" && window.lastDeletedFile) {
+						fileName = window.lastDeletedFile.name;
+					}
+					
+					let errorMsg = `Failed to delete file "${fileName}"`;
+					
+					if (event.detail.xhr && event.detail.xhr.responseText) {
+						errorMsg = `Error: ${event.detail.xhr.responseText}`;
+					}
+					
+					showToast(errorMsg, 'error');
+					
+					window.currentlyDeletingFile = false;
+					window.isFileDeleteRequest = false;
+					window.lastDeletedFile = null;
+				}
+			});
+		</script>
+		
 		<div id="file-details-container" style="min-height: 100vh;" class="bg-gray-50 dark:bg-gray-900">
 			<div class="pb-8 w-full">
 				<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -690,6 +1005,165 @@ templ FileMetadataDetails(ctx context.Context, data FileMetadataDetailsData) {
 // FileMetadataSearch renders an advanced search form for file metadata
 templ FileMetadataSearch(ctx context.Context, data FileMetadataSearchData) {
 	@LayoutWithContext("Search Files", ctx) {
+		<!-- Status and Error Messages -->
+		<div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2"></div>
+		
+		<script>
+			// Debug notification system
+			console.log("File Search template loaded, setting up notification system");
+			
+			// Function to create and show a toast
+			function showToast(message, type) {
+				const toastContainer = document.getElementById('toast-container');
+				
+				// Create toast element
+				const toast = document.createElement('div');
+				toast.id = 'toast-' + type + '-' + Date.now();
+				toast.className = 'flex items-center w-full max-w-xs p-4 mb-4 rounded-lg shadow text-gray-500 bg-white dark:text-gray-400 dark:bg-gray-800 transform translate-y-16 opacity-0 transition-all duration-300 ease-out';
+				toast.role = 'alert';
+				
+				// Set toast content based on type
+				let iconClass, bgColorClass, textColorClass;
+				
+				if (type === 'success') {
+					iconClass = 'text-green-500 bg-green-100 dark:bg-green-800 dark:text-green-200';
+					bgColorClass = 'text-green-500 dark:text-green-200';
+					textColorClass = 'text-green-500 dark:text-green-200';
+				} else if (type === 'error') {
+					iconClass = 'text-red-500 bg-red-100 dark:bg-red-800 dark:text-red-200';
+					bgColorClass = 'text-red-500 dark:text-red-200';
+					textColorClass = 'text-red-500 dark:text-red-200';
+				} else {
+					iconClass = 'text-blue-500 bg-blue-100 dark:bg-blue-800 dark:text-blue-200';
+					bgColorClass = 'text-blue-500 dark:text-blue-200';
+					textColorClass = 'text-blue-500 dark:text-blue-200';
+				}
+				
+				// Set inner HTML with appropriate icon and message
+				toast.innerHTML = `
+					<div class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg ${iconClass}">
+						${type === 'success' 
+							? '<i class="fas fa-check"></i>' 
+							: type === 'error' 
+							? '<i class="fas fa-exclamation-circle"></i>'
+							: '<i class="fas fa-info-circle"></i>'}
+					</div>
+					<div class="ml-3 text-sm font-normal">${message}</div>
+					<button type="button" class="ml-auto -mx-1.5 -my-1.5 bg-white text-gray-400 hover:text-gray-900 rounded-lg focus:ring-2 focus:ring-gray-300 p-1.5 hover:bg-gray-100 inline-flex h-8 w-8 dark:text-gray-500 dark:hover:text-white dark:bg-gray-800 dark:hover:bg-gray-700" data-dismiss-target="#${toast.id}" aria-label="Close">
+						<span class="sr-only">Close</span>
+						<i class="fas fa-times"></i>
+					</button>
+				`;
+				
+				// Add toast to container
+				toastContainer.appendChild(toast);
+				
+				// Trigger animation after a small delay to ensure the DOM has updated
+				setTimeout(() => {
+					toast.classList.remove('translate-y-16', 'opacity-0');
+					toast.classList.add('translate-y-0', 'opacity-100');
+				}, 10);
+				
+				// Add event listener to close button
+				const closeButton = toast.querySelector('button[data-dismiss-target]');
+				closeButton.addEventListener('click', function() {
+					// Animate out before removing
+					toast.classList.add('opacity-0', 'translate-y-4');
+					setTimeout(() => {
+						toast.remove();
+					}, 300);
+				});
+				
+				// Auto-remove toast after 5 seconds
+				setTimeout(() => {
+					toast.classList.add('opacity-0', 'translate-y-4');
+					setTimeout(() => {
+						toast.remove();
+					}, 300);
+				}, 5000);
+			}
+			
+			// Handle modal hide buttons
+			document.addEventListener('DOMContentLoaded', function() {
+				const hideButtons = document.querySelectorAll('[data-modal-hide]');
+				hideButtons.forEach(button => {
+					button.addEventListener('click', function() {
+						const modalId = this.getAttribute('data-modal-hide');
+						const modal = document.getElementById(modalId);
+						modal.classList.add('hidden');
+						modal.classList.remove('flex');
+					});
+				});
+			});
+			
+			// Track deletion events
+			document.addEventListener('htmx:beforeRequest', function(event) {
+				if (event.detail.path && event.detail.path.match(/^\/files\/\d+$/) && event.detail.verb === 'DELETE') {
+					window.isFileDeleteRequest = true;
+				}
+			});
+			
+			document.addEventListener('htmx:afterRequest', function(event) {
+				const isDeleteRequest = 
+					window.currentlyDeletingFile ||
+					window.isFileDeleteRequest ||
+					(event.detail.pathInfo && event.detail.pathInfo.requestPath && 
+					event.detail.pathInfo.requestPath.match(/^\/files\/\d+$/) && 
+					event.detail.verb === 'DELETE');
+				
+				if (isDeleteRequest && event.detail.successful) {
+					let fileName = "Unknown";
+					
+					if (event.detail.elt && event.detail.elt.getAttribute) {
+						fileName = event.detail.elt.getAttribute('data-file-name') || fileName;
+					}
+					
+					if (fileName === "Unknown" && window.lastDeletedFile) {
+						fileName = window.lastDeletedFile.name;
+					}
+					
+					showToast(`File "${fileName}" deleted successfully`, 'success');
+					
+					window.currentlyDeletingFile = false;
+					window.isFileDeleteRequest = false;
+					window.lastDeletedFile = null;
+				}
+			});
+			
+			document.addEventListener('htmx:responseError', function(event) {
+				const isDeleteRequest = 
+					window.currentlyDeletingFile ||
+					window.isFileDeleteRequest ||
+					(event.detail.pathInfo && event.detail.pathInfo.requestPath && 
+					event.detail.pathInfo.requestPath.match(/^\/files\/\d+$/) && 
+					event.detail.verb === 'DELETE');
+				
+				if (isDeleteRequest) {
+					let fileName = "Unknown";
+					
+					if (event.detail.elt && event.detail.elt.getAttribute) {
+						fileName = event.detail.elt.getAttribute('data-file-name') || fileName;
+					}
+					
+					if (fileName === "Unknown" && window.lastDeletedFile) {
+						fileName = window.lastDeletedFile.name;
+					}
+					
+					let errorMsg = `Failed to delete file "${fileName}"`;
+					
+					if (event.detail.xhr && event.detail.xhr.responseText) {
+						errorMsg = `Error: ${event.detail.xhr.responseText}`;
+					}
+					
+					showToast(errorMsg, 'error');
+					
+					window.currentlyDeletingFile = false;
+					window.isFileDeleteRequest = false;
+					window.lastDeletedFile = null;
+				}
+			});
+		</script>
+		
 		<div id="file-search-container" style="min-height: 100vh;" class="bg-gray-50 dark:bg-gray-900">
 			<div class="pb-8 w-full">
 				<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
