@@ -464,6 +464,30 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 	// Get rclone config path
 	configPath := s.db.GetConfigRclonePath(&config)
 
+	// Get the command to use for the transfer
+	var rcloneCommand string = "copyto" // Default command
+	if config.CommandID > 0 {
+		// Get the command by ID
+		command, err := s.db.GetRcloneCommand(config.CommandID)
+		if err == nil && command != nil {
+			rcloneCommand = command.Name
+			s.log.LogDebug("Using rclone command %s for job %d, config %d", rcloneCommand, job.ID, config.ID)
+		} else {
+			s.log.LogError("Failed to get rclone command with ID %d: %v", config.CommandID, err)
+		}
+	}
+
+	// Determine command type to handle execution appropriately
+	commandType := determineCommandType(rcloneCommand)
+	s.log.LogDebug("Command %s is of type: %s", rcloneCommand, commandType)
+
+	// For non-file-by-file transfer commands, use the simple execution approach
+	if commandType != "transfer" || isDirectoryBasedTransfer(rcloneCommand) {
+		s.executeSimpleCommand(rcloneCommand, commandType, job, config, history, configPath)
+		return
+	}
+
+	// The rest of the function handles file-by-file transfer commands (copyto, moveto)
 	// Use lsjson to get file list and metadata in one operation instead of separate size and ls commands
 	listArgs := []string{
 		"--config", configPath,
@@ -564,7 +588,7 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 	var files []map[string]interface{}
 	var totalSize int64
 	for _, entry := range fileEntries {
-		// Skip directories
+		// Process directories
 		if isDir, ok := entry["IsDir"].(bool); ok && isDir {
 			continue
 		}
@@ -753,14 +777,41 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 				wg.Done()
 			}()
 
-			// Prepare moveto command for transfer
+			// Prepare rclone command
 			transferArgs := []string{
 				"--config", configPath,
-				"copyto",
 				"--progress",
 				"--stats-one-line",
 				"--verbose",
 				"--stats", "1s",
+			}
+
+			// Add the command to the arguments
+			transferArgs = append(transferArgs, rcloneCommand)
+
+			// Add command flags if specified
+			if config.CommandFlags != "" {
+				var flagIDs []uint
+				if err := json.Unmarshal([]byte(config.CommandFlags), &flagIDs); err == nil {
+					// Get the flags for the selected command
+					for _, flagID := range flagIDs {
+						flag, err := s.db.GetRcloneCommandFlag(flagID)
+						if err == nil && flag != nil {
+							if flag.DataType == "bool" {
+								// For boolean flags, just add the flag name with -- prefix
+								transferArgs = append(transferArgs, "--"+flag.Name)
+							} else if flag.DefaultValue != "" {
+								// For flags with default values, use the default with -- prefix
+								transferArgs = append(transferArgs, "--"+flag.Name, flag.DefaultValue)
+							}
+							s.log.LogDebug("Added flag %s for job %d, config %d", flag.Name, job.ID, config.ID)
+						} else {
+							s.log.LogError("Failed to get rclone flag with ID %d: %v", flagID, err)
+						}
+					}
+				} else {
+					s.log.LogError("Failed to unmarshal command flags for job %d, config %d: %v", job.ID, config.ID, err)
+				}
 			}
 
 			// Source and destination paths
@@ -985,7 +1036,19 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 
 	// Send webhook notification for success or with errors
 	s.sendWebhookNotification(&job, history, &config)
+}
 
+// isDirectoryBasedTransfer checks if a transfer command operates on directories rather than individual files
+func isDirectoryBasedTransfer(commandName string) bool {
+	// These commands operate on entire directories, not file-by-file
+	dirBasedCommands := map[string]bool{
+		"sync":   true,
+		"bisync": true,
+		"copy":   true,
+		"move":   true,
+	}
+
+	return dirBasedCommands[commandName]
 }
 
 // ProcessOutputPattern processes an output pattern with variables and returns the result
@@ -1787,4 +1850,292 @@ func (s *Scheduler) createJobNotification(job *db.Job, history *db.JobHistory) e
 		title,
 		message,
 	)
+}
+
+// determineCommandType categorizes rclone commands into types for execution
+func determineCommandType(commandName string) string {
+	// File transfer commands
+	transferCommands := map[string]bool{
+		"copy":   true,
+		"copyto": true,
+		"move":   true,
+		"moveto": true,
+		"sync":   true,
+		"bisync": true,
+	}
+
+	// Listing commands
+	listingCommands := map[string]bool{
+		"ls":          true,
+		"lsd":         true,
+		"lsl":         true,
+		"lsf":         true,
+		"lsjson":      true,
+		"listremotes": true,
+	}
+
+	// Information commands
+	infoCommands := map[string]bool{
+		"md5sum":  true,
+		"sha1sum": true,
+		"size":    true,
+		"version": true,
+	}
+
+	// Directory operations
+	dirCommands := map[string]bool{
+		"mkdir":  true,
+		"rmdir":  true,
+		"rmdirs": true,
+	}
+
+	// Destructive commands
+	destructiveCommands := map[string]bool{
+		"delete": true,
+		"purge":  true,
+	}
+
+	// Maintenance commands
+	maintenanceCommands := map[string]bool{
+		"cleanup": true,
+		"dedupe":  true,
+		"check":   true,
+	}
+
+	// Specialized commands
+	specialCommands := map[string]bool{
+		"obscure":    true,
+		"cryptcheck": true,
+	}
+
+	// Determine the command type
+	if transferCommands[commandName] {
+		return "transfer"
+	} else if listingCommands[commandName] {
+		return "listing"
+	} else if infoCommands[commandName] {
+		return "info"
+	} else if dirCommands[commandName] {
+		return "directory"
+	} else if destructiveCommands[commandName] {
+		return "destructive"
+	} else if maintenanceCommands[commandName] {
+		return "maintenance"
+	} else if specialCommands[commandName] {
+		return "special"
+	}
+
+	// Default to transfer if unknown
+	return "transfer"
+}
+
+// executeSimpleCommand executes rclone commands that don't require file-by-file processing
+func (s *Scheduler) executeSimpleCommand(cmdName string, cmdType string, job db.Job, config db.TransferConfig, history *db.JobHistory, configPath string) {
+	s.log.LogInfo("Executing simple command '%s' of type '%s' for job %d, config %d", cmdName, cmdType, job.ID, config.ID)
+
+	// Prepare base arguments
+	baseArgs := []string{
+		"--config", configPath,
+		"--progress",
+		"--stats-one-line",
+		"--verbose",
+		"--stats", "1s",
+	}
+
+	// Add the command name
+	args := append(baseArgs, cmdName)
+
+	// Add command flags if specified
+	if config.CommandFlags != "" {
+		var flagIDs []uint
+		if err := json.Unmarshal([]byte(config.CommandFlags), &flagIDs); err == nil {
+			// Get the flags for the selected command
+			for _, flagID := range flagIDs {
+				flag, err := s.db.GetRcloneCommandFlag(flagID)
+				if err == nil && flag != nil {
+					if flag.DataType == "bool" {
+						// For boolean flags, just add the flag name with -- prefix
+						args = append(args, "--"+flag.Name)
+					} else if flag.DefaultValue != "" {
+						// For flags with default values, use the default with -- prefix
+						args = append(args, "--"+flag.Name, flag.DefaultValue)
+					}
+					s.log.LogDebug("Added flag %s for job %d, config %d", flag.Name, job.ID, config.ID)
+				} else {
+					s.log.LogError("Failed to get rclone flag with ID %d: %v", flagID, err)
+				}
+			}
+		} else {
+			s.log.LogError("Failed to unmarshal command flags for job %d, config %d: %v", job.ID, config.ID, err)
+		}
+	}
+
+	// Add custom flags if specified
+	if config.RcloneFlags != "" {
+		customFlags := strings.Split(config.RcloneFlags, " ")
+		args = append(args, customFlags...)
+		s.log.LogDebug("Added custom flags for job %d, config %d: %v", job.ID, config.ID, customFlags)
+	}
+
+	// Prepare source and destination paths
+	var sourcePath, destPath string
+
+	// Handle source path with bucket for S3-compatible storage
+	if config.SourceType == "s3" || config.SourceType == "minio" || config.SourceType == "b2" {
+		sourcePath = fmt.Sprintf("source_%d:%s", config.ID, config.SourceBucket)
+		if config.SourcePath != "" && config.SourcePath != "/" {
+			sourcePath = fmt.Sprintf("source_%d:%s/%s", config.ID, config.SourceBucket, config.SourcePath)
+		}
+	} else {
+		sourcePath = fmt.Sprintf("source_%d:%s", config.ID, config.SourcePath)
+	}
+
+	// Handle destination path with bucket for S3-compatible storage
+	if config.DestinationType == "s3" || config.DestinationType == "minio" || config.DestinationType == "b2" {
+		destPath = fmt.Sprintf("dest_%d:%s", config.ID, config.DestBucket)
+		if config.DestinationPath != "" && config.DestinationPath != "/" {
+			destPath = fmt.Sprintf("dest_%d:%s/%s", config.ID, config.DestBucket, config.DestinationPath)
+		}
+	} else {
+		destPath = fmt.Sprintf("dest_%d:%s", config.ID, config.DestinationPath)
+	}
+
+	// Add appropriate paths based on command type
+	switch cmdType {
+	case "transfer":
+		// Directory-based transfers and file-specific transfers handled here
+		args = append(args, sourcePath, destPath)
+	case "maintenance":
+		// Check command needs both source and destination, others may just need source
+		if cmdName == "check" {
+			args = append(args, sourcePath, destPath)
+		} else {
+			args = append(args, sourcePath)
+		}
+	case "listing":
+		// Listing commands only need source path
+		args = append(args, sourcePath)
+	case "info":
+		// Info commands typically need only source path
+		args = append(args, sourcePath)
+	case "directory":
+		// Directory operations might need one or both paths depending on operation
+		if cmdName == "rmdirs" && strings.Contains(config.RcloneFlags, "--dst") {
+			// Special case: rmdirs with --dst flag needs both paths
+			args = append(args, sourcePath, destPath)
+		} else {
+			// Default case: just source path
+			args = append(args, sourcePath)
+		}
+	case "destructive":
+		// Destructive commands only need source path
+		args = append(args, sourcePath)
+	case "special":
+		// Special commands handled case by case
+		if cmdName == "cryptcheck" {
+			args = append(args, sourcePath, destPath)
+		} else if cmdName == "obscure" || cmdName == "version" || cmdName == "listremotes" {
+			// These commands don't need paths at all
+		} else {
+			args = append(args, sourcePath)
+		}
+	default:
+		// Default to source path only
+		args = append(args, sourcePath)
+	}
+
+	// Execute the command
+	rclonePath := os.Getenv("RCLONE_PATH")
+	if rclonePath == "" {
+		rclonePath = "rclone"
+	}
+
+	s.log.LogDebug("Full command: %s %v", rclonePath, args)
+	cmd := exec.Command(rclonePath, args...)
+
+	// Capture output
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	// Start timer for operation
+	startTime := time.Now()
+
+	// Run the command
+	err := cmd.Run()
+
+	// Calculate duration
+	duration := time.Since(startTime)
+
+	// Update history with basic info
+	history.EndTime = &time.Time{}
+	*history.EndTime = startTime.Add(duration)
+
+	// Check for pattern in stderr that indicates successful completion with warnings
+	// Some commands like sync may complete successfully but with warnings
+	successWithWarnings := strings.Contains(stderr.String(), "Transferred:") &&
+		strings.Contains(stderr.String(), "Errors:") &&
+		strings.Contains(stderr.String(), "Checks:")
+
+	// Process results
+	if err != nil && !successWithWarnings {
+		s.log.LogError("Error executing command '%s' for job %d, config %d: %v", cmdName, job.ID, config.ID, err)
+		s.log.LogError("Command stderr: %s", stderr.String())
+
+		history.Status = "failed"
+		history.ErrorMessage = fmt.Sprintf("Command Error: %v\nStderr: %s", err, stderr.String())
+	} else {
+		s.log.LogInfo("Successfully executed command '%s' for job %d, config %d (duration: %v)",
+			cmdName, job.ID, config.ID, duration)
+
+		// Handle different command output types
+		if cmdType == "listing" {
+			// For listing commands, count the number of lines in the output as "files processed"
+			lines := strings.Count(stdout.String(), "\n")
+			history.FilesTransferred = lines
+			history.Status = "completed"
+		} else if cmdType == "transfer" {
+			// Try to extract transfer statistics from command output
+			history.Status = "completed"
+
+			// Look for metrics in stderr which is where rclone puts stats
+			// Extract bytes transferred if available
+			bytesRegex := regexp.MustCompile(`Transferred:\s+(\d+)\s+/\s+(\d+)\s+Bytes`)
+			if matches := bytesRegex.FindStringSubmatch(stderr.String()); len(matches) >= 3 {
+				if bytesTransferred, err := strconv.ParseInt(matches[1], 10, 64); err == nil {
+					history.BytesTransferred = bytesTransferred
+				}
+			}
+
+			// Extract files transferred if available
+			filesRegex := regexp.MustCompile(`Transferred:\s+(\d+)\s+/\s+(\d+)\s+Files`)
+			if matches := filesRegex.FindStringSubmatch(stderr.String()); len(matches) >= 3 {
+				if filesTransferred, err := strconv.Atoi(matches[1]); err == nil {
+					history.FilesTransferred = filesTransferred
+				}
+			}
+		} else {
+			// For other commands, we don't have file counts, but the command completed
+			history.Status = "completed"
+		}
+
+		// Store command output in the history for reference
+		if cmdType == "listing" || cmdType == "info" {
+			// For listing and info commands, the output is the result
+			// Limit to first 1000 characters to avoid huge entries
+			output := stdout.String()
+			if len(output) > 1000 {
+				output = output[:997] + "..."
+			}
+			history.ErrorMessage = fmt.Sprintf("Command Output:\n%s", output)
+		}
+	}
+
+	// Update job history in the database
+	if err := s.db.UpdateJobHistory(history); err != nil {
+		s.log.LogError("Error updating job history for job %d, config %d: %v", job.ID, config.ID, err)
+	}
+
+	// Send webhook notification
+	s.sendWebhookNotification(&job, history, &config)
 }

@@ -19,6 +19,8 @@ func GetMigrations(db *gorm.DB) *gormigrate.Gormigrate {
 		AddTimestampsToJobHistories(), // 006
 		AddNotificationServices(),     // 007
 		AddUserNotifications(),        // 008
+		AddRcloneTables(),             // 009
+		AddRcloneCommandToConfig(),    // 010
 	)
 
 	return gormigrate.New(db, gormigrate.DefaultOptions, migrations)

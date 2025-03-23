@@ -83,6 +83,8 @@ func getInitialData(config *db.TransferConfig) string {
 	skipProcessedFiles := true
 	maxConcurrentTransfers := 4
 	rcloneFlags := ""
+	commandId := uint(1) // Default to 'copy' command
+	commandFlags := ""
 	useBuiltinAuthSource := true
 	useBuiltinAuthDest := true
 
@@ -162,6 +164,8 @@ func getInitialData(config *db.TransferConfig) string {
 		skipProcessedFiles = config.GetSkipProcessedFiles()
 		maxConcurrentTransfers = config.MaxConcurrentTransfers
 		rcloneFlags = config.RcloneFlags
+		commandId = config.CommandID
+		commandFlags = config.CommandFlags
 		if config.UseBuiltinAuthSource != nil {
 			useBuiltinAuthSource = *config.UseBuiltinAuthSource
 		} else if sourceClientId != "" || sourceClientSecret != "" {
@@ -237,6 +241,8 @@ func getInitialData(config *db.TransferConfig) string {
 		skipProcessedFiles: %v,
 		maxConcurrentTransfers: %d,
 		rcloneFlags: '%s',
+		commandId: %d,
+		commandFlags: '%s',
 
 		// Path validation states
 		sourcePathValid: null,
@@ -274,7 +280,8 @@ func getInitialData(config *db.TransferConfig) string {
 	destClientId, destClientSecret, destDriveId, destTeamDrive,
 	destReadOnly, destStartYear, destIncludeArchived,
 	useBuiltinAuthSource, useBuiltinAuthDest,
-	archivePath, archiveEnabled, deleteAfterTransfer, skipProcessedFiles, maxConcurrentTransfers, rcloneFlags)
+	archivePath, archiveEnabled, deleteAfterTransfer, skipProcessedFiles, maxConcurrentTransfers, rcloneFlags, 
+	commandId, commandFlags)
 }
 
 templ ConfigForm(ctx context.Context, data ConfigFormData) {

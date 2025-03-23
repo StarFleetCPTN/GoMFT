@@ -1,5 +1,10 @@
 package common
 
+import (
+	"fmt"
+	"github.com/starfleetcptn/gomft/internal/db"
+)
+
 templ NameField() {
 <div class="mb-6">
 	<label for="name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Configuration Name</label>
@@ -135,7 +140,21 @@ templ ArchiveOptions() {
 
 templ RcloneFlags() {
 <div class="mb-6">
-	<label for="rclone_flags" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Rclone Flags</label>
+	<label for="command_id" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Rclone Command</label>
+	<div class="relative">
+		<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+			<i class="fas fa-terminal text-gray-400 dark:text-gray-500"></i>
+		</div>
+		@RcloneCommandOptions()
+	</div>
+	<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+		Select the rclone command to use for this configuration.
+	</p>
+
+	<!-- Command flags container - will be populated via HTMX -->
+	<div id="command-flags-container" class="mt-4"></div>
+
+	<label for="rclone_flags" class="block mb-2 mt-6 text-sm font-medium text-gray-900 dark:text-white">Additional Rclone Flags</label>
 	<div class="relative">
 		<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 			<i class="fas fa-flag text-gray-400 dark:text-gray-500"></i>
@@ -148,6 +167,18 @@ templ RcloneFlags() {
 		Optional: Additional rclone flags for fine-tuning the transfer.
 	</p>
 </div>
+}
+
+// New placeholder templ for rclone command options
+templ RcloneCommandOptions() {
+	<div 
+		hx-get="/api/rclone/commands" 
+		hx-trigger="load"
+		hx-target="this"
+		hx-swap="outerHTML">
+		<!-- Loading placeholder -->
+		<option value="">Loading commands...</option>
+	</div>
 }
 
 templ SourceSelection() {
@@ -196,4 +227,80 @@ templ DestinationSelection() {
 		</select>
 	</div>
 </div>
+}
+
+// RcloneCommandOptionsContent renders the command options organized by category
+templ RcloneCommandOptionsContent(categoryMap map[string][]db.RcloneCommand, categories []string) {
+	<select id="command_id" name="command_id" x-model="commandId"
+		hx-get="/api/rclone/command-flags"
+		hx-target="#command-flags-container"
+		hx-trigger="change"
+		hx-include="[name='command_id']"
+		class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+		<option value="">Select command...</option>
+		for _, category := range categories {
+			if commands, ok := categoryMap[category]; ok && len(commands) > 0 {
+				<optgroup label={ category }>
+					for _, cmd := range commands {
+						<option value={ fmt.Sprintf("%d", cmd.ID) }>{ cmd.Name } - { cmd.Description }</option>
+					}
+				</optgroup>
+			}
+		}
+	</select>
+}
+
+// RcloneCommandFlagsContent renders the command flags for a selected command
+templ RcloneCommandFlagsContent(command *db.RcloneCommand) {
+	if command == nil {
+		<div class="p-4 text-red-500">Command not found</div>
+		return
+	}
+
+	<div class="mb-4">
+		<h4 class="font-medium text-gray-900 dark:text-white mb-2">{ command.Name }</h4>
+		<p class="text-sm text-gray-600 dark:text-gray-400 mb-4">{ command.Description }</p>
+		
+		if len(command.Flags) > 0 {
+			<div class="mb-3">
+				<h5 class="font-medium text-gray-900 dark:text-white mb-2">Command Flags:</h5>
+				<div class="space-y-3">
+					for _, flag := range command.Flags {
+						<div class="flex items-start">
+							<input
+								type="checkbox"
+								id={ fmt.Sprintf("flag_%d", flag.ID) }
+								name="command_flags"
+								value={ fmt.Sprintf("%d", flag.ID) }
+								class="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-blue-600"
+							/>
+							<div class="ml-3">
+								<label for={ fmt.Sprintf("flag_%d", flag.ID) } class="font-medium text-gray-900 dark:text-white">
+									{ flag.Name } - { flag.Description }
+								</label>
+								if flag.DefaultValue != "" {
+									<p class="text-xs text-gray-500 dark:text-gray-400">Default: { flag.DefaultValue }</p>
+								}
+							</div>
+						</div>
+					}
+				</div>
+			</div>
+			
+			<div class="mt-4 p-3 bg-blue-50 text-blue-800 rounded-lg border border-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-900 text-sm">
+				<div class="flex items-center mb-1">
+					<i class="fas fa-info-circle mr-2"></i>
+					<span class="font-medium">Usage Example</span>
+				</div>
+				<code class="block mt-1 font-mono text-xs overflow-x-auto">rclone { command.Name } [flags] source:path dest:path</code>
+			</div>
+		} else {
+			<div class="p-3 bg-gray-50 text-gray-600 rounded-lg border border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 text-sm">
+				<div class="flex items-center">
+					<i class="fas fa-info-circle mr-2"></i>
+					<span>This command doesn't have any specific flags.</span>
+				</div>
+			</div>
+		}
+	</div>
 }

@@ -61,6 +61,12 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 		authorized.GET("/configs/gdrive-callback", h.HandleGDriveAuthCallback)
 		authorized.GET("/configs/gdrive-token", h.HandleGDriveTokenProcess)
 
+		// Duplicate rclone endpoints for web interface to access - same path as API
+		rcloneHandler := NewRcloneHandler(h.DB)
+		authorized.GET("api/rclone/commands", func(c *gin.Context) { rcloneHandler.RcloneCommandOptions(c) })
+		authorized.GET("api/rclone/command-flags", func(c *gin.Context) { rcloneHandler.RcloneCommandFlags(c) })
+		authorized.GET("api/rclone/command/:id/usage", func(c *gin.Context) { rcloneHandler.RcloneCommandUsage(c) })
+
 		authorized.GET("/jobs", h.HandleJobs)
 		authorized.GET("/jobs/new", h.HandleNewJob)
 		authorized.GET("/jobs/:id", h.HandleEditJob)

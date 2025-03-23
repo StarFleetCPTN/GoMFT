@@ -120,9 +120,12 @@ type TransferConfig struct {
 	UseBuiltinAuthDest       *bool `form:"use_builtin_auth_dest"`   // For Google and other OAuth services
 	GoogleDriveAuthenticated *bool // Whether Google Drive auth is completed
 	// General fields
-	ArchivePath            string `form:"archive_path"`
-	ArchiveEnabled         *bool  `gorm:"default:false" form:"archive_enabled"`
-	RcloneFlags            string `form:"rclone_flags"`
+	ArchivePath    string `form:"archive_path"`
+	ArchiveEnabled *bool  `gorm:"default:false" form:"archive_enabled"`
+	RcloneFlags    string `form:"rclone_flags"`
+	// Rclone command fields
+	CommandID              uint   `gorm:"default:1" form:"command_id"` // Default to 'copy' command ID (1)
+	CommandFlags           string `form:"command_flags"`               // JSON string of selected flags
 	DeleteAfterTransfer    *bool  `gorm:"default:false" form:"delete_after_transfer"`
 	SkipProcessedFiles     *bool  `gorm:"default:true" form:"skip_processed_files"`
 	MaxConcurrentTransfers int    `gorm:"default:4" form:"max_concurrent_transfers"` // Number of concurrent file transfers
@@ -248,6 +251,31 @@ type FileMetadata struct {
 
 type DB struct {
 	*gorm.DB
+}
+
+// RcloneCommand represents a command available in rclone
+type RcloneCommand struct {
+	ID          uint                `gorm:"primarykey"`
+	Name        string              `gorm:"not null;uniqueIndex"`
+	Description string              `gorm:"not null"`
+	Category    string              `gorm:"not null;index"`
+	IsAdvanced  bool                `gorm:"not null;default:false"`
+	Flags       []RcloneCommandFlag `gorm:"foreignKey:CommandID;constraint:OnDelete:CASCADE"`
+	CreatedAt   time.Time           `gorm:"not null"`
+}
+
+// RcloneCommandFlag represents a flag that can be used with an rclone command
+type RcloneCommandFlag struct {
+	ID           uint          `gorm:"primarykey"`
+	CommandID    uint          `gorm:"not null;index"`
+	Command      RcloneCommand `gorm:"foreignKey:CommandID"`
+	Name         string        `gorm:"not null;index"`
+	ShortName    string
+	Description  string `gorm:"not null"`
+	DataType     string `gorm:"not null"` // string, int, bool, etc.
+	IsRequired   bool   `gorm:"not null;default:false"`
+	DefaultValue string
+	CreatedAt    time.Time `gorm:"not null"`
 }
 
 func Initialize(dbPath string) (*DB, error) {
@@ -1706,4 +1734,347 @@ func (u *User) SetPassword(password string) error {
 func (u *User) CheckPassword(password string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password))
 	return err == nil
+}
+
+// GetRcloneCommands returns all rclone commands
+func (db *DB) GetRcloneCommands() ([]RcloneCommand, error) {
+	var commands []RcloneCommand
+	err := db.Find(&commands).Error
+	return commands, err
+}
+
+// GetRcloneCommand returns a specific rclone command by ID
+func (db *DB) GetRcloneCommand(id uint) (*RcloneCommand, error) {
+	var command RcloneCommand
+	err := db.First(&command, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &command, nil
+}
+
+// GetRcloneCommandByName returns a specific rclone command by name
+func (db *DB) GetRcloneCommandByName(name string) (*RcloneCommand, error) {
+	var command RcloneCommand
+	err := db.Where("name = ?", name).First(&command).Error
+	if err != nil {
+		return nil, err
+	}
+	return &command, nil
+}
+
+// GetRcloneCommandsInCategory returns all commands in a specific category
+func (db *DB) GetRcloneCommandsInCategory(category string) ([]RcloneCommand, error) {
+	var commands []RcloneCommand
+	err := db.Where("category = ?", category).Find(&commands).Error
+	return commands, err
+}
+
+// GetRcloneCommandFlag returns a specific flag by ID
+func (db *DB) GetRcloneCommandFlag(id uint) (*RcloneCommandFlag, error) {
+	var flag RcloneCommandFlag
+	err := db.First(&flag, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &flag, nil
+}
+
+// GetRcloneCommandFlagByName returns a specific flag by name for a command
+func (db *DB) GetRcloneCommandFlagByName(commandID uint, name string) (*RcloneCommandFlag, error) {
+	var flag RcloneCommandFlag
+	err := db.Where("command_id = ? AND name = ?", commandID, name).First(&flag).Error
+	if err != nil {
+		return nil, err
+	}
+	return &flag, nil
+}
+
+// GetRcloneCommandFlags returns all flags for a specific command
+func (db *DB) GetRcloneCommandFlags(commandID uint) ([]RcloneCommandFlag, error) {
+	var flags []RcloneCommandFlag
+	err := db.Where("command_id = ?", commandID).Find(&flags).Error
+	return flags, err
+}
+
+// GetRcloneCommandWithFlags returns a command with all its flags
+func (db *DB) GetRcloneCommandWithFlags(commandID uint) (*RcloneCommand, error) {
+	var command RcloneCommand
+	err := db.Preload("Flags").First(&command, commandID).Error
+	if err != nil {
+		return nil, err
+	}
+	return &command, nil
+}
+
+// BuildRcloneCommand builds an rclone command string with the specified command and flags
+func (db *DB) BuildRcloneCommand(commandName string, flags map[string]string) (string, error) {
+	// Get the command details
+	command, err := db.GetRcloneCommandByName(commandName)
+	if err != nil {
+		return "", fmt.Errorf("command not found: %s", commandName)
+	}
+
+	// Start building the command string
+	cmdStr := "rclone " + command.Name
+
+	// Get all flags for this command
+	allFlags, err := db.GetRcloneCommandFlags(command.ID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get flags for command: %v", err)
+	}
+
+	// Create a map of flag details for easy lookup
+	flagDetails := make(map[string]RcloneCommandFlag)
+	for _, f := range allFlags {
+		flagDetails[f.Name] = f
+	}
+
+	// Add the flags to the command
+	for name, value := range flags {
+		// Check if the flag exists for this command
+		flag, exists := flagDetails[name]
+		if !exists {
+			return "", fmt.Errorf("invalid flag for command %s: %s", commandName, name)
+		}
+
+		// Handle different flag types
+		switch flag.DataType {
+		case "bool":
+			if value == "true" {
+				cmdStr += " " + name
+			}
+		default:
+			cmdStr += " " + name + " " + value
+		}
+	}
+
+	return cmdStr, nil
+}
+
+// ValidateRcloneFlags validates if the provided flags are valid for the command
+func (db *DB) ValidateRcloneFlags(commandName string, flags map[string]string) (bool, map[string]string) {
+	// Initialize errors map
+	errors := make(map[string]string)
+
+	// Get the command details
+	command, err := db.GetRcloneCommandByName(commandName)
+	if err != nil {
+		errors["command"] = "Command not found: " + commandName
+		return false, errors
+	}
+
+	// Get all flags for this command
+	allFlags, err := db.GetRcloneCommandFlags(command.ID)
+	if err != nil {
+		errors["command"] = "Failed to get flags for command"
+		return false, errors
+	}
+
+	// Create a map of flag details for easy lookup
+	flagDetails := make(map[string]RcloneCommandFlag)
+	for _, f := range allFlags {
+		flagDetails[f.Name] = f
+	}
+
+	// Check each provided flag
+	for name, value := range flags {
+		// Check if the flag exists for this command
+		flag, exists := flagDetails[name]
+		if !exists {
+			errors[name] = "Invalid flag for command " + commandName
+			continue
+		}
+
+		// Validate the flag value based on data type
+		switch flag.DataType {
+		case "int":
+			if _, err := strconv.Atoi(value); err != nil {
+				errors[name] = "Value must be an integer"
+			}
+		case "float":
+			if _, err := strconv.ParseFloat(value, 64); err != nil {
+				errors[name] = "Value must be a number"
+			}
+		case "bool":
+			if value != "true" && value != "false" {
+				errors[name] = "Value must be true or false"
+			}
+		}
+	}
+
+	// Check for required flags
+	for _, flag := range allFlags {
+		if flag.IsRequired {
+			if _, provided := flags[flag.Name]; !provided {
+				errors[flag.Name] = "This flag is required"
+			}
+		}
+	}
+
+	return len(errors) == 0, errors
+}
+
+// GetRcloneCategories returns all unique categories of rclone commands
+func (db *DB) GetRcloneCategories() ([]string, error) {
+	var categories []string
+	err := db.Model(&RcloneCommand{}).Distinct("category").Pluck("category", &categories).Error
+	return categories, err
+}
+
+// GetRcloneCommandsByAdvanced returns commands filtered by their advanced status
+func (db *DB) GetRcloneCommandsByAdvanced(isAdvanced bool) ([]RcloneCommand, error) {
+	var commands []RcloneCommand
+	err := db.Where("is_advanced = ?", isAdvanced).Find(&commands).Error
+	return commands, err
+}
+
+// SearchRcloneCommands searches for commands by name or description
+func (db *DB) SearchRcloneCommands(query string) ([]RcloneCommand, error) {
+	var commands []RcloneCommand
+	searchQuery := "%" + query + "%"
+	err := db.Where("name LIKE ? OR description LIKE ?", searchQuery, searchQuery).Find(&commands).Error
+	return commands, err
+}
+
+// GetRcloneFlagUsage returns a human-readable usage example for a flag
+func (flag *RcloneCommandFlag) GetUsageExample() string {
+	switch flag.DataType {
+	case "bool":
+		return flag.Name
+	case "int":
+		return fmt.Sprintf("%s=<number>", flag.Name)
+	case "float":
+		return fmt.Sprintf("%s=<decimal>", flag.Name)
+	case "string":
+		return fmt.Sprintf("%s=<text>", flag.Name)
+	default:
+		return fmt.Sprintf("%s=<value>", flag.Name)
+	}
+}
+
+// GetRcloneCommandUsage returns a basic usage example for a command with its required flags
+func (db *DB) GetRcloneCommandUsage(commandID uint) (string, error) {
+	command, err := db.GetRcloneCommandWithFlags(commandID)
+	if err != nil {
+		return "", err
+	}
+
+	usage := fmt.Sprintf("rclone %s [flags] <source> <dest>", command.Name)
+
+	// Add basic usage examples for required flags
+	requiredFlags := []string{}
+	for _, flag := range command.Flags {
+		if flag.IsRequired {
+			requiredFlags = append(requiredFlags, flag.GetUsageExample())
+		}
+	}
+
+	if len(requiredFlags) > 0 {
+		usage += "\n\nRequired flags:\n  " + strings.Join(requiredFlags, "\n  ")
+	}
+
+	return usage, nil
+}
+
+// ParseRcloneFlags parses a string of rclone flags into a map
+func ParseRcloneFlags(flagsStr string) map[string]string {
+	result := make(map[string]string)
+	if flagsStr == "" {
+		return result
+	}
+
+	// Split the flags string by spaces
+	parts := strings.Fields(flagsStr)
+
+	for i := 0; i < len(parts); i++ {
+		part := parts[i]
+
+		// Check if it's a flag (starts with --)
+		if strings.HasPrefix(part, "--") {
+			// Remove the -- prefix
+			flagName := part
+
+			// Check if the flag has a value
+			if i+1 < len(parts) && !strings.HasPrefix(parts[i+1], "--") {
+				// Next part is a value
+				result[flagName] = parts[i+1]
+				i++ // Skip the value in the next iteration
+			} else {
+				// Flag without value, treat as boolean
+				result[flagName] = "true"
+			}
+		}
+	}
+
+	return result
+}
+
+// RenderRcloneCommandHelp generates a help text for a command with its flags
+func (db *DB) RenderRcloneCommandHelp(commandID uint) (string, error) {
+	command, err := db.GetRcloneCommandWithFlags(commandID)
+	if err != nil {
+		return "", err
+	}
+
+	// Build the help text
+	help := fmt.Sprintf("COMMAND: %s\n", command.Name)
+	help += fmt.Sprintf("DESCRIPTION: %s\n\n", command.Description)
+	help += "FLAGS:\n"
+
+	// Group flags by required status
+	var requiredFlags, optionalFlags []RcloneCommandFlag
+	for _, flag := range command.Flags {
+		if flag.IsRequired {
+			requiredFlags = append(requiredFlags, flag)
+		} else {
+			optionalFlags = append(optionalFlags, flag)
+		}
+	}
+
+	// Add required flags
+	if len(requiredFlags) > 0 {
+		help += "  Required:\n"
+		for _, flag := range requiredFlags {
+			shortName := ""
+			if flag.ShortName != "" {
+				shortName = fmt.Sprintf(" (-%s)", flag.ShortName)
+			}
+			help += fmt.Sprintf("    %s%s - %s\n", flag.Name, shortName, flag.Description)
+			if flag.DataType != "bool" && flag.DefaultValue != "" {
+				help += fmt.Sprintf("      Default: %s\n", flag.DefaultValue)
+			}
+		}
+	}
+
+	// Add optional flags
+	if len(optionalFlags) > 0 {
+		help += "\n  Optional:\n"
+		for _, flag := range optionalFlags {
+			shortName := ""
+			if flag.ShortName != "" {
+				shortName = fmt.Sprintf(" (-%s)", flag.ShortName)
+			}
+			help += fmt.Sprintf("    %s%s - %s\n", flag.Name, shortName, flag.Description)
+			if flag.DataType != "bool" && flag.DefaultValue != "" {
+				help += fmt.Sprintf("      Default: %s\n", flag.DefaultValue)
+			}
+		}
+	}
+
+	return help, nil
+}
+
+func (db *DB) GetRcloneCommandFlagsMap(commandID uint) (map[uint]RcloneCommandFlag, error) {
+	flags, err := db.GetRcloneCommandFlags(commandID)
+	if err != nil {
+		return nil, err
+	}
+
+	flagsMap := make(map[uint]RcloneCommandFlag)
+	for _, flag := range flags {
+		flagsMap[flag.ID] = flag
+	}
+
+	return flagsMap, nil
 }

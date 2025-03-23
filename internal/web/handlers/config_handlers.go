@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -120,6 +122,41 @@ func (h *Handlers) HandleCreateConfig(c *gin.Context) {
 	sourceIncludeArchivedValue := sourceIncludeArchivedVal == "on" || sourceIncludeArchivedVal == "true"
 	config.SourceIncludeArchived = &sourceIncludeArchivedValue
 
+	// Get command_id and validate it
+	commandIDStr := c.Request.FormValue("command_id")
+	if commandIDStr != "" {
+		commandID, err := strconv.ParseUint(commandIDStr, 10, 64)
+		if err != nil {
+			log.Printf("Error parsing command ID: %v", err)
+		} else {
+			config.CommandID = uint(commandID)
+		}
+	} else {
+		// Default to copy command (ID 1)
+		config.CommandID = 1
+	}
+
+	// Get command_flags and store as JSON
+	commandFlags := c.PostFormArray("command_flags")
+	if len(commandFlags) > 0 {
+		flagIDs := make([]uint, 0, len(commandFlags))
+		for _, flagStr := range commandFlags {
+			flagID, err := strconv.ParseUint(flagStr, 10, 64)
+			if err != nil {
+				log.Printf("Error parsing flag ID: %v", err)
+				continue
+			}
+			flagIDs = append(flagIDs, uint(flagID))
+		}
+		flagsJSON, err := json.Marshal(flagIDs)
+		if err != nil {
+			log.Printf("Error marshaling flag IDs: %v", err)
+		} else {
+			config.CommandFlags = string(flagsJSON)
+		}
+	}
+
+	// Process builtin auth settings
 	useBuiltinAuthSourceVal := c.Request.FormValue("use_builtin_auth_source")
 	useBuiltinAuthSourceValue := useBuiltinAuthSourceVal == "on" || useBuiltinAuthSourceVal == "true"
 	config.UseBuiltinAuthSource = &useBuiltinAuthSourceValue
@@ -191,37 +228,48 @@ func (h *Handlers) HandleCreateConfig(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/configs")
 }
 
-// HandleUpdateConfig handles the PUT /configs/:id route
+// HandleUpdateConfig handles the POST /configs/:id route
 func (h *Handlers) HandleUpdateConfig(c *gin.Context) {
-	id := c.Param("id")
-	userID := c.GetUint("userID")
-
-	var config db.TransferConfig
-	if err := h.DB.First(&config, id).Error; err != nil {
-		log.Printf("Error finding config: %v", err)
-		c.String(http.StatusNotFound, "Config not found")
+	idStr := c.Param("id")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		c.String(http.StatusBadRequest, fmt.Sprintf("Invalid ID: %v", err))
 		return
 	}
 
-	// Check if user owns this config
-	if config.CreatedBy != userID {
-		// Check if user is admin
+	existingConfig, err := h.DB.GetTransferConfig(uint(id))
+	if err != nil {
+		c.String(http.StatusInternalServerError, fmt.Sprintf("Error getting config: %v", err))
+		return
+	}
+
+	if existingConfig == nil {
+		c.String(http.StatusNotFound, "Configuration not found")
+		return
+	}
+
+	// Check if the user has permission to edit this config
+	userID := c.GetUint("userID")
+	if existingConfig.CreatedBy != userID {
 		isAdmin, exists := c.Get("isAdmin")
 		if !exists || isAdmin != true {
-			c.String(http.StatusForbidden, "You do not have permission to update this config")
+			c.String(http.StatusForbidden, "You don't have permission to edit this configuration")
 			return
 		}
 	}
 
-	// Get the old config values for comparison
-	oldConfig := config
+	var config db.TransferConfig
 
-	// Bind form data to config
 	if err := c.ShouldBind(&config); err != nil {
 		log.Printf("Error binding config form: %v", err)
 		c.String(http.StatusBadRequest, fmt.Sprintf("Invalid form data: %v", err))
 		return
 	}
+
+	// Preserve the original creator ID and creation time
+	config.ID = existingConfig.ID
+	config.CreatedBy = existingConfig.CreatedBy
+	config.CreatedAt = existingConfig.CreatedAt
 
 	// Process Boolean fields
 	skipProcessedVal := c.Request.FormValue("skip_processed_files")
@@ -261,6 +309,41 @@ func (h *Handlers) HandleUpdateConfig(c *gin.Context) {
 	sourceIncludeArchivedValue := sourceIncludeArchivedVal == "on" || sourceIncludeArchivedVal == "true"
 	config.SourceIncludeArchived = &sourceIncludeArchivedValue
 
+	// Get command_id and validate it
+	commandIDStr := c.Request.FormValue("command_id")
+	if commandIDStr != "" {
+		commandID, err := strconv.ParseUint(commandIDStr, 10, 64)
+		if err != nil {
+			log.Printf("Error parsing command ID: %v", err)
+		} else {
+			config.CommandID = uint(commandID)
+		}
+	} else {
+		// Default to copy command (ID 1)
+		config.CommandID = 1
+	}
+
+	// Get command_flags and store as JSON
+	commandFlags := c.PostFormArray("command_flags")
+	if len(commandFlags) > 0 {
+		flagIDs := make([]uint, 0, len(commandFlags))
+		for _, flagStr := range commandFlags {
+			flagID, err := strconv.ParseUint(flagStr, 10, 64)
+			if err != nil {
+				log.Printf("Error parsing flag ID: %v", err)
+				continue
+			}
+			flagIDs = append(flagIDs, uint(flagID))
+		}
+		flagsJSON, err := json.Marshal(flagIDs)
+		if err != nil {
+			log.Printf("Error marshaling flag IDs: %v", err)
+		} else {
+			config.CommandFlags = string(flagsJSON)
+		}
+	}
+
+	// Process builtin auth settings
 	useBuiltinAuthSourceVal := c.Request.FormValue("use_builtin_auth_source")
 	useBuiltinAuthSourceValue := useBuiltinAuthSourceVal == "on" || useBuiltinAuthSourceVal == "true"
 	config.UseBuiltinAuthSource = &useBuiltinAuthSourceValue
@@ -269,82 +352,19 @@ func (h *Handlers) HandleUpdateConfig(c *gin.Context) {
 	useBuiltinAuthDestValue := useBuiltinAuthDestVal == "on" || useBuiltinAuthDestVal == "true"
 	config.UseBuiltinAuthDest = &useBuiltinAuthDestValue
 
-	// Preserve fields that shouldn't be updated
-	config.CreatedBy = oldConfig.CreatedBy
+	// Preserve the Google Drive authentication status if it's already authenticated
+	config.GoogleDriveAuthenticated = existingConfig.GoogleDriveAuthenticated
 
-	// Start a transaction
-	tx := h.DB.Begin()
-	if tx.Error != nil {
-		log.Printf("Error beginning transaction: %v", tx.Error)
-		c.String(http.StatusInternalServerError, "Failed to begin transaction")
+	// Update the LastUpdated timestamp
+	config.UpdatedAt = time.Now()
+
+	if err := h.DB.UpdateTransferConfig(&config); err != nil {
+		c.String(http.StatusInternalServerError, fmt.Sprintf("Error updating configuration: %v", err))
 		return
 	}
 
-	if err := tx.Save(&config).Error; err != nil {
-		tx.Rollback()
-		log.Printf("Error updating config: %v", err)
-		c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to update config: %v", err))
-		return
-	}
-
-	// Create audit log entry
-	auditDetails := map[string]interface{}{
-		"name":                  config.Name,
-		"source_type":           config.SourceType,
-		"dest_type":             config.DestinationType,
-		"source_path":           config.SourcePath,
-		"dest_path":             config.DestinationPath,
-		"skip_processed_files":  *config.SkipProcessedFiles,
-		"archive_enabled":       *config.ArchiveEnabled,
-		"delete_after_transfer": *config.DeleteAfterTransfer,
-		"source_passive_mode":   *config.SourcePassiveMode,
-		"dest_passive_mode":     *config.DestPassiveMode,
-		"previous_state": map[string]interface{}{
-			"name":                  oldConfig.Name,
-			"source_type":           oldConfig.SourceType,
-			"dest_type":             oldConfig.DestinationType,
-			"source_path":           oldConfig.SourcePath,
-			"dest_path":             oldConfig.DestinationPath,
-			"skip_processed_files":  *oldConfig.SkipProcessedFiles,
-			"archive_enabled":       *oldConfig.ArchiveEnabled,
-			"delete_after_transfer": *oldConfig.DeleteAfterTransfer,
-			"source_passive_mode":   *oldConfig.SourcePassiveMode,
-			"dest_passive_mode":     *oldConfig.DestPassiveMode,
-		},
-	}
-
-	auditLog := db.AuditLog{
-		Action:     "update",
-		EntityType: "config",
-		EntityID:   config.ID,
-		UserID:     userID,
-		Details:    auditDetails,
-		Timestamp:  time.Now(),
-	}
-
-	if err := tx.Create(&auditLog).Error; err != nil {
-		tx.Rollback()
-		log.Printf("Error creating audit log: %v", err)
-		c.String(http.StatusInternalServerError, "Failed to create audit log")
-		return
-	}
-
-	// Commit the transaction
-	if err := tx.Commit().Error; err != nil {
-		log.Printf("Error committing transaction: %v", err)
-		c.String(http.StatusInternalServerError, "Failed to commit transaction")
-		return
-	}
-
-	// Regenerate rclone config file
-	if err := h.DB.GenerateRcloneConfig(&config); err != nil {
-		log.Printf("Warning: Failed to regenerate rclone config: %v", err)
-		// Continue anyway, as the config was updated in the database
-	} else {
-		log.Printf("Regenerated rclone config for config ID %d", config.ID)
-	}
-
-	c.Redirect(http.StatusFound, "/configs")
+	// Redirect to the configs page
+	c.Redirect(http.StatusSeeOther, "/configs")
 }
 
 // HandleDeleteConfig handles the DELETE /configs/:id route
