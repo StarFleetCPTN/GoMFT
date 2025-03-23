@@ -7,17 +7,26 @@ import (
 )
 
 type UserManagementData struct {
-	Users       []db.User
-	Roles       []db.Role
-	ActiveTab   string // "list", "create", or "edit"
-	EditUser    *db.User
-	UserRoles   []db.Role
-	ErrorMessage string
+	Users          []db.User
+	Roles          []db.Role
+	ActiveTab      string // "list", "create", or "edit"
+	EditUser       *db.User
+	UserRoles      []db.Role
+	ErrorMessage   string
+	SuccessMessage string
 }
 
 templ UserManagement(ctx context.Context, data UserManagementData) {
 	@LayoutWithContext("User Management", ctx) {
-		<div class="p-4 md:p-6 2xl:p-10">
+		@UserManagementContent(data)
+	}
+}
+
+// UserManagementContent is a partial component for HTMX to replace only the content
+templ UserManagementContent(data UserManagementData) {
+	// <div id="userManagementContainer" class="px-4 py-8 mx-auto max-w-screen-xl lg:px-6">
+	<div id="userManagementContainer" style="min-height: 100vh;" class="bg-gray-50 dark:bg-gray-900">
+		<div class="pb-8 w-full">
 			<!-- Header -->
 			<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
 				<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
@@ -25,38 +34,33 @@ templ UserManagement(ctx context.Context, data UserManagementData) {
 					User Management
 				</h1>
 				<div class="flex items-center space-x-2">
-					<button 
+					<button
 						class="flex items-center justify-center text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
-						hx-get="/admin/users/new" 
-						hx-target="#user-management-content" 
+						hx-get="/admin/users/new"
+						hx-target="#userManagementContainer"
 						hx-push-url="true"
 					>
 						<i class="fas fa-user-plus w-4 h-4 mr-2"></i>
 						Add User
 					</button>
-					<button 
-						class="flex items-center justify-center text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:ring-gray-300 font-medium rounded-lg px-5 py-2.5 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 dark:focus:ring-gray-700 border border-gray-200 dark:border-gray-600"
-						hx-get="/admin/users" 
-						hx-target="#user-management-content" 
-						hx-push-url="true"
-					>
-						<i class="fas fa-list w-4 h-4 mr-2"></i>
-						View All Users
-					</button>
 				</div>
 			</div>
-			
 			<!-- Status and Error Messages -->
-			<div id="status-message" class="hidden mb-4 p-4 text-sm text-green-700 bg-green-100 rounded-lg dark:bg-green-200 dark:text-green-800" role="alert"></div>
-			
+			if data.SuccessMessage != "" {
+				<div id="status-message" class="mb-4 p-4 text-sm text-green-700 bg-green-100 rounded-lg dark:bg-green-200 dark:text-green-800" role="alert">
+					<div class="font-medium">{ data.SuccessMessage }</div>
+				</div>
+			} else {
+				<div id="status-message" class="hidden mb-4 p-4 text-sm text-green-700 bg-green-100 rounded-lg dark:bg-green-200 dark:text-green-800" role="alert"></div>
+			}
 			if data.ErrorMessage != "" {
 				<div id="error-message" class="mb-4 p-4 text-sm text-red-700 bg-red-100 rounded-lg dark:bg-red-200 dark:text-red-800" role="alert">
 					<div class="font-medium">{ data.ErrorMessage }</div>
 				</div>
 			}
-			
-			<!-- Content -->
-			<div id="user-management-content">
+			<!-- Main Content Container -->
+			<div class="bg-white border border-gray-200 rounded-lg shadow-sm 2xl:col-span-2 dark:border-gray-700 dark:bg-gray-800">
+				<!-- Include the appropriate tab -->
 				if data.ActiveTab == "list" || data.ActiveTab == "" {
 					@userList(data.Users)
 				} else if data.ActiveTab == "create" {
@@ -65,7 +69,6 @@ templ UserManagement(ctx context.Context, data UserManagementData) {
 					@userForm(data.EditUser, false, data.Roles)
 				}
 			</div>
-			
 			<!-- Help Notice -->
 			<div class="mt-8">
 				<div class="flex p-4 text-sm text-blue-800 rounded-lg bg-blue-50 dark:bg-blue-900 dark:text-blue-400" role="alert">
@@ -77,7 +80,7 @@ templ UserManagement(ctx context.Context, data UserManagementData) {
 				</div>
 			</div>
 		</div>
-	}
+	</div>
 }
 
 // User listing component
@@ -149,17 +152,16 @@ templ userList(users []db.User) {
 									<button
 										class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-3 py-1.5 text-center inline-flex items-center me-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
 										hx-get={ "/admin/users/" + strconv.Itoa(int(user.ID)) + "/edit" }
-										hx-target="#user-management-content"
+										hx-target="#userManagementContainer"
 										hx-push-url="true"
 									>
 										<i class="fas fa-edit w-3.5 h-3.5 mr-1.5"></i> Edit
 									</button>
-									
 									<button
 										class="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm px-3 py-1.5 text-center inline-flex items-center dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-800"
 										hx-delete={ "/admin/users/" + strconv.Itoa(int(user.ID)) }
 										hx-confirm="Are you sure you want to delete this user? This action cannot be undone."
-										hx-target="#user-management-content"
+										hx-target="#userManagementContainer"
 									>
 										<i class="fas fa-trash-alt w-3.5 h-3.5 mr-1.5"></i> Delete
 									</button>
@@ -193,15 +195,14 @@ templ userForm(user *db.User, isNew bool, availableRoles []db.Role) {
 					}
 				</p>
 			</div>
-			
-			<form 
-				class="space-y-6" 
+			<form
+				class="space-y-4 md:space-y-6"
 				if isNew {
 					hx-post="/admin/users"
 				} else {
 					hx-put={ "/admin/users/" + strconv.Itoa(int(user.ID)) }
 				}
-				hx-target="#user-management-content"
+				hx-target="#userManagementContainer"
 				x-data="{ 
 					password: '',
 					confirmPassword: '',
@@ -214,19 +215,18 @@ templ userForm(user *db.User, isNew bool, availableRoles []db.Role) {
 				<div class="space-y-4">
 					<div>
 						<label for="email" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Email</label>
-						<input 
-							type="email" 
-							name="email" 
-							id="email" 
-							required 
-							class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
+						<input
+							type="email"
+							name="email"
+							id="email"
+							required
+							class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 							placeholder="user@example.com"
 							if !isNew {
 								value={ user.Email }
 							}
 						/>
 					</div>
-					
 					<div>
 						<label for="password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
 							if isNew {
@@ -235,28 +235,27 @@ templ userForm(user *db.User, isNew bool, availableRoles []db.Role) {
 								New Password (leave blank to keep current)
 							}
 						</label>
-						<input 
-							type="password" 
-							name="password" 
-							id="password" 
+						<input
+							type="password"
+							name="password"
+							id="password"
 							x-model="password"
-							class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
-							placeholder="••••••••" 
+							class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+							placeholder="••••••••"
 							if isNew {
 								required="true"
 							}
 						/>
 					</div>
-					
 					<div>
 						<label for="password_confirm" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Confirm Password</label>
-						<input 
-							type="password" 
-							name="password_confirm" 
-							id="password_confirm" 
+						<input
+							type="password"
+							name="password_confirm"
+							id="password_confirm"
 							x-model="confirmPassword"
-							class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
-							placeholder="••••••••" 
+							class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+							placeholder="••••••••"
 							if isNew {
 								required="true"
 							}
@@ -265,15 +264,14 @@ templ userForm(user *db.User, isNew bool, availableRoles []db.Role) {
 							Passwords do not match
 						</p>
 					</div>
-					
 					<div class="pt-2">
 						<div class="flex items-start">
 							<div class="flex items-center h-5">
-								<input 
-									id="is_admin" 
-									name="is_admin" 
-									type="checkbox" 
-									class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800" 
+								<input
+									id="is_admin"
+									name="is_admin"
+									type="checkbox"
+									class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800"
 									if !isNew && user.GetIsAdmin() {
 										checked="true"
 									}
@@ -285,18 +283,16 @@ templ userForm(user *db.User, isNew bool, availableRoles []db.Role) {
 							</div>
 						</div>
 					</div>
-
 					if !isNew {
 						<div class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
 							<h4 class="text-base font-medium text-gray-900 dark:text-white mb-2">Account Status</h4>
-							
 							<div class="flex items-start">
 								<div class="flex items-center h-5">
-									<input 
-										id="account_locked" 
-										name="account_locked" 
-										type="checkbox" 
-										class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800" 
+									<input
+										id="account_locked"
+										name="account_locked"
+										type="checkbox"
+										class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800"
 										if user.GetAccountLocked() {
 											checked="true"
 										}
@@ -309,7 +305,6 @@ templ userForm(user *db.User, isNew bool, availableRoles []db.Role) {
 							</div>
 						</div>
 					}
-					
 					if len(availableRoles) > 0 {
 						<div class="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
 							<h4 class="text-base font-medium text-gray-900 dark:text-white mb-2">Roles</h4>
@@ -317,11 +312,11 @@ templ userForm(user *db.User, isNew bool, availableRoles []db.Role) {
 								for _, role := range availableRoles {
 									<div class="flex items-start">
 										<div class="flex items-center h-5">
-											<input 
+											<input
 												id={ "role_" + strconv.Itoa(int(role.ID)) }
-												name="roles[]" 
+												name="roles[]"
 												value={ strconv.Itoa(int(role.ID)) }
-												type="checkbox" 
+												type="checkbox"
 												class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800"
 												if !isNew && hasRole(user, role.ID) {
 													checked="true"
@@ -338,20 +333,19 @@ templ userForm(user *db.User, isNew bool, availableRoles []db.Role) {
 						</div>
 					}
 				</div>
-				
 				<div class="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
 					<button
 						type="button"
 						class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600"
 						hx-get="/admin/users"
-						hx-target="#user-management-content"
+						hx-target="#userManagementContainer"
 						hx-push-url="true"
 					>
 						<i class="fas fa-arrow-left mr-2"></i>
 						Cancel
 					</button>
-					<button 
-						type="submit" 
+					<button
+						type="submit"
 						class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
 						x-bind:disabled="!passwordsMatch() && confirmPassword !== ''"
 					>
@@ -376,4 +370,4 @@ func hasRole(user *db.User, roleID uint) bool {
 		}
 	}
 	return false
-} 
+}

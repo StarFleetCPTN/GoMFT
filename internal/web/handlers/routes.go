@@ -99,17 +99,17 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 	admin.Use(h.AuthMiddleware())
 	{
 		// Main admin dashboard - requires admin role
-		admin.GET("", h.AdminMiddleware(), h.HandleAdminDashboard)
+		// admin.GET("", h.AdminMiddleware(), h.HandleAdminDashboard)
 
 		// User management routes
 		userGroup := admin.Group("/users")
 		userGroup.Use(h.PermissionMiddleware("users.view"))
 		{
 			userGroup.GET("", h.HandleUsers)
-			userGroup.GET("/new", h.PermissionMiddleware("users.create"), h.AdminNewUserPage)
+			userGroup.GET("/new", h.PermissionMiddleware("users.create"), h.HandleNewUser)
 			userGroup.POST("", h.PermissionMiddleware("users.create"), h.HandleCreateUser)
 			userGroup.GET("/:id/edit", h.PermissionMiddleware("users.edit"), h.HandleEditUser)
-			userGroup.PUT("/:id", h.PermissionMiddleware("users.edit"), h.AdminUpdateUser)
+			userGroup.PUT("/:id", h.PermissionMiddleware("users.edit"), h.HandleUpdateUser)
 			userGroup.DELETE("/:id", h.PermissionMiddleware("users.delete"), h.HandleDeleteUser)
 			userGroup.PUT("/:id/toggle-lock", h.PermissionMiddleware("users.edit"), h.AdminToggleLockUser)
 		}

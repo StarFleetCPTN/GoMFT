@@ -14,6 +14,7 @@ import (
 
 	"github.com/glebarez/sqlite"
 	"github.com/starfleetcptn/gomft/internal/db/migrations"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -1680,4 +1681,29 @@ func (db *DB) UnassignRoleFromUser(roleID, userID, unassignedByID uint) error {
 	}
 
 	return tx.Commit().Error
+}
+
+// User struct method to set password with secure hashing
+func (u *User) SetPassword(password string) error {
+	// Validate password length
+	if len(password) < 8 {
+		return fmt.Errorf("password must be at least 8 characters long")
+	}
+
+	// Hash the password using bcrypt
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	// Store the hashed password
+	u.PasswordHash = string(hashedPassword)
+	u.LastPasswordChange = time.Now()
+
+	return nil
+}
+
+func (u *User) CheckPassword(password string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password))
+	return err == nil
 }

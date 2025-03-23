@@ -43,214 +43,216 @@ func GetRcloneVersion() string {
 
 templ Dashboard(ctx context.Context, data DashboardData) {
 	@LayoutWithContext("Dashboard", ctx) {
-		<div class="p-4 md:p-6 2xl:p-10">
-			<!-- Page Header -->
-			<div class="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 md:mb-8 gap-4">
-				<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-					<i class="fas fa-chart-pie w-6 h-6 mr-2 text-blue-500 dark:text-blue-400"></i>
-					Dashboard
-				</h1>
-				<div class="bg-white dark:bg-gray-800 p-2 px-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-					<span id="current-date" class="font-medium text-gray-700 dark:text-gray-300"></span>
-					<script>
-						document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-					</script>
-				</div>
-			</div>
-			
-			<!-- Stats Overview Cards -->
-			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-				<!-- Active Transfers -->
-				<div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
-					<div class="flex items-center justify-between mb-4">
-						<h3 class="text-lg font-semibold text-gray-900 dark:text-white">Active Transfers</h3>
-						<div class="inline-flex items-center justify-center w-10 h-10 text-blue-600 bg-blue-100 rounded-lg dark:text-blue-300 dark:bg-blue-900">
-							<i class="fas fa-exchange-alt w-6 h-6 flex items-center justify-center"></i>
-						</div>
-					</div>
-					<div class="flex items-center">
-						<div class="flex-shrink-0">
-							<span class="text-4xl font-bold leading-none text-gray-900 dark:text-white">{ strconv.Itoa(data.ActiveTransfers) }</span>
-						</div>
-						<div class="ml-3 flex items-baseline text-sm font-medium">
-							<span class="text-gray-500 dark:text-gray-400">Currently in progress</span>
-						</div>
+		<div id="dashboard-container" style="min-height: 100vh;" class="bg-gray-50 dark:bg-gray-900">
+			<div class="pb-8 w-full">
+				<!-- Page Header -->
+				<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+					<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+						<i class="fas fa-chart-pie w-6 h-6 mr-2 text-blue-500 dark:text-blue-400"></i>
+						Dashboard
+					</h1>
+					<div class="bg-white dark:bg-gray-800 p-2 px-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+						<span id="current-date" class="font-medium text-gray-700 dark:text-gray-300"></span>
+						<script>
+							document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+						</script>
 					</div>
 				</div>
 				
-				<!-- Completed Today -->
-				<div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
-					<div class="flex items-center justify-between mb-4">
-						<h3 class="text-lg font-semibold text-gray-900 dark:text-white">Completed Today</h3>
-						<div class="inline-flex items-center justify-center w-10 h-10 text-green-600 bg-green-100 rounded-lg dark:text-green-300 dark:bg-green-900">
-							<i class="fas fa-check-circle w-6 h-6 flex items-center justify-center"></i>
-						</div>
-					</div>
-					<div class="flex items-center">
-						<div class="flex-shrink-0">
-							<span class="text-4xl font-bold leading-none text-gray-900 dark:text-white">{ strconv.Itoa(data.CompletedToday) }</span>
-						</div>
-						<div class="ml-3 flex items-baseline text-sm font-medium">
-							<span class="text-gray-500 dark:text-gray-400">Successfully completed</span>
-						</div>
-					</div>
-				</div>
-				
-				<!-- Failed Transfers -->
-				<div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
-					<div class="flex items-center justify-between mb-4">
-						<h3 class="text-lg font-semibold text-gray-900 dark:text-white">Failed Transfers</h3>
-						<div class="inline-flex items-center justify-center w-10 h-10 text-red-600 bg-red-100 rounded-lg dark:text-red-300 dark:bg-red-900">
-							<i class="fas fa-exclamation-circle w-6 h-6 flex items-center justify-center"></i>
-						</div>
-					</div>
-					<div class="flex items-center">
-						<div class="flex-shrink-0">
-							<span class="text-4xl font-bold leading-none text-gray-900 dark:text-white">{ strconv.Itoa(data.FailedTransfers) }</span>
-						</div>
-						<div class="ml-3 flex items-baseline text-sm font-medium">
-							<span class="text-gray-500 dark:text-gray-400">Require attention</span>
-						</div>
-					</div>
-				</div>
-			</div>
-			
-			<!-- Main Content Area -->
-			<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-				<!-- Recent Jobs Card -->
-				<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800">
-					<div class="flex items-center justify-between px-4 py-4 border-b border-gray-200 dark:border-gray-700">
-						<h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-							<i class="fas fa-history w-6 h-6 mr-2 text-blue-500 dark:text-blue-400 flex-shrink-0"></i>
-							Recent Jobs
-						</h3>
-					</div>
-					<div class="p-4">
-						if len(data.RecentJobs) == 0 {
-							<!-- Empty state with Flowbite styling -->
-							<div class="flex flex-col items-center justify-center py-8 px-4 text-center">
-								<div class="inline-flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 mb-4 dark:bg-gray-700">
-									<i class="fas fa-clipboard-list text-gray-500 dark:text-gray-400 text-3xl"></i>
-								</div>
-								<h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">No recent jobs found</h3>
-								<p class="text-gray-500 dark:text-gray-400 mb-4">Get started by creating your first job.</p>
-								<a href="/jobs/new" class="inline-flex items-center px-3 py-2 text-sm font-medium text-center text-white bg-blue-700 rounded-lg hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
-									<i class="fas fa-plus w-4 h-4 mr-2"></i>
-									Create your first job
-								</a>
+				<!-- Stats Overview Cards -->
+				<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+					<!-- Active Transfers -->
+					<div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
+						<div class="flex items-center justify-between mb-4">
+							<h3 class="text-lg font-semibold text-gray-900 dark:text-white">Active Transfers</h3>
+							<div class="inline-flex items-center justify-center w-10 h-10 text-blue-600 bg-blue-100 rounded-lg dark:text-blue-300 dark:bg-blue-900">
+								<i class="fas fa-exchange-alt w-6 h-6 flex items-center justify-center"></i>
 							</div>
-						} else {
-							<div class="flow-root">
-								<ul class="divide-y divide-gray-200 dark:divide-gray-700">
-									for _, job := range data.RecentJobs {
-										<li class="py-3 sm:py-4 hover:bg-gray-50 dark:hover:bg-gray-700 px-3 rounded-lg transition-colors">
-											<div class="flex items-center">
-												<div class="flex-shrink-0">
-													if job.Status == "completed" {
-														<span class="inline-flex items-center justify-center h-12 w-12 rounded-full text-green-600 bg-green-100 dark:bg-green-900">
-															<i class="fas fa-check-circle w-6 h-6 flex items-center justify-center"></i>
-														</span>
-													} else if job.Status == "failed" {
-														<span class="inline-flex items-center justify-center h-12 w-12 rounded-full text-red-600 bg-red-100 dark:bg-red-900">
-															<i class="fas fa-exclamation-circle w-6 h-6 flex items-center justify-center"></i>
-														</span>
-													} else {
-														<span class="inline-flex items-center justify-center h-12 w-12 rounded-full text-blue-600 bg-blue-100 dark:bg-blue-900">
-															<i class="fas fa-tasks w-6 h-6 flex items-center justify-center"></i>
-														</span>
-													}
-												</div>
-												<div class="flex-1 min-w-0 ms-4">
-													<p class="text-sm font-medium text-gray-900 truncate dark:text-white">
-														{ getConfigNameForHistory(job, data.Configs) }
-													</p>
-													<div class="flex items-center mt-1">
-														<i class="fas fa-clock w-4 h-4 text-gray-500 dark:text-gray-400 mr-1"></i>
-														<p class="text-sm text-gray-500 truncate dark:text-gray-400">
-															Started: { job.StartTime.Format("Jan 02, 2006 15:04:05") }
-														</p>
+						</div>
+						<div class="flex items-center">
+							<div class="flex-shrink-0">
+								<span class="text-4xl font-bold leading-none text-gray-900 dark:text-white">{ strconv.Itoa(data.ActiveTransfers) }</span>
+							</div>
+							<div class="ml-3 flex items-baseline text-sm font-medium">
+								<span class="text-gray-500 dark:text-gray-400">Currently in progress</span>
+							</div>
+						</div>
+					</div>
+					
+					<!-- Completed Today -->
+					<div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
+						<div class="flex items-center justify-between mb-4">
+							<h3 class="text-lg font-semibold text-gray-900 dark:text-white">Completed Today</h3>
+							<div class="inline-flex items-center justify-center w-10 h-10 text-green-600 bg-green-100 rounded-lg dark:text-green-300 dark:bg-green-900">
+								<i class="fas fa-check-circle w-6 h-6 flex items-center justify-center"></i>
+							</div>
+						</div>
+						<div class="flex items-center">
+							<div class="flex-shrink-0">
+								<span class="text-4xl font-bold leading-none text-gray-900 dark:text-white">{ strconv.Itoa(data.CompletedToday) }</span>
+							</div>
+							<div class="ml-3 flex items-baseline text-sm font-medium">
+								<span class="text-gray-500 dark:text-gray-400">Successfully completed</span>
+							</div>
+						</div>
+					</div>
+					
+					<!-- Failed Transfers -->
+					<div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
+						<div class="flex items-center justify-between mb-4">
+							<h3 class="text-lg font-semibold text-gray-900 dark:text-white">Failed Transfers</h3>
+							<div class="inline-flex items-center justify-center w-10 h-10 text-red-600 bg-red-100 rounded-lg dark:text-red-300 dark:bg-red-900">
+								<i class="fas fa-exclamation-circle w-6 h-6 flex items-center justify-center"></i>
+							</div>
+						</div>
+						<div class="flex items-center">
+							<div class="flex-shrink-0">
+								<span class="text-4xl font-bold leading-none text-gray-900 dark:text-white">{ strconv.Itoa(data.FailedTransfers) }</span>
+							</div>
+							<div class="ml-3 flex items-baseline text-sm font-medium">
+								<span class="text-gray-500 dark:text-gray-400">Require attention</span>
+							</div>
+						</div>
+					</div>
+				</div>
+				
+				<!-- Main Content Area -->
+				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+					<!-- Recent Jobs Card -->
+					<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800">
+						<div class="flex items-center justify-between px-4 py-4 border-b border-gray-200 dark:border-gray-700">
+							<h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+								<i class="fas fa-history w-6 h-6 mr-2 text-blue-500 dark:text-blue-400 flex-shrink-0"></i>
+								Recent Jobs
+							</h3>
+						</div>
+						<div class="p-4">
+							if len(data.RecentJobs) == 0 {
+								<!-- Empty state with Flowbite styling -->
+								<div class="flex flex-col items-center justify-center py-8 px-4 text-center">
+									<div class="inline-flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 mb-4 dark:bg-gray-700">
+										<i class="fas fa-clipboard-list text-gray-500 dark:text-gray-400 text-3xl"></i>
+									</div>
+									<h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">No recent jobs found</h3>
+									<p class="text-gray-500 dark:text-gray-400 mb-4">Get started by creating your first job.</p>
+									<a href="/jobs/new" class="inline-flex items-center px-3 py-2 text-sm font-medium text-center text-white bg-blue-700 rounded-lg hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+										<i class="fas fa-plus w-4 h-4 mr-2"></i>
+										Create your first job
+									</a>
+								</div>
+							} else {
+								<div class="flow-root">
+									<ul class="divide-y divide-gray-200 dark:divide-gray-700">
+										for _, job := range data.RecentJobs {
+											<li class="py-3 sm:py-4 hover:bg-gray-50 dark:hover:bg-gray-700 px-3 rounded-lg transition-colors">
+												<div class="flex items-center">
+													<div class="flex-shrink-0">
+														if job.Status == "completed" {
+															<span class="inline-flex items-center justify-center h-12 w-12 rounded-full text-green-600 bg-green-100 dark:bg-green-900">
+																<i class="fas fa-check-circle w-6 h-6 flex items-center justify-center"></i>
+															</span>
+														} else if job.Status == "failed" {
+															<span class="inline-flex items-center justify-center h-12 w-12 rounded-full text-red-600 bg-red-100 dark:bg-red-900">
+																<i class="fas fa-exclamation-circle w-6 h-6 flex items-center justify-center"></i>
+															</span>
+														} else {
+															<span class="inline-flex items-center justify-center h-12 w-12 rounded-full text-blue-600 bg-blue-100 dark:bg-blue-900">
+																<i class="fas fa-tasks w-6 h-6 flex items-center justify-center"></i>
+															</span>
+														}
 													</div>
+													<div class="flex-1 min-w-0 ms-4">
+														<p class="text-sm font-medium text-gray-900 truncate dark:text-white">
+															{ getConfigNameForHistory(job, data.Configs) }
+														</p>
+														<div class="flex items-center mt-1">
+															<i class="fas fa-clock w-4 h-4 text-gray-500 dark:text-gray-400 mr-1"></i>
+															<p class="text-sm text-gray-500 truncate dark:text-gray-400">
+																Started: { job.StartTime.Format("Jan 02, 2006 15:04:05") }
+															</p>
+														</div>
+													</div>
+													<a href={ templ.SafeURL(fmt.Sprintf("/job-runs/%d", job.ID)) } 
+														class="inline-flex items-center text-sm font-medium text-blue-600 hover:underline dark:text-blue-500">
+														View
+														<i class="fas fa-arrow-right w-3 h-3 ms-2"></i>
+													</a>
 												</div>
-												<a href={ templ.SafeURL(fmt.Sprintf("/job-runs/%d", job.ID)) } 
-													class="inline-flex items-center text-sm font-medium text-blue-600 hover:underline dark:text-blue-500">
-													View
-													<i class="fas fa-arrow-right w-3 h-3 ms-2"></i>
-												</a>
-											</div>
-										</li>
-									}
-								</ul>
-							</div>
-							<div class="pt-4 border-t border-gray-200 dark:border-gray-700 mt-4">
-								<a href="/jobs" class="inline-flex items-center justify-center w-full px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-2 focus:ring-blue-700 focus:text-blue-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">
-									<i class="fas fa-list w-4 h-4 mr-2"></i>
-									View all jobs
-								</a>
-							</div>
-						}
+											</li>
+										}
+									</ul>
+								</div>
+								<div class="pt-4 border-t border-gray-200 dark:border-gray-700 mt-4">
+									<a href="/jobs" class="inline-flex items-center justify-center w-full px-4 py-2 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-2 focus:ring-blue-700 focus:text-blue-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">
+										<i class="fas fa-list w-4 h-4 mr-2"></i>
+										View all jobs
+									</a>
+								</div>
+							}
+						</div>
 					</div>
-				</div>
-				
-				<!-- Quick Actions Card -->
-				<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800">
-					<div class="flex items-center justify-between px-4 py-4 border-b border-gray-200 dark:border-gray-700">
-						<h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-							<i class="fas fa-bolt w-6 h-6 mr-2 text-blue-500 dark:text-blue-400 flex-shrink-0"></i>
-							Quick Actions
-						</h3>
-					</div>
-					<div class="p-4 space-y-4">
-						<a href="/configs/new" class="inline-flex items-center justify-center w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
-							<i class="fas fa-plus w-5 h-5 mr-2"></i>
-							Create New Config
-						</a>
-						<a href="/jobs/new" class="inline-flex items-center justify-center w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
-							<i class="fas fa-tasks w-5 h-5 mr-2"></i>
-							Create New Job
-						</a>
-						<a href="/history" class="inline-flex items-center justify-center w-full text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 font-medium rounded-lg px-5 py-2.5 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700">
-							<i class="fas fa-history w-5 h-5 mr-2"></i>
-							View Transfer History
-						</a>
-						
-						<!-- System Status Card with Flowbite design -->
-						<div class="bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm mt-6">
-							<div class="px-4 py-2 bg-gray-50 dark:bg-gray-700 rounded-t-lg border-b border-gray-200 dark:border-gray-600">
-								<h4 class="text-sm font-medium text-gray-900 dark:text-white">System Status</h4>
-							</div>
-							<div class="px-4 py-3">
-								<div class="space-y-3">
-									<div class="flex items-center justify-between">
-										<span class="text-sm text-gray-700 dark:text-gray-300">Server</span>
-										<span class="bg-green-100 text-green-800 text-xs font-medium inline-flex items-center px-2.5 py-0.5 rounded-full dark:bg-green-900 dark:text-green-300">
-											<span class="w-2 h-2 mr-1 bg-green-500 rounded-full"></span>
-											Online
-										</span>
-									</div>
-									<div class="flex items-center justify-between">
-										<span class="text-sm text-gray-700 dark:text-gray-300">Scheduler</span>
-										<span class="bg-green-100 text-green-800 text-xs font-medium inline-flex items-center px-2.5 py-0.5 rounded-full dark:bg-green-900 dark:text-green-300">
-											<span class="w-2 h-2 mr-1 bg-green-500 rounded-full"></span>
-											Running
-										</span>
-									</div>
-									<div class="flex items-center justify-between">
-										<span class="text-sm text-gray-700 dark:text-gray-300">Database</span>
-										<span class="bg-green-100 text-green-800 text-xs font-medium inline-flex items-center px-2.5 py-0.5 rounded-full dark:bg-green-900 dark:text-green-300">
-											<span class="w-2 h-2 mr-1 bg-green-500 rounded-full"></span>
-											Connected
-										</span>
-									</div>
-									<div class="flex items-center justify-between">
-										<span class="text-sm text-gray-700 dark:text-gray-300">Rclone</span>
-										<span class="bg-blue-100 text-blue-800 text-xs font-medium inline-flex items-center px-2.5 py-0.5 rounded-full dark:bg-blue-900 dark:text-blue-300">
-											<i class="fas fa-terminal w-3 h-3 mr-1"></i>
-											if data.RcloneVersion != "" {
-												{ data.RcloneVersion }
-											} else {
-												Unknown
-											}
-										</span>
+					
+					<!-- Quick Actions Card -->
+					<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800">
+						<div class="flex items-center justify-between px-4 py-4 border-b border-gray-200 dark:border-gray-700">
+							<h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+								<i class="fas fa-bolt w-6 h-6 mr-2 text-blue-500 dark:text-blue-400 flex-shrink-0"></i>
+								Quick Actions
+							</h3>
+						</div>
+						<div class="p-4 space-y-4">
+							<a href="/configs/new" class="inline-flex items-center justify-center w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+								<i class="fas fa-plus w-5 h-5 mr-2"></i>
+								Create New Config
+							</a>
+							<a href="/jobs/new" class="inline-flex items-center justify-center w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+								<i class="fas fa-tasks w-5 h-5 mr-2"></i>
+								Create New Job
+							</a>
+							<a href="/history" class="inline-flex items-center justify-center w-full text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 font-medium rounded-lg px-5 py-2.5 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700">
+								<i class="fas fa-history w-5 h-5 mr-2"></i>
+								View Transfer History
+							</a>
+							
+							<!-- System Status Card with Flowbite design -->
+							<div class="bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm mt-6">
+								<div class="px-4 py-2 bg-gray-50 dark:bg-gray-700 rounded-t-lg border-b border-gray-200 dark:border-gray-600">
+									<h4 class="text-sm font-medium text-gray-900 dark:text-white">System Status</h4>
+								</div>
+								<div class="px-4 py-3">
+									<div class="space-y-3">
+										<div class="flex items-center justify-between">
+											<span class="text-sm text-gray-700 dark:text-gray-300">Server</span>
+											<span class="bg-green-100 text-green-800 text-xs font-medium inline-flex items-center px-2.5 py-0.5 rounded-full dark:bg-green-900 dark:text-green-300">
+												<span class="w-2 h-2 mr-1 bg-green-500 rounded-full"></span>
+												Online
+											</span>
+										</div>
+										<div class="flex items-center justify-between">
+											<span class="text-sm text-gray-700 dark:text-gray-300">Scheduler</span>
+											<span class="bg-green-100 text-green-800 text-xs font-medium inline-flex items-center px-2.5 py-0.5 rounded-full dark:bg-green-900 dark:text-green-300">
+												<span class="w-2 h-2 mr-1 bg-green-500 rounded-full"></span>
+												Running
+											</span>
+										</div>
+										<div class="flex items-center justify-between">
+											<span class="text-sm text-gray-700 dark:text-gray-300">Database</span>
+											<span class="bg-green-100 text-green-800 text-xs font-medium inline-flex items-center px-2.5 py-0.5 rounded-full dark:bg-green-900 dark:text-green-300">
+												<span class="w-2 h-2 mr-1 bg-green-500 rounded-full"></span>
+												Connected
+											</span>
+										</div>
+										<div class="flex items-center justify-between">
+											<span class="text-sm text-gray-700 dark:text-gray-300">Rclone</span>
+											<span class="bg-blue-100 text-blue-800 text-xs font-medium inline-flex items-center px-2.5 py-0.5 rounded-full dark:bg-blue-900 dark:text-blue-300">
+												<i class="fas fa-terminal w-3 h-3 mr-1"></i>
+												if data.RcloneVersion != "" {
+													{ data.RcloneVersion }
+												} else {
+													Unknown
+												}
+											</span>
+										</div>
 									</div>
 								</div>
 							</div>
@@ -258,6 +260,26 @@ templ Dashboard(ctx context.Context, data DashboardData) {
 					</div>
 				</div>
 			</div>
+			
+			<script>
+				// Set dark background color if in dark mode
+				if (document.documentElement.classList.contains('dark')) {
+					document.getElementById('dashboard-container').style.backgroundColor = '#111827';
+				}
+				
+				// Add event listener for theme changes
+				document.addEventListener('DOMContentLoaded', function() {
+					const themeToggle = document.getElementById('theme-toggle');
+					if (themeToggle) {
+						themeToggle.addEventListener('click', function() {
+							setTimeout(function() {
+								const isDark = document.documentElement.classList.contains('dark');
+								document.getElementById('dashboard-container').style.backgroundColor = isDark ? '#111827' : 'rgb(249, 250, 251)';
+							}, 50);
+						});
+					}
+				});
+			</script>
 		</div>
 	}
 }

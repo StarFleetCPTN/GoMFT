@@ -571,3 +571,707 @@ func getUserID(c *gin.Context) uint {
 	}
 	return 0
 }
+
+// HandleUsers renders the user management page
+func (h *Handlers) HandleUsers(c *gin.Context) {
+	ctx := components.CreateTemplateContext(c)
+
+	// Fetch users from the database
+	var users []db.User
+	if err := h.DB.Find(&users).Error; err != nil {
+		data := components.UserManagementData{
+			ActiveTab:    "list",
+			ErrorMessage: "Failed to fetch users: " + err.Error(),
+		}
+		if c.GetHeader("HX-Request") == "true" {
+			_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+		} else {
+			_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+		}
+		return
+	}
+
+	// Preload roles for each user
+	for i := range users {
+		if err := h.DB.Model(&users[i]).Association("Roles").Find(&users[i].Roles); err != nil {
+			// Log error but continue
+			fmt.Printf("Error loading roles for user %d: %v\n", users[i].ID, err)
+		}
+	}
+
+	// Get success message from flash if available
+	successMsg := c.Query("success")
+
+	data := components.UserManagementData{
+		Users:          users,
+		ActiveTab:      "list",
+		SuccessMessage: successMsg,
+	}
+
+	if c.GetHeader("HX-Request") == "true" {
+		_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+	} else {
+		_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+	}
+}
+
+// HandleNewUser renders the new user creation page
+func (h *Handlers) HandleNewUser(c *gin.Context) {
+	ctx := components.CreateTemplateContext(c)
+
+	// Fetch available roles
+	var roles []db.Role
+	if err := h.DB.Find(&roles).Error; err != nil {
+		data := components.UserManagementData{
+			ActiveTab:    "create",
+			ErrorMessage: "Failed to fetch roles: " + err.Error(),
+		}
+		if c.GetHeader("HX-Request") == "true" {
+			_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+		} else {
+			_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+		}
+		return
+	}
+
+	data := components.UserManagementData{
+		ActiveTab: "create",
+		Roles:     roles,
+	}
+
+	if c.GetHeader("HX-Request") == "true" {
+		_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+	} else {
+		_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+	}
+}
+
+// HandleCreateUser processes user creation
+func (h *Handlers) HandleCreateUser(c *gin.Context) {
+	ctx := components.CreateTemplateContext(c)
+	email := c.PostForm("email")
+	password := c.PostForm("password")
+	passwordConfirm := c.PostForm("password_confirm")
+	isAdmin := c.PostForm("is_admin") == "on"
+	roleIDs := c.PostFormArray("roles[]")
+
+	// Validate inputs
+	if email == "" || password == "" {
+		data := components.UserManagementData{
+			ActiveTab:    "create",
+			ErrorMessage: "Email and password are required",
+		}
+		if c.GetHeader("HX-Request") == "true" {
+			_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+		} else {
+			_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+		}
+		return
+	}
+
+	if password != passwordConfirm {
+		data := components.UserManagementData{
+			ActiveTab:    "create",
+			ErrorMessage: "Passwords do not match",
+		}
+		if c.GetHeader("HX-Request") == "true" {
+			_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+		} else {
+			_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+		}
+		return
+	}
+
+	// Create new user
+	user := &db.User{
+		Email: email,
+	}
+
+	// Set password (this would use a proper password hashing mechanism)
+	if err := user.SetPassword(password); err != nil {
+		data := components.UserManagementData{
+			ActiveTab:    "create",
+			ErrorMessage: "Failed to set password: " + err.Error(),
+		}
+		if c.GetHeader("HX-Request") == "true" {
+			_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+		} else {
+			_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+		}
+		return
+	}
+
+	// Set admin status
+	user.SetIsAdmin(isAdmin)
+
+	// Start transaction
+	tx := h.DB.Begin()
+	if err := tx.Error; err != nil {
+		data := components.UserManagementData{
+			ActiveTab:    "create",
+			ErrorMessage: "Database error: " + err.Error(),
+		}
+		if c.GetHeader("HX-Request") == "true" {
+			_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+		} else {
+			_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+		}
+		return
+	}
+
+	// Save user
+	if err := tx.Create(user).Error; err != nil {
+		tx.Rollback()
+		data := components.UserManagementData{
+			ActiveTab:    "create",
+			ErrorMessage: "Failed to create user: " + err.Error(),
+		}
+		if c.GetHeader("HX-Request") == "true" {
+			_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+		} else {
+			_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+		}
+		return
+	}
+
+	// Add roles if not admin and roles are selected
+	if !isAdmin && len(roleIDs) > 0 {
+		for _, roleIDStr := range roleIDs {
+			roleID, err := strconv.ParseUint(roleIDStr, 10, 32)
+			if err != nil {
+				continue // Skip invalid IDs
+			}
+
+			// Check if role exists
+			var role db.Role
+			if err := tx.First(&role, roleID).Error; err != nil {
+				continue // Skip if role doesn't exist
+			}
+
+			// Add role to user
+			if err := tx.Model(user).Association("Roles").Append(&role); err != nil {
+				tx.Rollback()
+				data := components.UserManagementData{
+					ActiveTab:    "create",
+					ErrorMessage: "Failed to assign roles: " + err.Error(),
+				}
+				if c.GetHeader("HX-Request") == "true" {
+					_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+				} else {
+					_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+				}
+				return
+			}
+		}
+	}
+
+	// Create audit log entry
+	creatorID := getUserID(c)
+	auditLog := &db.AuditLog{
+		Action:     "create",
+		EntityType: "user",
+		EntityID:   user.ID,
+		UserID:     creatorID,
+		Timestamp:  time.Now(),
+		Details: map[string]interface{}{
+			"email":    user.Email,
+			"is_admin": user.GetIsAdmin(),
+		},
+	}
+
+	if err := tx.Create(auditLog).Error; err != nil {
+		tx.Rollback()
+		data := components.UserManagementData{
+			ActiveTab:    "create",
+			ErrorMessage: "Failed to create audit log: " + err.Error(),
+		}
+		if c.GetHeader("HX-Request") == "true" {
+			_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+		} else {
+			_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+		}
+		return
+	}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		data := components.UserManagementData{
+			ActiveTab:    "create",
+			ErrorMessage: "Failed to commit transaction: " + err.Error(),
+		}
+		if c.GetHeader("HX-Request") == "true" {
+			_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+		} else {
+			_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+		}
+		return
+	}
+
+	// For HTMX requests, render the user list with success message
+	if c.GetHeader("HX-Request") == "true" {
+		// Fetch users from the database
+		var users []db.User
+		if err := h.DB.Find(&users).Error; err != nil {
+			data := components.UserManagementData{
+				ActiveTab:    "list",
+				ErrorMessage: "Failed to fetch users after creation: " + err.Error(),
+			}
+			_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+			return
+		}
+
+		// Preload roles for each user
+		for i := range users {
+			if err := h.DB.Model(&users[i]).Association("Roles").Find(&users[i].Roles); err != nil {
+				// Log error but continue
+				fmt.Printf("Error loading roles for user %d: %v\n", users[i].ID, err)
+			}
+		}
+
+		data := components.UserManagementData{
+			Users:          users,
+			ActiveTab:      "list",
+			SuccessMessage: "User created successfully",
+		}
+		_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+	} else {
+		// Redirect to user list with success message for regular requests
+		c.Redirect(http.StatusFound, "/admin/users?success=User+created+successfully")
+	}
+}
+
+// HandleEditUser renders the user edit page
+func (h *Handlers) HandleEditUser(c *gin.Context) {
+	ctx := components.CreateTemplateContext(c)
+	userID := c.Param("id")
+
+	// Fetch user
+	var user db.User
+	if err := h.DB.First(&user, userID).Error; err != nil {
+		data := components.UserManagementData{
+			ActiveTab:    "list",
+			ErrorMessage: "User not found",
+		}
+		if c.GetHeader("HX-Request") == "true" {
+			_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+		} else {
+			_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+		}
+		return
+	}
+
+	// Fetch user's roles
+	if err := h.DB.Model(&user).Association("Roles").Find(&user.Roles); err != nil {
+		data := components.UserManagementData{
+			ActiveTab:    "edit",
+			EditUser:     &user,
+			ErrorMessage: "Failed to fetch user roles: " + err.Error(),
+		}
+		if c.GetHeader("HX-Request") == "true" {
+			_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+		} else {
+			_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+		}
+		return
+	}
+
+	// Fetch all available roles
+	var roles []db.Role
+	if err := h.DB.Find(&roles).Error; err != nil {
+		data := components.UserManagementData{
+			ActiveTab:    "edit",
+			EditUser:     &user,
+			ErrorMessage: "Failed to fetch roles: " + err.Error(),
+		}
+		if c.GetHeader("HX-Request") == "true" {
+			_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+		} else {
+			_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+		}
+		return
+	}
+
+	data := components.UserManagementData{
+		ActiveTab: "edit",
+		EditUser:  &user,
+		Roles:     roles,
+	}
+
+	if c.GetHeader("HX-Request") == "true" {
+		_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+	} else {
+		_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+	}
+}
+
+// HandleUpdateUser processes user updates
+func (h *Handlers) HandleUpdateUser(c *gin.Context) {
+	ctx := components.CreateTemplateContext(c)
+	userID := c.Param("id")
+	email := c.PostForm("email")
+	password := c.PostForm("password")
+	passwordConfirm := c.PostForm("password_confirm")
+	isAdmin := c.PostForm("is_admin") == "on"
+	accountLocked := c.PostForm("account_locked") == "on"
+	roleIDs := c.PostFormArray("roles[]")
+
+	// Fetch existing user
+	var user db.User
+	if err := h.DB.First(&user, userID).Error; err != nil {
+		data := components.UserManagementData{
+			ActiveTab:    "list",
+			ErrorMessage: "User not found",
+		}
+		if c.GetHeader("HX-Request") == "true" {
+			_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+		} else {
+			_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+		}
+		return
+	}
+
+	// Check if trying to update the last admin
+	if user.GetIsAdmin() && !isAdmin {
+		// Count how many admins there are
+		var adminCount int64
+		if err := h.DB.Model(&db.User{}).Where("metadata->>'is_admin' = 'true'").Count(&adminCount).Error; err != nil {
+			data := components.UserManagementData{
+				ActiveTab:    "edit",
+				EditUser:     &user,
+				ErrorMessage: "Failed to check admin count: " + err.Error(),
+			}
+			if c.GetHeader("HX-Request") == "true" {
+				_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+			} else {
+				_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+			}
+			return
+		}
+
+		// If this is the last admin, prevent removal of admin status
+		if adminCount <= 1 {
+			data := components.UserManagementData{
+				ActiveTab:    "edit",
+				EditUser:     &user,
+				ErrorMessage: "Cannot remove admin status from the last administrator",
+			}
+			if c.GetHeader("HX-Request") == "true" {
+				_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+			} else {
+				_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+			}
+			return
+		}
+	}
+
+	// Start transaction
+	tx := h.DB.Begin()
+	if err := tx.Error; err != nil {
+		data := components.UserManagementData{
+			ActiveTab:    "edit",
+			EditUser:     &user,
+			ErrorMessage: "Database error: " + err.Error(),
+		}
+		if c.GetHeader("HX-Request") == "true" {
+			_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+		} else {
+			_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+		}
+		return
+	}
+
+	// Update email
+	if email != "" && email != user.Email {
+		user.Email = email
+	}
+
+	// Update password if provided
+	if password != "" {
+		if password != passwordConfirm {
+			tx.Rollback()
+			data := components.UserManagementData{
+				ActiveTab:    "edit",
+				EditUser:     &user,
+				ErrorMessage: "Passwords do not match",
+			}
+			if c.GetHeader("HX-Request") == "true" {
+				_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+			} else {
+				_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+			}
+			return
+		}
+
+		if err := user.SetPassword(password); err != nil {
+			tx.Rollback()
+			data := components.UserManagementData{
+				ActiveTab:    "edit",
+				EditUser:     &user,
+				ErrorMessage: "Failed to set password: " + err.Error(),
+			}
+			if c.GetHeader("HX-Request") == "true" {
+				_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+			} else {
+				_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+			}
+			return
+		}
+	}
+
+	// Update admin status and account lock status
+	user.SetIsAdmin(isAdmin)
+	user.SetAccountLocked(accountLocked)
+
+	// Save user changes
+	if err := tx.Save(&user).Error; err != nil {
+		tx.Rollback()
+		data := components.UserManagementData{
+			ActiveTab:    "edit",
+			EditUser:     &user,
+			ErrorMessage: "Failed to update user: " + err.Error(),
+		}
+		if c.GetHeader("HX-Request") == "true" {
+			_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+		} else {
+			_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+		}
+		return
+	}
+
+	// Update roles if not admin
+	if !isAdmin {
+		// First, remove all existing roles
+		if err := tx.Model(&user).Association("Roles").Clear(); err != nil {
+			tx.Rollback()
+			data := components.UserManagementData{
+				ActiveTab:    "edit",
+				EditUser:     &user,
+				ErrorMessage: "Failed to clear existing roles: " + err.Error(),
+			}
+			if c.GetHeader("HX-Request") == "true" {
+				_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+			} else {
+				_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+			}
+			return
+		}
+
+		// Then add the selected roles
+		if len(roleIDs) > 0 {
+			for _, roleIDStr := range roleIDs {
+				roleID, err := strconv.ParseUint(roleIDStr, 10, 32)
+				if err != nil {
+					continue // Skip invalid IDs
+				}
+
+				// Check if role exists
+				var role db.Role
+				if err := tx.First(&role, roleID).Error; err != nil {
+					continue // Skip if role doesn't exist
+				}
+
+				// Add role to user
+				if err := tx.Model(&user).Association("Roles").Append(&role); err != nil {
+					tx.Rollback()
+					data := components.UserManagementData{
+						ActiveTab:    "edit",
+						EditUser:     &user,
+						ErrorMessage: "Failed to assign roles: " + err.Error(),
+					}
+					if c.GetHeader("HX-Request") == "true" {
+						_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+					} else {
+						_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+					}
+					return
+				}
+			}
+		}
+	}
+
+	// Create audit log entry
+	updaterID := getUserID(c)
+	auditLog := &db.AuditLog{
+		Action:     "update",
+		EntityType: "user",
+		EntityID:   user.ID,
+		UserID:     updaterID,
+		Timestamp:  time.Now(),
+		Details: map[string]interface{}{
+			"email":            user.Email,
+			"is_admin":         user.GetIsAdmin(),
+			"account_locked":   user.GetAccountLocked(),
+			"password_changed": password != "",
+		},
+	}
+
+	if err := tx.Create(auditLog).Error; err != nil {
+		tx.Rollback()
+		data := components.UserManagementData{
+			ActiveTab:    "edit",
+			EditUser:     &user,
+			ErrorMessage: "Failed to create audit log: " + err.Error(),
+		}
+		if c.GetHeader("HX-Request") == "true" {
+			_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+		} else {
+			_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+		}
+		return
+	}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		data := components.UserManagementData{
+			ActiveTab:    "edit",
+			EditUser:     &user,
+			ErrorMessage: "Failed to commit transaction: " + err.Error(),
+		}
+		if c.GetHeader("HX-Request") == "true" {
+			_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+		} else {
+			_ = components.UserManagement(ctx, data).Render(ctx, c.Writer)
+		}
+		return
+	}
+
+	// For HTMX requests, render the user list with success message
+	if c.GetHeader("HX-Request") == "true" {
+		// Fetch users from the database
+		var users []db.User
+		if err := h.DB.Find(&users).Error; err != nil {
+			data := components.UserManagementData{
+				ActiveTab:    "list",
+				ErrorMessage: "Failed to fetch users after update: " + err.Error(),
+			}
+			_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+			return
+		}
+
+		// Preload roles for each user
+		for i := range users {
+			if err := h.DB.Model(&users[i]).Association("Roles").Find(&users[i].Roles); err != nil {
+				// Log error but continue
+				fmt.Printf("Error loading roles for user %d: %v\n", users[i].ID, err)
+			}
+		}
+
+		data := components.UserManagementData{
+			Users:          users,
+			ActiveTab:      "list",
+			SuccessMessage: "User updated successfully",
+		}
+		_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+	} else {
+		// Redirect to user list with success message for regular requests
+		c.Redirect(http.StatusFound, "/admin/users?success=User+updated+successfully")
+	}
+}
+
+// HandleDeleteUser processes user deletion
+func (h *Handlers) HandleDeleteUser(c *gin.Context) {
+	userID := c.Param("id")
+
+	// Fetch user
+	var user db.User
+	if err := h.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Check if this is an admin user
+	if user.GetIsAdmin() {
+		// Count how many admins there are
+		var adminCount int64
+		if err := h.DB.Model(&db.User{}).Where("metadata->>'is_admin' = 'true'").Count(&adminCount).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check admin count"})
+			return
+		}
+
+		// If this is the last admin, prevent deletion
+		if adminCount <= 1 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot delete the last administrator"})
+			return
+		}
+	}
+
+	// Check if trying to delete yourself
+	currentUserID := getUserID(c)
+	if currentUserID == user.ID {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot delete your own account"})
+		return
+	}
+
+	// Start transaction
+	tx := h.DB.Begin()
+	if err := tx.Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+
+	// Create audit log entry before deletion
+	auditLog := &db.AuditLog{
+		Action:     "delete",
+		EntityType: "user",
+		EntityID:   user.ID,
+		UserID:     currentUserID,
+		Timestamp:  time.Now(),
+		Details: map[string]interface{}{
+			"email":          user.Email,
+			"is_admin":       user.GetIsAdmin(),
+			"account_locked": user.GetAccountLocked(),
+		},
+	}
+
+	if err := tx.Create(auditLog).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create audit log"})
+		return
+	}
+
+	// Remove roles association
+	if err := tx.Model(&user).Association("Roles").Clear(); err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to clear user roles"})
+		return
+	}
+
+	// Delete user
+	if err := tx.Delete(&user).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete user"})
+		return
+	}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+		return
+	}
+
+	// Fetch the updated user list to return
+	ctx := components.CreateTemplateContext(c)
+	var users []db.User
+	if err := h.DB.Find(&users).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch updated user list"})
+		return
+	}
+
+	// Preload roles for each user
+	for i := range users {
+		if err := h.DB.Model(&users[i]).Association("Roles").Find(&users[i].Roles); err != nil {
+			// Log error but continue
+			fmt.Printf("Error loading roles for user %d: %v\n", users[i].ID, err)
+		}
+	}
+
+	// Render the updated user list
+	data := components.UserManagementData{
+		Users:          users,
+		ActiveTab:      "list",
+		SuccessMessage: "User deleted successfully",
+	}
+
+	// Always use the partial for HTMX delete requests
+	_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+}

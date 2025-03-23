@@ -28,9 +28,10 @@ type SettingsData struct {
 
 templ Settings(ctx context.Context, data SettingsData) {
 	@LayoutWithContext("Application Settings", ctx) {
-		<div class="p-4 md:p-6 2xl:p-10">
-			<div class="mb-6">
-				<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+		<div id="settings-container" style="min-height: 100vh;" class="bg-gray-50 dark:bg-gray-900">	
+			<div class="pb-8 w-full">
+				<div class="mb-6">
+					<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
 					<i class="fas fa-cog w-6 h-6 mr-2 text-blue-500"></i>
 					Application Settings
 				</h1>
@@ -67,16 +68,16 @@ templ Settings(ctx context.Context, data SettingsData) {
 							<i class="fas fa-bell mr-2"></i>Notifications
 						</button>
 					</li>
-					<li class="mr-2" role="presentation">
-						<button class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:border-gray-300 hover:text-gray-600 dark:hover:text-gray-300" id="general-tab" data-tabs-target="#general" type="button" role="tab" aria-controls="general" aria-selected="false">
-							<i class="fas fa-sliders-h mr-2"></i>General
-						</button>
-					</li>
-					<li role="presentation">
-						<button class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:border-gray-300 hover:text-gray-600 dark:hover:text-gray-300" id="security-tab" data-tabs-target="#security" type="button" role="tab" aria-controls="security" aria-selected="false">
-							<i class="fas fa-shield-alt mr-2"></i>Security
-						</button>
-					</li>
+					// <li class="mr-2" role="presentation">
+					// 	<button class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:border-gray-300 hover:text-gray-600 dark:hover:text-gray-300" id="general-tab" data-tabs-target="#general" type="button" role="tab" aria-controls="general" aria-selected="false">
+					// 		<i class="fas fa-sliders-h mr-2"></i>General
+					// 	</button>
+					// </li>
+					// <li role="presentation">
+					// 	<button class="inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:border-gray-300 hover:text-gray-600 dark:hover:text-gray-300" id="security-tab" data-tabs-target="#security" type="button" role="tab" aria-controls="security" aria-selected="false">
+					// 		<i class="fas fa-shield-alt mr-2"></i>Security
+					// 	</button>
+					// </li>
 				</ul>
 			</div>
 
@@ -435,6 +436,7 @@ templ Settings(ctx context.Context, data SettingsData) {
 				</div>
 			</div>
 		</div>
+	</div>
 	}
 	@toggleNotificationFields()
 }

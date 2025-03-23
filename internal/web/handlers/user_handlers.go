@@ -16,100 +16,100 @@ import (
 )
 
 // HandleUsers handles the GET /admin/users route
-func (h *Handlers) HandleUsers(c *gin.Context) {
-	var users []db.User
-	if err := h.DB.Find(&users).Error; err != nil {
-		c.String(http.StatusInternalServerError, "Failed to retrieve users")
-		return
-	}
+// func (h *Handlers) HandleUsers(c *gin.Context) {
+// 	var users []db.User
+// 	if err := h.DB.Find(&users).Error; err != nil {
+// 		c.String(http.StatusInternalServerError, "Failed to retrieve users")
+// 		return
+// 	}
 
-	// Create the data for the Users component, not UserManagement
-	data := components.UsersData{
-		Users: users,
-	}
+// 	// Create the data for the Users component, not UserManagement
+// 	data := components.UsersData{
+// 		Users: users,
+// 	}
 
-	// Use the Users component from users.templ and ensure context flows through consistently
-	ctx := h.CreateTemplateContext(c)
-	components.Users(ctx, data).Render(ctx, c.Writer)
-}
+// 	// Use the Users component from users.templ and ensure context flows through consistently
+// 	ctx := h.CreateTemplateContext(c)
+// 	components.Users(ctx, data).Render(ctx, c.Writer)
+// }
 
 // HandleNewUser handles the GET /admin/users/new route
-func (h *Handlers) HandleNewUser(c *gin.Context) {
-	// Create the data for the UserForm component
-	data := components.UserFormData{
-		IsNew:        true,
-		ErrorMessage: "",
-	}
+// func (h *Handlers) HandleNewUser(c *gin.Context) {
+// 	// Create the data for the UserForm component
+// 	data := components.UserFormData{
+// 		IsNew:        true,
+// 		ErrorMessage: "",
+// 	}
 
-	// Use consistent context handling
-	ctx := h.CreateTemplateContext(c)
-	err := components.UserForm(ctx, data).Render(ctx, c.Writer)
-	if err != nil {
-		log.Printf("ERROR rendering UserForm: %v", err)
-		c.String(http.StatusInternalServerError, "Error rendering form: %v", err)
-		return
-	}
-}
+// 	// Use consistent context handling
+// 	ctx := h.CreateTemplateContext(c)
+// 	err := components.UserForm(ctx, data).Render(ctx, c.Writer)
+// 	if err != nil {
+// 		log.Printf("ERROR rendering UserForm: %v", err)
+// 		c.String(http.StatusInternalServerError, "Error rendering form: %v", err)
+// 		return
+// 	}
+// }
 
 // HandleCreateUser handles the POST /admin/users/new route
-func (h *Handlers) HandleCreateUser(c *gin.Context) {
-	email := c.PostForm("email")
-	password := c.PostForm("password")
-	isAdmin := c.PostForm("is_admin") == "on"
+// func (h *Handlers) HandleCreateUser(c *gin.Context) {
+// 	email := c.PostForm("email")
+// 	password := c.PostForm("password")
+// 	isAdmin := c.PostForm("is_admin") == "on"
 
-	// Check if email already exists
-	var existingUser db.User
-	if err := h.DB.Where("email = ?", email).First(&existingUser).Error; err == nil {
-		c.String(http.StatusBadRequest, "Email already exists")
-		return
-	}
+// 	// Check if email already exists
+// 	var existingUser db.User
+// 	if err := h.DB.Where("email = ?", email).First(&existingUser).Error; err == nil {
+// 		c.String(http.StatusBadRequest, "Email already exists")
+// 		return
+// 	}
 
-	// Hash the password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		c.String(http.StatusInternalServerError, "Failed to hash password")
-		return
-	}
+// 	// Hash the password
+// 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+// 	if err != nil {
+// 		c.String(http.StatusInternalServerError, "Failed to hash password")
+// 		return
+// 	}
 
-	// Create the user
-	user := db.User{
-		Email:              email,
-		PasswordHash:       string(hashedPassword),
-		LastPasswordChange: time.Now(),
-	}
-	user.SetIsAdmin(isAdmin)
+// 	// Create the user
+// 	user := db.User{
+// 		Email:              email,
+// 		PasswordHash:       string(hashedPassword),
+// 		LastPasswordChange: time.Now(),
+// 	}
+// 	user.SetIsAdmin(isAdmin)
 
-	if err := h.DB.Create(&user).Error; err != nil {
-		c.String(http.StatusInternalServerError, "Failed to create user")
-		return
-	}
+// 	if err := h.DB.Create(&user).Error; err != nil {
+// 		c.String(http.StatusInternalServerError, "Failed to create user")
+// 		return
+// 	}
 
-	c.Redirect(http.StatusSeeOther, "/admin/users")
-}
+// 	c.Redirect(http.StatusSeeOther, "/admin/users")
+// }
 
 // HandleDeleteUser handles the POST /admin/users/delete route
-func (h *Handlers) HandleDeleteUser(c *gin.Context) {
-	userID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		c.String(http.StatusBadRequest, "Invalid user ID")
-		return
-	}
+// func (h *Handlers) HandleDeleteUser(c *gin.Context) {
+// 	userID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+// 	if err != nil {
+// 		c.String(http.StatusBadRequest, "Invalid user ID")
+// 		return
+// 	}
 
-	// Don't allow deleting the current user
-	currentUserID := c.GetUint("userID")
-	if uint(userID) == currentUserID {
-		c.String(http.StatusBadRequest, "Cannot delete your own account")
-		return
-	}
+// 	// Don't allow deleting the current user
+// 	currentUserID := c.GetUint("userID")
+// 	if uint(userID) == currentUserID {
+// 		c.String(http.StatusBadRequest, "Cannot delete your own account")
+// 		return
+// 	}
 
-	// Delete the user
-	if err := h.DB.Delete(&db.User{}, userID).Error; err != nil {
-		c.String(http.StatusInternalServerError, "Failed to delete user")
-		return
-	}
+// 	// Delete the user
+// 	if err := h.DB.Delete(&db.User{}, userID).Error; err != nil {
+// 		c.String(http.StatusInternalServerError, "Failed to delete user")
+// 		return
+// 	}
 
-	c.Redirect(http.StatusSeeOther, "/admin/users")
-}
+// 	c.Redirect(http.StatusSeeOther, "/admin/users")
+// }
 
 // HandleRegisterPage handles the GET /register route
 func (h *Handlers) HandleRegisterPage(c *gin.Context) {
@@ -304,37 +304,37 @@ func (h *Handlers) AdminCreateUser(c *gin.Context) {
 }
 
 // HandleEditUser handles the GET /admin/users/:id/edit route
-func (h *Handlers) HandleEditUser(c *gin.Context) {
-	id := c.Param("id")
+// func (h *Handlers) HandleEditUser(c *gin.Context) {
+// 	id := c.Param("id")
 
-	var user db.User
-	if err := h.DB.First(&user, id).Error; err != nil {
-		c.Redirect(http.StatusFound, "/admin/users")
-		return
-	}
+// 	var user db.User
+// 	if err := h.DB.First(&user, id).Error; err != nil {
+// 		c.Redirect(http.StatusFound, "/admin/users")
+// 		return
+// 	}
 
-	// Get user's roles
-	userRoles, err := h.DB.GetUserRoles(user.ID)
-	if err != nil {
-		log.Printf("Error fetching user roles: %v", err)
-	}
+// 	// Get user's roles
+// 	userRoles, err := h.DB.GetUserRoles(user.ID)
+// 	if err != nil {
+// 		log.Printf("Error fetching user roles: %v", err)
+// 	}
 
-	// Get all available roles
-	var allRoles []db.Role
-	if err := h.DB.Find(&allRoles).Error; err != nil {
-		log.Printf("Error fetching roles: %v", err)
-	}
+// 	// Get all available roles
+// 	var allRoles []db.Role
+// 	if err := h.DB.Find(&allRoles).Error; err != nil {
+// 		log.Printf("Error fetching roles: %v", err)
+// 	}
 
-	// Use UserEdit component to match the form that's being submitted
-	data := components.UserEditData{
-		User:      &user,
-		Roles:     allRoles,
-		UserRoles: userRoles,
-		IsNew:     false,
-	}
-	ctx := h.CreateTemplateContext(c)
-	components.UserEdit(ctx, data).Render(ctx, c.Writer)
-}
+// 	// Use UserEdit component to match the form that's being submitted
+// 	data := components.UserEditData{
+// 		User:      &user,
+// 		Roles:     allRoles,
+// 		UserRoles: userRoles,
+// 		IsNew:     false,
+// 	}
+// 	ctx := h.CreateTemplateContext(c)
+// 	components.UserEdit(ctx, data).Render(ctx, c.Writer)
+// }
 
 // AdminUpdateUser handles the PUT /admin/users/:id route
 func (h *Handlers) AdminUpdateUser(c *gin.Context) {

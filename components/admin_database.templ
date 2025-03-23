@@ -262,7 +262,7 @@ templ AdminDatabaseTools(ctx context.Context, backups []BackupFile) {
                     // Create toast element
                     const toast = document.createElement('div');
                     toast.id = 'toast-' + type + '-' + Date.now();
-                    toast.className = 'flex items-center w-full max-w-xs p-4 mb-4 rounded-lg shadow text-gray-500 bg-white dark:text-gray-400 dark:bg-gray-800';
+                    toast.className = 'flex items-center w-full max-w-xs p-4 mb-4 rounded-lg shadow text-gray-500 bg-white dark:text-gray-400 dark:bg-gray-800 transform translate-y-16 opacity-0 transition-all duration-300 ease-out';
                     toast.role = 'alert';
                     
                     // Set toast content based on type
@@ -301,15 +301,25 @@ templ AdminDatabaseTools(ctx context.Context, backups []BackupFile) {
                     // Add toast to container
                     toastContainer.appendChild(toast);
                     
+                    // Trigger animation after a small delay to ensure the DOM has updated
+                    setTimeout(() => {
+                        toast.classList.remove('translate-y-16', 'opacity-0');
+                        toast.classList.add('translate-y-0', 'opacity-100');
+                    }, 10);
+                    
                     // Add event listener to close button
                     const closeButton = toast.querySelector('button[data-dismiss-target]');
                     closeButton.addEventListener('click', function() {
-                        toast.remove();
+                        // Animate out before removing
+                        toast.classList.add('opacity-0', 'translate-y-4');
+                        setTimeout(() => {
+                            toast.remove();
+                        }, 300);
                     });
                     
                     // Auto-remove toast after 5 seconds
                     setTimeout(() => {
-                        toast.classList.add('opacity-0', 'transition-opacity', 'duration-300');
+                        toast.classList.add('opacity-0', 'translate-y-4');
                         setTimeout(() => {
                             toast.remove();
                         }, 300);

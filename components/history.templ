@@ -264,91 +264,113 @@ templ HistoryContent(ctx context.Context, data HistoryData) {
 
 templ History(ctx context.Context, data HistoryData) {
 	@LayoutWithContext("Transfer History", ctx) {
-		<div class="py-6 px-4 mx-auto max-w-7xl lg:px-8">
-			<!-- Page Header -->
-			<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
-				<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-					<i class="fas fa-history w-6 h-6 mr-2 text-blue-500"></i>
-					Transfer History
-				</h1>
-				<div class="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg px-4 py-2 inline-flex items-center">
-					<i class="fas fa-info-circle mr-2"></i>
-					<span class="font-medium">Total: { fmt.Sprint(data.Total) } transfers</span>
-				</div>
-			</div>
-			
-			<!-- Search and Pagination Controls -->
-			<div class="mb-6 p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
-				<form hx-get="/history" hx-target="#history-content" hx-indicator="#search-indicator" class="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-					<div class="w-full sm:w-auto relative flex-grow">
-						<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-							<i class="fas fa-search text-gray-400 dark:text-gray-500"></i>
-						</div>
-						<input
-							type="text"
-							name="search"
-							value={ data.SearchTerm }
-							placeholder="Search by job name or status..."
-							class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-						/>
-						<input type="hidden" name="page" value="1" />
-						<input type="hidden" name="pageSize" value={ fmt.Sprint(data.PageSize) } />
+		<div id="history-container" style="min-height: 100vh;" class="bg-gray-50 dark:bg-gray-900">
+			<div class="pb-8 w-full">
+				<!-- Page Header -->
+				<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+					<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+						<i class="fas fa-history w-6 h-6 mr-2 text-blue-500"></i>
+						Transfer History
+					</h1>
+					<div class="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg px-4 py-2 inline-flex items-center">
+						<i class="fas fa-info-circle mr-2"></i>
+						<span class="font-medium">Total: { fmt.Sprint(data.Total) } transfers</span>
 					</div>
-					<div class="flex gap-2">
-						<button
-							type="submit"
-							class="inline-flex items-center py-2.5 px-4 text-sm font-medium text-white bg-blue-700 rounded-lg border border-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-						>
-							<i class="fas fa-search mr-2 -ml-1"></i>
-							Search
-							<span id="search-indicator" class="htmx-indicator ml-2">
-								<i class="fas fa-spinner fa-spin"></i>
-							</span>
-						</button>
-						if data.SearchTerm != "" {
+				</div>
+				
+				<!-- Search and Pagination Controls -->
+				<div class="mb-6 p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+					<form hx-get="/history" hx-target="#history-content" hx-indicator="#search-indicator" class="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+						<div class="w-full sm:w-auto relative flex-grow">
+							<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+								<i class="fas fa-search text-gray-400 dark:text-gray-500"></i>
+							</div>
+							<input
+								type="text"
+								name="search"
+								value={ data.SearchTerm }
+								placeholder="Search by job name or status..."
+								class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 pr-3 py-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+							/>
+							<input type="hidden" name="page" value="1" />
+							<input type="hidden" name="pageSize" value={ fmt.Sprint(data.PageSize) } />
+						</div>
+						<div class="flex gap-2">
 							<button
-								hx-get="/history"
-								hx-target="#history-content"
-								hx-indicator="#clear-indicator"
-								hx-vals={ fmt.Sprintf(`{"pageSize": %d}`, data.PageSize) }
-								class="py-2.5 px-5 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-200 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700 inline-flex items-center"
+								type="submit"
+								class="inline-flex items-center py-2.5 px-4 text-sm font-medium text-white bg-blue-700 rounded-lg border border-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
 							>
-								<i class="fas fa-times mr-2"></i>
-								Clear
-								<span id="clear-indicator" class="htmx-indicator ml-2">
+								<i class="fas fa-search mr-2 -ml-1"></i>
+								Search
+								<span id="search-indicator" class="htmx-indicator ml-2">
 									<i class="fas fa-spinner fa-spin"></i>
 								</span>
 							</button>
-						}
-					</div>
-					<div class="ml-auto">
-						<label class="inline-flex items-center text-sm text-gray-700 dark:text-gray-300">
-							Show 
-							<select 
-								name="pageSize" 
-								hx-get="/history"
-								hx-target="#history-content"
-								hx-include="[name='search']"
-								hx-indicator="#size-indicator"
-								class="mx-2 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-							>
-								<option value="10" selected?={ data.PageSize == 10 }>10</option>
-								<option value="25" selected?={ data.PageSize == 25 }>25</option>
-								<option value="50" selected?={ data.PageSize == 50 }>50</option>
-								<option value="100" selected?={ data.PageSize == 100 }>100</option>
-							</select>
-							entries
-							<span id="size-indicator" class="htmx-indicator ml-2">
-								<i class="fas fa-spinner fa-spin"></i>
-							</span>
-						</label>
-					</div>
-				</form>
+							if data.SearchTerm != "" {
+								<button
+									hx-get="/history"
+									hx-target="#history-content"
+									hx-indicator="#clear-indicator"
+									hx-vals={ fmt.Sprintf(`{"pageSize": %d}`, data.PageSize) }
+									class="py-2.5 px-5 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-200 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700 inline-flex items-center"
+								>
+									<i class="fas fa-times mr-2"></i>
+									Clear
+									<span id="clear-indicator" class="htmx-indicator ml-2">
+										<i class="fas fa-spinner fa-spin"></i>
+									</span>
+								</button>
+							}
+						</div>
+						<div class="ml-auto">
+							<label class="inline-flex items-center text-sm text-gray-700 dark:text-gray-300">
+								Show 
+								<select 
+									name="pageSize" 
+									hx-get="/history"
+									hx-target="#history-content"
+									hx-include="[name='search']"
+									hx-indicator="#size-indicator"
+									class="mx-2 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+								>
+									<option value="10" selected?={ data.PageSize == 10 }>10</option>
+									<option value="25" selected?={ data.PageSize == 25 }>25</option>
+									<option value="50" selected?={ data.PageSize == 50 }>50</option>
+									<option value="100" selected?={ data.PageSize == 100 }>100</option>
+								</select>
+								entries
+								<span id="size-indicator" class="htmx-indicator ml-2">
+									<i class="fas fa-spinner fa-spin"></i>
+								</span>
+							</label>
+						</div>
+					</form>
+				</div>
+				
+				<div id="history-content" class="mt-6">
+					@HistoryContent(ctx, data)
+				</div>
 			</div>
-			
-			<div id="history-content" class="mt-6">
-				@HistoryContent(ctx, data)
-			</div>
+
+			<script>
+				// Set dark background color if in dark mode
+				if (document.documentElement.classList.contains('dark')) {
+					document.getElementById('history-container').style.backgroundColor = '#111827';
+				}
+				
+				// Add event listener for theme changes
+				document.addEventListener('DOMContentLoaded', function() {
+					const themeToggle = document.getElementById('theme-toggle');
+					if (themeToggle) {
+						themeToggle.addEventListener('click', function() {
+							setTimeout(function() {
+								const isDark = document.documentElement.classList.contains('dark');
+								document.getElementById('history-container').style.backgroundColor = isDark ? '#111827' : 'rgb(249, 250, 251)';
+							}, 50);
+						});
+					}
+				});
+			</script>
 		</div>
 	}
 }

@@ -341,17 +341,15 @@ templ FileMetadataListPartial(data FileMetadataListData) {
 // Update the main FileMetadataList template to use the partial template
 templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
 	@LayoutWithContext("File Metadata", ctx) {
-		<div class="px-2 py-4 sm:px-4 w-full">
-			<div class="mb-6">
-				<div class="flex items-center justify-between mb-4">
-					<h1 class="text-2xl font-semibold text-gray-900 dark:text-white">
+		<div id="file-metadata-container" style="min-height: 100vh;" class="bg-gray-50 dark:bg-gray-900">
+			<div class="pb-8 w-full">
+				<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+					<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+						<i class="fas fa-file-alt w-6 h-6 mr-2 text-blue-500"></i>
 						if data.Job != nil {
 							Files for Job: { data.Job.Name }
 						} else {
-							<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-								<i class="fas fa-file-alt w-6 h-6 mr-2 text-blue-500"></i>
-								File Metadata
-							</h1>
+							File Metadata
 						}
 					</h1>
 					<a href="/files/search" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
@@ -425,6 +423,26 @@ templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
 					</div>
 				</div>
 			</div>
+
+			<script>
+				// Set dark background color if in dark mode
+				if (document.documentElement.classList.contains('dark')) {
+					document.getElementById('file-metadata-container').style.backgroundColor = '#111827';
+				}
+				
+				// Add event listener for theme changes
+				document.addEventListener('DOMContentLoaded', function() {
+					const themeToggle = document.getElementById('theme-toggle');
+					if (themeToggle) {
+						themeToggle.addEventListener('click', function() {
+							setTimeout(function() {
+								const isDark = document.documentElement.classList.contains('dark');
+								document.getElementById('file-metadata-container').style.backgroundColor = isDark ? '#111827' : 'rgb(249, 250, 251)';
+							}, 50);
+						});
+					}
+				});
+			</script>
 		</div>
 	}
 }
@@ -432,213 +450,239 @@ templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
 // FileMetadataDetails renders detailed information about a file
 templ FileMetadataDetails(ctx context.Context, data FileMetadataDetailsData) {
 	@LayoutWithContext("File Details", ctx) {
-		<div class="px-2 py-4 sm:px-4 w-full">
-			<div class="mb-6">
-				<a href="/files" class="inline-flex items-center text-blue-600 hover:underline dark:text-blue-500">
-					<i class="fas fa-arrow-left mr-2"></i> Back to Files
-				</a>
-			</div>
-			
-			<div class="bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 w-full">
-				<!-- Card header -->
-				<div class="p-4 md:p-5 border-b border-gray-200 dark:border-gray-700">
-					<h5 class="text-xl font-bold leading-none text-gray-900 dark:text-white">
-						{ data.File.FileName }
-					</h5>
-					<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-						File ID: { strconv.FormatUint(uint64(data.File.ID), 10) }
-					</p>
+		<div id="file-details-container" style="min-height: 100vh;" class="bg-gray-50 dark:bg-gray-900">
+			<div class="pb-8 w-full">
+				<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+					<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+						<i class="fas fa-file-alt w-6 h-6 mr-2 text-blue-500"></i>
+						File Details: { data.File.FileName }
+					</h1>
+					<a href="/files" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+						<i class="fas fa-arrow-left mr-2"></i> Back to Files
+					</a>
 				</div>
 				
-				<!-- Card content -->
-				<div class="p-4 md:p-5">
-					<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-						<!-- File Information -->
-						<div>
-							<h6 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center">
-								<i class="fas fa-file-alt mr-2 text-gray-500 dark:text-gray-400"></i> File Information
-							</h6>
-							<div class="overflow-x-auto relative shadow-md sm:rounded-lg">
-								<table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-									<tbody>
-										<tr class="border-b dark:border-gray-700">
-											<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
-												Filename
-											</th>
-											<td class="py-3 px-4 bg-white dark:bg-gray-800">
-												{ data.File.FileName }
-											</td>
-										</tr>
-										<tr class="border-b dark:border-gray-700">
-											<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
-												Size
-											</th>
-											<td class="py-3 px-4 bg-white dark:bg-gray-800">
-												{ formatFileSize(data.File.FileSize) }
-											</td>
-										</tr>
-										<tr class="border-b dark:border-gray-700">
-											<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
-												Hash
-											</th>
-											<td class="py-3 px-4 break-all bg-white dark:bg-gray-800">
-												if data.File.FileHash != "" {
-													<span class="font-mono">{ data.File.FileHash }</span>
-												} else {
-													<span class="text-gray-400 dark:text-gray-500 italic">Not available</span>
-												}
-											</td>
-										</tr>
-										<tr class="border-b dark:border-gray-700">
-											<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
-												Status
-											</th>
-											<td class="py-3 px-4 bg-white dark:bg-gray-800">
-												<span class={ "text-xs font-medium px-2.5 py-0.5 rounded", getStatusBadgeClass(data.File.Status) }>
-													{ data.File.Status }
-												</span>
-											</td>
-										</tr>
-										<tr class="border-b dark:border-gray-700">
-											<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
-												Original Path
-											</th>
-											<td class="py-3 px-4 break-all bg-white dark:bg-gray-800">
-												<div class="flex items-center">
-													<i class="fas fa-folder mr-2 text-yellow-500"></i>
-													<span>{ data.File.OriginalPath }</span>
-												</div>
-											</td>
-										</tr>
-										<tr class="border-b dark:border-gray-700">
-											<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
-												Destination Path
-											</th>
-											<td class="py-3 px-4 break-all bg-white dark:bg-gray-800">
-												<div class="flex items-center">
-													<i class="fas fa-folder-open mr-2 text-blue-500"></i>
-													<span>{ data.File.DestinationPath }</span>
-												</div>
-											</td>
-										</tr>
-									</tbody>
-								</table>
-							</div>
-						</div>
-						
-						<!-- Processing Information -->
-						<div>
-							<h6 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center">
-								<i class="fas fa-cogs mr-2 text-gray-500 dark:text-gray-400"></i> Processing Information
-							</h6>
-							<div class="overflow-x-auto relative shadow-md sm:rounded-lg">
-								<table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-									<tbody>
-										<tr class="border-b dark:border-gray-700">
-											<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
-												Job
-											</th>
-											<td class="py-3 px-4 bg-white dark:bg-gray-800">
-												<a href={ templ.SafeURL(fmt.Sprintf("/files/job/%d", data.File.JobID)) } class="font-medium text-blue-600 dark:text-blue-500 hover:underline">
-													{ data.File.Job.Name }
-												</a>
-											</td>
-										</tr>
-										<tr class="border-b dark:border-gray-700">
-											<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
-												Processed Time
-											</th>
-											<td class="py-3 px-4 bg-white dark:bg-gray-800">
-												<div class="flex items-center">
-													<i class="far fa-clock mr-2 text-gray-500"></i>
-													<span>{ data.File.ProcessedTime.Format("2006-01-02 15:04:05") }</span>
-												</div>
-											</td>
-										</tr>
-										<tr class="border-b dark:border-gray-700">
-											<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
-												Creation Time
-											</th>
-											<td class="py-3 px-4 bg-white dark:bg-gray-800">
-												<div class="flex items-center">
-													<i class="fas fa-calendar-plus mr-2 text-green-500"></i>
-													<span>{ data.File.CreationTime.Format("2006-01-02 15:04:05") }</span>
-												</div>
-											</td>
-										</tr>
-										<tr class="border-b dark:border-gray-700">
-											<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
-												Modification Time
-											</th>
-											<td class="py-3 px-4 bg-white dark:bg-gray-800">
-												<div class="flex items-center">
-													<i class="fas fa-calendar-alt mr-2 text-purple-500"></i>
-													<span>{ data.File.ModTime.Format("2006-01-02 15:04:05") }</span>
-												</div>
-											</td>
-										</tr>
-										if data.File.Status == "error" && data.File.ErrorMessage != "" {
+				<div class="bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 w-full">
+					<!-- Card header -->
+					<div class="p-4 md:p-5 border-b border-gray-200 dark:border-gray-700">
+						<h5 class="text-xl font-bold leading-none text-gray-900 dark:text-white">
+							{ data.File.FileName }
+						</h5>
+						<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+							File ID: { strconv.FormatUint(uint64(data.File.ID), 10) }
+						</p>
+					</div>
+					
+					<!-- Card content -->
+					<div class="p-4 md:p-5">
+						<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+							<!-- File Information -->
+							<div>
+								<h6 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center">
+									<i class="fas fa-file-alt mr-2 text-gray-500 dark:text-gray-400"></i> File Information
+								</h6>
+								<div class="overflow-x-auto relative shadow-md sm:rounded-lg">
+									<table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+										<tbody>
 											<tr class="border-b dark:border-gray-700">
 												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
-													Error
+													Filename
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													{ data.File.FileName }
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Size
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													{ formatFileSize(data.File.FileSize) }
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Hash
 												</th>
 												<td class="py-3 px-4 break-all bg-white dark:bg-gray-800">
-													<div class="flex items-start">
-														<i class="fas fa-exclamation-triangle mt-1 mr-2 text-red-500"></i>
-														<span class="text-red-600 dark:text-red-400">{ data.File.ErrorMessage }</span>
+													if data.File.FileHash != "" {
+														<span class="font-mono">{ data.File.FileHash }</span>
+													} else {
+														<span class="text-gray-400 dark:text-gray-500 italic">Not available</span>
+													}
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Status
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													<span class={ "text-xs font-medium px-2.5 py-0.5 rounded", getStatusBadgeClass(data.File.Status) }>
+														{ data.File.Status }
+													</span>
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Original Path
+												</th>
+												<td class="py-3 px-4 break-all bg-white dark:bg-gray-800">
+													<div class="flex items-center">
+														<i class="fas fa-folder mr-2 text-yellow-500"></i>
+														<span>{ data.File.OriginalPath }</span>
 													</div>
 												</td>
 											</tr>
-										}
-										<tr class="border-b dark:border-gray-700">
-											<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
-												Record Created
-											</th>
-											<td class="py-3 px-4 bg-white dark:bg-gray-800">
-												{ data.File.CreatedAt.Format("2006-01-02 15:04:05") }
-											</td>
-										</tr>
-										<tr class="border-b dark:border-gray-700">
-											<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
-												Record Updated
-											</th>
-											<td class="py-3 px-4 bg-white dark:bg-gray-800">
-												{ data.File.UpdatedAt.Format("2006-01-02 15:04:05") }
-											</td>
-										</tr>
-									</tbody>
-								</table>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Destination Path
+												</th>
+												<td class="py-3 px-4 break-all bg-white dark:bg-gray-800">
+													<div class="flex items-center">
+														<i class="fas fa-folder-open mr-2 text-blue-500"></i>
+														<span>{ data.File.DestinationPath }</span>
+													</div>
+												</td>
+											</tr>
+										</tbody>
+									</table>
+								</div>
+							</div>
+							
+							<!-- Processing Information -->
+							<div>
+								<h6 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center">
+									<i class="fas fa-cogs mr-2 text-gray-500 dark:text-gray-400"></i> Processing Information
+								</h6>
+								<div class="overflow-x-auto relative shadow-md sm:rounded-lg">
+									<table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+										<tbody>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Job
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													<a href={ templ.SafeURL(fmt.Sprintf("/files/job/%d", data.File.JobID)) } class="font-medium text-blue-600 dark:text-blue-500 hover:underline">
+														{ data.File.Job.Name }
+													</a>
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Processed Time
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													<div class="flex items-center">
+														<i class="far fa-clock mr-2 text-gray-500"></i>
+														<span>{ data.File.ProcessedTime.Format("2006-01-02 15:04:05") }</span>
+													</div>
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Creation Time
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													<div class="flex items-center">
+														<i class="fas fa-calendar-plus mr-2 text-green-500"></i>
+														<span>{ data.File.CreationTime.Format("2006-01-02 15:04:05") }</span>
+													</div>
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Modification Time
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													<div class="flex items-center">
+														<i class="fas fa-calendar-alt mr-2 text-purple-500"></i>
+														<span>{ data.File.ModTime.Format("2006-01-02 15:04:05") }</span>
+													</div>
+												</td>
+											</tr>
+											if data.File.Status == "error" && data.File.ErrorMessage != "" {
+												<tr class="border-b dark:border-gray-700">
+													<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+														Error
+													</th>
+													<td class="py-3 px-4 break-all bg-white dark:bg-gray-800">
+														<div class="flex items-start">
+															<i class="fas fa-exclamation-triangle mt-1 mr-2 text-red-500"></i>
+															<span class="text-red-600 dark:text-red-400">{ data.File.ErrorMessage }</span>
+														</div>
+													</td>
+												</tr>
+											}
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Record Created
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													{ data.File.CreatedAt.Format("2006-01-02 15:04:05") }
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Record Updated
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													{ data.File.UpdatedAt.Format("2006-01-02 15:04:05") }
+												</td>
+											</tr>
+										</tbody>
+									</table>
+								</div>
 							</div>
 						</div>
-					</div>
-					
-					<!-- Delete dialog -->
-					@FileMetadataDialog(
-						fmt.Sprintf("delete-file-dialog-%d", data.File.ID),
-						"Delete File Metadata",
-						fmt.Sprintf("Are you sure you want to delete the metadata for '%s'? This cannot be undone.", data.File.FileName),
-						"btn-danger",
-						"Delete",
-						"delete",
-						data.File.ID,
-						data.File.FileName,
-						"details",
-					)
-					
-					<!-- Action buttons -->
-					<div class="mt-6 flex flex-wrap justify-end gap-3">
-						<a href="/files" class="py-2.5 px-5 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">
-							<i class="fas fa-list mr-2"></i> Back to Files
-						</a>
-						<button 
-							type="button"
-							onclick={ showFileDialog(fmt.Sprintf("delete-file-dialog-%d", data.File.ID)) }
-							class="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800">
-							<i class="fas fa-trash mr-2"></i> Delete Record
-						</button>
+						
+						<!-- Delete dialog -->
+						@FileMetadataDialog(
+							fmt.Sprintf("delete-file-dialog-%d", data.File.ID),
+							"Delete File Metadata",
+							fmt.Sprintf("Are you sure you want to delete the metadata for '%s'? This cannot be undone.", data.File.FileName),
+							"btn-danger",
+							"Delete",
+							"delete",
+							data.File.ID,
+							data.File.FileName,
+							"details",
+						)
+						
+						<!-- Action buttons -->
+						<div class="mt-6 flex flex-wrap justify-end gap-3">
+							<a href="/files" class="py-2.5 px-5 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">
+								<i class="fas fa-list mr-2"></i> Back to Files
+							</a>
+							<button 
+								type="button"
+								onclick={ showFileDialog(fmt.Sprintf("delete-file-dialog-%d", data.File.ID)) }
+								class="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800">
+								<i class="fas fa-trash mr-2"></i> Delete Record
+							</button>
+						</div>
 					</div>
 				</div>
 			</div>
+
+			<script>
+				// Set dark background color if in dark mode
+				if (document.documentElement.classList.contains('dark')) {
+					document.getElementById('file-details-container').style.backgroundColor = '#111827';
+				}
+				
+				// Add event listener for theme changes
+				document.addEventListener('DOMContentLoaded', function() {
+					const themeToggle = document.getElementById('theme-toggle');
+					if (themeToggle) {
+						themeToggle.addEventListener('click', function() {
+							setTimeout(function() {
+								const isDark = document.documentElement.classList.contains('dark');
+								document.getElementById('file-details-container').style.backgroundColor = isDark ? '#111827' : 'rgb(249, 250, 251)';
+							}, 50);
+						});
+					}
+				});
+			</script>
 		</div>
 	}
 }
@@ -646,82 +690,108 @@ templ FileMetadataDetails(ctx context.Context, data FileMetadataDetailsData) {
 // FileMetadataSearch renders an advanced search form for file metadata
 templ FileMetadataSearch(ctx context.Context, data FileMetadataSearchData) {
 	@LayoutWithContext("Search Files", ctx) {
-		<div class="px-2 py-4 sm:px-4 w-full">
-			<div class="mb-6">
-				<a href="/files" class="inline-flex items-center text-blue-600 hover:underline dark:text-blue-500">
-					<i class="fas fa-arrow-left mr-2"></i> Back to Files
-				</a>
-			</div>
-			
-			<div class="p-4 mb-6 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 w-full">
-				<h5 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Advanced File Search</h5>
-				<form 
-					hx-get="/files/search/partial"
-					hx-target="#search-results-container" 
-					hx-swap="innerHTML"
-					hx-indicator="#search-form-loading"
-					hx-headers='{"X-HX-Request": "true"}'
-					hx-boost="false"
-					class="grid grid-cols-1 md:grid-cols-2 gap-4">
-					<div>
-						<label for="job_id" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Job ID</label>
-						<input type="text" id="job_id" name="job_id" value={ data.Filter.JobID } placeholder="Job ID" 
-							class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-					</div>
-					<div>
-						<label for="status" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Status</label>
-						<select id="status" name="status" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
-							<option value="">All Statuses</option>
-							<option value="processed" selected?={ data.Filter.Status == "processed" }>Processed</option>
-							<option value="archived" selected?={ data.Filter.Status == "archived" }>Archived</option>
-							<option value="deleted" selected?={ data.Filter.Status == "deleted" }>Deleted</option>
-							<option value="archived_and_deleted" selected?={ data.Filter.Status == "archived_and_deleted" }>Archived & Deleted</option>
-							<option value="error" selected?={ data.Filter.Status == "error" }>Error</option>
-						</select>
-					</div>
-					<div>
-						<label for="filename" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Filename</label>
-						<input type="text" id="filename" name="filename" value={ data.Filter.FileName } placeholder="Filename or partial match" 
-							class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-					</div>
-					<div>
-						<label for="hash" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">File Hash</label>
-						<input type="text" id="hash" name="hash" value={ data.Filter.Hash } placeholder="MD5 hash" 
-							class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-					</div>
-					<div>
-						<label for="start_date" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Processed After</label>
-						<input type="date" id="start_date" name="start_date" value={ data.Filter.StartDate } 
-							class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-					</div>
-					<div>
-						<label for="end_date" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Processed Before</label>
-						<input type="date" id="end_date" name="end_date" value={ data.Filter.EndDate } 
-							class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-					</div>
-					<div class="md:col-span-2 flex justify-end">
-						<button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
-							<i class="fas fa-search mr-2"></i> Search Files
-						</button>
-						<div id="search-form-loading" class="htmx-indicator ml-2 flex items-center">
-							<i class="fas fa-circle-notch fa-spin text-blue-600"></i>
+		<div id="file-search-container" style="min-height: 100vh;" class="bg-gray-50 dark:bg-gray-900">
+			<div class="pb-8 w-full">
+				<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+					<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+						<i class="fas fa-search w-6 h-6 mr-2 text-blue-500"></i>
+						File Metadata Search
+					</h1>
+					<a href="/files" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+						<i class="fas fa-arrow-left mr-2"></i> Back to Files
+					</a>
+				</div>
+				
+				<div class="p-4 mb-6 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 w-full">
+					<h5 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Advanced File Search</h5>
+					<form 
+						hx-get="/files/search/partial"
+						hx-target="#search-results-container" 
+						hx-swap="innerHTML"
+						hx-indicator="#search-form-loading"
+						hx-headers='{"X-HX-Request": "true"}'
+						hx-boost="false"
+						class="grid grid-cols-1 md:grid-cols-2 gap-4">
+						<div>
+							<label for="job_id" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Job ID</label>
+							<input type="text" id="job_id" name="job_id" value={ data.Filter.JobID } placeholder="Job ID" 
+								class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
 						</div>
+						<div>
+							<label for="status" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Status</label>
+							<select id="status" name="status" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+								<option value="">All Statuses</option>
+								<option value="processed" selected?={ data.Filter.Status == "processed" }>Processed</option>
+								<option value="archived" selected?={ data.Filter.Status == "archived" }>Archived</option>
+								<option value="deleted" selected?={ data.Filter.Status == "deleted" }>Deleted</option>
+								<option value="archived_and_deleted" selected?={ data.Filter.Status == "archived_and_deleted" }>Archived & Deleted</option>
+								<option value="error" selected?={ data.Filter.Status == "error" }>Error</option>
+							</select>
+						</div>
+						<div>
+							<label for="filename" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Filename</label>
+							<input type="text" id="filename" name="filename" value={ data.Filter.FileName } placeholder="Filename or partial match" 
+								class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
+						</div>
+						<div>
+							<label for="hash" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">File Hash</label>
+							<input type="text" id="hash" name="hash" value={ data.Filter.Hash } placeholder="MD5 hash" 
+								class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
+						</div>
+						<div>
+							<label for="start_date" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Processed After</label>
+							<input type="date" id="start_date" name="start_date" value={ data.Filter.StartDate } 
+								class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
+						</div>
+						<div>
+							<label for="end_date" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Processed Before</label>
+							<input type="date" id="end_date" name="end_date" value={ data.Filter.EndDate } 
+								class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
+						</div>
+						<div class="md:col-span-2 flex justify-end">
+							<button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+								<i class="fas fa-search mr-2"></i> Search Files
+							</button>
+							<div id="search-form-loading" class="htmx-indicator ml-2 flex items-center">
+								<i class="fas fa-circle-notch fa-spin text-blue-600"></i>
+							</div>
+						</div>
+					</form>
+				</div>
+				
+				<!-- Results -->
+				<div class="bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 w-full">
+					<div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-600">
+						<h5 class="text-lg font-semibold text-gray-900 dark:text-white">Search Results ({ strconv.FormatInt(data.TotalCount, 10) })</h5>
+						<span class="text-sm text-gray-500 dark:text-gray-400">
+							Page { strconv.Itoa(data.Page) } of { strconv.Itoa(data.TotalPages) }
+						</span>
 					</div>
-				</form>
-			</div>
-			
-			<!-- Results -->
-			<div class="bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 w-full">
-				<div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-600">
-					<h5 class="text-lg font-semibold text-gray-900 dark:text-white">Search Results ({ strconv.FormatInt(data.TotalCount, 10) })</h5>
-					<span class="text-sm text-gray-500 dark:text-gray-400">
-						Page { strconv.Itoa(data.Page) } of { strconv.Itoa(data.TotalPages) }
-					</span>
-				</div>
-				<div id="search-results-container" class="w-full">
-					@FileMetadataSearchContent(data)
+					<div id="search-results-container" class="w-full">
+						@FileMetadataSearchContent(data)
+					</div>
 				</div>
 			</div>
+
+			<script>
+				// Set dark background color if in dark mode
+				if (document.documentElement.classList.contains('dark')) {
+					document.getElementById('file-search-container').style.backgroundColor = '#111827';
+				}
+				
+				// Add event listener for theme changes
+				document.addEventListener('DOMContentLoaded', function() {
+					const themeToggle = document.getElementById('theme-toggle');
+					if (themeToggle) {
+						themeToggle.addEventListener('click', function() {
+							setTimeout(function() {
+								const isDark = document.documentElement.classList.contains('dark');
+								document.getElementById('file-search-container').style.backgroundColor = isDark ? '#111827' : 'rgb(249, 250, 251)';
+							}, 50);
+						});
+					}
+				});
+			</script>
 		</div>
 	}
 }
