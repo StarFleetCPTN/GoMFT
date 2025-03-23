@@ -9,6 +9,11 @@ import (
 type NotificationsData struct {
 	Notifications []db.UserNotification
 	UnreadCount   int64
+	// Pagination fields
+	CurrentPage int
+	TotalPages  int
+	TotalCount  int
+	PerPage     int
 }
 
 // FormatNotificationTime formats a notification time in a user-friendly way

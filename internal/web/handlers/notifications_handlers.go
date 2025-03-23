@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"math"
 	"net/http"
 	"strconv"
 
@@ -12,8 +13,56 @@ import (
 func (h *Handlers) HandleNotifications(c *gin.Context) {
 	userID := c.GetUint("userID")
 
-	// Get notifications for the user
-	notifications, err := h.DB.GetUserNotifications(userID, 50) // Get more for the full page
+	// Get pagination parameters from query
+	pageStr := c.DefaultQuery("page", "1")
+	perPageStr := c.DefaultQuery("perPage", "10")
+
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	perPage, err := strconv.Atoi(perPageStr)
+	if err != nil {
+		perPage = 10
+	}
+
+	// Ensure perPage is one of the allowed values
+	validPerPage := []int{10, 25, 50, 100}
+	isValid := false
+	for _, v := range validPerPage {
+		if v == perPage {
+			isValid = true
+			break
+		}
+	}
+	if !isValid {
+		perPage = 10
+	}
+
+	// Get total count for pagination
+	totalCount, err := h.DB.GetUserNotificationCount(userID)
+	if err != nil {
+		c.String(http.StatusInternalServerError, "Failed to count notifications")
+		return
+	}
+
+	// Calculate total pages
+	totalPages := int(math.Ceil(float64(totalCount) / float64(perPage)))
+	if totalPages < 1 {
+		totalPages = 1
+	}
+
+	// Ensure page is within range
+	if page > totalPages {
+		page = totalPages
+	}
+
+	// Calculate offset for database query
+	offset := (page - 1) * perPage
+
+	// Get paginated notifications for the user
+	notifications, err := h.DB.GetPaginatedUserNotifications(userID, offset, perPage)
 	if err != nil {
 		c.String(http.StatusInternalServerError, "Failed to load notifications")
 		return
@@ -29,6 +78,10 @@ func (h *Handlers) HandleNotifications(c *gin.Context) {
 	data := components.NotificationsData{
 		Notifications: notifications,
 		UnreadCount:   unreadCount,
+		CurrentPage:   page,
+		TotalPages:    totalPages,
+		TotalCount:    int(totalCount),
+		PerPage:       perPage,
 	}
 
 	// Render the notifications page

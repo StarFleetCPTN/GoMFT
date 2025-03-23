@@ -38,6 +38,20 @@ func (db *DB) GetUserNotifications(userID uint, limit int) ([]UserNotification, 
 	return notifications, result.Error
 }
 
+// GetUserNotificationCount returns the total count of notifications for a user
+func (db *DB) GetUserNotificationCount(userID uint) (int64, error) {
+	var count int64
+	result := db.Model(&UserNotification{}).Where("user_id = ?", userID).Count(&count)
+	return count, result.Error
+}
+
+// GetPaginatedUserNotifications returns paginated notifications for a user
+func (db *DB) GetPaginatedUserNotifications(userID uint, offset, limit int) ([]UserNotification, error) {
+	var notifications []UserNotification
+	result := db.Where("user_id = ?", userID).Order("created_at DESC").Offset(offset).Limit(limit).Find(&notifications)
+	return notifications, result.Error
+}
+
 // GetUnreadNotificationCount returns the count of unread notifications for a user
 func (db *DB) GetUnreadNotificationCount(userID uint) (int64, error) {
 	var count int64

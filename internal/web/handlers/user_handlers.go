@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -571,316 +570,311 @@ func (h *Handlers) AdminDeleteUser(c *gin.Context) {
 }
 
 // AdminRoles handles the GET /admin/roles route
-func (h *Handlers) AdminRoles(c *gin.Context) {
-	var dbRoles []db.Role
-	if err := h.DB.Find(&dbRoles).Error; err != nil {
-		c.String(http.StatusInternalServerError, "Error fetching roles")
-		return
-	}
+// func (h *Handlers) AdminRoles(c *gin.Context) {
+// 	var dbRoles []db.Role
+// 	if err := h.DB.Find(&dbRoles).Error; err != nil {
+// 		c.String(http.StatusInternalServerError, "Error fetching roles")
+// 		return
+// 	}
 
-	// Convert db.Role to components.Role
-	var roles []components.Role
-	for _, dbRole := range dbRoles {
-		role := components.Role{
-			ID:          dbRole.ID,
-			Name:        dbRole.Name,
-			Description: dbRole.Description,
-			Permissions: dbRole.Permissions,
-		}
-		roles = append(roles, role)
-	}
+// 	// Convert db.Role to components.Role
+// 	var roles []components.Role
+// 	for _, dbRole := range dbRoles {
+// 		role := components.Role{
+// 			ID:          dbRole.ID,
+// 			Name:        dbRole.Name,
+// 			Description: dbRole.Description,
+// 			Permissions: dbRole.Permissions,
+// 		}
+// 		roles = append(roles, role)
+// 	}
 
-	// Use components instead of HTML templates
-	data := components.RolesData{
-		Roles: roles,
-	}
+// 	// Use components instead of HTML templates
+// 	data := components.RolesData{
+// 		Roles: roles,
+// 	}
 
-	ctx := h.CreateTemplateContext(c)
-	components.AdminRoles(ctx, data).Render(ctx, c.Writer)
-}
+// 	ctx := h.CreateTemplateContext(c)
+// 	components.AdminRoles(ctx, data).Render(ctx, c.Writer)
+// }
 
 // AdminNewRolePage handles the GET /admin/roles/new route
-func (h *Handlers) AdminNewRolePage(c *gin.Context) {
-	// Create an empty role for the form
-	role := &components.Role{
-		ID:          0,
-		Name:        "",
-		Description: "",
-		Permissions: []string{},
-	}
+// func (h *Handlers) AdminNewRolePage(c *gin.Context) {
+// 	// Create an empty role for the form
+// 	role := &components.Role{
+// 		ID:          0,
+// 		Name:        "",
+// 		Description: "",
+// 		Permissions: []string{},
+// 	}
 
-	// All available permissions
-	allPermissions := []string{
-		"users.view", "users.create", "users.edit", "users.delete",
-		"roles.view", "roles.create", "roles.edit", "roles.delete",
-		"transfers.view", "transfers.create", "transfers.edit", "transfers.delete",
-		"audit.view",
-	}
+// 	// All available permissions
+// 	allPermissions := []string{
+// 		"users.view", "users.create", "users.edit", "users.delete",
+// 		"roles.view", "roles.create", "roles.edit", "roles.delete",
+// 		"transfers.view", "transfers.create", "transfers.edit", "transfers.delete",
+// 		"audit.view",
+// 	}
 
-	// Use components instead of HTML templates
-	data := components.RoleFormData{
-		Role:           role,
-		IsNew:          true,
-		AllPermissions: allPermissions,
-	}
+// 	// Use components instead of HTML templates
+// 	data := components.RoleFormData{
+// 		Role:           role,
+// 		IsNew:          true,
+// 		AllPermissions: allPermissions,
+// 	}
 
-	ctx := h.CreateTemplateContext(c)
-	components.AdminRoleForm(ctx, data).Render(ctx, c.Writer)
-}
+// 	ctx := h.CreateTemplateContext(c)
+// 	components.AdminRoleForm(ctx, data).Render(ctx, c.Writer)
+// }
 
 // AdminCreateRole handles the POST /admin/roles route
-func (h *Handlers) AdminCreateRole(c *gin.Context) {
-	var role db.Role
-	if err := c.ShouldBind(&role); err != nil {
-		c.String(http.StatusBadRequest, fmt.Sprintf("Invalid form data: %v", err))
-		return
-	}
+// func (h *Handlers) AdminCreateRole(c *gin.Context) {
+// 	name := c.PostForm("name")
+// 	description := c.PostForm("description")
+// 	permissions := c.PostFormArray("permissions[]")
 
-	// Process permissions
-	permissionsStr := c.PostForm("permissions")
-	if permissionsStr != "" {
-		permissions := strings.Split(permissionsStr, ",")
-		for i, p := range permissions {
-			permissions[i] = strings.TrimSpace(p)
-		}
-		role.Permissions = db.Permissions(permissions)
-	}
+// 	// Create role
+// 	role := &db.Role{
+// 		Name:        name,
+// 		Description: description,
+// 	}
+// 	role.SetPermissions(permissions)
 
-	// Start a transaction
-	tx := h.DB.Begin()
-	if tx.Error != nil {
-		c.String(http.StatusInternalServerError, "Failed to begin transaction")
-		return
-	}
+// 	// Validate role
+// 	if err := role.Validate(); err != nil {
+// 		ctx := components.CreateTemplateContext(c)
+// 		data := components.RoleFormData{
+// 			Role:           &components.Role{Name: name, Description: description, Permissions: permissions},
+// 			IsNew:          true,
+// 			ErrorMessage:   err.Error(),
+// 			AllPermissions: GetAllPermissions(),
+// 		}
+// 		_ = components.AdminRoleForm(ctx, data).Render(ctx, c.Writer)
+// 		return
+// 	}
 
-	// Save the role
-	if err := tx.Create(&role).Error; err != nil {
-		tx.Rollback()
-		c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to create role: %v", err))
-		return
-	}
+// 	// Start transaction
+// 	tx := h.DB.Begin()
+// 	if err := tx.Error; err != nil {
+// 		handleRoleError(c, role, true, "Failed to begin transaction: "+err.Error())
+// 		return
+// 	}
 
-	// Create audit log for role creation
-	adminID := c.GetUint("userID")
-	auditDetails := map[string]interface{}{
-		"name":        role.Name,
-		"description": role.Description,
-		"permissions": role.Permissions,
-	}
+// 	// Create role in database
+// 	if err := tx.Create(role).Error; err != nil {
+// 		tx.Rollback()
+// 		handleRoleError(c, role, true, "Failed to create role: "+err.Error())
+// 		return
+// 	}
 
-	auditLog := db.AuditLog{
-		Action:     "create",
-		EntityType: "role",
-		EntityID:   role.ID,
-		UserID:     adminID,
-		Details:    auditDetails,
-		Timestamp:  time.Now(),
-	}
+// 	// Create audit log
+// 	userID := getUserID(c) // Implement this helper to get current user ID
+// 	if err := role.AuditLog(tx, "create", userID); err != nil {
+// 		tx.Rollback()
+// 		handleRoleError(c, role, true, "Failed to create audit log: "+err.Error())
+// 		return
+// 	}
 
-	if err := tx.Create(&auditLog).Error; err != nil {
-		tx.Rollback()
-		c.String(http.StatusInternalServerError, "Failed to create audit log")
-		return
-	}
+// 	// Commit transaction
+// 	if err := tx.Commit().Error; err != nil {
+// 		handleRoleError(c, role, true, "Failed to commit transaction: "+err.Error())
+// 		return
+// 	}
 
-	// Commit the transaction
-	if err := tx.Commit().Error; err != nil {
-		c.String(http.StatusInternalServerError, "Failed to commit transaction")
-		return
-	}
-
-	c.Redirect(http.StatusFound, "/admin/roles")
-}
+// 	c.Redirect(http.StatusFound, "/admin/roles")
+// }
 
 // AdminEditRolePage handles the GET /admin/roles/:id/edit route
-func (h *Handlers) AdminEditRolePage(c *gin.Context) {
-	id := c.Param("id")
+// func (h *Handlers) AdminEditRolePage(c *gin.Context) {
+// 	id := c.Param("id")
 
-	var dbRole db.Role
-	if err := h.DB.First(&dbRole, id).Error; err != nil {
-		c.Redirect(http.StatusFound, "/admin/roles")
-		return
-	}
+// 	var dbRole db.Role
+// 	if err := h.DB.First(&dbRole, id).Error; err != nil {
+// 		c.Redirect(http.StatusFound, "/admin/roles")
+// 		return
+// 	}
 
-	// Convert db.Role to components.Role
-	role := &components.Role{
-		ID:          dbRole.ID,
-		Name:        dbRole.Name,
-		Description: dbRole.Description,
-		Permissions: dbRole.Permissions,
-	}
+// 	// Convert db.Role to components.Role
+// 	role := &components.Role{
+// 		ID:          dbRole.ID,
+// 		Name:        dbRole.Name,
+// 		Description: dbRole.Description,
+// 		Permissions: dbRole.Permissions,
+// 	}
 
-	// All available permissions
-	allPermissions := []string{
-		"users.view", "users.create", "users.edit", "users.delete",
-		"roles.view", "roles.create", "roles.edit", "roles.delete",
-		"transfers.view", "transfers.create", "transfers.edit", "transfers.delete",
-		"audit.view",
-	}
+// 	// All available permissions
+// 	allPermissions := []string{
+// 		"users.view", "users.create", "users.edit", "users.delete",
+// 		"roles.view", "roles.create", "roles.edit", "roles.delete",
+// 		"transfers.view", "transfers.create", "transfers.edit", "transfers.delete",
+// 		"audit.view",
+// 	}
 
-	// Use components instead of HTML templates
-	data := components.RoleFormData{
-		Role:           role,
-		IsNew:          false,
-		AllPermissions: allPermissions,
-	}
+// 	// Use components instead of HTML templates
+// 	data := components.RoleFormData{
+// 		Role:           role,
+// 		IsNew:          false,
+// 		AllPermissions: allPermissions,
+// 	}
 
-	ctx := h.CreateTemplateContext(c)
-	components.AdminRoleForm(ctx, data).Render(ctx, c.Writer)
-}
+// 	ctx := h.CreateTemplateContext(c)
+// 	components.AdminRoleForm(ctx, data).Render(ctx, c.Writer)
+// }
 
 // AdminUpdateRole handles the PUT /admin/roles/:id route
-func (h *Handlers) AdminUpdateRole(c *gin.Context) {
-	id := c.Param("id")
+// func (h *Handlers) AdminUpdateRole(c *gin.Context) {
+// 	id := c.Param("id")
 
-	var role db.Role
-	if err := h.DB.First(&role, id).Error; err != nil {
-		c.String(http.StatusNotFound, "Role not found")
-		return
-	}
+// 	var role db.Role
+// 	if err := h.DB.First(&role, id).Error; err != nil {
+// 		c.String(http.StatusNotFound, "Role not found")
+// 		return
+// 	}
 
-	// Store original role state for audit log
-	oldRole := role
+// 	// Store original role state for audit log
+// 	oldRole := role
 
-	// Update role with form data
-	name := c.PostForm("name")
-	if name != "" {
-		role.Name = name
-	}
+// 	// Update role with form data
+// 	name := c.PostForm("name")
+// 	if name != "" {
+// 		role.Name = name
+// 	}
 
-	description := c.PostForm("description")
-	if description != "" {
-		role.Description = description
-	}
+// 	description := c.PostForm("description")
+// 	if description != "" {
+// 		role.Description = description
+// 	}
 
-	// Process permissions
-	permissionsStr := c.PostForm("permissions")
-	if permissionsStr != "" {
-		permissions := strings.Split(permissionsStr, ",")
-		for i, p := range permissions {
-			permissions[i] = strings.TrimSpace(p)
-		}
-		role.Permissions = db.Permissions(permissions)
-	}
+// 	// Process permissions
+// 	permissionsStr := c.PostForm("permissions")
+// 	if permissionsStr != "" {
+// 		permissions := strings.Split(permissionsStr, ",")
+// 		for i, p := range permissions {
+// 			permissions[i] = strings.TrimSpace(p)
+// 		}
+// 		role.Permissions = db.Permissions(permissions)
+// 	}
 
-	// Start a transaction
-	tx := h.DB.Begin()
-	if tx.Error != nil {
-		c.String(http.StatusInternalServerError, "Failed to begin transaction")
-		return
-	}
+// 	// Start a transaction
+// 	tx := h.DB.Begin()
+// 	if tx.Error != nil {
+// 		c.String(http.StatusInternalServerError, "Failed to begin transaction")
+// 		return
+// 	}
 
-	// Save the role
-	if err := tx.Save(&role).Error; err != nil {
-		tx.Rollback()
-		c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to update role: %v", err))
-		return
-	}
+// 	// Save the role
+// 	if err := tx.Save(&role).Error; err != nil {
+// 		tx.Rollback()
+// 		c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to update role: %v", err))
+// 		return
+// 	}
 
-	// Create audit log entry
-	adminID := c.GetUint("userID")
-	auditDetails := map[string]interface{}{
-		"name":        role.Name,
-		"description": role.Description,
-		"permissions": role.Permissions,
-		"previous_state": map[string]interface{}{
-			"name":        oldRole.Name,
-			"description": oldRole.Description,
-			"permissions": oldRole.Permissions,
-		},
-	}
+// 	// Create audit log entry
+// 	adminID := c.GetUint("userID")
+// 	auditDetails := map[string]interface{}{
+// 		"name":        role.Name,
+// 		"description": role.Description,
+// 		"permissions": role.Permissions,
+// 		"previous_state": map[string]interface{}{
+// 			"name":        oldRole.Name,
+// 			"description": oldRole.Description,
+// 			"permissions": oldRole.Permissions,
+// 		},
+// 	}
 
-	auditLog := db.AuditLog{
-		Action:     "update",
-		EntityType: "role",
-		EntityID:   role.ID,
-		UserID:     adminID,
-		Details:    auditDetails,
-		Timestamp:  time.Now(),
-	}
+// 	auditLog := db.AuditLog{
+// 		Action:     "update",
+// 		EntityType: "role",
+// 		EntityID:   role.ID,
+// 		UserID:     adminID,
+// 		Details:    auditDetails,
+// 		Timestamp:  time.Now(),
+// 	}
 
-	if err := tx.Create(&auditLog).Error; err != nil {
-		tx.Rollback()
-		c.String(http.StatusInternalServerError, "Failed to create audit log")
-		return
-	}
+// 	if err := tx.Create(&auditLog).Error; err != nil {
+// 		tx.Rollback()
+// 		c.String(http.StatusInternalServerError, "Failed to create audit log")
+// 		return
+// 	}
 
-	// Commit the transaction
-	if err := tx.Commit().Error; err != nil {
-		c.String(http.StatusInternalServerError, "Failed to commit transaction")
-		return
-	}
+// 	// Commit the transaction
+// 	if err := tx.Commit().Error; err != nil {
+// 		c.String(http.StatusInternalServerError, "Failed to commit transaction")
+// 		return
+// 	}
 
-	c.Redirect(http.StatusFound, "/admin/roles")
-}
+// 	c.Redirect(http.StatusFound, "/admin/roles")
+// }
 
 // AdminDeleteRole handles the DELETE /admin/roles/:id route
-func (h *Handlers) AdminDeleteRole(c *gin.Context) {
-	id := c.Param("id")
-	adminID := c.GetUint("userID")
+// func (h *Handlers) AdminDeleteRole(c *gin.Context) {
+// 	id := c.Param("id")
+// 	adminID := c.GetUint("userID")
 
-	var role db.Role
-	if err := h.DB.First(&role, id).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Role not found"})
-		return
-	}
+// 	var role db.Role
+// 	if err := h.DB.First(&role, id).Error; err != nil {
+// 		c.JSON(http.StatusNotFound, gin.H{"error": "Role not found"})
+// 		return
+// 	}
 
-	// Check if role is in use
-	var count int64
-	h.DB.Table("user_roles").Where("role_id = ?", role.ID).Count(&count)
-	if count > 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Role is assigned to users and cannot be deleted"})
-		return
-	}
+// 	// Check if role is in use
+// 	var count int64
+// 	h.DB.Table("user_roles").Where("role_id = ?", role.ID).Count(&count)
+// 	if count > 0 {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Role is assigned to users and cannot be deleted"})
+// 		return
+// 	}
 
-	// Start a transaction
-	tx := h.DB.Begin()
-	if tx.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to begin transaction"})
-		return
-	}
+// 	// Start a transaction
+// 	tx := h.DB.Begin()
+// 	if tx.Error != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to begin transaction"})
+// 		return
+// 	}
 
-	// Create audit log before deletion
-	auditDetails := map[string]interface{}{
-		"name":        role.Name,
-		"description": role.Description,
-		"permissions": role.Permissions,
-	}
+// 	// Create audit log before deletion
+// 	auditDetails := map[string]interface{}{
+// 		"name":        role.Name,
+// 		"description": role.Description,
+// 		"permissions": role.Permissions,
+// 	}
 
-	auditLog := db.AuditLog{
-		Action:     "delete",
-		EntityType: "role",
-		EntityID:   role.ID,
-		UserID:     adminID,
-		Details:    auditDetails,
-		Timestamp:  time.Now(),
-	}
+// 	auditLog := db.AuditLog{
+// 		Action:     "delete",
+// 		EntityType: "role",
+// 		EntityID:   role.ID,
+// 		UserID:     adminID,
+// 		Details:    auditDetails,
+// 		Timestamp:  time.Now(),
+// 	}
 
-	if err := tx.Create(&auditLog).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create audit log"})
-		return
-	}
+// 	if err := tx.Create(&auditLog).Error; err != nil {
+// 		tx.Rollback()
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create audit log"})
+// 		return
+// 	}
 
-	// Delete the role
-	if err := tx.Delete(&role).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to delete role: %v", err)})
-		return
-	}
+// 	// Delete the role
+// 	if err := tx.Delete(&role).Error; err != nil {
+// 		tx.Rollback()
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to delete role: %v", err)})
+// 		return
+// 	}
 
-	// Commit the transaction
-	if err := tx.Commit().Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
-		return
-	}
+// 	// Commit the transaction
+// 	if err := tx.Commit().Error; err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+// 		return
+// 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Role deleted successfully"})
-}
+// 	c.JSON(http.StatusOK, gin.H{"message": "Role deleted successfully"})
+// }
 
 // AdminUserRoles handles the GET /admin/users/:id/roles route
 func (h *Handlers) AdminUserRoles(c *gin.Context) {
 	id := c.Param("id")
+
+	fmt.Println("AdminUserRoles")
 
 	var user db.User
 	if err := h.DB.First(&user, id).Error; err != nil {

@@ -118,12 +118,12 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 		adminRoles := admin.Group("/roles")
 		adminRoles.Use(h.PermissionMiddleware("roles.admin"))
 		{
-			adminRoles.GET("", h.AdminRoles)
-			adminRoles.GET("/new", h.AdminNewRolePage)
-			adminRoles.GET("/:id/edit", h.AdminEditRolePage)
-			adminRoles.POST("", h.AdminCreateRole)
-			adminRoles.PUT("/:id", h.AdminUpdateRole)
-			adminRoles.DELETE("/:id", h.AdminDeleteRole)
+			adminRoles.GET("", h.HandleRoles)
+			adminRoles.GET("/new", h.HandleNewRole)
+			adminRoles.GET("/:id/edit", h.HandleRoles)
+			adminRoles.POST("", h.HandleCreateRole)
+			adminRoles.PUT("/:id", h.HandleEditRole)
+			adminRoles.DELETE("/:id", h.HandleDeleteRole)
 		}
 
 		// Audit log routes
@@ -159,6 +159,8 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 			dbGroup.GET("/refresh-backups", h.HandleRefreshBackups)
 			dbGroup.POST("/vacuum-database", h.HandleVacuumDatabase)
 			dbGroup.POST("/clear-job-history", h.HandleClearJobHistory)
+			dbGroup.GET("/export-configs", h.PermissionMiddleware("system.export"), h.HandleExportConfigs)
+			dbGroup.GET("/export-jobs", h.PermissionMiddleware("system.export"), h.HandleExportJobs)
 		}
 
 	}

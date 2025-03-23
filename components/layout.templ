@@ -2,13 +2,13 @@ package components
 
 import (
 	"context"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"time"
-	"fmt"
 )
 
 // AppVersion will be set at build time using ldflags
-// Example build command: 
+// Example build command:
 // go build -ldflags "-X github.com/starfleetcptn/gomft/components.AppVersion=1.2.3"
 var AppVersion = "dev"
 
@@ -48,22 +48,22 @@ templ LayoutWithContext(title string, ctx context.Context) {
 			<meta name="theme-color" content="#2563eb"/>
 			<meta name="apple-mobile-web-app-capable" content="yes"/>
 			<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-			<link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
-			<link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png">
-			<link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
-			<link rel="manifest" href="/static/site.webmanifest">
+			<link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png"/>
+			<link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png"/>
+			<link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png"/>
+			<link rel="manifest" href="/static/site.webmanifest"/>
 			<title>{ title } - GoMFT</title>
 			<script src="https://unpkg.com/htmx.org@1.9.10"></script>
 			<script src="https://unpkg.com/alpinejs@3.13.5/dist/cdn.min.js" defer></script>
 			<!-- Tailwind CSS with Flowbite -->
 			<script src="https://cdn.tailwindcss.com"></script>
-			<link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.1/flowbite.min.css" rel="stylesheet" />
+			<link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.1/flowbite.min.css" rel="stylesheet"/>
 			<script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.1/flowbite.min.js"></script>
 			<script src="/static/js/app.js"></script>
-			<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+			<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
 			<link rel="stylesheet" href="/static/css/app.css"/>
 			<!-- Notyf Toast Notifications -->
-			<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.css" />
+			<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.css"/>
 			<script src="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.js"></script>
 			<script>
 				// Initialize Notyf and make it available globally
@@ -180,7 +180,7 @@ templ LayoutWithContext(title string, ctx context.Context) {
 					background-color: #1f2937 !important;
 				}
 			</style>
-			<link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+			<link rel="stylesheet" href="https://rsms.me/inter/inter.css"/>
 			<script>
 				// Immediate theme application
 				// This script runs before the DOM is fully loaded
@@ -243,69 +243,34 @@ templ LayoutWithContext(title string, ctx context.Context) {
 										Files
 									</a>
 									if isAdmin(ctx) {
-										<div class="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
-											<p class="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-												Administration
-											</p>
-											<div class="mt-1 space-y-1">
-												<!-- Admin dropdown menu -->
-												<button 
-													type="button" 
-													class="flex items-center w-full p-2 text-sm font-medium text-gray-700 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" 
-													aria-controls="dropdown-admin" 
-													data-collapse-toggle="dropdown-admin"
-													aria-expanded="true"
-												>
-													<i class="fas fa-shield-alt w-5 h-5 text-gray-500 dark:text-gray-400 mr-3"></i>
-													<span class="flex-1 text-left whitespace-nowrap">Admin Console</span>
-													<i class="fas fa-chevron-down w-4 h-4"></i>
-												</button>
-												<ul id="dropdown-admin" class="hidden py-2 space-y-1">
-													<li>
-														<a href="/admin" class="flex items-center p-2 pl-11 w-full text-sm font-normal text-gray-700 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
-															<i class="fas fa-tachometer-alt w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
-															Dashboard
-														</a>
-													</li>
-													<li>
-														<a href="/admin/users" class="flex items-center p-2 pl-11 w-full text-sm font-normal text-gray-700 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
-															<i class="fas fa-users w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
-															Users
-														</a>
-													</li>
-													<li>
-														<a href="/admin/roles" class="flex items-center p-2 pl-11 w-full text-sm font-normal text-gray-700 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
-															<i class="fas fa-user-shield w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
-															Roles
-														</a>
-													</li>
-													<li>
-														<a href="/admin/audit" class="flex items-center p-2 pl-11 w-full text-sm font-normal text-gray-700 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
-															<i class="fas fa-clipboard-list w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
-															Audit Logs
-														</a>
-													</li>
-													<li>
-														<a href="/admin/database" class="flex items-center p-2 pl-11 w-full text-sm font-normal text-gray-700 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
-															<i class="fas fa-database w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
-															Database Tools
-														</a>
-													</li>
-													<li>
-														<a href="/admin/settings" class="flex items-center p-2 pl-11 w-full text-sm font-normal text-gray-700 rounded-lg transition duration-75 group hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
-															<i class="fas fa-cog w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
-															Settings
-														</a>
-													</li>
-												</ul>
-											</div>
-										</div>
+										<p class="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+											Administration
+										</p>
+										<a href="/admin/users" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+											<i class="fas fa-users w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
+											Users
+										</a>
+										<a href="/admin/roles" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+											<i class="fas fa-user-shield w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
+											Roles
+										</a>
+										<a href="/admin/audit" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+											<i class="fas fa-clipboard-list w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
+											Audit Logs
+										</a>
+										<a href="/admin/database" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+											<i class="fas fa-database w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
+											Database Tools
+										</a>
+										<a href="/admin/settings" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+											<i class="fas fa-cog w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
+											Settings
+										</a>
 									}
 								</div>
 							</nav>
 						</div>
 					</aside>
-
 					<!-- Mobile menu -->
 					<div class="md:hidden fixed top-0 z-30 w-full">
 						<div class="bg-white dark:bg-gray-800 shadow-sm">
@@ -322,7 +287,6 @@ templ LayoutWithContext(title string, ctx context.Context) {
 							</div>
 						</div>
 					</div>
-
 					<!-- Main Content -->
 					<div class="md:pl-64 flex flex-col flex-1 w-full bg-gray-50 dark:bg-gray-900">
 						<!-- Main header -->
@@ -346,29 +310,30 @@ templ LayoutWithContext(title string, ctx context.Context) {
 										<i class="fas fa-sun hidden dark:block"></i>
 										<i class="fas fa-moon block dark:hidden"></i>
 									</button>
-									
 									<!-- Notification Bell -->
 									<div class="relative">
-										<button 
-											type="button" 
-											class="p-2 text-gray-500 rounded-lg hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700 focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600 relative" 
-											id="notification-bell" 
+										<button
+											type="button"
+											class="p-2 text-gray-500 rounded-lg hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700 focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600 relative"
+											id="notification-bell"
 											data-dropdown-toggle="notification-dropdown"
 											hx-get="/notifications/dropdown"
 											hx-trigger="click once"
-											hx-target="#notification-dropdown-content" 
-											data-dropdown-placement="bottom-end">
+											hx-target="#notification-dropdown-content"
+											data-dropdown-placement="bottom-end"
+										>
 											<span class="sr-only">View notifications</span>
 											<i class="fas fa-bell"></i>
 											<!-- Notification badge will be loaded dynamically -->
 											<div hx-get="/notifications/count" hx-trigger="load, notification-updated from:body" id="notification-count-container"></div>
 										</button>
-										
 										<!-- Notification dropdown -->
-										<div class="hidden overflow-hidden z-50 my-4 max-w-sm md:max-w-md w-full text-base list-none bg-white rounded divide-y divide-gray-100 shadow-lg dark:divide-gray-600 dark:bg-gray-700 rounded-xl"
-											 id="notification-dropdown"
-											 style="min-width: 320px; width: 100%;"
-											 data-dropdown-placement="bottom-end">
+										<div
+											class="hidden overflow-hidden z-50 my-4 max-w-sm md:max-w-md w-full text-base list-none bg-white rounded divide-y divide-gray-100 shadow-lg dark:divide-gray-600 dark:bg-gray-700 rounded-xl"
+											id="notification-dropdown"
+											style="min-width: 320px; width: 100%;"
+											data-dropdown-placement="bottom-end"
+										>
 											<div id="notification-dropdown-content">
 												<!-- Content will be loaded dynamically via HTMX -->
 												<div class="block py-2 px-4 text-base font-medium text-center text-gray-700 bg-gray-50 dark:bg-gray-600 dark:text-gray-300">
@@ -395,38 +360,44 @@ templ LayoutWithContext(title string, ctx context.Context) {
 											</div>
 										</div>
 									</div>
-									
 									<!-- User menu dropdown -->
 									<div class="relative">
-										<button type="button" 
-												class="flex text-sm rounded-full focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600" 
-												id="user-menu-button" 
-												data-dropdown-toggle="user-dropdown"
-												data-dropdown-placement="bottom-end">
+										<button
+											type="button"
+											class="flex text-sm rounded-full focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600"
+											id="user-menu-button"
+											data-dropdown-toggle="user-dropdown"
+											data-dropdown-placement="bottom-end"
+										>
 											<span class="sr-only">Open user menu</span>
 											<div class="h-8 w-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center dark:bg-primary-900 dark:text-primary-300">
 												<span class="text-sm font-medium">{ getUserInitial(ctx) }</span>
 											</div>
 										</button>
-										
 										<!-- Dropdown menu -->
-										<div class="z-50 hidden my-4 text-base list-none bg-white divide-y divide-gray-100 rounded-lg shadow dark:bg-gray-700 dark:divide-gray-600" 
-											 id="user-dropdown">
+										<div
+											class="z-50 hidden my-4 text-base list-none bg-white divide-y divide-gray-100 rounded-lg shadow dark:bg-gray-700 dark:divide-gray-600"
+											id="user-dropdown"
+										>
 											<div class="px-4 py-3">
 												<span class="block text-sm text-gray-900 dark:text-white">{ getUserEmail(ctx) }</span>
 											</div>
 											<ul class="py-2" aria-labelledby="user-menu-button">
 												<li>
-													<a href="/profile" 
-													   class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-gray-200 dark:hover:text-white">
+													<a
+														href="/profile"
+														class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 dark:text-gray-200 dark:hover:text-white"
+													>
 														<i class="fas fa-user-circle mr-2 w-4"></i>
 														Profile
 													</a>
 												</li>
 												<li>
 													<form method="POST" action="/logout">
-														<button type="submit" 
-																class="w-full text-left flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white">
+														<button
+															type="submit"
+															class="w-full text-left flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-600 dark:hover:text-white"
+														>
 															<i class="fas fa-sign-out-alt mr-2 w-4"></i>
 															Sign out
 														</button>
@@ -438,7 +409,6 @@ templ LayoutWithContext(title string, ctx context.Context) {
 								</div>
 							</div>
 						</header>
-
 						<!-- Page Content -->
 						<main class="flex-1 bg-gray-50 dark:bg-gray-900">
 							<div class="py-6 bg-gray-50 dark:bg-gray-900">
@@ -449,7 +419,6 @@ templ LayoutWithContext(title string, ctx context.Context) {
 								</div>
 							</div>
 						</main>
-
 						<!-- Footer -->
 						<footer class="bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
 							<div class="max-w-screen-2xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
@@ -491,7 +460,6 @@ templ LayoutWithContext(title string, ctx context.Context) {
 					</footer>
 				</div>
 			}
-			
 			<script>
 				// Add script to ensure dark mode is properly applied
 				document.addEventListener('DOMContentLoaded', function() {

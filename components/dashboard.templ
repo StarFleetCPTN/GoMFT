@@ -147,15 +147,15 @@ templ Dashboard(ctx context.Context, data DashboardData) {
 											<div class="flex items-center">
 												<div class="flex-shrink-0">
 													if job.Status == "completed" {
-														<span class="inline-flex items-center justify-center h-12 w-12 rounded-full bg-green-100 dark:bg-green-900">
+														<span class="inline-flex items-center justify-center h-12 w-12 rounded-full text-green-600 bg-green-100 dark:bg-green-900">
 															<i class="fas fa-check-circle w-6 h-6 flex items-center justify-center"></i>
 														</span>
 													} else if job.Status == "failed" {
-														<span class="inline-flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900">
+														<span class="inline-flex items-center justify-center h-12 w-12 rounded-full text-red-600 bg-red-100 dark:bg-red-900">
 															<i class="fas fa-exclamation-circle w-6 h-6 flex items-center justify-center"></i>
 														</span>
 													} else {
-														<span class="inline-flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900">
+														<span class="inline-flex items-center justify-center h-12 w-12 rounded-full text-blue-600 bg-blue-100 dark:bg-blue-900">
 															<i class="fas fa-tasks w-6 h-6 flex items-center justify-center"></i>
 														</span>
 													}
