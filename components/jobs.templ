@@ -319,6 +319,16 @@ templ Jobs(ctx context.Context, data JobsData) {
 																<i class="fas fa-pen-to-square mr-1"></i>
 																Edit
 															</a>
+															<button 
+																hx-post={ fmt.Sprintf("/jobs/%d/duplicate", job.ID) }
+																hx-swap="innerHTML"
+																hx-target="body"
+																class="text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:ring-4 focus:outline-none focus:ring-indigo-300 font-medium rounded-lg text-xs px-3 py-1.5 text-center inline-flex items-center dark:bg-indigo-700 dark:text-indigo-300 dark:hover:bg-indigo-600 dark:focus:ring-indigo-800"
+																data-job-id={ fmt.Sprint(job.ID) }
+																data-job-name={ job.Name }>
+																<i class="fas fa-clone mr-1"></i>
+																Duplicate
+															</button>
 															<!-- Add delete dialog for each job -->
 															@JobDialog(
 																fmt.Sprintf("delete-job-dialog-%d", job.ID),

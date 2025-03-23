@@ -136,6 +136,18 @@ templ Configs(ctx context.Context, data ConfigsData) {
 					// This is definitely a delete request - store this information
 					window.isConfigDeleteRequest = true;
 				}
+				
+				// Check if this is a duplication request
+				if (path && method === 'POST' && path.match(/^\/configs\/\d+\/duplicate$/)) {
+					window.isConfigDuplicateRequest = true;
+					
+					// Store the config ID for reference
+					const configId = path.match(/^\/configs\/(\d+)\/duplicate$/)[1];
+					const configButton = document.querySelector(`button[hx-post="/configs/${configId}/duplicate"]`);
+					if (configButton) {
+						window.duplicatingConfigName = configButton.closest('li').querySelector('.text-blue-600').textContent.trim();
+					}
+				}
 			});
 
 			// Track HTMX after-request events for config deletion
@@ -174,6 +186,22 @@ templ Configs(ctx context.Context, data ConfigsData) {
 					window.currentlyDeletingConfig = false;
 					window.isConfigDeleteRequest = false;
 					window.lastDeletedConfig = null;
+				}
+				
+				// Check if this is a duplication request
+				const isDuplicateRequest = window.isConfigDuplicateRequest && 
+					event.detail.pathInfo && 
+					event.detail.pathInfo.requestPath && 
+					event.detail.pathInfo.requestPath.match(/^\/configs\/\d+\/duplicate$/);
+				
+				// If this is a successful duplication request, show notification
+				if (isDuplicateRequest && event.detail.successful) {
+					const configName = window.duplicatingConfigName || "configuration";
+					window.notyf.success(`Configuration "${configName}" duplicated successfully`);
+					
+					// Clear flags
+					window.isConfigDuplicateRequest = false;
+					window.duplicatingConfigName = null;
 				}
 			});
 			
@@ -217,6 +245,36 @@ templ Configs(ctx context.Context, data ConfigsData) {
 					window.currentlyDeletingConfig = false;
 					window.isConfigDeleteRequest = false;
 					window.lastDeletedConfig = null;
+				}
+				
+				// Check if this is a duplication request
+				const isDuplicateRequest = window.isConfigDuplicateRequest && 
+					event.detail.pathInfo && 
+					event.detail.pathInfo.requestPath && 
+					event.detail.pathInfo.requestPath.match(/^\/configs\/\d+\/duplicate$/);
+				
+				if (isDuplicateRequest) {
+					const configName = window.duplicatingConfigName || "configuration";
+					
+					let errorMsg = `Failed to duplicate configuration "${configName}"`;
+					
+					if (event.detail.xhr && event.detail.xhr.responseText) {
+						try {
+							const error = JSON.parse(event.detail.xhr.responseText);
+							errorMsg = `Error: ${error.error}`;
+						} catch (e) {
+							// If not JSON, use the response text directly
+							if (event.detail.xhr.responseText.trim()) {
+								errorMsg = event.detail.xhr.responseText;
+							}
+						}
+					}
+					
+					window.notyf.error(errorMsg);
+					
+					// Clear flags
+					window.isConfigDuplicateRequest = false;
+					window.duplicatingConfigName = null;
 				}
 			});
 		</script>
@@ -289,6 +347,15 @@ templ Configs(ctx context.Context, data ConfigsData) {
 															<i class="fas fa-edit w-3.5 h-3.5 mr-1.5"></i>
 															Edit
 														</a>
+														<!-- Duplicate config button -->
+														<button 
+															type="button"
+															hx-post={ fmt.Sprintf("/configs/%d/duplicate", config.ID) }
+															hx-target="body"
+															class="text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:ring-4 focus:outline-none focus:ring-indigo-300 font-medium rounded-lg text-sm px-3 py-1.5 text-center inline-flex items-center dark:bg-indigo-700 dark:text-indigo-300 dark:hover:bg-indigo-600 dark:focus:ring-indigo-800">
+															<i class="fas fa-clone w-3.5 h-3.5 mr-1.5"></i>
+															Duplicate
+														</button>
 														<!-- Add delete dialog for each configuration -->
 														@ConfigDialog(
 															fmt.Sprintf("delete-config-dialog-%d", config.ID),
@@ -353,6 +420,15 @@ templ Configs(ctx context.Context, data ConfigsData) {
 						</div>
 						<div class="ml-2 text-sm">
 							<p class="text-gray-700 dark:text-gray-300">Google Drive and Google Photos configurations require authentication. Click the "Authenticate" button to complete setup.</p>
+						</div>
+					</div>
+
+					<div class="flex items-start mt-4">
+						<div class="flex items-center h-5">
+							<i class="fas fa-clone w-4 h-4 text-indigo-500 dark:text-indigo-400 mr-2"></i>
+						</div>
+						<div class="ml-2 text-sm">
+							<p class="text-gray-700 dark:text-gray-300">When duplicating configurations, you may need to re-enter sensitive credentials for security reasons. Make sure to edit duplicated configurations to add any required credentials.</p>
 						</div>
 					</div>
 				</div>

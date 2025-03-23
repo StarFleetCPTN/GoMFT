@@ -447,6 +447,9 @@ func (s *Scheduler) processConfiguration(job *db.Job, config *db.TransferConfig,
 
 	s.log.LogDebug("Creating job history record: %+v", history)
 
+	// Send webhook notification for job start
+	s.sendWebhookNotification(job, history, config)
+
 	// Execute the configuration transfer
 	s.executeConfigTransfer(*job, *config, history)
 }
@@ -484,6 +487,7 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 			}
 			// Send webhook notification for failure
 			s.sendWebhookNotification(&job, history, &config)
+
 			return
 		}
 		defer os.Remove(filterFile)
@@ -974,8 +978,14 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 		s.log.LogError("Error updating job history for job %d, config %d: %v", job.ID, config.ID, err)
 	}
 
+	// Create job notification
+	if err := s.createJobNotification(&job, history); err != nil {
+		s.log.LogError("Failed to create job notification", "jobID", job.ID, "error", err)
+	}
+
 	// Send webhook notification for success or with errors
 	s.sendWebhookNotification(&job, history, &config)
+
 }
 
 // ProcessOutputPattern processes an output pattern with variables and returns the result
@@ -1098,20 +1108,25 @@ func (s *Scheduler) checkFileProcessingHistory(jobID uint, fileName string) (*db
 
 // sendWebhookNotification sends a notification to the configured webhook URL
 func (s *Scheduler) sendWebhookNotification(job *db.Job, history *db.JobHistory, config *db.TransferConfig) {
-	if !job.GetWebhookEnabled() || job.WebhookURL == "" {
-		return
+	// First, handle job-specific webhook if configured
+	if job.GetWebhookEnabled() && job.WebhookURL != "" {
+		// Skip notifications based on settings
+		if history.Status == "completed" && !job.GetNotifyOnSuccess() {
+			s.log.LogDebug("Skipping success notification for job %d (notifyOnSuccess=false)", job.ID)
+		} else if history.Status == "failed" && !job.GetNotifyOnFailure() {
+			s.log.LogDebug("Skipping failure notification for job %d (notifyOnFailure=false)", job.ID)
+		} else {
+			s.log.LogInfo("Sending job-specific webhook notification for job %d", job.ID)
+			s.sendJobWebhookNotification(job, history, config)
+		}
 	}
 
-	// Skip notifications based on settings
-	if history.Status == "completed" && !job.GetNotifyOnSuccess() {
-		return
-	}
-	if history.Status == "failed" && !job.GetNotifyOnFailure() {
-		return
-	}
+	// Next, process global notification services
+	s.sendGlobalNotifications(job, history, config)
+}
 
-	s.log.LogInfo("Sending webhook notification for job %d", job.ID)
-
+// sendJobWebhookNotification sends a notification to the job's configured webhook URL
+func (s *Scheduler) sendJobWebhookNotification(job *db.Job, history *db.JobHistory, config *db.TransferConfig) {
 	// Create the payload with useful information
 	payload := map[string]interface{}{
 		"event_type":        "job_execution",
@@ -1207,4 +1222,569 @@ func (s *Scheduler) sendWebhookNotification(job *db.Job, history *db.JobHistory,
 			s.log.LogDebug("Webhook response: %s", respBody)
 		}
 	}
+}
+
+// sendGlobalNotifications sends notifications through all configured notification services
+func (s *Scheduler) sendGlobalNotifications(job *db.Job, history *db.JobHistory, config *db.TransferConfig) {
+	// Fetch all enabled notification services
+	services, err := s.db.GetNotificationServices(true)
+	if err != nil {
+		s.log.LogError("Error fetching notification services: %v", err)
+		return
+	}
+
+	if len(services) == 0 {
+		s.log.LogDebug("No enabled notification services found")
+		return
+	}
+
+	s.log.LogInfo("Found %d enabled notification services", len(services))
+
+	// Determine event type based on job status
+	var eventType string
+	switch history.Status {
+	case "running":
+		eventType = "job_start"
+	case "completed", "completed_with_errors":
+		eventType = "job_complete"
+	case "failed":
+		eventType = "job_error"
+	default:
+		eventType = "job_status"
+	}
+
+	// Process each notification service
+	for i := range services {
+		service := &services[i] // Use pointer to update stats
+		s.log.LogInfo("Processing notification service %s (%s)", service.Name, service.Type)
+		// Check if this service should handle this event type
+		shouldSend := false
+		for _, trigger := range service.EventTriggers {
+			if trigger == eventType {
+				shouldSend = true
+				break
+			}
+		}
+
+		// Skip if this service doesn't handle this event type
+		if !shouldSend {
+			s.log.LogDebug("Skipping notification service %s (%s) for event %s (not in triggers)",
+				service.Name, service.Type, eventType)
+			continue
+		}
+
+		s.log.LogInfo("Sending notification via service %s (%s) for job %d",
+			service.Name, service.Type, job.ID)
+
+		// Send notification based on service type
+		var notifyErr error
+		switch service.Type {
+		case "email":
+			notifyErr = s.sendEmailNotification(service, job, history, config, eventType)
+		case "webhook":
+			notifyErr = s.sendServiceWebhookNotification(service, job, history, config, eventType)
+		default:
+			s.log.LogError("Unsupported notification service type: %s", service.Type)
+			continue
+		}
+
+		// Update service success/failure count
+		if notifyErr != nil {
+			service.FailureCount++
+			s.log.LogError("Notification service %s failed: %v", service.Name, notifyErr)
+		} else {
+			service.SuccessCount++
+			service.LastUsed = time.Now()
+			s.log.LogInfo("Notification service %s sent successfully", service.Name)
+		}
+
+		// Update notification service stats in the database
+		if err := s.db.UpdateNotificationService(service); err != nil {
+			s.log.LogError("Error updating notification service stats: %v", err)
+		}
+	}
+}
+
+// sendEmailNotification sends an email notification using the configured email service
+func (s *Scheduler) sendEmailNotification(service *db.NotificationService, job *db.Job, history *db.JobHistory, config *db.TransferConfig, eventType string) error {
+	s.log.LogDebug("Preparing email notification via service %s for job %d", service.Name, job.ID)
+
+	// Extract SMTP settings from service config
+	smtpHost := service.Config["smtp_host"]
+	smtpPortStr := service.Config["smtp_port"]
+	fromEmail := service.Config["from_email"]
+	toEmail := service.Config["to_email"]
+
+	// Validate required settings
+	if smtpHost == "" || smtpPortStr == "" || fromEmail == "" || toEmail == "" {
+		return fmt.Errorf("missing required SMTP settings")
+	}
+
+	// Parse SMTP port
+	smtpPort, err := strconv.Atoi(smtpPortStr)
+	if err != nil {
+		return fmt.Errorf("invalid SMTP port: %v", err)
+	}
+
+	// Prepare email content
+	subject := fmt.Sprintf("[GoMFT] Job %s: %s", job.Name, history.Status)
+	body := generateEmailBody(job, history, config, eventType)
+
+	// TODO: Implement actual email sending logic
+	// This would typically involve using a package like "net/smtp" or a third-party
+	// email library to send the actual email.
+	// For actual implementation, you would use:
+	// - smtpUsername := service.Config["smtp_username"]
+	// - smtpPassword := service.Config["smtp_password"]
+
+	s.log.LogInfo("Email would be sent to %s with subject: %s", toEmail, subject)
+	s.log.LogDebug("Email body: %s", body)
+
+	// Placeholder for actual email sending
+	// For now, we'll just log that the email would be sent
+	s.log.LogInfo("Email notification prepared (SMTP: %s:%d, From: %s, To: %s)",
+		smtpHost, smtpPort, fromEmail, toEmail)
+
+	return nil
+}
+
+// generateEmailBody creates the email body for job notifications
+func generateEmailBody(job *db.Job, history *db.JobHistory, config *db.TransferConfig, eventType string) string {
+	var b strings.Builder
+
+	b.WriteString(fmt.Sprintf("Job: %s (ID: %d)\n", job.Name, job.ID))
+	b.WriteString(fmt.Sprintf("Status: %s\n", history.Status))
+	b.WriteString(fmt.Sprintf("Start Time: %s\n", history.StartTime.Format(time.RFC3339)))
+
+	if history.EndTime != nil {
+		b.WriteString(fmt.Sprintf("End Time: %s\n", history.EndTime.Format(time.RFC3339)))
+		duration := history.EndTime.Sub(history.StartTime)
+		b.WriteString(fmt.Sprintf("Duration: %.2f seconds\n", duration.Seconds()))
+	}
+
+	b.WriteString(fmt.Sprintf("Files Transferred: %d\n", history.FilesTransferred))
+	b.WriteString(fmt.Sprintf("Bytes Transferred: %d\n", history.BytesTransferred))
+
+	b.WriteString("\nTransfer Configuration:\n")
+	b.WriteString(fmt.Sprintf("Name: %s (ID: %d)\n", config.Name, config.ID))
+	b.WriteString(fmt.Sprintf("Source: %s:%s\n", config.SourceType, config.SourcePath))
+	b.WriteString(fmt.Sprintf("Destination: %s:%s\n", config.DestinationType, config.DestinationPath))
+
+	if history.ErrorMessage != "" {
+		b.WriteString("\nError Details:\n")
+		b.WriteString(history.ErrorMessage)
+	}
+
+	return b.String()
+}
+
+// sendServiceWebhookNotification sends a webhook notification using a configured notification service
+func (s *Scheduler) sendServiceWebhookNotification(service *db.NotificationService, job *db.Job, history *db.JobHistory, config *db.TransferConfig, eventType string) error {
+	s.log.LogDebug("Preparing webhook notification via service %s for job %d", service.Name, job.ID)
+
+	// Extract webhook settings
+	webhookURL := service.Config["webhook_url"]
+	method := service.Config["method"]
+	if method == "" {
+		method = "POST" // Default to POST if not specified
+	}
+
+	// Validate required settings
+	if webhookURL == "" {
+		return fmt.Errorf("missing webhook URL")
+	}
+
+	// Prepare payload
+	var payload map[string]interface{}
+
+	// Use custom payload template if provided
+	if service.PayloadTemplate != "" {
+		// Parse the template and fill in variables
+		payload = generateCustomPayload(service.PayloadTemplate, job, history, config, eventType)
+	} else {
+		// Use default payload format
+		payload = generateDefaultPayload(job, history, config, eventType)
+	}
+
+	// Convert payload to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("error marshaling webhook payload: %v", err)
+	}
+
+	s.log.LogDebug("Webhook payload: %s", string(jsonPayload))
+
+	// Create HTTP request
+	req, err := http.NewRequest(method, webhookURL, bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		return fmt.Errorf("error creating webhook request: %v", err)
+	}
+
+	// Set default headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "GoMFT-Notification/1.0")
+
+	// Add signature if secret key is provided
+	if service.SecretKey != "" {
+		h := hmac.New(sha256.New, []byte(service.SecretKey))
+		h.Write(jsonPayload)
+		signature := hex.EncodeToString(h.Sum(nil))
+		req.Header.Set("X-GoMFT-Signature", signature)
+	}
+
+	// Add custom headers if specified
+	if headersStr := service.Config["headers"]; headersStr != "" {
+		var headers map[string]string
+		if err := json.Unmarshal([]byte(headersStr), &headers); err == nil {
+			for key, value := range headers {
+				req.Header.Set(key, value)
+			}
+		}
+	}
+
+	s.log.LogDebug("Webhook headers: %+v", req.Header)
+
+	// Determine timeout based on retry policy
+	timeout := 10 * time.Second
+	maxRetries := 0
+
+	switch service.RetryPolicy {
+	case "none":
+		maxRetries = 0
+	case "simple":
+		maxRetries = 3
+		timeout = 15 * time.Second
+	case "exponential":
+		maxRetries = 5
+		timeout = 30 * time.Second
+	default:
+		// Default to simple
+		maxRetries = 3
+		timeout = 15 * time.Second
+	}
+
+	// Prepare client with timeout
+	client := &http.Client{
+		Timeout: timeout,
+	}
+
+	// Attempt to send with retries
+	var resp *http.Response
+	var lastErr error
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			// Wait before retry with increasing backoff
+			backoffDuration := time.Duration(1<<uint(attempt-1)) * time.Second
+			s.log.LogInfo("Retrying webhook notification (attempt %d/%d) after %v",
+				attempt, maxRetries, backoffDuration)
+			time.Sleep(backoffDuration)
+		}
+
+		resp, err = client.Do(req)
+		if err == nil {
+			// Check for success status code
+			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				defer resp.Body.Close()
+				s.log.LogInfo("Webhook notification sent successfully (status: %d)", resp.StatusCode)
+				return nil
+			}
+
+			// Error status code
+			respBody, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			lastErr = fmt.Errorf("webhook returned status %d: %s", resp.StatusCode, respBody)
+			s.log.LogError("Webhook error (attempt %d/%d): %v", attempt+1, maxRetries+1, lastErr)
+		} else {
+			// Network or request error
+			lastErr = fmt.Errorf("webhook request failed: %v", err)
+			s.log.LogError("Webhook request error (attempt %d/%d): %v", attempt+1, maxRetries+1, lastErr)
+		}
+	}
+
+	return lastErr
+}
+
+// generateDefaultPayload creates a standard webhook payload
+func generateDefaultPayload(job *db.Job, history *db.JobHistory, config *db.TransferConfig, eventType string) map[string]interface{} {
+	payload := map[string]interface{}{
+		"event": eventType,
+		"job": map[string]interface{}{
+			"id":             job.ID,
+			"name":           job.Name,
+			"status":         history.Status,
+			"message":        history.ErrorMessage,
+			"started_at":     history.StartTime.Format(time.RFC3339),
+			"config_id":      config.ID,
+			"config_name":    config.Name,
+			"transfer_bytes": history.BytesTransferred,
+			"file_count":     history.FilesTransferred,
+		},
+		"instance": map[string]interface{}{
+			"id":          "gomft",
+			"name":        "GoMFT",
+			"version":     "1.0",        // TODO: Get actual version
+			"environment": "production", // TODO: Get from env
+		},
+		"timestamp": time.Now().Format(time.RFC3339),
+	}
+
+	if history.EndTime != nil {
+		payload["job"].(map[string]interface{})["completed_at"] = history.EndTime.Format(time.RFC3339)
+		duration := history.EndTime.Sub(history.StartTime)
+		payload["job"].(map[string]interface{})["duration_seconds"] = duration.Seconds()
+	}
+
+	return payload
+}
+
+// generateCustomPayload creates a webhook payload from a template
+func generateCustomPayload(template string, job *db.Job, history *db.JobHistory, config *db.TransferConfig, eventType string) map[string]interface{} {
+	// Start with the default payload as a base
+	defaultPayload := generateDefaultPayload(job, history, config, eventType)
+
+	// Parse the template string to JSON
+	var customPayload map[string]interface{}
+	if err := json.Unmarshal([]byte(template), &customPayload); err != nil {
+		// If template can't be parsed, fall back to default payload
+		return defaultPayload
+	}
+
+	// Replace variables in the template
+	// This is a simplified version - a real implementation would do deep traversal
+	// and replace all variables in the structure
+	processedPayload := processPayloadVariables(customPayload, defaultPayload)
+
+	return processedPayload
+}
+
+// processPayloadVariables recursively processes a payload structure and replaces variables
+func processPayloadVariables(customPayload map[string]interface{}, variables map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	// Process each key-value pair in the custom payload
+	for key, value := range customPayload {
+		switch v := value.(type) {
+		case string:
+			// Replace string variables
+			result[key] = replaceVariables(v, variables)
+		case map[string]interface{}:
+			// Recursively process nested maps
+			result[key] = processPayloadVariables(v, variables)
+		case []interface{}:
+			// Process arrays
+			result[key] = processArrayVariables(v, variables)
+		default:
+			// Keep other types as is
+			result[key] = value
+		}
+	}
+
+	return result
+}
+
+// processArrayVariables processes array elements for variable replacement
+func processArrayVariables(array []interface{}, variables map[string]interface{}) []interface{} {
+	result := make([]interface{}, len(array))
+
+	for i, value := range array {
+		switch v := value.(type) {
+		case string:
+			result[i] = replaceVariables(v, variables)
+		case map[string]interface{}:
+			result[i] = processPayloadVariables(v, variables)
+		case []interface{}:
+			result[i] = processArrayVariables(v, variables)
+		default:
+			result[i] = value
+		}
+	}
+
+	return result
+}
+
+// replaceVariables replaces variable placeholders in a string with their values
+func replaceVariables(template string, variables map[string]interface{}) string {
+	// Check for variable pattern like {{job.name}}
+	re := regexp.MustCompile(`{{([^{}]+)}}`)
+	result := re.ReplaceAllStringFunc(template, func(match string) string {
+		// Extract variable path (e.g., "job.name")
+		varPath := re.FindStringSubmatch(match)[1]
+		parts := strings.Split(varPath, ".")
+
+		// Navigate the variables structure to find the value
+		var current interface{} = variables
+		for _, part := range parts {
+			if m, ok := current.(map[string]interface{}); ok {
+				if val, exists := m[part]; exists {
+					current = val
+				} else {
+					return match // Keep original if not found
+				}
+			} else {
+				return match // Keep original if structure doesn't match
+			}
+		}
+
+		// Convert the found value to string
+		switch v := current.(type) {
+		case string:
+			return v
+		case int, int64, uint, uint64, float32, float64:
+			return fmt.Sprintf("%v", v)
+		case bool:
+			return fmt.Sprintf("%v", v)
+		case time.Time:
+			return v.Format(time.RFC3339)
+		default:
+			// For complex types, convert to JSON
+			if bytes, err := json.Marshal(v); err == nil {
+				return string(bytes)
+			}
+			return match
+		}
+	})
+
+	return result
+}
+
+func (s *Scheduler) updateJobStatus(jobID uint, status string, startTime, endTime time.Time, message string) (*db.JobHistory, error) {
+	// Create the history record
+	history := &db.JobHistory{
+		JobID:        jobID,
+		Status:       status,
+		StartTime:    startTime,
+		EndTime:      &endTime,
+		ErrorMessage: message,
+	}
+
+	// Add code to create notifications for job events
+	if job, err := s.db.GetJob(jobID); err == nil {
+		// Get the user who created the job
+		userID := job.CreatedBy
+
+		// Create job title from job name or ID
+		jobTitle := job.Name
+		if jobTitle == "" {
+			jobTitle = fmt.Sprintf("Job #%d", job.ID)
+		}
+
+		// Check which notification to send based on status
+		var notificationType db.NotificationType
+		var title string
+		var message string
+
+		switch status {
+		case "running":
+			notificationType = db.NotificationJobStart
+			title = "Job Started"
+			message = jobTitle
+		case "completed":
+			notificationType = db.NotificationJobComplete
+			title = "Job Complete"
+			message = jobTitle
+		case "failed":
+			notificationType = db.NotificationJobFail
+			title = "Job Failed"
+			message = jobTitle
+			if history.ErrorMessage != "" {
+				message = jobTitle + ": " + history.ErrorMessage
+			}
+		default:
+			// Don't create notifications for other statuses
+			return history, nil
+		}
+
+		// Create the notification
+		err = s.db.CreateJobNotification(
+			userID,
+			jobID,
+			history.ID, // Use the job history ID
+			notificationType,
+			title,
+			message,
+		)
+
+		if err != nil {
+			s.log.LogError("Failed to create job notification", "jobID", job.ID, "error", err)
+			// Continue anyway, not critical
+		}
+	}
+
+	return history, nil
+}
+
+// Create a job history record and send notification
+func (s *Scheduler) createJobHistoryAndNotify(job *db.Job, status string, startTime time.Time, endTime time.Time, message string) error {
+	// Create the job history entry
+	history := db.JobHistory{
+		JobID:        job.ID,
+		Status:       status,
+		StartTime:    startTime,
+		EndTime:      &endTime,
+		ErrorMessage: message,
+	}
+
+	// Save to database
+	if err := s.db.Create(&history).Error; err != nil {
+		s.log.LogError("Failed to create job history", "jobID", job.ID, "error", err)
+		return err
+	}
+
+	// Create notification
+	err := s.createJobNotification(job, &history)
+	if err != nil {
+		s.log.LogError("Failed to create job notification", "jobID", job.ID, "error", err)
+		// Continue anyway - notification is not critical
+	}
+
+	return nil
+}
+
+// Create a notification for a job event
+func (s *Scheduler) createJobNotification(job *db.Job, history *db.JobHistory) error {
+	// Get the user who created the job
+	userID := job.CreatedBy
+
+	// Create job title from job name or ID
+	jobTitle := job.Name
+	if jobTitle == "" {
+		jobTitle = fmt.Sprintf("Job #%d", job.ID)
+	}
+
+	// Determine notification type and content
+	var notificationType db.NotificationType
+	var title string
+	var message string
+
+	switch history.Status {
+	case "running":
+		notificationType = db.NotificationJobStart
+		title = "Job Started"
+		message = jobTitle
+	case "completed":
+		notificationType = db.NotificationJobComplete
+		title = "Job Complete"
+		message = jobTitle
+	case "failed":
+		notificationType = db.NotificationJobFail
+		title = "Job Failed"
+		message = jobTitle
+		if history.ErrorMessage != "" {
+			message = jobTitle + ": " + history.ErrorMessage
+		}
+	default:
+		// Don't create notifications for other statuses
+		return nil
+	}
+
+	// Create the notification
+	return s.db.CreateJobNotification(
+		userID,
+		job.ID,
+		history.ID,
+		notificationType,
+		title,
+		message,
+	)
 }

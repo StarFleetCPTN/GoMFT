@@ -1,0 +1,86 @@
+package components
+
+import (
+	"context"
+	"fmt"
+)
+
+templ NotificationsPage(ctx context.Context, data NotificationsData) {
+	@LayoutWithContext("Notifications", ctx) {
+		<div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
+			<div class="p-6">
+				<div class="flex justify-between items-center mb-6">
+					<h1 class="text-2xl font-bold text-gray-900 dark:text-white">Notifications</h1>
+					<div class="flex space-x-2">
+						<a 
+							href="/notifications/mark-all-read"
+							hx-post="/notifications/mark-all-read"
+							hx-swap="none"
+							hx-target="#notification-bell"
+							class="text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+						>
+							<i class="fas fa-check-double mr-1"></i>
+							Mark all as read
+						</a>
+					</div>
+				</div>
+				
+				if len(data.Notifications) == 0 {
+					<div class="text-center py-12">
+						<div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 mb-4">
+							<i class="fas fa-bell-slash text-2xl text-gray-500 dark:text-gray-400"></i>
+						</div>
+						<h3 class="text-lg font-medium text-gray-900 dark:text-white mb-1">No notifications</h3>
+						<p class="text-gray-500 dark:text-gray-400">You don't have any notifications yet.</p>
+					</div>
+				} else {
+					<div class="divide-y divide-gray-200 dark:divide-gray-700">
+						for _, notification := range data.Notifications {
+							<div 
+								class={ "py-4 flex items-start", templ.KV("bg-blue-50 dark:bg-blue-900/20", !notification.IsRead) }
+								id={ "notification-" + fmt.Sprintf("%d", notification.ID) }>
+								<div class="flex-shrink-0 mr-4">
+									<div class={ "w-12 h-12 rounded-full flex items-center justify-center", GetNotificationBgColor(notification.Type) }>
+										<i class={ GetNotificationIcon(notification.Type) }></i>
+									</div>
+								</div>
+								<div class="flex-1 min-w-0">
+									<div class="flex justify-between items-start">
+										<div>
+											<h3 class="text-base font-medium text-gray-900 dark:text-white">{ notification.Title }</h3>
+											<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{ notification.Message }</p>
+										</div>
+										<div class="flex items-center text-xs text-gray-500 dark:text-gray-400">
+											<span>{ FormatNotificationTime(notification.CreatedAt) }</span>
+											if !notification.IsRead {
+												<button
+													hx-post={ "/notifications/" + fmt.Sprintf("%d", notification.ID) + "/read" }
+													hx-target={ "#notification-" + fmt.Sprintf("%d", notification.ID) }
+													hx-swap="outerHTML"
+													class="ml-4 text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+												>
+													<i class="fas fa-check"></i>
+													<span class="sr-only">Mark as read</span>
+												</button>
+											}
+										</div>
+									</div>
+									<div class="mt-2">
+										<a 
+											href={ templ.SafeURL(notification.Link) } 
+											class="inline-flex items-center text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">
+											<span>View details</span>
+											<i class="fas fa-chevron-right ml-1 text-xs"></i>
+										</a>
+									</div>
+								</div>
+							</div>
+						}
+					</div>
+					
+					<!-- Pagination will go here if needed -->
+				}
+			</div>
+		</div>
+	}
+} 

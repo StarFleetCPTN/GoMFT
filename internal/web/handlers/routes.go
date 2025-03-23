@@ -35,6 +35,13 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 	authorized.GET("/profile/2fa/backup-codes", h.Handle2FABackupCodes)
 	authorized.POST("/profile/2fa/regenerate-codes", h.Handle2FARegenerateCodes)
 
+	// Add notifications routes
+	authorized.GET("/notifications", h.HandleNotifications)
+	authorized.GET("/notifications/dropdown", h.HandleLoadNotifications)
+	authorized.GET("/notifications/count", h.HandleNotificationCount)
+	authorized.POST("/notifications/:id/read", h.HandleMarkNotificationAsRead)
+	authorized.POST("/notifications/mark-all-read", h.HandleMarkAllNotificationsAsRead)
+
 	{
 		authorized.GET("/dashboard", h.HandleDashboard)
 		authorized.GET("/configs", h.HandleConfigs)
@@ -44,6 +51,7 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 		authorized.PUT("/configs/:id", h.HandleUpdateConfig)
 		authorized.POST("/configs/:id", h.HandleUpdateConfig)
 		authorized.DELETE("/configs/:id", h.HandleDeleteConfig)
+		authorized.POST("/configs/:id/duplicate", h.HandleDuplicateConfig)
 
 		// Path validation endpoint
 		authorized.GET("/check-path", h.HandleCheckPath)
@@ -60,6 +68,7 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 		authorized.PUT("/jobs/:id", h.HandleUpdateJob)
 		authorized.POST("/jobs/:id", h.HandleUpdateJob)
 		authorized.DELETE("/jobs/:id", h.HandleDeleteJob)
+		authorized.POST("/jobs/:id/duplicate", h.HandleDuplicateJob)
 		authorized.POST("/jobs/:id/run", h.HandleRunJob)
 		authorized.GET("/history", h.HandleHistory)
 		authorized.GET("/job-runs/:id", h.HandleJobRunDetails)
@@ -132,6 +141,7 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 			settingsGroup.GET("", h.HandleSettings)
 			settingsGroup.POST("/notifications", h.HandleCreateNotificationService)
 			settingsGroup.DELETE("/notifications/:id", h.HandleDeleteNotificationService)
+			settingsGroup.POST("/notifications/test", h.HandleTestNotification)
 			settingsGroup.POST("/general", h.HandleSettings)  // Placeholder for future implementation
 			settingsGroup.POST("/security", h.HandleSettings) // Placeholder for future implementation
 		}

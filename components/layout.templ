@@ -353,12 +353,15 @@ templ LayoutWithContext(title string, ctx context.Context) {
 											type="button" 
 											class="p-2 text-gray-500 rounded-lg hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700 focus:ring-4 focus:ring-gray-300 dark:focus:ring-gray-600 relative" 
 											id="notification-bell" 
-											data-dropdown-toggle="notification-dropdown" 
+											data-dropdown-toggle="notification-dropdown"
+											hx-get="/notifications/dropdown"
+											hx-trigger="click once"
+											hx-target="#notification-dropdown-content" 
 											data-dropdown-placement="bottom-end">
 											<span class="sr-only">View notifications</span>
 											<i class="fas fa-bell"></i>
-											<!-- Notification badge -->
-											<div class="absolute inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full -top-1 -right-1">3</div>
+											<!-- Notification badge will be loaded dynamically -->
+											<div hx-get="/notifications/count" hx-trigger="load, notification-updated from:body" id="notification-count-container"></div>
 										</button>
 										
 										<!-- Notification dropdown -->
@@ -366,99 +369,30 @@ templ LayoutWithContext(title string, ctx context.Context) {
 											 id="notification-dropdown"
 											 style="min-width: 320px; width: 100%;"
 											 data-dropdown-placement="bottom-end">
-											<div class="block py-2 px-4 text-base font-medium text-center text-gray-700 bg-gray-50 dark:bg-gray-600 dark:text-gray-300">
-												Notifications
-											</div>
-											<div>
-												<!-- Job completed notification -->
-												<a href="#" class="flex py-3 px-4 border-b hover:bg-gray-100 dark:hover:bg-gray-600 dark:border-gray-600">
-													<div class="flex-shrink-0">
-														<div class="w-11 h-11 rounded-full bg-green-100 flex items-center justify-center dark:bg-green-900">
-															<i class="fas fa-check-circle text-green-600 dark:text-green-300"></i>
-														</div>
-														<div class="flex absolute justify-center items-center ml-6 -mt-5 w-5 h-5 bg-primary-700 rounded-full border border-white dark:border-gray-700">
-															<i class="fas fa-check text-white text-xs"></i>
-														</div>
-													</div>
-													<div class="pl-3 w-full">
-														<div class="text-gray-500 font-normal text-sm mb-1.5 dark:text-gray-400">
-															<span class="font-semibold text-gray-900 dark:text-white">Job Complete:</span> Daily backup to AWS S3
-														</div>
-														<div class="text-xs font-medium text-primary-600 dark:text-primary-500">
-															10 minutes ago
-														</div>
-													</div>
-												</a>
-												
-												<!-- Job failed notification -->
-												<a href="#" class="flex py-3 px-4 border-b hover:bg-gray-100 dark:hover:bg-gray-600 dark:border-gray-600">
-													<div class="flex-shrink-0">
-														<div class="w-11 h-11 rounded-full bg-red-100 flex items-center justify-center dark:bg-red-900">
-															<i class="fas fa-exclamation-circle text-red-600 dark:text-red-300"></i>
-														</div>
-														<div class="flex absolute justify-center items-center ml-6 -mt-5 w-5 h-5 bg-red-600 rounded-full border border-white dark:border-gray-700">
-															<i class="fas fa-times text-white text-xs"></i>
-														</div>
-													</div>
-													<div class="pl-3 w-full">
-														<div class="text-gray-500 font-normal text-sm mb-1.5 dark:text-gray-400">
-															<span class="font-semibold text-gray-900 dark:text-white">Job Failed:</span> SFTP transfer to customer portal
-														</div>
-														<div class="text-xs font-medium text-primary-600 dark:text-primary-500">
-															1 hour ago
-														</div>
-													</div>
-												</a>
-												
-												<!-- Config updated notification -->
-												<a href="#" class="flex py-3 px-4 border-b hover:bg-gray-100 dark:hover:bg-gray-600 dark:border-gray-600">
-													<div class="flex-shrink-0">
-														<div class="w-11 h-11 rounded-full bg-blue-100 flex items-center justify-center dark:bg-blue-900">
-															<i class="fas fa-cog text-blue-600 dark:text-blue-300"></i>
-														</div>
-														<div class="flex absolute justify-center items-center ml-6 -mt-5 w-5 h-5 bg-blue-500 rounded-full border border-white dark:border-gray-700">
-															<i class="fas fa-wrench text-white text-xs"></i>
-														</div>
-													</div>
-													<div class="pl-3 w-full">
-														<div class="text-gray-500 font-normal text-sm mb-1.5 dark:text-gray-400">
-															<span class="font-semibold text-gray-900 dark:text-white">Config Updated:</span> AWS credentials refreshed
-														</div>
-														<div class="text-xs font-medium text-primary-600 dark:text-primary-500">
-															3 hours ago
-														</div>
-													</div>
-												</a>
-												
-												<!-- New user notification -->
-												<a href="#" class="flex py-3 px-4 hover:bg-gray-100 dark:hover:bg-gray-600">
-													<div class="flex-shrink-0">
-														<div class="w-11 h-11 rounded-full bg-purple-100 flex items-center justify-center dark:bg-purple-900">
-															<i class="fas fa-user-plus text-purple-600 dark:text-purple-300"></i>
-														</div>
-														<div class="flex absolute justify-center items-center ml-6 -mt-5 w-5 h-5 bg-purple-500 rounded-full border border-white dark:border-gray-700">
-															<i class="fas fa-user text-white text-xs"></i>
-														</div>
-													</div>
-													<div class="pl-3 w-full">
-														<div class="text-gray-500 font-normal text-sm mb-1.5 dark:text-gray-400">
-															<span class="font-semibold text-gray-900 dark:text-white">User Added:</span> New admin added to the system
-														</div>
-														<div class="text-xs font-medium text-primary-600 dark:text-primary-500">
-															5 hours ago
-														</div>
-													</div>
-												</a>
-											</div>
-											<a href="/notifications" class="block py-2 text-md font-medium text-center text-gray-900 bg-gray-50 hover:bg-gray-100 dark:bg-gray-600 dark:text-white dark:hover:underline">
-												<div class="inline-flex items-center">
-													<svg aria-hidden="true" class="mr-2 w-4 h-4 text-gray-500 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-														<path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path>
-														<path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"></path>
-													</svg>
-													View all
+											<div id="notification-dropdown-content">
+												<!-- Content will be loaded dynamically via HTMX -->
+												<div class="block py-2 px-4 text-base font-medium text-center text-gray-700 bg-gray-50 dark:bg-gray-600 dark:text-gray-300">
+													Notifications
 												</div>
-											</a>
+												<div class="py-4 px-4 text-center text-gray-500 dark:text-gray-400">
+													<div class="animate-pulse flex flex-col items-center">
+														<div class="rounded-full bg-gray-200 dark:bg-gray-700 h-12 w-12 mb-2"></div>
+														<div class="h-2 bg-gray-200 dark:bg-gray-700 rounded w-24 mb-4"></div>
+														<div class="h-2 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
+														<div class="h-2 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
+														<div class="h-2 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+													</div>
+												</div>
+												<a href="/notifications" class="block py-2 text-md font-medium text-center text-gray-900 bg-gray-50 hover:bg-gray-100 dark:bg-gray-600 dark:text-white dark:hover:underline">
+													<div class="inline-flex items-center">
+														<svg aria-hidden="true" class="mr-2 w-4 h-4 text-gray-500 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+															<path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path>
+															<path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"></path>
+														</svg>
+														View all
+													</div>
+												</a>
+											</div>
 										</div>
 									</div>
 									

@@ -427,3 +427,145 @@ func (h *Handlers) HandleDeleteConfig(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Config deleted successfully"})
 }
+
+// HandleDuplicateConfig handles the POST /configs/:id/duplicate route
+func (h *Handlers) HandleDuplicateConfig(c *gin.Context) {
+	id := c.Param("id")
+	userID := c.GetUint("userID")
+
+	var originalConfig db.TransferConfig
+	if err := h.DB.First(&originalConfig, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Config not found"})
+		return
+	}
+
+	// Check if user owns this config
+	if originalConfig.CreatedBy != userID {
+		// Check if user is admin
+		isAdmin, exists := c.Get("isAdmin")
+		if !exists || isAdmin != true {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You do not have permission to duplicate this config"})
+			return
+		}
+	}
+
+	// Create a duplicate config
+	duplicateConfig := originalConfig
+	duplicateConfig.ID = 0 // Set ID to 0 to create a new record
+	duplicateConfig.Name = originalConfig.Name + " - Copy"
+	duplicateConfig.CreatedAt = time.Now()
+	duplicateConfig.UpdatedAt = time.Now()
+	duplicateConfig.CreatedBy = userID
+
+	// Deep copy all boolean pointers
+	skipProcessedVal := *originalConfig.SkipProcessedFiles
+	duplicateConfig.SkipProcessedFiles = &skipProcessedVal
+
+	archiveEnabledVal := *originalConfig.ArchiveEnabled
+	duplicateConfig.ArchiveEnabled = &archiveEnabledVal
+
+	deleteAfterTransferVal := *originalConfig.DeleteAfterTransfer
+	duplicateConfig.DeleteAfterTransfer = &deleteAfterTransferVal
+
+	sourcePassiveModeVal := *originalConfig.SourcePassiveMode
+	duplicateConfig.SourcePassiveMode = &sourcePassiveModeVal
+
+	destPassiveModeVal := *originalConfig.DestPassiveMode
+	duplicateConfig.DestPassiveMode = &destPassiveModeVal
+
+	// Google Photos specific fields
+	if originalConfig.DestReadOnly != nil {
+		destReadOnlyVal := *originalConfig.DestReadOnly
+		duplicateConfig.DestReadOnly = &destReadOnlyVal
+	}
+
+	if originalConfig.SourceReadOnly != nil {
+		sourceReadOnlyVal := *originalConfig.SourceReadOnly
+		duplicateConfig.SourceReadOnly = &sourceReadOnlyVal
+	}
+
+	if originalConfig.DestIncludeArchived != nil {
+		destIncludeArchivedVal := *originalConfig.DestIncludeArchived
+		duplicateConfig.DestIncludeArchived = &destIncludeArchivedVal
+	}
+
+	if originalConfig.SourceIncludeArchived != nil {
+		sourceIncludeArchivedVal := *originalConfig.SourceIncludeArchived
+		duplicateConfig.SourceIncludeArchived = &sourceIncludeArchivedVal
+	}
+
+	if originalConfig.UseBuiltinAuthSource != nil {
+		useBuiltinAuthSourceVal := *originalConfig.UseBuiltinAuthSource
+		duplicateConfig.UseBuiltinAuthSource = &useBuiltinAuthSourceVal
+	}
+
+	if originalConfig.UseBuiltinAuthDest != nil {
+		useBuiltinAuthDestVal := *originalConfig.UseBuiltinAuthDest
+		duplicateConfig.UseBuiltinAuthDest = &useBuiltinAuthDestVal
+	}
+
+	// Start a transaction
+	tx := h.DB.Begin()
+	if tx.Error != nil {
+		log.Printf("Error beginning transaction: %v", tx.Error)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to begin transaction"})
+		return
+	}
+
+	if err := tx.Create(&duplicateConfig).Error; err != nil {
+		tx.Rollback()
+		log.Printf("Error creating duplicate config: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to create duplicate config: %v", err)})
+		return
+	}
+
+	// Create audit log entry
+	auditDetails := map[string]interface{}{
+		"name":                  duplicateConfig.Name,
+		"source_type":           duplicateConfig.SourceType,
+		"dest_type":             duplicateConfig.DestinationType,
+		"source_path":           duplicateConfig.SourcePath,
+		"dest_path":             duplicateConfig.DestinationPath,
+		"skip_processed_files":  *duplicateConfig.SkipProcessedFiles,
+		"archive_enabled":       *duplicateConfig.ArchiveEnabled,
+		"delete_after_transfer": *duplicateConfig.DeleteAfterTransfer,
+		"source_passive_mode":   *duplicateConfig.SourcePassiveMode,
+		"dest_passive_mode":     *duplicateConfig.DestPassiveMode,
+		"duplicated_from":       originalConfig.ID,
+	}
+
+	auditLog := db.AuditLog{
+		Action:     "duplicate",
+		EntityType: "config",
+		EntityID:   duplicateConfig.ID,
+		UserID:     userID,
+		Details:    auditDetails,
+		Timestamp:  time.Now(),
+	}
+
+	if err := tx.Create(&auditLog).Error; err != nil {
+		tx.Rollback()
+		log.Printf("Error creating audit log: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create audit log"})
+		return
+	}
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		log.Printf("Error committing transaction: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+		return
+	}
+
+	// Generate rclone config file for the duplicate
+	if err := h.DB.GenerateRcloneConfig(&duplicateConfig); err != nil {
+		log.Printf("Warning: Failed to generate rclone config for duplicate: %v", err)
+		// Continue anyway, as the config was created in the database
+	} else {
+		log.Printf("Generated rclone config for duplicate config ID %d", duplicateConfig.ID)
+	}
+
+	// Return with full page reload to show the new config
+	c.Header("HX-Refresh", "true")
+	c.JSON(http.StatusOK, gin.H{"message": "Config duplicated successfully"})
+}

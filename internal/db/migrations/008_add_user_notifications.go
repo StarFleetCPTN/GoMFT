@@ -1,7 +1,6 @@
 package migrations
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,10 +10,10 @@ import (
 	"gorm.io/gorm"
 )
 
-// AddTimestampsToJobHistories creates a migration for adding timestamp columns to job_histories table
-func AddTimestampsToJobHistories() *gormigrate.Migration {
+// AddUserNotifications adds the user_notifications table
+func AddUserNotifications() *gormigrate.Migration {
 	return &gormigrate.Migration{
-		ID: "006_add_timestamps_to_job_histories",
+		ID: "008_add_user_notifications",
 		Migrate: func(tx *gorm.DB) error {
 			// Check if any tables exist (indicating an existing database)
 			var count int64
@@ -69,59 +68,55 @@ func AddTimestampsToJobHistories() *gormigrate.Migration {
 
 				fmt.Printf("Created database backup at: %s\n", backupFile)
 			}
-
-			// Add created_at column
-			if err := tx.Exec("ALTER TABLE job_histories ADD COLUMN created_at DATETIME").Error; err != nil {
-				return fmt.Errorf("failed to add created_at column: %v", err)
-			}
-
-			// Add updated_at column
-			if err := tx.Exec("ALTER TABLE job_histories ADD COLUMN updated_at DATETIME").Error; err != nil {
-				return fmt.Errorf("failed to add updated_at column: %v", err)
-			}
-
-			// Set default values for existing records
-			now := time.Now()
-			if err := tx.Exec("UPDATE job_histories SET created_at = ?, updated_at = ? WHERE created_at IS NULL", now, now).Error; err != nil {
-				return fmt.Errorf("failed to update existing records: %v", err)
-			}
-
-			// Create audit log entry for the migration
-			details, err := json.Marshal(map[string]interface{}{
-				"columns_added": []string{"created_at", "updated_at"},
-				"table":         "job_histories",
-			})
+			// Create the user_notifications table
+			err := tx.Exec(`
+				CREATE TABLE IF NOT EXISTS user_notifications (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					user_id INTEGER NOT NULL,
+					type TEXT NOT NULL,
+					title TEXT NOT NULL,
+					message TEXT NOT NULL,
+					link TEXT NOT NULL,
+					job_id INTEGER,
+					job_run_id INTEGER,
+					config_id INTEGER,
+					is_read BOOLEAN NOT NULL DEFAULT 0,
+					created_at DATETIME NOT NULL,
+					FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+				)
+			`).Error
 			if err != nil {
 				return err
 			}
 
-			return tx.Exec(`
-				INSERT INTO audit_logs (action, entity_type, entity_id, user_id, details, created_at, updated_at, timestamp)
-				VALUES ('schema_update', 'job_histories', 0, 1, ?, ?, ?, ?)
-			`, string(details), now, now, now).Error
+			// Create an index on user_id for faster lookups
+			err = tx.Exec(`
+				CREATE INDEX IF NOT EXISTS idx_user_notifications_user_id ON user_notifications(user_id)
+			`).Error
+			if err != nil {
+				return err
+			}
+
+			// Create an index on created_at for faster sorting
+			err = tx.Exec(`
+				CREATE INDEX IF NOT EXISTS idx_user_notifications_created_at ON user_notifications(created_at)
+			`).Error
+			if err != nil {
+				return err
+			}
+
+			// Create an index on is_read for faster filtering of unread notifications
+			err = tx.Exec(`
+				CREATE INDEX IF NOT EXISTS idx_user_notifications_is_read ON user_notifications(is_read)
+			`).Error
+			if err != nil {
+				return err
+			}
+
+			return nil
 		},
 		Rollback: func(tx *gorm.DB) error {
-			// In SQLite, we can't drop columns directly, so we'd need to:
-			// 1. Create a new table without the columns
-			// 2. Copy data from the old table
-			// 3. Drop the old table
-			// 4. Rename the new table
-			//
-			// However, keeping the timestamp columns is generally harmless,
-			// so we'll just log a message instead of performing a risky rollback
-
-			now := time.Now()
-			details, err := json.Marshal(map[string]interface{}{
-				"message": "Skipped removal of timestamp columns from job_histories due to SQLite limitations",
-			})
-			if err != nil {
-				return err
-			}
-
-			return tx.Exec(`
-				INSERT INTO audit_logs (action, entity_type, entity_id, user_id, details, created_at, updated_at, timestamp)
-				VALUES ('migration_rollback', 'job_histories', 0, 1, ?, ?, ?, ?)
-			`, string(details), now, now, now).Error
+			return tx.Exec(`DROP TABLE IF EXISTS user_notifications`).Error
 		},
 	}
 }

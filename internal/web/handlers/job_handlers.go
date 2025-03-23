@@ -733,3 +733,87 @@ func (h *Handlers) HandleRunJob(c *gin.Context) {
 	successScript := fmt.Sprintf("<script>window.notyfInstance.success('Job \"%s\" has been started successfully')</script>", jobName)
 	c.String(http.StatusOK, successScript)
 }
+
+// HandleDuplicateJob handles duplication of a job
+func (h *Handlers) HandleDuplicateJob(c *gin.Context) {
+	// Get the job ID from the URL
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid job ID"})
+		return
+	}
+
+	userID := c.GetUint("userID")
+
+	// Get the original job
+	var originalJob db.Job
+	if err := h.DB.First(&originalJob, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+		return
+	}
+
+	// Create a new job as a copy of the original
+	newJob := originalJob
+	newJob.ID = 0 // Reset ID to create a new record
+	newJob.Name = originalJob.Name + " - Copy"
+	newJob.CreatedAt = time.Now()
+	newJob.UpdatedAt = time.Now()
+
+	// Reset execution specific fields
+	newJob.LastRun = nil
+	newJob.NextRun = nil
+
+	// Save the new job
+	if err := h.DB.Create(&newJob).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create duplicate job: " + err.Error()})
+		return
+	}
+
+	// If the job has associated configs, duplicate those associations
+	configIDs := originalJob.GetConfigIDsList()
+	if len(configIDs) > 0 {
+		// Set the new job's config IDs
+		newJob.SetConfigIDsList(configIDs)
+		if err := h.DB.Save(&newJob).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update config associations: " + err.Error()})
+			return
+		}
+	}
+
+	// Create audit log entry
+	auditDetails := map[string]interface{}{
+		"name":              newJob.Name,
+		"original_job_id":   originalJob.ID,
+		"new_job_id":        newJob.ID,
+		"schedule":          newJob.Schedule,
+		"enabled":           newJob.GetEnabled(),
+		"config_ids":        configIDs,
+		"webhook_enabled":   newJob.GetWebhookEnabled(),
+		"notify_on_success": newJob.GetNotifyOnSuccess(),
+		"notify_on_failure": newJob.GetNotifyOnFailure(),
+	}
+
+	auditLog := db.AuditLog{
+		Action:     "duplicate",
+		EntityType: "job",
+		EntityID:   newJob.ID,
+		UserID:     userID,
+		Details:    auditDetails,
+		Timestamp:  time.Now(),
+	}
+
+	if err := h.DB.Create(&auditLog).Error; err != nil {
+		log.Printf("Warning: Failed to create audit log for job duplication: %v", err)
+		// Continue anyway, as this is not critical
+	}
+
+	// Schedule the job with the scheduler
+	if err := h.Scheduler.ScheduleJob(&newJob); err != nil {
+		log.Printf("Warning: Failed to schedule duplicated job: %v", err)
+		// Continue anyway, as user can manually schedule later
+	}
+
+	// Redirect to jobs page
+	c.Redirect(http.StatusFound, "/jobs")
+}

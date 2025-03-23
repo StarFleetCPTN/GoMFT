@@ -64,8 +64,8 @@ templ Dashboard(ctx context.Context, data DashboardData) {
 				<div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
 					<div class="flex items-center justify-between mb-4">
 						<h3 class="text-lg font-semibold text-gray-900 dark:text-white">Active Transfers</h3>
-						<div class="flex items-center justify-center w-8 h-8 text-blue-600 bg-blue-100 rounded-lg dark:text-blue-300 dark:bg-blue-900">
-							<i class="fas fa-exchange-alt w-5 h-5 text-center"></i>
+						<div class="inline-flex items-center justify-center w-10 h-10 text-blue-600 bg-blue-100 rounded-lg dark:text-blue-300 dark:bg-blue-900">
+							<i class="fas fa-exchange-alt w-6 h-6 flex items-center justify-center"></i>
 						</div>
 					</div>
 					<div class="flex items-center">
@@ -82,8 +82,8 @@ templ Dashboard(ctx context.Context, data DashboardData) {
 				<div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
 					<div class="flex items-center justify-between mb-4">
 						<h3 class="text-lg font-semibold text-gray-900 dark:text-white">Completed Today</h3>
-						<div class="flex items-center justify-center w-8 h-8 text-green-600 bg-green-100 rounded-lg dark:text-green-300 dark:bg-green-900">
-							<i class="fas fa-check-circle w-5 h-5 text-center"></i>
+						<div class="inline-flex items-center justify-center w-10 h-10 text-green-600 bg-green-100 rounded-lg dark:text-green-300 dark:bg-green-900">
+							<i class="fas fa-check-circle w-6 h-6 flex items-center justify-center"></i>
 						</div>
 					</div>
 					<div class="flex items-center">
@@ -100,8 +100,8 @@ templ Dashboard(ctx context.Context, data DashboardData) {
 				<div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
 					<div class="flex items-center justify-between mb-4">
 						<h3 class="text-lg font-semibold text-gray-900 dark:text-white">Failed Transfers</h3>
-						<div class="flex items-center justify-center w-8 h-8 text-red-600 bg-red-100 rounded-lg dark:text-red-300 dark:bg-red-900">
-							<i class="fas fa-exclamation-circle w-5 h-5 text-center"></i>
+						<div class="inline-flex items-center justify-center w-10 h-10 text-red-600 bg-red-100 rounded-lg dark:text-red-300 dark:bg-red-900">
+							<i class="fas fa-exclamation-circle w-6 h-6 flex items-center justify-center"></i>
 						</div>
 					</div>
 					<div class="flex items-center">
@@ -121,7 +121,7 @@ templ Dashboard(ctx context.Context, data DashboardData) {
 				<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800">
 					<div class="flex items-center justify-between px-4 py-4 border-b border-gray-200 dark:border-gray-700">
 						<h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-							<i class="fas fa-history w-5 h-5 mr-2 text-blue-500 dark:text-blue-400 flex-shrink-0"></i>
+							<i class="fas fa-history w-6 h-6 mr-2 text-blue-500 dark:text-blue-400 flex-shrink-0"></i>
 							Recent Jobs
 						</h3>
 					</div>
@@ -147,16 +147,16 @@ templ Dashboard(ctx context.Context, data DashboardData) {
 											<div class="flex items-center">
 												<div class="flex-shrink-0">
 													if job.Status == "completed" {
-														<span class="inline-flex items-center justify-center h-10 w-10 rounded-full bg-green-100 dark:bg-green-900">
-															<i class="fas fa-check-circle w-5 h-5 text-green-600 dark:text-green-300"></i>
+														<span class="inline-flex items-center justify-center h-12 w-12 rounded-full bg-green-100 dark:bg-green-900">
+															<i class="fas fa-check-circle w-6 h-6 flex items-center justify-center"></i>
 														</span>
 													} else if job.Status == "failed" {
-														<span class="inline-flex items-center justify-center h-10 w-10 rounded-full bg-red-100 dark:bg-red-900">
-															<i class="fas fa-exclamation-circle w-5 h-5 text-red-600 dark:text-red-300"></i>
+														<span class="inline-flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900">
+															<i class="fas fa-exclamation-circle w-6 h-6 flex items-center justify-center"></i>
 														</span>
 													} else {
-														<span class="inline-flex items-center justify-center h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900">
-															<i class="fas fa-tasks w-5 h-5 text-blue-600 dark:text-blue-300"></i>
+														<span class="inline-flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 dark:bg-blue-900">
+															<i class="fas fa-tasks w-6 h-6 flex items-center justify-center"></i>
 														</span>
 													}
 												</div>
@@ -195,21 +195,21 @@ templ Dashboard(ctx context.Context, data DashboardData) {
 				<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800">
 					<div class="flex items-center justify-between px-4 py-4 border-b border-gray-200 dark:border-gray-700">
 						<h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
-							<i class="fas fa-bolt w-5 h-5 mr-2 text-blue-500 dark:text-blue-400 flex-shrink-0"></i>
+							<i class="fas fa-bolt w-6 h-6 mr-2 text-blue-500 dark:text-blue-400 flex-shrink-0"></i>
 							Quick Actions
 						</h3>
 					</div>
 					<div class="p-4 space-y-4">
 						<a href="/configs/new" class="inline-flex items-center justify-center w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
-							<i class="fas fa-plus w-4 h-4 mr-2"></i>
+							<i class="fas fa-plus w-5 h-5 mr-2"></i>
 							Create New Config
 						</a>
 						<a href="/jobs/new" class="inline-flex items-center justify-center w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
-							<i class="fas fa-tasks w-4 h-4 mr-2"></i>
+							<i class="fas fa-tasks w-5 h-5 mr-2"></i>
 							Create New Job
 						</a>
 						<a href="/history" class="inline-flex items-center justify-center w-full text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 font-medium rounded-lg px-5 py-2.5 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700">
-							<i class="fas fa-history w-4 h-4 mr-2"></i>
+							<i class="fas fa-history w-5 h-5 mr-2"></i>
 							View Transfer History
 						</a>
 						

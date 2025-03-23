@@ -1,0 +1,183 @@
+package components
+
+import (
+	"github.com/starfleetcptn/gomft/internal/db"
+	"time"
+	"fmt"
+)
+
+type NotificationsData struct {
+	Notifications []db.UserNotification
+	UnreadCount   int64
+}
+
+// FormatNotificationTime formats a notification time in a user-friendly way
+func FormatNotificationTime(t time.Time) string {
+	now := time.Now()
+	diff := now.Sub(t)
+	
+	if diff < time.Minute {
+		return "just now"
+	} else if diff < time.Hour {
+		minutes := int(diff.Minutes())
+		if minutes == 1 {
+			return "1 minute ago"
+		}
+		return fmt.Sprintf("%d minutes ago", minutes)
+	} else if diff < 24*time.Hour {
+		hours := int(diff.Hours())
+		if hours == 1 {
+			return "1 hour ago"
+		}
+		return fmt.Sprintf("%d hours ago", hours)
+	} else if diff < 48*time.Hour {
+		return "yesterday"
+	} else {
+		days := int(diff.Hours() / 24)
+		if days < 7 {
+			return fmt.Sprintf("%d days ago", days)
+		} else {
+			return t.Format("Jan 2")
+		}
+	}
+}
+
+// GetNotificationIcon returns the appropriate icon class based on notification type
+func GetNotificationIcon(notificationType db.NotificationType) string {
+	switch notificationType {
+	case db.NotificationJobStart:
+		return "fas fa-play text-blue-600 dark:text-blue-300"
+	case db.NotificationJobComplete:
+		return "fas fa-check-circle text-green-600 dark:text-green-300"
+	case db.NotificationJobFail:
+		return "fas fa-exclamation-circle text-red-600 dark:text-red-300"
+	case db.NotificationConfigUpdate:
+		return "fas fa-cog text-blue-600 dark:text-blue-300"
+	case db.NotificationSystemAlert:
+		return "fas fa-bell text-yellow-600 dark:text-yellow-300"
+	default:
+		return "fas fa-info-circle text-blue-600 dark:text-blue-300"
+	}
+}
+
+// GetNotificationBgColor returns the appropriate background color class based on notification type
+func GetNotificationBgColor(notificationType db.NotificationType) string {
+	switch notificationType {
+	case db.NotificationJobStart:
+		return "bg-blue-100 dark:bg-blue-900"
+	case db.NotificationJobComplete:
+		return "bg-green-100 dark:bg-green-900"
+	case db.NotificationJobFail:
+		return "bg-red-100 dark:bg-red-900"
+	case db.NotificationConfigUpdate:
+		return "bg-blue-100 dark:bg-blue-900"
+	case db.NotificationSystemAlert:
+		return "bg-yellow-100 dark:bg-yellow-900"
+	default:
+		return "bg-blue-100 dark:bg-blue-900"
+	}
+}
+
+// GetNotificationBadgeColor returns the appropriate badge color class based on notification type
+func GetNotificationBadgeColor(notificationType db.NotificationType) string {
+	switch notificationType {
+	case db.NotificationJobStart:
+		return "bg-primary-700"
+	case db.NotificationJobComplete:
+		return "bg-green-600"
+	case db.NotificationJobFail:
+		return "bg-red-600"
+	case db.NotificationConfigUpdate:
+		return "bg-blue-500"
+	case db.NotificationSystemAlert:
+		return "bg-yellow-500"
+	default:
+		return "bg-primary-700"
+	}
+}
+
+// GetNotificationBadgeIcon returns the appropriate badge icon class based on notification type
+func GetNotificationBadgeIcon(notificationType db.NotificationType) string {
+	switch notificationType {
+	case db.NotificationJobStart:
+		return "fas fa-play"
+	case db.NotificationJobComplete:
+		return "fas fa-check"
+	case db.NotificationJobFail:
+		return "fas fa-times"
+	case db.NotificationConfigUpdate:
+		return "fas fa-wrench"
+	case db.NotificationSystemAlert:
+		return "fas fa-exclamation"
+	default:
+		return "fas fa-info"
+	}
+}
+
+templ NotificationDropdown(data NotificationsData) {
+	<div 
+		class="block py-2 px-4 text-base font-medium text-center text-gray-700 bg-gray-50 dark:bg-gray-600 dark:text-gray-300">
+		Notifications
+	</div>
+	<div>
+		if len(data.Notifications) == 0 {
+			<div class="py-4 px-4 text-center text-gray-500 dark:text-gray-400">
+				<i class="fas fa-bell-slash text-2xl mb-2"></i>
+				<p>No notifications</p>
+			</div>
+		} else {
+			for _, notification := range data.Notifications {
+				<a 
+					href={ templ.SafeURL(notification.Link) } 
+					class={ "flex py-3 px-4 border-b hover:bg-gray-100 dark:hover:bg-gray-600 dark:border-gray-600", templ.KV("bg-blue-50 dark:bg-blue-900/20", !notification.IsRead) }>
+					<div class="flex-shrink-0">
+						<div class={ "w-11 h-11 rounded-full flex items-center justify-center", GetNotificationBgColor(notification.Type) }>
+							<i class={ GetNotificationIcon(notification.Type) }></i>
+						</div>
+						<div class={ "flex absolute justify-center items-center ml-6 -mt-5 w-5 h-5 rounded-full border border-white dark:border-gray-700", GetNotificationBadgeColor(notification.Type) }>
+							<i class={ "text-white text-xs", GetNotificationBadgeIcon(notification.Type) }></i>
+						</div>
+					</div>
+					<div class="pl-3 w-full">
+						<div class="text-gray-500 font-normal text-sm mb-1.5 dark:text-gray-400">
+							<span class="font-semibold text-gray-900 dark:text-white">{ notification.Title }:</span> { notification.Message }
+						</div>
+						<div class="text-xs font-medium text-primary-600 dark:text-primary-500">
+							{ FormatNotificationTime(notification.CreatedAt) }
+						</div>
+					</div>
+				</a>
+			}
+		}
+	</div>
+	<div class="flex">
+		<a href="/notifications" class="block w-1/2 py-2 text-md font-medium text-center text-gray-900 bg-gray-50 hover:bg-gray-100 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500">
+			<div class="inline-flex items-center">
+				<i class="far fa-eye mr-2"></i>
+				View all
+			</div>
+		</a>
+		<a href="/notifications/mark-all-read" 
+		   hx-post="/notifications/mark-all-read" 
+		   hx-swap="none"
+		   hx-target="#notification-count"
+		   class="block w-1/2 py-2 text-md font-medium text-center text-gray-900 bg-gray-50 hover:bg-gray-100 dark:bg-gray-600 dark:text-white dark:hover:bg-gray-500 border-l border-gray-200 dark:border-gray-700">
+			<div class="inline-flex items-center">
+				<i class="fas fa-check-double mr-2"></i>
+				Mark all read
+			</div>
+		</a>
+	</div>
+}
+
+templ NotificationCount(count int64) {
+	if count > 0 {
+		<div class="absolute inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full -top-1 -right-1" id="notification-count">
+			if count > 99 {
+				99+
+			} else {
+				{ fmt.Sprintf("%d", count) }
+			}
+		</div>
+	}
+} 
