@@ -1,0 +1,528 @@
+package components
+
+import (
+	"context"
+	"fmt"
+)
+
+templ Notifications(ctx context.Context, data SettingsNotificationsData) {
+	@LayoutWithContext("Notification Services", ctx) {
+		<!-- Status and Error Messages -->
+		<div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2"></div>
+		
+		<script>
+			// Notification system
+			function showToast(message, type) {
+				const toastContainer = document.getElementById('toast-container');
+				
+				// Create toast element
+				const toast = document.createElement('div');
+				toast.id = 'toast-' + type + '-' + Date.now();
+				toast.className = 'flex items-center w-full max-w-xs p-4 mb-4 rounded-lg shadow text-gray-500 bg-white dark:text-gray-400 dark:bg-gray-800 transform translate-y-16 opacity-0 transition-all duration-300 ease-out';
+				toast.role = 'alert';
+				
+				// Set toast content based on type
+				let iconClass, bgColorClass, textColorClass;
+				
+				if (type === 'success') {
+					iconClass = 'text-green-500 bg-green-100 dark:bg-green-800 dark:text-green-200';
+					bgColorClass = 'text-green-500 dark:text-green-200';
+					textColorClass = 'text-green-500 dark:text-green-200';
+				} else if (type === 'error') {
+					iconClass = 'text-red-500 bg-red-100 dark:bg-red-800 dark:text-red-200';
+					bgColorClass = 'text-red-500 dark:text-red-200';
+					textColorClass = 'text-red-500 dark:text-red-200';
+				} else {
+					iconClass = 'text-blue-500 bg-blue-100 dark:bg-blue-800 dark:text-blue-200';
+					bgColorClass = 'text-blue-500 dark:text-blue-200';
+					textColorClass = 'text-blue-500 dark:text-blue-200';
+				}
+				
+				// Set inner HTML with appropriate icon and message
+				toast.innerHTML = `
+					<div class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg ${iconClass}">
+						${type === 'success' 
+							? '<i class="fas fa-check"></i>' 
+							: type === 'error' 
+							? '<i class="fas fa-exclamation-circle"></i>'
+							: '<i class="fas fa-info-circle"></i>'}
+					</div>
+					<div class="ml-3 text-sm font-normal">${message}</div>
+					<button type="button" class="ml-auto -mx-1.5 -my-1.5 bg-white text-gray-400 hover:text-gray-900 rounded-lg focus:ring-2 focus:ring-gray-300 p-1.5 hover:bg-gray-100 inline-flex h-8 w-8 dark:text-gray-500 dark:hover:text-white dark:bg-gray-800 dark:hover:bg-gray-700" data-dismiss-target="#${toast.id}" aria-label="Close">
+						<span class="sr-only">Close</span>
+						<i class="fas fa-times"></i>
+					</button>
+				`;
+				
+				// Add toast to container
+				toastContainer.appendChild(toast);
+				
+				// Trigger animation after a small delay to ensure the DOM has updated
+				setTimeout(() => {
+					toast.classList.remove('translate-y-16', 'opacity-0');
+					toast.classList.add('translate-y-0', 'opacity-100');
+				}, 10);
+				
+				// Add event listener to close button
+				const closeButton = toast.querySelector('button[data-dismiss-target]');
+				closeButton.addEventListener('click', function() {
+					// Animate out before removing
+					toast.classList.add('opacity-0', 'translate-y-4');
+					setTimeout(() => {
+						toast.remove();
+					}, 300);
+				});
+				
+				// Auto-remove toast after 5 seconds
+				setTimeout(() => {
+					toast.classList.add('opacity-0', 'translate-y-4');
+					setTimeout(() => {
+						toast.remove();
+					}, 300);
+				}, 5000);
+			}
+			
+			// Track all HTMX events for debugging
+			document.addEventListener('htmx:beforeRequest', function(event) {
+				console.log("HTMX before request:", event.detail);
+			});
+
+			document.addEventListener('htmx:afterRequest', function(event) {
+				console.log("HTMX after request:", event.detail);
+				
+				// Check if this is a successful notification service deletion
+				if (event.detail.pathInfo && 
+					event.detail.pathInfo.requestPath && 
+					event.detail.pathInfo.requestPath.match(/^\/admin\/settings\/notifications\/\d+$/) && 
+					event.detail.verb === 'DELETE' &&
+					event.detail.successful) {
+					
+					showToast('Notification service deleted successfully', 'success');
+				}
+			});
+			
+			document.addEventListener('htmx:responseError', function(event) {
+				console.log("HTMX response error:", event.detail);
+				
+				let errorMsg = 'An error occurred';
+				if (event.detail.xhr && event.detail.xhr.responseText) {
+					errorMsg = event.detail.xhr.responseText;
+				}
+				
+				showToast(errorMsg, 'error');
+			});
+			
+			// Handle modal hide buttons
+			document.addEventListener('DOMContentLoaded', function() {
+				const hideButtons = document.querySelectorAll('[data-modal-hide]');
+				hideButtons.forEach(button => {
+					button.addEventListener('click', function() {
+						const modalId = this.getAttribute('data-modal-hide');
+						const modal = document.getElementById(modalId);
+						modal.classList.add('hidden');
+						modal.classList.remove('flex');
+					});
+				});
+				
+				// Show any success or error messages as toasts
+				if (document.querySelector('.success-message')) {
+					const successMsg = document.querySelector('.success-message').textContent.trim();
+					if (successMsg) {
+						showToast(successMsg, 'success');
+					}
+				}
+				
+				if (document.querySelector('.error-message')) {
+					const errorMsg = document.querySelector('.error-message').textContent.trim();
+					if (errorMsg) {
+						showToast(errorMsg, 'error');
+					}
+				}
+			});
+		</script>
+		
+		<div id="notifications-container" style="min-height: 100vh; background-color: rgb(249, 250, 251);" class="notifications-page bg-gray-50 dark:bg-gray-900">
+			<div class="pb-8 w-full">
+				<!-- Success Message (hidden, used for HTMX responses) -->
+				if data.SuccessMessage != "" {
+					<div class="hidden success-message">{ data.SuccessMessage }</div>
+				}
+				<!-- Error Message (hidden, used for HTMX responses) -->
+				if data.ErrorMessage != "" {
+					<div class="hidden error-message">{ data.ErrorMessage }</div>
+				}
+				
+				<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+					<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+						<i class="fas fa-bell w-6 h-6 mr-2 text-blue-500 dark:text-blue-400"></i>
+						Notification Services
+					</h1>
+				</div>
+				
+				<!-- Add Notification Service Form -->
+				<div class="mb-6 p-6 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800">
+					<h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+						Add Notification Service
+					</h3>
+					<form id="add-notification-form" hx-post="/admin/settings/notifications" hx-target="body">
+						<div class="mb-6">
+							<label for="notification_type" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Notification Type</label>
+							<select id="notification_type" name="type" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+								<option value="">Select a type</option>
+								<option value="webhook">Webhook</option>
+								<option value="email" disabled>Email (Coming Soon)</option>
+							</select>
+						</div>
+						<div class="mb-6 hidden common-fields">
+							<label for="notification_name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Name</label>
+							<input type="text" id="notification_name" name="name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="My Notification Service" required/>
+						</div>
+						<div class="mb-6 hidden common-fields">
+							<label for="notification_description" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Description</label>
+							<textarea id="notification_description" name="description" rows="3" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Description for this notification service"></textarea>
+						</div>
+						<!-- Dynamic fields based on notification type -->
+						<div id="email_fields" class="hidden notification-fields">
+							<div class="mb-6">
+								<label for="smtp_host" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">SMTP Host</label>
+								<input type="text" id="smtp_host" name="smtp_host" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="smtp.example.com"/>
+							</div>
+							<div class="mb-6">
+								<label for="smtp_port" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">SMTP Port</label>
+								<input type="number" id="smtp_port" name="smtp_port" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="587"/>
+							</div>
+							<div class="mb-6">
+								<label for="smtp_username" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">SMTP Username</label>
+								<input type="text" id="smtp_username" name="smtp_username" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="user@example.com"/>
+							</div>
+							<div class="mb-6">
+								<label for="smtp_password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">SMTP Password</label>
+								<input type="password" id="smtp_password" name="smtp_password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"/>
+							</div>
+							<div class="mb-6">
+								<label for="from_email" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">From Email</label>
+								<input type="email" id="from_email" name="from_email" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="notifications@example.com"/>
+							</div>
+						</div>
+						<div id="webhook_fields" class="hidden notification-fields">
+							<div class="mb-6">
+								<label for="webhook_url" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Webhook URL</label>
+								<input type="url" id="webhook_url" name="webhook_url" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="https://api.example.com/webhook"/>
+							</div>
+							<div class="mb-6">
+								<label for="method" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">HTTP Method</label>
+								<select id="method" name="method" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+									<option value="POST">POST</option>
+									<option value="PUT">PUT</option>
+								</select>
+							</div>
+							<div class="mb-6">
+								<label for="headers" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Headers (JSON)</label>
+								<textarea id="headers" name="headers" rows="3" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder='{"Content-Type": "application/json", "Authorization": "Bearer token"}'></textarea>
+							</div>
+							<div class="mb-6">
+								<label for="payload_template" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Payload Template (JSON)</label>
+								<textarea
+									id="payload_template"
+									name="payload_template"
+									rows="5"
+									class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+									placeholder='{
+  "event": "{{job.event}}",
+  "job": {
+    "id": "{{job.id}}",
+    "name": "{{job.name}}",
+    "status": "{{job.status}}",
+    "message": "{{job.message}}",
+    "started_at": "{{job.started_at}}",
+    "completed_at": "{{job.completed_at}}",
+    "duration_seconds": {{job.duration_seconds}},
+    "config_id": "{{job.config_id}}",
+    "config_name": "{{job.config_name}}",
+    "transfer_bytes": {{job.transfer_bytes}},
+    "file_count": {{job.file_count}}
+  },
+  "instance": {
+    "id": "{{instance.id}}",
+    "name": "{{instance.name}}",
+    "version": "{{instance.version}}",
+    "environment": "{{instance.environment}}"
+  },
+  "timestamp": "{{timestamp}}",
+  "notification_id": "{{notification.id}}"
+}'
+								></textarea>
+								<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Use placeholders for dynamic values. Available variables: job.*, instance.*, timestamp, notification.*</p>
+							</div>
+							<div class="mb-6">
+								<label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Event Triggers</label>
+								<div class="space-y-2">
+									<div class="flex items-center">
+										<input id="trigger_job_start" name="trigger_job_start" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800" checked/>
+										<label for="trigger_job_start" class="ml-2 text-sm font-medium text-gray-900 dark:text-white">Job Start</label>
+									</div>
+									<div class="flex items-center">
+										<input id="trigger_job_complete" name="trigger_job_complete" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800" checked/>
+										<label for="trigger_job_complete" class="ml-2 text-sm font-medium text-gray-900 dark:text-white">Job Complete</label>
+									</div>
+									<div class="flex items-center">
+										<input id="trigger_job_error" name="trigger_job_error" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800" checked/>
+										<label for="trigger_job_error" class="ml-2 text-sm font-medium text-gray-900 dark:text-white">Job Error</label>
+									</div>
+								</div>
+							</div>
+							<div class="mb-6">
+								<label for="secret_key" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Secret Key (for signature verification)</label>
+								<input type="text" id="secret_key" name="secret_key" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Optional signature verification key"/>
+								<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">If provided, all webhooks will include an X-GoMFT-Signature header</p>
+							</div>
+							<div class="mb-6">
+								<label for="retry_policy" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Retry Policy</label>
+								<select id="retry_policy" name="retry_policy" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+									<option value="none">No retries</option>
+									<option value="simple" selected>Simple (3 retries)</option>
+									<option value="exponential">Exponential backoff</option>
+								</select>
+							</div>
+							<!-- Test notification button -->
+							<div class="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600">
+								<div class="flex items-center justify-between mb-2">
+									<h4 class="text-base font-medium text-gray-900 dark:text-white">Test Configuration</h4>
+									<button
+										type="button"
+										id="test-webhook-btn"
+										hx-post="/admin/settings/notifications/test"
+										hx-trigger="click"
+										hx-target="#test-notification-result"
+										hx-swap="outerHTML"
+										class="px-3 py-2 text-xs font-medium text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 rounded-lg dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
+									>
+										<i class="fas fa-paper-plane mr-1"></i>
+										Send Test Notification
+									</button>
+								</div>
+								<p class="text-sm text-gray-500 dark:text-gray-400">
+									Send a test notification to verify your configuration works correctly before saving.
+								</p>
+								<div id="test-notification-result" class="mt-3 hidden">
+									<!-- Result will be shown here -->
+								</div>
+							</div>
+						</div>
+						<div class="flex items-start mb-6 hidden common-fields">
+							<div class="flex items-center h-5">
+								<input id="is_enabled" name="is_enabled" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800" checked/>
+							</div>
+							<div class="ml-3 text-sm">
+								<label for="is_enabled" class="font-medium text-gray-900 dark:text-white">Enable this notification service</label>
+							</div>
+						</div>
+						<div class="hidden common-fields">
+							<button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Add Service</button>
+						</div>
+					</form>
+				</div>
+				
+				<!-- List of Notification Services -->
+				if len(data.NotificationServices) == 0 {
+					<div class="text-center py-8 bg-white dark:bg-gray-800 shadow-md rounded-lg">
+						<div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900 mb-4">
+							<i class="fas fa-bell text-2xl text-blue-600 dark:text-blue-400"></i>
+						</div>
+						<h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">No notification services configured</h3>
+						<p class="text-gray-500 dark:text-gray-400 mb-4">Use the form above to add your first notification service.</p>
+					</div>
+				} else {
+					<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 overflow-hidden">
+						<ul class="divide-y divide-gray-200 dark:divide-gray-700">
+							for _, service := range data.NotificationServices {
+								<li>
+									<div class="block hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+										<div class="px-4 py-4 sm:px-6">
+											<div class="flex items-center justify-between">
+												<div class="flex items-center">
+													if service.Type == "email" {
+														<div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 dark:bg-blue-900 dark:text-blue-400 mr-3">
+															<i class="fas fa-envelope"></i>
+														</div>
+													} else if service.Type == "webhook" {
+														<div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 dark:bg-green-900 dark:text-green-400 mr-3">
+															<i class="fas fa-code"></i>
+														</div>
+													} else {
+														<div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 dark:bg-gray-700 dark:text-gray-400 mr-3">
+															<i class="fas fa-bell"></i>
+														</div>
+													}
+													<div>
+														<p class="text-sm font-medium text-blue-600 dark:text-blue-400 truncate">
+															{ service.Name }
+														</p>
+														<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+															{ service.Description }
+														</p>
+													</div>
+												</div>
+												<div class="ml-2 flex-shrink-0 flex space-x-2">
+													<button
+														type="button"
+														class="text-gray-500 bg-white focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 rounded-lg text-sm p-2 mr-1 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white dark:focus:ring-gray-700"
+														data-modal-target="edit-notification-modal"
+														data-modal-toggle="edit-notification-modal"
+														data-service-id={ fmt.Sprint(service.ID) }
+													>
+														<i class="fas fa-edit"></i>
+													</button>
+													<button
+														type="button"
+														class="text-red-500 bg-white focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 rounded-lg text-sm p-2 dark:bg-gray-800 dark:text-red-400 dark:hover:bg-gray-700 dark:hover:text-white dark:focus:ring-gray-700"
+														hx-delete={ "/admin/settings/notifications/" + fmt.Sprint(service.ID) }
+														hx-confirm="Are you sure you want to delete this notification service? This cannot be undone."
+														hx-target="body"
+													>
+														<i class="fas fa-trash-alt"></i>
+													</button>
+												</div>
+											</div>
+											<div class="mt-3 sm:flex sm:justify-between">
+												<div class="sm:flex flex-col md:flex-row gap-2 md:gap-6">
+													<div class="flex items-center">
+														<span
+															class={ "px-2 py-1 text-xs font-medium rounded-full", 
+														templ.KV("bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300", service.IsEnabled),
+														templ.KV("bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300", !service.IsEnabled) }
+														>
+															if service.IsEnabled {
+																Active
+															} else {
+																Disabled
+															}
+														</span>
+														<span class="ml-2 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 rounded-full">
+															{ service.Type }
+														</span>
+														if len(service.EventTriggers) > 0 && service.Type == "webhook" {
+															<span class="ml-2 px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300 rounded-full">
+																{ fmt.Sprintf("%d triggers", len(service.EventTriggers)) }
+															</span>
+														}
+														if service.SuccessCount > 0 || service.FailureCount > 0 {
+															<span class="ml-2 px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 rounded-full">
+																{ fmt.Sprintf("%d/%d", service.SuccessCount, service.SuccessCount + service.FailureCount) }
+															</span>
+														}
+													</div>
+												</div>
+												if service.Type == "webhook" {
+													<div class="mt-2 md:mt-0 flex items-center space-x-4">
+														<div class="text-xs">
+															<span class="text-gray-500 dark:text-gray-400">Events:</span>
+															<span class="ml-1 text-gray-900 dark:text-gray-300">
+																if len(service.EventTriggers) == 0 {
+																	None
+																} else {
+																	for i, trigger := range service.EventTriggers {
+																		if i > 0 {
+																			<span>, </span>
+																		}
+																		{ trigger }
+																	}
+																}
+															</span>
+														</div>
+														<div class="text-xs">
+															<span class="text-gray-500 dark:text-gray-400">Retry:</span>
+															<span class="ml-1 text-gray-900 dark:text-gray-300">
+																if service.RetryPolicy == "" {
+																	Default
+																} else {
+																	{ service.RetryPolicy }
+																}
+															</span>
+														</div>
+													</div>
+												} else {
+													<div class="mt-2 md:mt-0 flex items-center text-sm text-gray-500 dark:text-gray-400">
+														<i class="far fa-clock w-4 h-4 mr-1.5 text-gray-400 dark:text-gray-500"></i>
+														<p>
+															Last sent: 
+															if service.SuccessCount > 0 {
+																"Recently"
+															} else {
+																"Never"
+															}
+														</p>
+													</div>
+												}
+											</div>
+										</div>
+									</div>
+								</li>
+							}
+						</ul>
+					</div>
+				}
+				
+				<!-- Help Notice -->
+				<div class="mt-8 p-4 bg-gray-50 border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700">
+					<div class="flex">
+						<div class="flex-shrink-0">
+							<i class="fas fa-info-circle text-blue-400 dark:text-blue-400"></i>
+						</div>
+						<div class="ml-3">
+							<p class="text-sm text-blue-700 dark:text-blue-400">
+								Notification services allow the system to send alerts for job events such as completion, errors, or when jobs start.
+							</p>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		
+		<script>
+			// Set dark background color if in dark mode
+			if (document.documentElement.classList.contains('dark')) {
+				document.getElementById('notifications-container').style.backgroundColor = '#111827';
+			}
+			
+			// Add event listener for theme changes
+			document.addEventListener('DOMContentLoaded', function() {
+				const themeToggle = document.getElementById('theme-toggle');
+				if (themeToggle) {
+					themeToggle.addEventListener('click', function() {
+						setTimeout(function() {
+							const isDark = document.documentElement.classList.contains('dark');
+							document.getElementById('notifications-container').style.backgroundColor = isDark ? '#111827' : 'rgb(249, 250, 251)';
+						}, 50);
+					});
+				}
+				
+				// Toggle notification fields based on selection
+				const typeSelector = document.getElementById('notification_type');
+				const allFields = document.querySelectorAll('.notification-fields');
+				const commonFields = document.querySelectorAll('.common-fields');
+				
+				typeSelector.addEventListener('change', function() {
+					// Hide all fields first
+					allFields.forEach(field => field.classList.add('hidden'));
+					
+					// Show/hide common fields based on selection
+					const selectedType = this.value;
+					if (selectedType) {
+						// Show common fields (name, description)
+						commonFields.forEach(field => field.classList.remove('hidden'));
+						
+						// Show the selected type's specific fields
+						const fieldsToShow = document.getElementById(`${selectedType}_fields`);
+						if (fieldsToShow) {
+							fieldsToShow.classList.remove('hidden');
+						}
+					} else {
+						// Hide common fields if no type selected
+						commonFields.forEach(field => field.classList.add('hidden'));
+					}
+				});
+			});
+		</script>
+	}
+} 

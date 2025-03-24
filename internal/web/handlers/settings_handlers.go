@@ -59,7 +59,7 @@ func (h *Handlers) HandleSettings(c *gin.Context) {
 	components.Settings(ctx, data).Render(ctx, c.Writer)
 }
 
-// HandleCreateNotificationService handles POST /settings/notifications
+// HandleCreateNotificationService handles POST /admin/settings/notifications
 func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 	// Check if the user has permission to manage settings
 	if !h.checkPermission(c, "system.settings") {
@@ -75,8 +75,8 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 
 	// Validate required fields
 	if name == "" || serviceType == "" {
-		// Return to settings page with error message
-		h.handleSettingsWithError(c, "Name and type are required fields.")
+		// Return to notifications page with error message
+		h.handleNotificationsWithError(c, "Name and type are required fields.")
 		return
 	}
 
@@ -129,7 +129,7 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 		// Save to database
 		if err := h.DB.Create(&service).Error; err != nil {
 			log.Printf("Error creating notification service: %v", err)
-			h.handleSettingsWithError(c, "Failed to create notification service: "+err.Error())
+			h.handleNotificationsWithError(c, "Failed to create notification service: "+err.Error())
 			return
 		}
 
@@ -156,11 +156,11 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 			log.Printf("Error creating audit log: %v", err)
 		}
 
-		// Redirect back to settings page with success message
-		h.handleSettingsWithSuccess(c, "Notification service created successfully.")
+		// Redirect back to notifications page with success message
+		h.handleNotificationsWithSuccess(c, "Notification service created successfully.")
 		return
 	default:
-		h.handleSettingsWithError(c, "Invalid notification service type.")
+		h.handleNotificationsWithError(c, "Invalid notification service type.")
 		return
 	}
 
@@ -177,7 +177,7 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 	// Save to database
 	if err := h.DB.Create(&service).Error; err != nil {
 		log.Printf("Error creating notification service: %v", err)
-		h.handleSettingsWithError(c, "Failed to create notification service: "+err.Error())
+		h.handleNotificationsWithError(c, "Failed to create notification service: "+err.Error())
 		return
 	}
 
@@ -201,11 +201,11 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 		log.Printf("Error creating audit log: %v", err)
 	}
 
-	// Redirect back to settings page with success message
-	h.handleSettingsWithSuccess(c, "Notification service created successfully.")
+	// Redirect back to notifications page with success message
+	h.handleNotificationsWithSuccess(c, "Notification service created successfully.")
 }
 
-// HandleDeleteNotificationService handles DELETE /settings/notifications/:id
+// HandleDeleteNotificationService handles DELETE /admin/settings/notifications/:id
 func (h *Handlers) HandleDeleteNotificationService(c *gin.Context) {
 	// Check if the user has permission to manage settings
 	if !h.checkPermission(c, "system.settings") {
@@ -216,21 +216,21 @@ func (h *Handlers) HandleDeleteNotificationService(c *gin.Context) {
 	// Get service ID from path
 	serviceID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		h.handleSettingsWithError(c, "Invalid notification service ID.")
+		h.handleNotificationsWithError(c, "Invalid notification service ID.")
 		return
 	}
 
 	// Find service to delete (for audit log)
 	var service db.NotificationService
 	if err := h.DB.First(&service, serviceID).Error; err != nil {
-		h.handleSettingsWithError(c, "Notification service not found.")
+		h.handleNotificationsWithError(c, "Notification service not found.")
 		return
 	}
 
 	// Delete the service
 	if err := h.DB.Delete(&db.NotificationService{}, serviceID).Error; err != nil {
 		log.Printf("Error deleting notification service: %v", err)
-		h.handleSettingsWithError(c, "Failed to delete notification service: "+err.Error())
+		h.handleNotificationsWithError(c, "Failed to delete notification service: "+err.Error())
 		return
 	}
 
@@ -254,8 +254,8 @@ func (h *Handlers) HandleDeleteNotificationService(c *gin.Context) {
 		log.Printf("Error creating audit log: %v", err)
 	}
 
-	// Redirect back to settings page with success message
-	h.handleSettingsWithSuccess(c, "Notification service deleted successfully.")
+	// Redirect back to notifications page with success message
+	h.handleNotificationsWithSuccess(c, "Notification service deleted successfully.")
 }
 
 // HandleTestNotification handles POST /settings/notifications/test
@@ -502,8 +502,14 @@ func (h *Handlers) checkPermission(c *gin.Context, permission string) bool {
 	return user.HasPermission(permission)
 }
 
-// handleSettingsWithError renders the settings page with an error message
-func (h *Handlers) handleSettingsWithError(c *gin.Context, errorMessage string) {
+// HandleNotificationsPage handles GET /admin/settings/notifications
+func (h *Handlers) HandleNotificationsPage(c *gin.Context) {
+	// Check if the user has permission to view settings
+	if !h.checkPermission(c, "system.settings") {
+		c.Redirect(http.StatusFound, "/dashboard")
+		return
+	}
+
 	var notificationServices []db.NotificationService
 	if err := h.DB.Find(&notificationServices).Error; err != nil {
 		log.Printf("Error fetching notification services: %v", err)
@@ -528,17 +534,51 @@ func (h *Handlers) handleSettingsWithError(c *gin.Context, errorMessage string) 
 		})
 	}
 
-	data := components.SettingsData{
+	data := components.SettingsNotificationsData{
+		NotificationServices: componentServices,
+	}
+
+	ctx := h.CreateTemplateContext(c)
+	components.Notifications(ctx, data).Render(ctx, c.Writer)
+}
+
+// handleNotificationsWithError renders the notifications page with an error message
+func (h *Handlers) handleNotificationsWithError(c *gin.Context, errorMessage string) {
+	var notificationServices []db.NotificationService
+	if err := h.DB.Find(&notificationServices).Error; err != nil {
+		log.Printf("Error fetching notification services: %v", err)
+	}
+
+	// Convert to components.NotificationService
+	var componentServices []components.NotificationService
+	for _, service := range notificationServices {
+		componentServices = append(componentServices, components.NotificationService{
+			ID:              service.ID,
+			Name:            service.Name,
+			Type:            service.Type,
+			IsEnabled:       service.IsEnabled,
+			Config:          service.Config,
+			Description:     service.Description,
+			EventTriggers:   service.EventTriggers,
+			PayloadTemplate: service.PayloadTemplate,
+			SecretKey:       service.SecretKey,
+			RetryPolicy:     service.RetryPolicy,
+			SuccessCount:    service.SuccessCount,
+			FailureCount:    service.FailureCount,
+		})
+	}
+
+	data := components.SettingsNotificationsData{
 		NotificationServices: componentServices,
 		ErrorMessage:         errorMessage,
 	}
 
 	ctx := h.CreateTemplateContext(c)
-	components.Settings(ctx, data).Render(ctx, c.Writer)
+	components.Notifications(ctx, data).Render(ctx, c.Writer)
 }
 
-// handleSettingsWithSuccess renders the settings page with a success message
-func (h *Handlers) handleSettingsWithSuccess(c *gin.Context, successMessage string) {
+// handleNotificationsWithSuccess renders the notifications page with a success message
+func (h *Handlers) handleNotificationsWithSuccess(c *gin.Context, successMessage string) {
 	var notificationServices []db.NotificationService
 	if err := h.DB.Find(&notificationServices).Error; err != nil {
 		log.Printf("Error fetching notification services: %v", err)
@@ -563,11 +603,11 @@ func (h *Handlers) handleSettingsWithSuccess(c *gin.Context, successMessage stri
 		})
 	}
 
-	data := components.SettingsData{
+	data := components.SettingsNotificationsData{
 		NotificationServices: componentServices,
 		SuccessMessage:       successMessage,
 	}
 
 	ctx := h.CreateTemplateContext(c)
-	components.Settings(ctx, data).Render(ctx, c.Writer)
+	components.Notifications(ctx, data).Render(ctx, c.Writer)
 }

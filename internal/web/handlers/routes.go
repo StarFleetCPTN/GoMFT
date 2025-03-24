@@ -166,6 +166,8 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 			authProviderGroup.DELETE("/:id", h.HandleDeleteAuthProvider)
 			authProviderGroup.POST("/:id/test", h.HandleTestAuthProviderConnection)
 
+			// Notification routes
+			settingsGroup.GET("/notifications", h.HandleNotificationsPage)
 			settingsGroup.POST("/notifications", h.HandleCreateNotificationService)
 			settingsGroup.DELETE("/notifications/:id", h.HandleDeleteNotificationService)
 			settingsGroup.POST("/notifications/test", h.HandleTestNotification)

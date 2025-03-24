@@ -5,6 +5,7 @@ import (
 	"fmt"
 )
 
+// NotificationService defines a notification service configuration
 type NotificationService struct {
 	ID              uint
 	Name            string
@@ -20,6 +21,14 @@ type NotificationService struct {
 	FailureCount    int
 }
 
+// SettingsNotificationsData contains data for the notifications page in settings
+type SettingsNotificationsData struct {
+	NotificationServices []NotificationService
+	ErrorMessage         string
+	SuccessMessage       string
+}
+
+// SettingsData contains data for the settings page
 type SettingsData struct {
 	NotificationServices []NotificationService
 	ErrorMessage         string
