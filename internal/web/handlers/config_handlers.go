@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -153,6 +154,37 @@ func (h *Handlers) HandleCreateConfig(c *gin.Context) {
 			log.Printf("Error marshaling flag IDs: %v", err)
 		} else {
 			config.CommandFlags = string(flagsJSON)
+		}
+	}
+
+	// Process flag values for non-boolean flags
+	flagValues := make(map[uint]string)
+	for key, values := range c.Request.PostForm {
+		// Check if key is a flag value field (format: flag_value_ID)
+		if strings.HasPrefix(key, "flag_value_") {
+			flagIDStr := strings.TrimPrefix(key, "flag_value_")
+			flagID, err := strconv.ParseUint(flagIDStr, 10, 64)
+			if err != nil {
+				log.Printf("Error parsing flag value ID: %v", err)
+				continue
+			}
+
+			// Only process if the corresponding enable checkbox is checked
+			enableKey := fmt.Sprintf("flag_enable_%s", flagIDStr)
+			enableValue := c.Request.PostForm.Get(enableKey)
+			if enableValue == "on" && len(values) > 0 && values[0] != "" {
+				flagValues[uint(flagID)] = values[0]
+			}
+		}
+	}
+
+	// Store flag values as JSON if any exist
+	if len(flagValues) > 0 {
+		flagValuesJSON, err := json.Marshal(flagValues)
+		if err != nil {
+			log.Printf("Error marshaling flag values: %v", err)
+		} else {
+			config.CommandFlagValues = string(flagValuesJSON)
 		}
 	}
 
@@ -340,6 +372,37 @@ func (h *Handlers) HandleUpdateConfig(c *gin.Context) {
 			log.Printf("Error marshaling flag IDs: %v", err)
 		} else {
 			config.CommandFlags = string(flagsJSON)
+		}
+	}
+
+	// Process flag values for non-boolean flags
+	flagValues := make(map[uint]string)
+	for key, values := range c.Request.PostForm {
+		// Check if key is a flag value field (format: flag_value_ID)
+		if strings.HasPrefix(key, "flag_value_") {
+			flagIDStr := strings.TrimPrefix(key, "flag_value_")
+			flagID, err := strconv.ParseUint(flagIDStr, 10, 64)
+			if err != nil {
+				log.Printf("Error parsing flag value ID: %v", err)
+				continue
+			}
+
+			// Only process if the corresponding enable checkbox is checked
+			enableKey := fmt.Sprintf("flag_enable_%s", flagIDStr)
+			enableValue := c.Request.PostForm.Get(enableKey)
+			if enableValue == "on" && len(values) > 0 && values[0] != "" {
+				flagValues[uint(flagID)] = values[0]
+			}
+		}
+	}
+
+	// Store flag values as JSON if any exist
+	if len(flagValues) > 0 {
+		flagValuesJSON, err := json.Marshal(flagValues)
+		if err != nil {
+			log.Printf("Error marshaling flag values: %v", err)
+		} else {
+			config.CommandFlagValues = string(flagValuesJSON)
 		}
 	}
 

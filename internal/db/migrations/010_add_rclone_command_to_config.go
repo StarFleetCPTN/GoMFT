@@ -78,6 +78,10 @@ func AddRcloneCommandToConfig() *gormigrate.Migration {
 				return err
 			}
 
+			if err := tx.Exec(`ALTER TABLE transfer_configs ADD COLUMN command_flag_values TEXT DEFAULT NULL`).Error; err != nil {
+				return err
+			}
+
 			return nil
 		},
 		Rollback: func(tx *gorm.DB) error {
@@ -87,6 +91,10 @@ func AddRcloneCommandToConfig() *gormigrate.Migration {
 			}
 
 			if err := tx.Exec(`ALTER TABLE transfer_configs DROP COLUMN command_id`).Error; err != nil {
+				return err
+			}
+
+			if err := tx.Exec(`ALTER TABLE transfer_configs DROP COLUMN command_flag_values`).Error; err != nil {
 				return err
 			}
 

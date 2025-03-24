@@ -8,29 +8,29 @@ templ LocalDestinationForm() {
 				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 					<i class="fas fa-folder-open text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input type="text" id="destination_path" name="destination_path" x-model="destinationPath" required
-					:class="{ 'border-red-500 dark:border-red-700': destinationPathValid === false, 'border-green-500 dark:border-green-700': destinationPathValid === true }"
+				<input type="text" id="destination_path" name="destination_path" x-model="destinationPath" x-bind:required="requiresDestination"
+					:class="{ 'border-red-500 dark:border-red-700': destPathValid === false, 'border-green-500 dark:border-green-700': destPathValid === true }"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 					placeholder="/path/to/files" />
 			</div>
 			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Full path to the local directory containing your files</p>
-			<div x-show="destinationPathValid === false" class="mt-2 text-sm text-red-600 dark:text-red-400">
+			<div x-show="destPathValid === false" class="mt-2 text-sm text-red-600 dark:text-red-400">
 				<div class="flex items-center">
 					<i class="fas fa-exclamation-circle mr-2"></i>
-					<span x-text="destinationPathError"></span>
+					<span x-text="destPathError"></span>
 				</div>
 			</div>
-			<div x-show="destinationPathValid === true" class="mt-2 text-sm text-green-600 dark:text-green-400">
+			<div x-show="destPathValid === true" class="mt-2 text-sm text-green-600 dark:text-green-400">
 				<div class="flex items-center">
 					<i class="fas fa-check-circle mr-2"></i>
-					<span x-text="destinationPathError || 'Path is valid'"></span>
+					<span x-text="destPathError || 'Path is valid'"></span>
 				</div>
 			</div>
 		</div>
 		<button
 		type="button"
 		class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
-		@click="checkPath(destinationPath, 'destination')"
+		@click="checkPath(destinationPath, 'dest')"
 	>
 		<svg class="w-4 h-4 mr-2 inline" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
 			<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-6.5 4.5A5.5 5.5 0 0 1 9 9h2a5.5 5.5 0 0 1 5.5 5.5V17a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-2.5Z"/>

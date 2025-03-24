@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -75,6 +76,11 @@ func (h *RcloneHandler) RcloneCommandFlags(c *gin.Context) {
 		c.String(http.StatusNotFound, "Command not found")
 		return
 	}
+
+	// Sort the flags alphabetically by name
+	sort.Slice(command.Flags, func(i, j int) bool {
+		return command.Flags[i].Name < command.Flags[j].Name
+	})
 
 	_ = common.RcloneCommandFlagsContent(command).Render(c.Request.Context(), c.Writer)
 }

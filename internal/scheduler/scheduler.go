@@ -1929,7 +1929,7 @@ func determineCommandType(commandName string) string {
 	return "transfer"
 }
 
-// executeSimpleCommand executes rclone commands that don't require file-by-file processing
+// executeSimpleCommand executes a simple command (non file-by-file transfer)
 func (s *Scheduler) executeSimpleCommand(cmdName string, cmdType string, job db.Job, config db.TransferConfig, history *db.JobHistory, configPath string) {
 	s.log.LogInfo("Executing simple command '%s' of type '%s' for job %d, config %d", cmdName, cmdType, job.ID, config.ID)
 
@@ -2138,4 +2138,76 @@ func (s *Scheduler) executeSimpleCommand(cmdName string, cmdType string, job db.
 
 	// Send webhook notification
 	s.sendWebhookNotification(&job, history, &config)
+}
+
+// prepareBaseArguments prepares the base arguments for a command
+func (s *Scheduler) prepareBaseArguments(command string, config *db.TransferConfig, progressCallback func(string)) []string {
+	args := []string{command}
+
+	// Add rclone flags from the config
+	if config.CommandFlags != "" {
+		var flagIDs []uint
+		if err := json.Unmarshal([]byte(config.CommandFlags), &flagIDs); err != nil {
+			s.log.LogError("Error parsing command flags: %v", err)
+		} else {
+			// Get all available flags for this command and their values
+			flagsMap, err := s.db.GetRcloneCommandFlagsMap(config.CommandID)
+			if err != nil {
+				s.log.LogError("Error getting flags map: %v", err)
+			} else {
+				// Parse flag values if available
+				var flagValues map[uint]string
+				if config.CommandFlagValues != "" {
+					if err := json.Unmarshal([]byte(config.CommandFlagValues), &flagValues); err != nil {
+						s.log.LogError("Error parsing flag values: %v", err)
+					}
+				}
+
+				// Add each selected flag
+				for _, flagID := range flagIDs {
+					if flag, ok := flagsMap[flagID]; ok {
+						if flag.DataType == "bool" {
+							// Boolean flags don't have values
+							args = append(args, flag.Name)
+						} else if flagValues != nil {
+							// Check if we have a value for this flag
+							if value, ok := flagValues[flagID]; ok && value != "" {
+								args = append(args, flag.Name, value)
+							} else {
+								// If there's a default value, use it
+								if flag.DefaultValue != "" {
+									args = append(args, flag.Name, flag.DefaultValue)
+								} else {
+									// Skip flags without values
+									s.log.LogError("Skipping flag %s: no value provided", flag.Name)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Add any additional rclone flags specified by the user
+	if config.RcloneFlags != "" {
+		additionalFlags := strings.Fields(config.RcloneFlags)
+		args = append(args, additionalFlags...)
+	}
+
+	// Add common rclone options
+	args = append(args, "--progress")
+	args = append(args, "--stats", "1s")
+
+	// Add config file location
+	configPath := s.db.GetConfigRclonePath(config)
+	args = append(args, "--config", configPath)
+
+	// Add progress callback
+	args = append(args, "--stats-one-line")
+
+	// Set JSON output for easier parsing
+	args = append(args, "--json")
+
+	return args
 }

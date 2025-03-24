@@ -8,7 +8,7 @@ templ SFTPDestinationForm() {
 				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 					<i class="fas fa-server text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input type="text" id="dest_host" name="dest_host" x-model="destinationHost" required
+				<input type="text" id="dest_host" name="dest_host" x-model="destinationHost" x-bind:required="requiresDestination"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 					placeholder="sftp.example.com" />
 			</div>
@@ -34,7 +34,7 @@ templ SFTPDestinationForm() {
 				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 					<i class="fas fa-user text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input type="text" id="dest_user" name="dest_user" x-model="destinationUser" required
+				<input type="text" id="dest_user" name="dest_user" x-model="destinationUser" x-bind:required="requiresDestination"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 					placeholder="username" />
 			</div>
@@ -87,7 +87,7 @@ templ SFTPDestinationForm() {
 				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 					<i class="fas fa-folder-open text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input type="text" id="destination_path" name="destination_path" x-model="destinationPath" required
+				<input type="text" id="destination_path" name="destination_path" x-model="destinationPath" x-bind:required="requiresDestination"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 					placeholder="/remote/path/to/files" />
 			</div>

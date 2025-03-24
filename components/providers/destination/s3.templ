@@ -15,7 +15,7 @@ templ S3DestinationForm() {
 				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 					<i class="fas fa-globe text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input type="text" id="dest_region" name="dest_region" x-model="destinationRegion" required
+				<input type="text" id="dest_region" name="dest_region" x-model="destinationRegion" x-bind:required="requiresDestination"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 					placeholder="us-east-1" />
 			</div>
@@ -30,7 +30,7 @@ templ S3DestinationForm() {
 				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 					<i class="fas fa-archive text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input type="text" id="dest_bucket" name="dest_bucket" x-model="destinationBucket" required
+				<input type="text" id="dest_bucket" name="dest_bucket" x-model="destinationBucket" x-bind:required="requiresDestination"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 					placeholder="my-bucket" />
 			</div>
@@ -45,7 +45,7 @@ templ S3DestinationForm() {
 				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 					<i class="fas fa-key text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input type="text" id="dest_access_key" name="dest_access_key" x-model="destinationAccessKey" required
+				<input type="text" id="dest_access_key" name="dest_access_key" x-model="destinationAccessKey" x-bind:required="requiresDestination"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 					placeholder="AKIAIOSFODNN7EXAMPLE" />
 			</div>
@@ -60,7 +60,7 @@ templ S3DestinationForm() {
 				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 					<i class="fas fa-lock text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input type="password" id="dest_secret_key" name="dest_secret_key" x-model="destinationSecretKey" required
+				<input type="password" id="dest_secret_key" name="dest_secret_key" x-model="destinationSecretKey" x-bind:required="requiresDestination"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 					placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" />
 			</div>

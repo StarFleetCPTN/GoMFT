@@ -160,6 +160,7 @@ templ RcloneFlags() {
 			<i class="fas fa-flag text-gray-400 dark:text-gray-500"></i>
 		</div>
 		<input type="text" name="rclone_flags" id="rclone_flags" x-model="rcloneFlags"
+			@change="updateCommandRequirements()"
 			class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 			placeholder="--transfers 4 --checkers 8" />
 	</div>
@@ -198,8 +199,8 @@ templ SourceSelection() {
 			<option value="smb">SMB</option>
 			<option value="nextcloud">NextCloud</option>
 			<option value="webdav">WebDAV</option>
-			<option value="gdrive">Google Drive</option>
-			<option value="gphotos">Google Photos</option>
+			<option value="gdrive">Google Drive (BETA)</option>
+			<option value="gphotos">Google Photos (BETA)</option>
 		</select>
 	</div>
 </div>
@@ -222,8 +223,8 @@ templ DestinationSelection() {
 			<option value="smb">SMB</option>
 			<option value="nextcloud">NextCloud</option>
 			<option value="webdav">WebDAV</option>
-			<option value="gdrive">Google Drive</option>
-			<option value="gphotos">Google Photos</option>
+			<option value="gdrive">Google Drive (BETA)</option>
+			<option value="gphotos">Google Photos (BETA)</option>
 		</select>
 	</div>
 </div>
@@ -236,6 +237,7 @@ templ RcloneCommandOptionsContent(categoryMap map[string][]db.RcloneCommand, cat
 		hx-target="#command-flags-container"
 		hx-trigger="change"
 		hx-include="[name='command_id']"
+		@change="updateCommandRequirements()"
 		class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
 		<option value="">Select command...</option>
 		for _, category := range categories {
@@ -266,33 +268,127 @@ templ RcloneCommandFlagsContent(command *db.RcloneCommand) {
 				<h5 class="font-medium text-gray-900 dark:text-white mb-2">Command Flags:</h5>
 				<div class="space-y-3">
 					for _, flag := range command.Flags {
-						<div class="flex items-start">
-							<input
-								type="checkbox"
-								id={ fmt.Sprintf("flag_%d", flag.ID) }
-								name="command_flags"
-								value={ fmt.Sprintf("%d", flag.ID) }
-								class="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-blue-600"
-							/>
-							<div class="ml-3">
-								<label for={ fmt.Sprintf("flag_%d", flag.ID) } class="font-medium text-gray-900 dark:text-white">
-									{ flag.Name } - { flag.Description }
-								</label>
-								if flag.DefaultValue != "" {
-									<p class="text-xs text-gray-500 dark:text-gray-400">Default: { flag.DefaultValue }</p>
-								}
+						if flag.DataType == "bool" {
+							<!-- Boolean flag (simple checkbox) -->
+							<div class="flex items-start mb-4">
+								<input
+									type="checkbox"
+									id={ fmt.Sprintf("flag_%d", flag.ID) }
+									name="command_flags"
+									value={ fmt.Sprintf("%d", flag.ID) }
+									class="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-blue-600"
+								/>
+								<div class="ml-3">
+									<label for={ fmt.Sprintf("flag_%d", flag.ID) } class="font-medium text-gray-900 dark:text-white">
+										{ flag.Name } - { flag.Description }
+									</label>
+									if flag.DefaultValue != "" {
+										<p class="text-xs text-gray-500 dark:text-gray-400">Default: { flag.DefaultValue }</p>
+									}
+								</div>
 							</div>
-						</div>
+						} else {
+							<!-- Non-boolean flag (requires value) -->
+							<div class="flex items-start mb-4 w-full">
+								<div class="w-full">
+									<div class="flex items-center mb-2">
+										<input
+											type="checkbox"
+											id={ fmt.Sprintf("flag_enable_%d", flag.ID) }
+											name={ fmt.Sprintf("flag_enable_%d", flag.ID) }
+											class="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-blue-600"
+											data-input-id={ fmt.Sprintf("flag_value_%d", flag.ID) }
+											onclick="toggleFlagValue(this)"
+										/>
+										<label for={ fmt.Sprintf("flag_enable_%d", flag.ID) } class="font-medium text-gray-900 dark:text-white">
+											{ flag.Name } - { flag.Description }
+										</label>
+									</div>
+									
+									<div class="w-full mt-2">
+										@renderFlagInput(flag)
+										if flag.DefaultValue != "" {
+											<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Default: { flag.DefaultValue }</p>
+										}
+									</div>
+								</div>
+							</div>
+						}
 					}
 				</div>
 			</div>
 			
+			<!-- JavaScript to handle enabling/disabling flag value inputs -->
+			<script>
+				function toggleFlagValue(checkbox) {
+					const inputId = checkbox.getAttribute('data-input-id');
+					const input = document.getElementById(inputId);
+					
+					if (input) {
+						input.disabled = !checkbox.checked;
+						if (checkbox.checked) {
+							// Focus on the input when enabled
+							input.focus();
+						}
+						
+						// Also enable/disable the hidden input for flag ID
+						const hiddenId = inputId.replace('flag_value_', 'flag_hidden_');
+						const hiddenInput = document.getElementById(hiddenId);
+						if (hiddenInput) {
+							hiddenInput.disabled = !checkbox.checked;
+							console.log('Toggle hidden input:', hiddenId, checkbox.checked);
+						}
+						
+						// For debugging
+						console.log('Toggle flag value:', inputId, checkbox.checked);
+					}
+				}
+				
+				// Initialize all flag inputs on page load
+				document.addEventListener('DOMContentLoaded', function() {
+					const checkboxes = document.querySelectorAll('input[id^="flag_enable_"]');
+					checkboxes.forEach(function(checkbox) {
+						const inputId = checkbox.getAttribute('data-input-id');
+						const input = document.getElementById(inputId);
+						if (input) {
+							input.disabled = !checkbox.checked;
+							
+							// Also initialize the hidden input
+							const hiddenId = inputId.replace('flag_value_', 'flag_hidden_');
+							const hiddenInput = document.getElementById(hiddenId);
+							if (hiddenInput) {
+								hiddenInput.disabled = !checkbox.checked;
+							}
+						}
+					});
+				});
+			</script>
+			
 			<div class="mt-4 p-3 bg-blue-50 text-blue-800 rounded-lg border border-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-900 text-sm">
 				<div class="flex items-center mb-1">
 					<i class="fas fa-info-circle mr-2"></i>
-					<span class="font-medium">Usage Example</span>
+					<span class="font-medium">Usage Examples</span>
 				</div>
-				<code class="block mt-1 font-mono text-xs overflow-x-auto">rclone { command.Name } [flags] source:path dest:path</code>
+				if  command.Name == "ls" || 
+					command.Name == "lsd" ||
+					command.Name == "lsl" ||
+					command.Name == "lsjson" || 
+					command.Name == "lsf" ||
+					command.Name == "delete" ||
+					command.Name == "purge" ||
+					command.Name == "rmdirs" ||
+					command.Name == "mkdir" ||
+					command.Name == "touch" ||
+					command.Name == "md5sum" ||
+					command.Name == "sha1sum" ||
+					command.Name == "sha256sum" ||
+					command.Name == "size" ||
+					command.Name == "stat" ||
+					command.Name == "version" {
+					<code class="block mt-1 font-mono text-xs overflow-x-auto">rclone { command.Name } [flags] source:path</code>
+				} else {
+					<code class="block mt-1 font-mono text-xs overflow-x-auto">rclone { command.Name } [flags] source:path dest:path</code>
+				}
 			</div>
 		} else {
 			<div class="p-3 bg-gray-50 text-gray-600 rounded-lg border border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 text-sm">
@@ -303,4 +399,65 @@ templ RcloneCommandFlagsContent(command *db.RcloneCommand) {
 			</div>
 		}
 	</div>
+}
+
+// Helper function to render appropriate input based on flag data type
+templ renderFlagInput(flag db.RcloneCommandFlag) {
+	if flag.DataType == "int" {
+		<input
+			type="number"
+			id={ fmt.Sprintf("flag_value_%d", flag.ID) }
+			name={ fmt.Sprintf("flag_value_%d", flag.ID) }
+			class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+			placeholder={ flag.DefaultValue }
+			disabled
+		/>
+		<!-- Hidden input to include this flag ID when checked -->
+		<input 
+			type="hidden" 
+			name="command_flags" 
+			value={ fmt.Sprintf("%d", flag.ID) }
+			disabled
+			id={ fmt.Sprintf("flag_hidden_%d", flag.ID) }
+			data-enable-with={ fmt.Sprintf("flag_enable_%d", flag.ID) }
+		/>
+	} else if flag.DataType == "float" {
+		<input
+			type="number"
+			id={ fmt.Sprintf("flag_value_%d", flag.ID) }
+			name={ fmt.Sprintf("flag_value_%d", flag.ID) }
+			step="0.01"
+			class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+			placeholder={ flag.DefaultValue }
+			disabled
+		/>
+		<!-- Hidden input to include this flag ID when checked -->
+		<input 
+			type="hidden" 
+			name="command_flags" 
+			value={ fmt.Sprintf("%d", flag.ID) }
+			disabled
+			id={ fmt.Sprintf("flag_hidden_%d", flag.ID) }
+			data-enable-with={ fmt.Sprintf("flag_enable_%d", flag.ID) }
+		/>
+	} else {
+		<!-- Default to text input for string and other types -->
+		<input
+			type="text"
+			id={ fmt.Sprintf("flag_value_%d", flag.ID) }
+			name={ fmt.Sprintf("flag_value_%d", flag.ID) }
+			class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+			placeholder={ flag.DefaultValue }
+			disabled
+		/>
+		<!-- Hidden input to include this flag ID when checked -->
+		<input 
+			type="hidden" 
+			name="command_flags" 
+			value={ fmt.Sprintf("%d", flag.ID) }
+			disabled
+			id={ fmt.Sprintf("flag_hidden_%d", flag.ID) }
+			data-enable-with={ fmt.Sprintf("flag_enable_%d", flag.ID) }
+		/>
+	}
 }

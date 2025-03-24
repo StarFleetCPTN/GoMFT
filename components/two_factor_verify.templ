@@ -10,13 +10,13 @@ templ TwoFactorVerify(ctx context.Context, data TwoFactorVerifyData) {
 	@LayoutWithContext("Two-Factor Authentication", ctx) {
 		<div class="p-4 md:p-6 2xl:p-10">
 			<!-- Page Header -->
-			<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+			<div class="mb-6 flex flex-col items-center justify-center text-center">
 				<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
 					<i class="fas fa-shield-alt w-6 h-6 mr-2 text-blue-500"></i>
 					Two-Factor Authentication
 				</h1>
 			</div>
-			<p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
+			<p class="text-sm text-gray-500 dark:text-gray-400 mb-6 text-center">
 				Enter the verification code from your authenticator app to continue
 			</p>
 

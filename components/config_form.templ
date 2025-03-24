@@ -249,6 +249,9 @@ func getInitialData(config *db.TransferConfig) string {
 		sourcePathError: '',
 		destPathValid: null,
 		destPathError: '',
+		
+		// Command configuration
+		requiresDestination: true,
 
 		// Methods for path validation
 		checkPath(path, type) {
@@ -268,6 +271,68 @@ func getInitialData(config *db.TransferConfig) string {
 					this[type + 'PathValid'] = false;
 					this[type + 'PathError'] = 'Error checking path: ' + error.message;
 				});
+		},
+		
+		// Method to check if destination is required based on command type
+		updateCommandRequirements() {
+			// List of commands that don't require destination
+			const listingCommands = ['ls', 'lsd', 'lsl', 'lsf', 'lsjson', 'listremotes'];
+			const infoCommands = ['md5sum', 'sha1sum', 'size', 'version'];
+			const dirCommands = ['mkdir', 'rmdir', 'rmdirs'];
+			const destructiveCommands = ['delete', 'purge'];
+			const specialSinglePathCommands = ['obscure'];
+			
+			// Get the command name from the command ID
+			// This will need coordination with your backend to ensure the IDs match the commands
+			let commandName = '';
+			switch(parseInt(this.commandId)) {
+				// Map command IDs to command names - adjust these based on your actual command IDs
+				case 1: commandName = 'copy'; break;
+				case 2: commandName = 'move'; break;
+				case 3: commandName = 'sync'; break;
+				case 4: commandName = 'ls'; break;
+				case 5: commandName = 'lsd'; break;
+				case 6: commandName = 'lsl'; break;
+				case 7: commandName = 'lsf'; break;
+				case 8: commandName = 'lsjson'; break;
+				case 9: commandName = 'md5sum'; break;
+				case 10: commandName = 'sha1sum'; break;
+				case 11: commandName = 'size'; break;
+				case 12: commandName = 'delete'; break;
+				case 13: commandName = 'purge'; break;
+				case 14: commandName = 'mkdir'; break;
+				case 15: commandName = 'rmdir'; break;
+				case 16: commandName = 'rmdirs'; break;
+				case 17: commandName = 'check'; break;
+				case 18: commandName = 'cleanup'; break;
+				case 19: commandName = 'dedupe'; break;
+				case 20: commandName = 'version'; break;
+				case 21: commandName = 'listremotes'; break;
+				case 22: commandName = 'cryptcheck'; break;
+				case 23: commandName = 'bisync'; break;
+				case 24: commandName = 'copyto'; break;
+				case 25: commandName = 'moveto'; break;
+				default: commandName = 'copy'; // Default to copy
+			}
+			
+			console.log('Command ID:', this.commandId, 'Command Name:', commandName);
+			
+			// Check if the command requires a destination
+			if (
+				listingCommands.includes(commandName) ||
+				infoCommands.includes(commandName) ||
+				(dirCommands.includes(commandName) && !this.rcloneFlags.includes('--dst')) ||
+				destructiveCommands.includes(commandName) ||
+				specialSinglePathCommands.includes(commandName) ||
+				commandName === 'version' ||
+				commandName === 'listremotes'
+			) {
+				this.requiresDestination = false;
+				console.log('Destination not required for command:', commandName);
+			} else {
+				this.requiresDestination = true;
+				console.log('Destination required for command:', commandName);
+			}
 		}
 	}`, 
 	name, sourceType, sourcePath, sourceHost, sourcePort, sourceUser, sourcePassword, sourceKeyFile, sourceAuthType,
@@ -323,6 +388,8 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 							destinationType = destinationType || 'local';
 							sourcePort = sourcePort || 22;
 							destPort = destPort || 22;
+							// Initialize command requirements
+							updateCommandRequirements();
 						})"
 						>
 						
@@ -350,6 +417,16 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 								placeholder="My Transfer Configuration"
 							/>
 							<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Choose a descriptive name to identify this configuration.</p>
+						</div>
+						
+						<!-- Rclone Command Configuration Section -->
+						<div class="p-5 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+							<h3 class="mb-4 text-xl font-bold text-gray-900 dark:text-white flex items-center">
+								<i class="fas fa-terminal mr-2 text-blue-500 dark:text-blue-400"></i>Command Configuration
+							</h3>
+							
+							<!-- Use the RcloneFlags component from common package -->
+							@common.RcloneFlags()
 						</div>
 						
 						<!-- Source Configuration Section -->
@@ -413,8 +490,8 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 							@common.FilePatternFields()
 						</div>
 						
-						<!-- Destination Configuration Section -->
-						<div class="p-5 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+						<!-- Destination Configuration Section (only shown if required) -->
+						<div x-show="requiresDestination" x-transition class="p-5 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
 							<h3 class="mb-4 text-xl font-bold text-gray-900 dark:text-white flex items-center">
 								<i class="fas fa-download mr-2 text-blue-500 dark:text-blue-400"></i>Destination Configuration
 							</h3>
@@ -476,11 +553,7 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 								@common.ArchiveOptions()
 							</div>
 							
-							<!-- Rclone flags -->
-							<div>
-								<h4 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Rclone Configuration</h4>
-								@common.RcloneFlags()
-							</div>
+
 						</div>
 						
 						<!-- Form Actions -->

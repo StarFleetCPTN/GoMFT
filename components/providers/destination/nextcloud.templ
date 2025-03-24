@@ -15,7 +15,7 @@ templ NextCloudDestinationForm() {
 				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 					<i class="fas fa-cloud text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input type="text" id="dest_endpoint" name="dest_endpoint" x-model="destinationEndpoint" required
+				<input type="text" id="dest_endpoint" name="dest_endpoint" x-model="destinationEndpoint" x-bind:required="requiresDestination"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 					placeholder="https://nextcloud.example.com" />
 			</div>
@@ -30,7 +30,7 @@ templ NextCloudDestinationForm() {
 				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 					<i class="fas fa-user text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input type="text" id="dest_user" name="dest_user" x-model="destinationUser" required
+				<input type="text" id="dest_user" name="dest_user" x-model="destinationUser" x-bind:required="requiresDestination"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 					placeholder="nextcloud_username" />
 			</div>
@@ -45,7 +45,7 @@ templ NextCloudDestinationForm() {
 				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 					<i class="fas fa-lock text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input type="password" id="dest_password" name="dest_password" x-model="destinationPassword" required
+				<input type="password" id="dest_password" name="dest_password" x-model="destinationPassword" x-bind:required="requiresDestination"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 					placeholder="NextCloud password" />
 			</div>
@@ -60,7 +60,7 @@ templ NextCloudDestinationForm() {
 				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 					<i class="fas fa-folder-open text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input type="text" id="destination_path" name="destination_path" x-model="destinationPath" required
+				<input type="text" id="destination_path" name="destination_path" x-model="destinationPath" x-bind:required="requiresDestination"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 					placeholder="remote.php/dav/files/username/path/to/files" />
 			</div>

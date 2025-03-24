@@ -126,6 +126,7 @@ type TransferConfig struct {
 	// Rclone command fields
 	CommandID              uint   `gorm:"default:1" form:"command_id"` // Default to 'copy' command ID (1)
 	CommandFlags           string `form:"command_flags"`               // JSON string of selected flags
+	CommandFlagValues      string `form:"command_flag_values"`         // JSON string of flag values by ID
 	DeleteAfterTransfer    *bool  `gorm:"default:false" form:"delete_after_transfer"`
 	SkipProcessedFiles     *bool  `gorm:"default:true" form:"skip_processed_files"`
 	MaxConcurrentTransfers int    `gorm:"default:4" form:"max_concurrent_transfers"` // Number of concurrent file transfers

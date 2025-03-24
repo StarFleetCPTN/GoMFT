@@ -675,7 +675,7 @@ func (h *Handlers) HandleRunJob(c *gin.Context) {
 	var job db.Job
 	if err := h.DB.First(&job, id).Error; err != nil {
 		c.Header("Content-Type", "text/html")
-		c.String(http.StatusNotFound, "<script>window.notyfInstance.error('Job not found')</script>")
+		c.String(http.StatusNotFound, "Job not found")
 		return
 	}
 
@@ -685,7 +685,7 @@ func (h *Handlers) HandleRunJob(c *gin.Context) {
 		isAdmin, exists := c.Get("isAdmin")
 		if !exists || isAdmin != true {
 			c.Header("Content-Type", "text/html")
-			c.String(http.StatusForbidden, "<script>window.notyfInstance.error('You do not have permission to run this job')</script>")
+			c.String(http.StatusForbidden, "You do not have permission to run this job")
 			return
 		}
 	}
@@ -720,7 +720,7 @@ func (h *Handlers) HandleRunJob(c *gin.Context) {
 	// Run the job immediately using the scheduler
 	if err := h.Scheduler.RunJobNow(job.ID); err != nil {
 		c.Header("Content-Type", "text/html")
-		errorMsg := fmt.Sprintf("<script>window.notyfInstance.error('Failed to run job: %s')</script>", err.Error())
+		errorMsg := fmt.Sprintf("%s", err.Error())
 		c.String(http.StatusInternalServerError, errorMsg)
 		return
 	}
@@ -730,7 +730,7 @@ func (h *Handlers) HandleRunJob(c *gin.Context) {
 	c.Header("Content-Type", "text/html")
 
 	// Return HTML with JavaScript to trigger the notification
-	successScript := fmt.Sprintf("<script>window.notyfInstance.success('Job \"%s\" has been started successfully')</script>", jobName)
+	successScript := fmt.Sprintf("Job \"%s\" has been started successfully", jobName)
 	c.String(http.StatusOK, successScript)
 }
 

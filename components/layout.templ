@@ -3,6 +3,7 @@ package components
 import (
 	"context"
 	"fmt"
+	"strings"
 	"github.com/gin-gonic/gin"
 	"time"
 )
@@ -10,7 +11,7 @@ import (
 // AppVersion will be set at build time using ldflags
 // Example build command:
 // go build -ldflags "-X github.com/starfleetcptn/gomft/components.AppVersion=1.2.3"
-var AppVersion = "dev"
+var AppVersion = "DEV"
 
 // GetReleaseURL returns the URL to the specific GitHub release
 func GetReleaseURL() templ.SafeURL {
@@ -62,42 +63,7 @@ templ LayoutWithContext(title string, ctx context.Context) {
 			<script src="/static/js/app.js"></script>
 			<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
 			<link rel="stylesheet" href="/static/css/app.css"/>
-			<!-- Notyf Toast Notifications -->
-			<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.css"/>
-			<script src="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.js"></script>
-			<script>
-				// Initialize Notyf and make it available globally
-				document.addEventListener('DOMContentLoaded', function() {
-					window.notyfInstance = new Notyf({
-						duration: 3000,
-						position: {
-							x: 'right',
-							y: 'bottom',
-						},
-						types: [
-							{
-								type: 'success',
-								className: 'notyf__toast--success',
-								background: '#10B981',
-								icon: {
-									className: 'fas fa-check-circle',
-									tagName: 'i'
-								}
-							},
-							{
-								type: 'error',
-								className: 'notyf__toast--error',
-								background: '#EF4444',
-								icon: {
-									className: 'fas fa-exclamation-circle',
-									tagName: 'i'
-								}
-							}
-						]
-					});
-					
-				});
-			</script>
+
 			<script>
 				tailwind.config = {
 					darkMode: 'class',
@@ -530,17 +496,17 @@ func isLoggedIn(ctx context.Context) bool {
 func getUserInitial(ctx context.Context) string {
 	// Try as string first
 	if username, ok := ctx.Value("username").(string); ok && username != "" {
-		return string(username[0])
+		return strings.ToUpper(string(username[0]))
 	}
 	// Try as interface{} (from JWT claims)
 	if username, ok := ctx.Value("username").(interface{}); ok {
 		if strVal, ok := username.(string); ok && strVal != "" {
-			return string(strVal[0])
+			return strings.ToUpper(string(strVal[0]))
 		}
 	}
 	// Try email as fallback
 	if email, ok := ctx.Value("email").(string); ok && email != "" {
-		return string(email[0])
+		return strings.ToUpper(string(email[0]))
 	}
 	return "U"
 }
@@ -549,12 +515,12 @@ func getUserInitial(ctx context.Context) string {
 func getUserEmail(ctx context.Context) string {
 	// Try as string first
 	if email, ok := ctx.Value("email").(string); ok && email != "" {
-		return email
+		return strings.ToLower(email)
 	}
 	// Try as interface{} (from JWT claims)
 	if email, ok := ctx.Value("email").(interface{}); ok {
 		if strVal, ok := email.(string); ok && strVal != "" {
-			return strVal
+			return strings.ToLower(strVal)
 		}
 	}
 	return "user@example.com"
