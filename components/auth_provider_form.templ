@@ -1,0 +1,655 @@
+package components
+
+import (
+	"fmt"
+	"encoding/json"
+	"context"
+	"github.com/starfleetcptn/gomft/internal/db"
+)
+
+templ AuthProviderForm(ctx context.Context, provider *db.AuthProvider, isNew bool) {
+	@LayoutWithContext(getPageTitle(isNew), ctx) {
+		<div id="auth-provider-form-container" style="min-height: 100vh; background-color: rgb(249, 250, 251);" class="auth-provider-form-page bg-gray-50 dark:bg-gray-900">
+			<div class="p-4 pb-8 w-full">
+				<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+					<div>
+						if isNew {
+							<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+								<i class="fas fa-user-shield w-6 h-6 mr-2 text-blue-500 dark:text-blue-400"></i>
+								New Authentication Provider
+							</h1>
+							<p class="text-gray-500 dark:text-gray-400">Configure a new external authentication source</p>
+						} else {
+							<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+								<i class="fas fa-user-shield w-6 h-6 mr-2 text-blue-500 dark:text-blue-400"></i>
+								Edit Authentication Provider
+							</h1>
+							<p class="text-gray-500 dark:text-gray-400">Update an existing external authentication source</p>
+						}
+					</div>
+					<div>
+						<a href="/admin/settings/auth-providers" class="text-gray-700 bg-gray-100 hover:bg-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-lg text-sm px-4 py-2 text-center inline-flex items-center dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 dark:focus:ring-gray-700">
+							<i class="fas fa-arrow-left w-4 h-4 mr-2"></i> Back to Providers
+						</a>
+					</div>
+				</div>
+
+				<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 p-6">
+					if isNew {
+						<form method="POST" action="/admin/settings/auth-providers" class="space-y-6">
+							@formContent(provider, isNew)
+						</form>
+					} else {
+						<form method="POST" action={ templ.SafeURL(fmt.Sprintf("/admin/settings/auth-providers/%d", provider.ID)) } class="space-y-6">
+							<input type="hidden" name="_method" value="PUT" />
+							@formContent(provider, isNew)
+						</form>
+					}
+				</div>
+				
+				<!-- Help Section -->
+				<div class="bg-gray-50 dark:bg-gray-800 rounded-lg shadow-sm mt-8 p-4 border border-gray-200 dark:border-gray-700">
+					<div class="flex items-start mb-2">
+						<div class="flex items-center h-5">
+							<i class="fas fa-info-circle w-4 h-4 text-blue-500 dark:text-blue-400 mr-2"></i>
+						</div>
+						<div class="ml-2 text-sm">
+							<p class="text-gray-700 dark:text-gray-300">Authentication providers allow users to sign in using external identity providers.</p>
+						</div>
+					</div>
+
+					<div class="flex items-start mt-4">
+						<div class="flex items-center h-5">
+							<i class="fas fa-key w-4 h-4 text-blue-500 dark:text-blue-400 mr-2"></i>
+						</div>
+						<div class="ml-2 text-sm">
+							<p class="text-gray-700 dark:text-gray-300">Make sure to enter the correct callback URL in your external provider's configuration.</p>
+						</div>
+					</div>
+
+					<div class="flex items-start mt-4">
+						<div class="flex items-center h-5">
+							<i class="fas fa-user-check w-4 h-4 text-indigo-500 dark:text-indigo-400 mr-2"></i>
+						</div>
+						<div class="ml-2 text-sm">
+							<p class="text-gray-700 dark:text-gray-300">Configure attribute mappings to match the fields in your identity provider's user data.</p>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<script>
+			function updateFormFields() {
+				// Hide all provider-specific sections first
+				document.querySelectorAll('.provider-specific-section').forEach(section => {
+					section.style.display = 'none';
+				});
+				
+				// Show the relevant section based on selected provider type
+				const providerType = document.getElementById('type').value;
+				
+				if (providerType === 'authentik') {
+					document.getElementById('authentikSection').style.display = 'block';
+				} else if (providerType === 'oidc') {
+					document.getElementById('oidcSection').style.display = 'block';
+				} else if (providerType === 'saml') {
+					document.getElementById('samlSection').style.display = 'block';
+				}
+			}
+			
+			function testProviderConnection() {
+				const providerId = window.location.pathname.split('/').slice(-2)[0];
+				
+				const testBtn = event.target;
+				const originalText = testBtn.innerHTML;
+				testBtn.disabled = true;
+				testBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Testing...';
+				
+				fetch(`/admin/settings/auth-providers/${providerId}/test`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+					},
+				})
+				.then(response => response.json())
+				.then(data => {
+					if (data.error) {
+						showToast('error', data.error);
+					} else if (data.success) {
+						showToast('success', data.message || 'Connection test successful');
+					} else {
+						showToast('error', 'Connection test failed');
+					}
+					
+					testBtn.disabled = false;
+					testBtn.innerHTML = originalText;
+				})
+				.catch(error => {
+					console.error('Error:', error);
+					showToast('error', 'Connection test failed');
+					
+					testBtn.disabled = false;
+					testBtn.innerHTML = originalText;
+				});
+			}
+			
+			// Handle icon URL preview
+			function updateIconPreview() {
+				const iconUrl = document.getElementById('icon_url').value;
+				const previewImg = document.getElementById('preview-img');
+				const previewPlaceholder = document.getElementById('preview-placeholder');
+				
+				if (iconUrl && iconUrl.trim() !== '') {
+					// Create image element if it doesn't exist
+					if (!previewImg) {
+						const img = document.createElement('img');
+						img.id = 'preview-img';
+						img.className = 'max-w-full max-h-full';
+						img.onerror = function() {
+							// If image fails to load, show placeholder
+							this.style.display = 'none';
+							if (previewPlaceholder) {
+								previewPlaceholder.style.display = 'block';
+							} else {
+								const icon = document.createElement('i');
+								icon.id = 'preview-placeholder';
+								icon.className = 'fas fa-exclamation-circle text-red-500 text-xl';
+								document.getElementById('icon-preview').appendChild(icon);
+							}
+						};
+						img.onload = function() {
+							// If image loads successfully, hide placeholder
+							this.style.display = 'block';
+							if (previewPlaceholder) {
+								previewPlaceholder.style.display = 'none';
+							}
+						};
+						document.getElementById('icon-preview').appendChild(img);
+					}
+					
+					// Update image source
+					if (previewImg) {
+						previewImg.src = iconUrl;
+						previewImg.style.display = 'block';
+						if (previewPlaceholder) {
+							previewPlaceholder.style.display = 'none';
+						}
+					}
+				} else {
+					// If no URL, show placeholder
+					if (previewImg) {
+						previewImg.style.display = 'none';
+					}
+					if (previewPlaceholder) {
+						previewPlaceholder.style.display = 'block';
+					}
+				}
+			}
+			
+			// Initialize the form on page load
+			document.addEventListener('DOMContentLoaded', function() {
+				updateFormFields();
+				
+				// Set dark background color if in dark mode
+				if (document.documentElement.classList.contains('dark')) {
+					document.getElementById('auth-provider-form-container').style.backgroundColor = '#111827';
+				}
+				
+				// Add event listener for theme changes
+				const themeToggle = document.getElementById('theme-toggle');
+				if (themeToggle) {
+					themeToggle.addEventListener('click', function() {
+						setTimeout(function() {
+							const isDark = document.documentElement.classList.contains('dark');
+							document.getElementById('auth-provider-form-container').style.backgroundColor = isDark ? '#111827' : 'rgb(249, 250, 251)';
+						}, 50);
+					});
+				}
+				
+				// Add event listener for icon URL changes
+				const iconUrlInput = document.getElementById('icon_url');
+				if (iconUrlInput) {
+					iconUrlInput.addEventListener('input', updateIconPreview);
+					// Initial preview
+					updateIconPreview();
+				}
+			});
+		</script>
+	}
+}
+
+func getPageTitle(isNew bool) string {
+	if isNew {
+		return "New Authentication Provider"
+	}
+	return "Edit Authentication Provider"
+}
+
+templ formContent(provider *db.AuthProvider, isNew bool) {
+	<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+		<!-- Name -->
+		<div>
+			<label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Name <span class="text-red-600">*</span></label>
+			<input
+				type="text"
+				id="name"
+				name="name"
+				class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+				placeholder="e.g. Authentik SSO"
+				required
+				value={ getValue(provider, "name") }
+			/>
+			<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">A descriptive name for this authentication provider</p>
+		</div>
+
+		<!-- Provider Type -->
+		<div>
+			<label for="type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Provider Type <span class="text-red-600">*</span></label>
+			<select id="type" name="type" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" required onchange="updateFormFields()">
+				<option value="">Select a provider type</option>
+				if provider != nil && provider.Type == db.ProviderTypeAuthentik {
+					<option value="authentik" selected>Authentik</option>
+				} else {
+					<option value="authentik">Authentik</option>
+				}
+				if provider != nil && provider.Type == db.ProviderTypeOIDC {
+					<option value="oidc" selected>OpenID Connect (OIDC)</option>
+				} else {
+					<option value="oidc">OpenID Connect (OIDC)</option>
+				}
+				if provider != nil && provider.Type == db.ProviderTypeSAML {
+					<option value="saml" selected>SAML 2.0</option>
+				} else {
+					<option value="saml">SAML 2.0</option>
+				}
+				if provider != nil && provider.Type == db.ProviderTypeOAuth2 {
+					<option value="oauth2" selected>OAuth 2.0</option>
+				} else {
+					<option value="oauth2">OAuth 2.0</option>
+				}
+			</select>
+			<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">The type of external authentication service</p>
+		</div>
+
+		<!-- Enabled -->
+		<div>
+			<div class="flex items-center">
+				if provider == nil || provider.Enabled {
+					<input
+						type="checkbox"
+						id="enabled"
+						name="enabled"
+						class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+						checked
+					/>
+				} else {
+					<input
+						type="checkbox"
+						id="enabled"
+						name="enabled"
+						class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+					/>
+				}
+				<label for="enabled" class="ml-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Enabled</label>
+			</div>
+			<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Whether this authentication provider is active and available for login</p>
+		</div>
+
+		<!-- Description -->
+		<div>
+			<label for="description" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description</label>
+			<textarea
+				id="description"
+				name="description"
+				class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+				rows="3"
+				placeholder="Optional description of this provider"
+			>
+				if provider != nil {
+					{ provider.Description }
+				}
+			</textarea>
+			<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Additional information about this authentication provider</p>
+		</div>
+	</div>
+
+	<!-- Icon URL -->
+	<div class="border-t border-gray-200 dark:border-gray-700 pt-6">
+		<h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Provider Icon</h3>
+		
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+			<div>
+				<label for="icon_url" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Icon URL</label>
+				<input
+					type="url"
+					id="icon_url"
+					name="icon_url"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="https://example.com/icon.svg"
+					value={ provider.IconURL }
+				/>
+				<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">URL to the provider's icon image (SVG recommended)</p>
+			</div>
+			
+			<div>
+				<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Icon Preview</label>
+				<div class="flex items-center">
+					<div id="icon-preview" class="border border-gray-300 dark:border-gray-700 rounded-lg p-4 flex items-center justify-center w-20 h-20 bg-white dark:bg-gray-800">
+						if provider != nil && provider.IconURL != "" {
+							<img src={ provider.IconURL } class="max-w-full max-h-full" id="preview-img" />
+						} else {
+							<i class="fas fa-image text-gray-400 text-xl" id="preview-placeholder"></i>
+						}
+					</div>
+					<div class="ml-4">
+						<p class="text-sm text-gray-500 dark:text-gray-400">Preview of the icon that will be displayed on the login button.</p>
+						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">If no URL is provided, a default icon will be used based on the provider type.</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="border-t border-gray-200 dark:border-gray-700 pt-6">
+		<h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Connection Settings</h3>
+		
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+			<!-- Provider URL -->
+			<div>
+				<label for="provider_url" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Provider URL <span class="text-red-600">*</span></label>
+				<input
+					type="url"
+					id="provider_url"
+					name="provider_url"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="https://authentik.example.com"
+					required
+					value={ getValue(provider, "provider_url") }
+				/>
+				<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">The base URL of the authentication provider</p>
+			</div>
+
+			<!-- Client ID -->
+			<div>
+				<label for="client_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Client ID <span class="text-red-600">*</span></label>
+				<input
+					type="text"
+					id="client_id"
+					name="client_id"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					required
+					value={ getValue(provider, "client_id") }
+				/>
+				<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">The client identifier assigned by the authentication provider</p>
+			</div>
+
+			<!-- Client Secret -->
+			<div>
+				<label for="client_secret" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+					Client Secret
+					if !isNew {
+						<span class="text-gray-500 text-xs font-normal ml-2">(leave empty to keep current)</span>
+					} else {
+						<span class="text-red-600">*</span>
+					}
+				</label>
+				if isNew {
+					<input
+						type="password"
+						id="client_secret"
+						name="client_secret"
+						class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+						required
+					/>
+				} else {
+					<input
+						type="password"
+						id="client_secret"
+						name="client_secret"
+						class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					/>
+				}
+				<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">The client secret for authentication with the provider</p>
+			</div>
+
+			<!-- Redirect URL -->
+			<div>
+				<label for="redirect_url" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Redirect URL <span class="text-red-600">*</span></label>
+				<input
+					type="url"
+					id="redirect_url"
+					name="redirect_url"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="https://your-app.example.com/auth/callback"
+					required
+					value={ getRedirectURL(provider) }
+				/>
+				<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">The callback URL that will handle the authentication response</p>
+			</div>
+
+			<!-- Scopes -->
+			<div>
+				<label for="scopes" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Scopes</label>
+				<input
+					type="text"
+					id="scopes"
+					name="scopes"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="openid profile email"
+					value={ getValue(provider, "scopes") }
+				/>
+				<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Space-separated list of scopes to request from the provider</p>
+			</div>
+		</div>
+	</div>
+
+	<div class="border-t border-gray-200 dark:border-gray-700 pt-6 provider-specific-section" id="authentikSection">
+		<h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Authentik Settings</h3>
+		
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+			<!-- Authentik Tenant ID -->
+			<div>
+				<label for="authentik_tenant" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tenant ID</label>
+				<input
+					type="text"
+					id="authentik_tenant"
+					name="authentik_tenant"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="default"
+					value={ getConfigValue(provider, "tenant_id") }
+				/>
+				<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Authentik tenant ID (optional, defaults to 'default')</p>
+			</div>
+		</div>
+	</div>
+
+	<div class="border-t border-gray-200 dark:border-gray-700 pt-6 provider-specific-section" id="oidcSection">
+		<h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">OpenID Connect Settings</h3>
+		
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+			<!-- OIDC Discovery URL -->
+			<div>
+				<label for="oidc_discovery_url" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Discovery URL</label>
+				<input
+					type="url"
+					id="oidc_discovery_url"
+					name="oidc_discovery_url"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="https://provider/.well-known/openid-configuration"
+					value={ getConfigValue(provider, "discovery_url") }
+				/>
+				<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">URL to the OIDC discovery document</p>
+			</div>
+		</div>
+	</div>
+
+	<div class="border-t border-gray-200 dark:border-gray-700 pt-6 provider-specific-section" id="samlSection">
+		<h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">SAML Settings</h3>
+		
+		<div class="grid grid-cols-1 gap-6">
+			<!-- SAML Metadata URL -->
+			<div>
+				<label for="saml_metadata_url" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Metadata URL</label>
+				<input
+					type="url"
+					id="saml_metadata_url"
+					name="saml_metadata_url"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="https://provider/metadata.xml"
+					value={ getConfigValue(provider, "metadata_url") }
+				/>
+				<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">URL to the SAML metadata XML</p>
+			</div>
+		</div>
+	</div>
+
+	<div class="border-t border-gray-200 dark:border-gray-700 pt-6">
+		<h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">User Attribute Mapping</h3>
+		
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+			<!-- Username Attribute -->
+			<div>
+				<label for="attr_username" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Username Attribute</label>
+				<input
+					type="text"
+					id="attr_username"
+					name="attr_username"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="preferred_username"
+					value={ getAttributeValue(provider, "username") }
+				/>
+				<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">The attribute to use as the username</p>
+			</div>
+
+			<!-- Email Attribute -->
+			<div>
+				<label for="attr_email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Attribute</label>
+				<input
+					type="text"
+					id="attr_email"
+					name="attr_email"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="email"
+					value={ getAttributeValue(provider, "email") }
+				/>
+				<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">The attribute to use as the email address</p>
+			</div>
+
+			<!-- Display Name Attribute -->
+			<div>
+				<label for="attr_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Display Name Attribute</label>
+				<input
+					type="text"
+					id="attr_name"
+					name="attr_name"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="name"
+					value={ getAttributeValue(provider, "name") }
+				/>
+				<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">The attribute to use as the display name</p>
+			</div>
+
+			<!-- Groups Attribute -->
+			<div>
+				<label for="attr_groups" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Groups Attribute</label>
+				<input
+					type="text"
+					id="attr_groups"
+					name="attr_groups"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="groups"
+					value={ getAttributeValue(provider, "groups") }
+				/>
+				<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">The attribute that contains user groups</p>
+			</div>
+		</div>
+	</div>
+
+	<div class="flex justify-end gap-4 mt-6">
+		<a href="/admin/settings/auth-providers" class="text-gray-700 bg-gray-100 hover:bg-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center inline-flex items-center dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 dark:focus:ring-gray-700">
+			Cancel
+		</a>
+		if !isNew {
+			<button type="button" class="text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center inline-flex items-center dark:bg-blue-500 dark:hover:bg-blue-600 dark:focus:ring-blue-700" onclick="testProviderConnection()">
+				<i class="fas fa-check-circle w-4 h-4 mr-2"></i>
+				Test Connection
+			</button>
+		}
+		<button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center inline-flex items-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+			if isNew {
+				<i class="fas fa-plus w-4 h-4 mr-2"></i>
+				Create Provider
+			} else {
+				<i class="fas fa-save w-4 h-4 mr-2"></i>
+				Save Changes
+			}
+		</button>
+	</div>
+}
+
+func getValue(provider *db.AuthProvider, field string) string {
+	if provider == nil {
+		return ""
+	}
+	
+	switch field {
+	case "name":
+		return provider.Name
+	case "provider_url":
+		return provider.ProviderURL
+	case "client_id":
+		return provider.ClientID
+	case "redirect_url":
+		return provider.RedirectURL
+	case "scopes":
+		return provider.Scopes
+	case "icon_url":
+		return provider.IconURL
+	default:
+		return ""
+	}
+}
+
+func getRedirectURL(provider *db.AuthProvider) string {
+	if provider == nil || provider.RedirectURL == "" {
+		return fmt.Sprintf("https://%s/auth/callback", "your-app-domain.com")
+	}
+	return provider.RedirectURL
+}
+
+func getConfigValue(provider *db.AuthProvider, key string) string {
+	if provider == nil || provider.Config == "" {
+		return ""
+	}
+	
+	var config map[string]interface{}
+	if err := json.Unmarshal([]byte(provider.Config), &config); err != nil {
+		return ""
+	}
+	
+	if value, ok := config[key]; ok {
+		if strValue, ok := value.(string); ok {
+			return strValue
+		}
+	}
+	
+	return ""
+}
+
+func getAttributeValue(provider *db.AuthProvider, key string) string {
+	if provider == nil || provider.AttributeMapping == "" {
+		return ""
+	}
+	
+	var mapping map[string]string
+	if err := json.Unmarshal([]byte(provider.AttributeMapping), &mapping); err != nil {
+		return ""
+	}
+	
+	if value, ok := mapping[key]; ok {
+		return value
+	}
+	
+	return ""
+} 

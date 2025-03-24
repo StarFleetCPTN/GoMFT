@@ -21,6 +21,7 @@ func GetMigrations(db *gorm.DB) *gormigrate.Gormigrate {
 		AddUserNotifications(),        // 008
 		AddRcloneTables(),             // 009
 		AddRcloneCommandToConfig(),    // 010
+		AddAuthProviders(),            // 011
 	)
 
 	return gormigrate.New(db, gormigrate.DefaultOptions, migrations)

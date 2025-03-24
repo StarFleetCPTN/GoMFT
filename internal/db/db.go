@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -2078,4 +2079,31 @@ func (db *DB) GetRcloneCommandFlagsMap(commandID uint) (map[uint]RcloneCommandFl
 	}
 
 	return flagsMap, nil
+}
+
+// GetEnabledAuthProviders returns all enabled authentication providers
+// func (db *DB) GetEnabledAuthProviders(ctx context.Context) ([]AuthProvider, error) {
+// 	var providers []AuthProvider
+// 	result := db.WithContext(ctx).Where("enabled = ?", true).Find(&providers)
+// 	return providers, result.Error
+// }
+
+// GetExternalIdentity retrieves an external identity by provider ID and external ID
+func (db *DB) GetExternalIdentity(ctx context.Context, providerID uint, externalID string) (*ExternalUserIdentity, error) {
+	var identity ExternalUserIdentity
+	result := db.WithContext(ctx).Where("provider_id = ? AND external_id = ?", providerID, externalID).First(&identity)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &identity, nil
+}
+
+// CreateExternalIdentity creates a new external user identity
+func (db *DB) CreateExternalIdentity(ctx context.Context, identity *ExternalUserIdentity) error {
+	return db.WithContext(ctx).Create(identity).Error
+}
+
+// UpdateExternalIdentity updates an existing external user identity
+func (db *DB) UpdateExternalIdentity(ctx context.Context, identity *ExternalUserIdentity) error {
+	return db.WithContext(ctx).Save(identity).Error
 }

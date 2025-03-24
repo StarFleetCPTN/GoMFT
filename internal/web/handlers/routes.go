@@ -21,6 +21,11 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 	router.GET("/reset-password", h.HandleResetPasswordPage)
 	router.POST("/reset-password", h.HandleResetPassword)
 
+	// External Authentication Provider routes for login page
+	router.GET("/auth/providers", h.GetAuthProviders)
+	router.GET("/auth/provider/:id", h.HandleAuthProviderInit)
+	router.GET("/auth/callback", h.HandleAuthProviderCallback)
+
 	// Protected routes
 	authorized := router.Group("/")
 	authorized.Use(h.AuthMiddleware())
@@ -145,9 +150,26 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 		settingsGroup.Use(h.PermissionMiddleware("system.settings"))
 		{
 			settingsGroup.GET("", h.HandleSettings)
+			// settingsGroup.GET("/backups", h.HandleBackupsPage)
+			// settingsGroup.POST("/backups", h.HandleCreateBackup)
+			// settingsGroup.GET("/logs", h.HandleLogsPage)
+			// settingsGroup.POST("/logs/download", h.HandleDownloadLogs)
+			// settingsGroup.DELETE("/logs", h.HandlePurgeLogs)
+
+			// Auth Provider routes
+			authProviderGroup := settingsGroup.Group("/auth-providers")
+			authProviderGroup.GET("", h.AuthProvidersPage)
+			authProviderGroup.GET("/new", h.NewAuthProviderPage)
+			authProviderGroup.POST("", h.HandleCreateAuthProvider)
+			authProviderGroup.GET("/:id/edit", h.EditAuthProviderPage)
+			authProviderGroup.POST("/:id", h.HandleUpdateAuthProvider)
+			authProviderGroup.DELETE("/:id", h.HandleDeleteAuthProvider)
+			authProviderGroup.POST("/:id/test", h.HandleTestAuthProviderConnection)
+
 			settingsGroup.POST("/notifications", h.HandleCreateNotificationService)
 			settingsGroup.DELETE("/notifications/:id", h.HandleDeleteNotificationService)
 			settingsGroup.POST("/notifications/test", h.HandleTestNotification)
+
 			settingsGroup.POST("/general", h.HandleSettings)  // Placeholder for future implementation
 			settingsGroup.POST("/security", h.HandleSettings) // Placeholder for future implementation
 		}
@@ -209,6 +231,14 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 				apiAdmin.POST("/users", h.HandleAPICreateUser)
 				apiAdmin.PUT("/users/:id", h.HandleAPIUpdateUser)
 				apiAdmin.DELETE("/users/:id", h.HandleAPIDeleteUser)
+
+				// Auth providers API routes
+				apiAdmin.GET("/auth-providers", h.HandleAPIUsers)             // Placeholder for now
+				apiAdmin.GET("/auth-providers/:id", h.HandleAPIUser)          // Placeholder for now
+				apiAdmin.POST("/auth-providers", h.HandleAPICreateUser)       // Placeholder for now
+				apiAdmin.PUT("/auth-providers/:id", h.HandleAPIUpdateUser)    // Placeholder for now
+				apiAdmin.DELETE("/auth-providers/:id", h.HandleAPIDeleteUser) // Placeholder for now
+				apiAdmin.POST("/auth-providers/:id/test", h.HandleAPIUser)    // Placeholder for now
 			}
 		}
 	}

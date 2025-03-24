@@ -3,10 +3,16 @@ package handlers
 import (
 	"context"
 	"crypto/rand"
+	"database/sql"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"net/url"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -667,4 +673,527 @@ func generateResetToken(length int) (string, error) {
 		return "", err
 	}
 	return base64.URLEncoding.EncodeToString(b), nil
+}
+
+// GetAuthProviders returns the list of enabled authentication providers for login
+func (h *Handlers) GetAuthProviders(c *gin.Context) {
+	providers, err := h.DB.GetEnabledAuthProviders(c.Request.Context())
+	if err != nil {
+		log.Printf("Error fetching auth providers: %v", err)
+		c.String(http.StatusInternalServerError, "")
+		return
+	}
+
+	components.AuthProviderButtons(providers).Render(c.Request.Context(), c.Writer)
+}
+
+// HandleAuthProviderInit initiates authentication with the selected provider
+func (h *Handlers) HandleAuthProviderInit(c *gin.Context) {
+	// Get provider ID
+	providerID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		h.HandleBadRequest(c, "Invalid Provider ID", "The provider ID is not valid")
+		return
+	}
+
+	// Get the auth provider
+	provider, err := h.DB.GetAuthProviderByID(c.Request.Context(), uint(providerID))
+	if err != nil || !provider.Enabled {
+		h.HandleBadRequest(c, "Provider Not Available", "The authentication provider is not available")
+		return
+	}
+
+	// Generate state parameter for CSRF protection
+	state, err := generateResetToken(32)
+	if err != nil {
+		h.HandleServerError(c, err)
+		return
+	}
+
+	// Store state in session/cookie for validation on callback
+	c.SetCookie("auth_state", state, 3600, "/", "", false, true)
+	c.SetCookie("auth_provider_id", fmt.Sprintf("%d", providerID), 3600, "/", "", false, true)
+
+	// Get base URL for redirect URI
+	baseURL := os.Getenv("BASE_URL")
+	if baseURL == "" {
+		// Try to detect the base URL from the request
+		scheme := "http"
+		if c.Request.TLS != nil {
+			scheme = "https"
+		}
+		baseURL = fmt.Sprintf("%s://%s", scheme, c.Request.Host)
+	}
+
+	// Default redirect URL if not specified in provider
+	redirectURI := provider.RedirectURL
+	if redirectURI == "" {
+		redirectURI = fmt.Sprintf("%s/auth/callback", baseURL)
+	}
+
+	// Handle different provider types
+	switch provider.Type {
+	case db.ProviderTypeOIDC, db.ProviderTypeOAuth2:
+		// Build the authorization URL for OIDC/OAuth2
+		scopes := "openid profile email"
+		if provider.Scopes != "" {
+			scopes = provider.Scopes
+		}
+
+		// Get config for OIDC
+		configData, _ := provider.GetConfig()
+		var authEndpoint string
+
+		if provider.Type == db.ProviderTypeOIDC && configData["discovery_url"] != "" {
+			// Fetch from discovery endpoint
+			discoveryURL, _ := configData["discovery_url"].(string)
+			discoveryData, err := h.fetchOIDCDiscovery(discoveryURL)
+			if err != nil {
+				h.HandleServerError(c, err)
+				return
+			}
+			authEndpoint = discoveryData["authorization_endpoint"].(string)
+		} else {
+			// Use provider URL as base
+			authEndpoint = fmt.Sprintf("%s/oauth2/authorize", provider.ProviderURL)
+		}
+
+		// Build the auth URL
+		authURL := fmt.Sprintf("%s?client_id=%s&redirect_uri=%s&scope=%s&response_type=code&state=%s",
+			authEndpoint,
+			url.QueryEscape(provider.ClientID),
+			url.QueryEscape(redirectURI),
+			url.QueryEscape(scopes),
+			url.QueryEscape(state))
+
+		// Redirect user to the authorization endpoint
+		c.Redirect(http.StatusFound, authURL)
+		return
+
+	case db.ProviderTypeAuthentik:
+		// Build the authorization URL for Authentik
+		configData, _ := provider.GetConfig()
+		tenant := "default"
+		if tenantID, ok := configData["tenant_id"].(string); ok && tenantID != "" {
+			tenant = tenantID
+		}
+
+		// Construct Authentik authorization URL
+		scopes := "openid profile email"
+		if provider.Scopes != "" {
+			scopes = provider.Scopes
+		}
+
+		authURL := fmt.Sprintf("%s/application/o/authorize/?client_id=%s&redirect_uri=%s&scope=%s&response_type=code&state=%s&tenant=%s",
+			strings.TrimSuffix(provider.ProviderURL, "/"),
+			url.QueryEscape(provider.ClientID),
+			url.QueryEscape(redirectURI),
+			url.QueryEscape(scopes),
+			url.QueryEscape(state),
+			url.QueryEscape(tenant))
+
+		// Redirect user to the Authentik authorization endpoint
+		c.Redirect(http.StatusFound, authURL)
+		return
+
+	case db.ProviderTypeSAML:
+		// Note: SAML flows work differently than OAuth2/OIDC
+		// Here you would typically generate a SAML request and redirect the user
+		// This is just a placeholder - actual SAML implementation would need a SAML library
+		h.HandleBadRequest(c, "SAML Not Implemented", "SAML authentication is not yet implemented")
+		return
+
+	default:
+		h.HandleBadRequest(c, "Unsupported Provider", "The authentication provider type is not supported")
+		return
+	}
+}
+
+// Helper function to fetch OIDC discovery document
+func (h *Handlers) fetchOIDCDiscovery(discoveryURL string) (map[string]interface{}, error) {
+	resp, err := http.Get(discoveryURL)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to fetch discovery document, status: %d", resp.StatusCode)
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// HandleAuthProviderCallback handles the callback from external authentication providers
+func (h *Handlers) HandleAuthProviderCallback(c *gin.Context) {
+	// Get state and code from query params
+	state := c.Query("state")
+	code := c.Query("code")
+
+	if state == "" || code == "" {
+		h.HandleBadRequest(c, "Invalid Authentication Response", "Missing required parameters from authentication provider")
+		return
+	}
+
+	// Verify state to prevent CSRF
+	storedState, err := c.Cookie("auth_state")
+	if err != nil || state != storedState {
+		h.HandleBadRequest(c, "Invalid Authentication State", "The authentication process was corrupted or expired")
+		return
+	}
+
+	// Get provider ID from cookie
+	providerIDStr, err := c.Cookie("auth_provider_id")
+	if err != nil {
+		h.HandleBadRequest(c, "Authentication Error", "Unable to determine authentication provider")
+		return
+	}
+
+	providerID, err := strconv.ParseUint(providerIDStr, 10, 64)
+	if err != nil {
+		h.HandleBadRequest(c, "Invalid Provider ID", "The provider ID is not valid")
+		return
+	}
+
+	// Get the auth provider
+	provider, err := h.DB.GetAuthProviderByID(c.Request.Context(), uint(providerID))
+	if err != nil || !provider.Enabled {
+		h.HandleBadRequest(c, "Provider Not Available", "The authentication provider is not available")
+		return
+	}
+
+	// Get base URL for redirect URI
+	baseURL := os.Getenv("BASE_URL")
+	if baseURL == "" {
+		// Try to detect the base URL from the request
+		scheme := "http"
+		if c.Request.TLS != nil {
+			scheme = "https"
+		}
+		baseURL = fmt.Sprintf("%s://%s", scheme, c.Request.Host)
+	}
+
+	// Use provider's redirect URL or default
+	redirectURI := provider.RedirectURL
+	if redirectURI == "" {
+		redirectURI = fmt.Sprintf("%s/auth/callback", baseURL)
+	}
+
+	// Exchange code for tokens
+	var userInfo map[string]interface{}
+	var externalID string
+	var email string
+	var username string
+	var displayName string
+
+	switch provider.Type {
+	case db.ProviderTypeOIDC, db.ProviderTypeOAuth2, db.ProviderTypeAuthentik:
+		// Get token endpoint
+		var tokenEndpoint string
+		if provider.Type == db.ProviderTypeOIDC {
+			configData, _ := provider.GetConfig()
+			if discoveryURL, ok := configData["discovery_url"].(string); ok && discoveryURL != "" {
+				discoveryData, err := h.fetchOIDCDiscovery(discoveryURL)
+				if err != nil {
+					h.HandleServerError(c, err)
+					return
+				}
+				tokenEndpoint = discoveryData["token_endpoint"].(string)
+			} else {
+				tokenEndpoint = fmt.Sprintf("%s/oauth2/token", provider.ProviderURL)
+			}
+		} else if provider.Type == db.ProviderTypeAuthentik {
+			tokenEndpoint = fmt.Sprintf("%s/application/o/token/", strings.TrimSuffix(provider.ProviderURL, "/"))
+		} else {
+			tokenEndpoint = fmt.Sprintf("%s/oauth/token", provider.ProviderURL)
+		}
+
+		// Exchange code for token
+		data := url.Values{}
+		data.Set("grant_type", "authorization_code")
+		data.Set("code", code)
+		data.Set("redirect_uri", redirectURI)
+		data.Set("client_id", provider.ClientID)
+		data.Set("client_secret", provider.ClientSecret)
+
+		resp, err := http.PostForm(tokenEndpoint, data)
+		if err != nil {
+			h.HandleServerError(c, err)
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			log.Printf("Error exchanging code for token: %s", string(body))
+			h.HandleBadRequest(c, "Authentication Failed", "Failed to authenticate with the provider")
+			return
+		}
+
+		var tokenResponse map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&tokenResponse); err != nil {
+			h.HandleServerError(c, err)
+			return
+		}
+
+		// Get access token
+		accessToken, ok := tokenResponse["access_token"].(string)
+		if !ok {
+			h.HandleBadRequest(c, "Authentication Failed", "Invalid token response from provider")
+			return
+		}
+
+		// Get user info
+		userInfo, err = h.fetchUserInfo(provider, accessToken)
+		if err != nil {
+			h.HandleServerError(c, err)
+			return
+		}
+
+		// Extract fields based on attribute mapping
+		var attributeMapping map[string]string
+		if provider.AttributeMapping != "" {
+			if err := json.Unmarshal([]byte(provider.AttributeMapping), &attributeMapping); err != nil {
+				log.Printf("Error parsing attribute mapping: %v", err)
+				// Use defaults if mapping fails
+				attributeMapping = map[string]string{
+					"username": "preferred_username",
+					"email":    "email",
+					"name":     "name",
+				}
+			}
+		} else {
+			// Default mapping
+			attributeMapping = map[string]string{
+				"username": "preferred_username",
+				"email":    "email",
+				"name":     "name",
+			}
+		}
+
+		// Extract user info using the attribute mapping
+		if subValue, ok := userInfo["sub"].(string); ok {
+			externalID = subValue
+		} else {
+			// Generate fallback ID if 'sub' is not available
+			externalID = fmt.Sprintf("%s_%d", provider.Type, time.Now().Unix())
+		}
+
+		// Extract email - this is critical for user matching
+		if emailAttr, ok := attributeMapping["email"]; ok && emailAttr != "" {
+			if emailValue, ok := userInfo[emailAttr].(string); ok {
+				email = emailValue
+			}
+		}
+		if email == "" && userInfo["email"] != nil {
+			email = userInfo["email"].(string)
+		}
+
+		// Extract username
+		if usernameAttr, ok := attributeMapping["username"]; ok && usernameAttr != "" {
+			if usernameValue, ok := userInfo[usernameAttr].(string); ok {
+				username = usernameValue
+			}
+		}
+		if username == "" && userInfo["preferred_username"] != nil {
+			username = userInfo["preferred_username"].(string)
+		}
+
+		// Extract display name
+		if nameAttr, ok := attributeMapping["name"]; ok && nameAttr != "" {
+			if nameValue, ok := userInfo[nameAttr].(string); ok {
+				displayName = nameValue
+			}
+		}
+		if displayName == "" && userInfo["name"] != nil {
+			displayName = userInfo["name"].(string)
+		}
+
+	default:
+		h.HandleBadRequest(c, "Unsupported Provider", "The authentication provider type is not supported")
+		return
+	}
+
+	// Require email for user identification
+	if email == "" {
+		h.HandleBadRequest(c, "Authentication Failed", "Unable to retrieve email address from the provider")
+		return
+	}
+
+	// Look up existing user by email
+	existingUser, err := h.DB.GetUserByEmail(email)
+	if err != nil {
+		// If user doesn't exist, check if auto-provisioning is allowed
+		// For now, we'll require existing users
+		h.HandleBadRequest(c, "Authentication Failed", "No account exists with this email address")
+		return
+	}
+
+	// Check for existing identity
+	identity, err := h.DB.GetExternalUserIdentity(c.Request.Context(), provider.ID, externalID)
+	if err != nil || identity == nil {
+		// If identity doesn't exist, create it
+		identity = &db.ExternalUserIdentity{
+			UserID:       existingUser.ID,
+			ProviderID:   provider.ID,
+			ProviderType: provider.Type,
+			ExternalID:   externalID,
+			Email:        email,
+			Username:     username,
+			DisplayName:  displayName,
+			LastLogin:    sql.NullTime{Time: time.Now(), Valid: true},
+		}
+
+		// Store provider data
+		if err := identity.SetProviderData(userInfo); err != nil {
+			log.Printf("Error serializing provider data: %v", err)
+		}
+
+		// Extract and store groups if available
+		var attributeMapping map[string]string
+		if provider.AttributeMapping != "" {
+			if err := json.Unmarshal([]byte(provider.AttributeMapping), &attributeMapping); err == nil {
+				if groupsAttr, ok := attributeMapping["groups"]; ok && groupsAttr != "" {
+					if groupsValue, ok := userInfo[groupsAttr]; ok {
+						// Handle different group formats (array or comma-separated string)
+						var groups []string
+						switch v := groupsValue.(type) {
+						case []interface{}:
+							for _, g := range v {
+								if gs, ok := g.(string); ok {
+									groups = append(groups, gs)
+								}
+							}
+						case string:
+							groups = strings.Split(v, ",")
+						}
+
+						if len(groups) > 0 {
+							if err := identity.SetGroups(groups); err != nil {
+								log.Printf("Error serializing groups: %v", err)
+							}
+						}
+					}
+				}
+			} else {
+				log.Printf("Error parsing attribute mapping: %v", err)
+			}
+		}
+
+		// Save the identity
+		if err := h.DB.CreateExternalUserIdentity(c.Request.Context(), identity); err != nil {
+			log.Printf("Error creating external identity: %v", err)
+			h.HandleServerError(c, err)
+			return
+		}
+	} else {
+		// Update existing identity
+		identity.LastLogin = sql.NullTime{Time: time.Now(), Valid: true}
+		identity.Email = email
+		identity.Username = username
+		identity.DisplayName = displayName
+
+		// Update provider data
+		if err := identity.SetProviderData(userInfo); err != nil {
+			log.Printf("Error serializing provider data: %v", err)
+		}
+
+		// Save the updated identity
+		if err := h.DB.UpdateExternalUserIdentity(c.Request.Context(), identity); err != nil {
+			log.Printf("Error updating external identity: %v", err)
+		}
+	}
+
+	// Update provider usage stats
+	provider.SuccessfulLogins++
+	provider.LastUsed = sql.NullTime{Time: time.Now(), Valid: true}
+	if err := h.DB.UpdateAuthProvider(c.Request.Context(), provider); err != nil {
+		log.Printf("Error updating provider stats: %v", err)
+	}
+
+	// Create session for the user
+	isAdmin := false
+	if existingUser.IsAdmin != nil {
+		isAdmin = *existingUser.IsAdmin
+	}
+	token, err := h.GenerateJWT(existingUser.ID, existingUser.Email, isAdmin)
+	if err != nil {
+		h.HandleServerError(c, err)
+		return
+	}
+
+	// Clear auth cookies
+	c.SetCookie("auth_state", "", -1, "/", "", false, true)
+	c.SetCookie("auth_provider_id", "", -1, "/", "", false, true)
+
+	// Set session cookie
+	c.SetCookie("jwt_token", token, 86400, "/", "", false, true)
+
+	// Redirect to dashboard
+	c.Redirect(http.StatusFound, "/dashboard")
+}
+
+// Helper function to fetch user info with access token
+func (h *Handlers) fetchUserInfo(provider *db.AuthProvider, accessToken string) (map[string]interface{}, error) {
+	var userInfoEndpoint string
+
+	// Determine user info endpoint based on provider type
+	switch provider.Type {
+	case db.ProviderTypeOIDC:
+		// For OIDC, check if we have discovery URL
+		configData, _ := provider.GetConfig()
+		if discoveryURL, ok := configData["discovery_url"].(string); ok && discoveryURL != "" {
+			discoveryData, err := h.fetchOIDCDiscovery(discoveryURL)
+			if err != nil {
+				return nil, err
+			}
+			userInfoEndpoint = discoveryData["userinfo_endpoint"].(string)
+		} else {
+			userInfoEndpoint = fmt.Sprintf("%s/oauth2/userinfo", provider.ProviderURL)
+		}
+
+	case db.ProviderTypeAuthentik:
+		userInfoEndpoint = fmt.Sprintf("%s/application/o/userinfo/", strings.TrimSuffix(provider.ProviderURL, "/"))
+
+	case db.ProviderTypeOAuth2:
+		userInfoEndpoint = fmt.Sprintf("%s/oauth/userinfo", provider.ProviderURL)
+
+	default:
+		return nil, fmt.Errorf("unsupported provider type: %s", provider.Type)
+	}
+
+	// Make request to user info endpoint
+	req, err := http.NewRequest("GET", userInfoEndpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add authorization header
+	req.Header.Add("Authorization", "Bearer "+accessToken)
+
+	// Make the request
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to get user info: %s", string(body))
+	}
+
+	// Parse response
+	var userInfo map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
+		return nil, err
+	}
+
+	return userInfo, nil
 }

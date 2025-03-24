@@ -1,0 +1,52 @@
+package components
+
+import (
+	"fmt"
+	"github.com/starfleetcptn/gomft/internal/db"
+)
+
+// getProviderIcon returns the appropriate icon for a provider
+func getProviderIcon(provider db.AuthProvider) templ.Component {
+	// If provider has a custom icon URL, use it
+	if provider.IconURL != "" {
+		return templ.Raw(fmt.Sprintf(`<img src="%s" class="w-5 h-5" alt="%s icon" />`, provider.IconURL, provider.Name))
+	}
+
+	// Otherwise fall back to default icons based on type
+	switch provider.Type {
+	case db.ProviderTypeAuthentik:
+		return templ.Raw(`<img src="/static/img/authentik.svg" class="w-5 h-5" alt="Authentik" />`)
+	case db.ProviderTypeOIDC:
+		return templ.Raw(`<img src="/static/img/oidc.svg" class="w-5 h-5" alt="OIDC" />`)
+	case db.ProviderTypeSAML:
+		return templ.Raw(`<img src="/static/img/saml.svg" class="w-5 h-5" alt="SAML" />`)
+	case db.ProviderTypeOAuth2:
+		return templ.Raw(`<img src="/static/img/oauth2.svg" class="w-5 h-5" alt="OAuth2" />`)
+	default:
+		return templ.Raw(`<i class="fas fa-user-shield text-blue-500"></i>`)
+	}
+}
+
+templ AuthProviderButtons(providers []db.AuthProvider) {
+	if len(providers) == 0 {
+		<div class="text-sm text-gray-500 dark:text-gray-400 italic">
+			No external authentication providers available
+		</div>
+	} else {
+		<div class="space-y-2 w-full">
+			for _, provider := range providers {
+				if provider.Enabled {
+					<a 
+						href={ templ.SafeURL(fmt.Sprintf("/auth/provider/%d", provider.ID)) } 
+						class="w-full inline-flex items-center justify-center px-4 py-2.5 bg-gray-100 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-600"
+					>
+						<span class="flex-shrink-0 w-5 h-5 mr-2.5">
+							@getProviderIcon(provider)
+						</span>
+						<span>{ provider.Name }</span>
+					</a>
+				}
+			}
+		</div>
+	}
+} 
