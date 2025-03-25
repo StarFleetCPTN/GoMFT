@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -1346,6 +1347,14 @@ func (s *Scheduler) sendGlobalNotifications(job *db.Job, history *db.JobHistory,
 			notifyErr = s.sendEmailNotification(service, job, history, config, eventType)
 		case "webhook":
 			notifyErr = s.sendServiceWebhookNotification(service, job, history, config, eventType)
+		case "pushbullet":
+			notifyErr = s.sendPushbulletNotification(service, job, history, config, eventType)
+		case "ntfy":
+			notifyErr = s.sendNtfyNotification(service, job, history, config, eventType)
+		case "gotify":
+			notifyErr = s.sendGotifyNotification(service, job, history, config, eventType)
+		case "pushover":
+			notifyErr = s.sendPushoverNotification(service, job, history, config, eventType)
 		default:
 			s.log.LogError("Unsupported notification service type: %s", service.Type)
 			continue
@@ -2210,4 +2219,375 @@ func (s *Scheduler) prepareBaseArguments(command string, config *db.TransferConf
 	args = append(args, "--json")
 
 	return args
+}
+
+// sendPushbulletNotification sends a notification via Pushbullet
+func (s *Scheduler) sendPushbulletNotification(service *db.NotificationService, job *db.Job, history *db.JobHistory, config *db.TransferConfig, eventType string) error {
+	s.log.LogDebug("Sending Pushbullet notification for job %d", job.ID)
+
+	// Get API key from service config
+	apiKey, ok := service.Config["api_key"]
+	if !ok || apiKey == "" {
+		return fmt.Errorf("missing API key for Pushbullet notification")
+	}
+
+	// Get device identifier (optional)
+	deviceIden := service.Config["device_iden"]
+
+	// Prepare notification title
+	titleTemplate := service.Config["title_template"]
+	if titleTemplate == "" {
+		titleTemplate = "GoMFT: {{job.event}} - {{job.name}}"
+	}
+
+	// Prepare notification body
+	bodyTemplate := service.Config["body_template"]
+	if bodyTemplate == "" {
+		bodyTemplate = "Job '{{job.name}}' {{job.status}} at {{job.completed_at}}. {{job.file_count}} files transferred ({{job.transfer_bytes}} bytes)."
+	}
+
+	// Create variables for template replacement
+	variables := generateDefaultPayload(job, history, config, eventType)
+
+	// Replace variables in templates
+	title := replaceVariables(titleTemplate, variables)
+	body := replaceVariables(bodyTemplate, variables)
+
+	// Prepare request data
+	url := "https://api.pushbullet.com/v2/pushes"
+	data := map[string]interface{}{
+		"type":  "note",
+		"title": title,
+		"body":  body,
+	}
+
+	// Add device identifier if provided
+	if deviceIden != "" {
+		data["device_iden"] = deviceIden
+	}
+
+	// Convert data to JSON
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal Pushbullet notification data: %v", err)
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create Pushbullet request: %v", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Access-Token", apiKey)
+
+	// Send the request
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send Pushbullet notification: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("Pushbullet API returned error status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	s.log.LogInfo("Successfully sent Pushbullet notification for job %d", job.ID)
+	return nil
+}
+
+// sendNtfyNotification sends a notification via ntfy.sh or a self-hosted ntfy server
+func (s *Scheduler) sendNtfyNotification(service *db.NotificationService, job *db.Job, history *db.JobHistory, config *db.TransferConfig, eventType string) error {
+	s.log.LogDebug("Sending ntfy notification for job %d", job.ID)
+
+	// Get ntfy server and topic from service config
+	topic, ok := service.Config["topic"]
+	if !ok || topic == "" {
+		return fmt.Errorf("missing topic for ntfy notification")
+	}
+
+	// Get server (use default if not provided)
+	server := service.Config["server"]
+	if server == "" {
+		server = "https://ntfy.sh"
+	}
+
+	// Prepare notification title
+	titleTemplate := service.Config["title_template"]
+	if titleTemplate == "" {
+		titleTemplate = "GoMFT: {{job.event}} - {{job.name}}"
+	}
+
+	// Prepare notification body
+	messageTemplate := service.Config["message_template"]
+	if messageTemplate == "" {
+		messageTemplate = "Job '{{job.name}}' {{job.status}} at {{job.completed_at}}. {{job.file_count}} files transferred ({{job.transfer_bytes}} bytes)."
+	}
+
+	// Get priority if specified, default to 3
+	priority := 3
+	if priorityStr, ok := service.Config["priority"]; ok && priorityStr != "" {
+		if p, err := strconv.Atoi(priorityStr); err == nil && p >= 1 && p <= 5 {
+			priority = p
+		}
+	}
+
+	// Create variables for template replacement
+	variables := generateDefaultPayload(job, history, config, eventType)
+
+	// Replace variables in templates
+	title := replaceVariables(titleTemplate, variables)
+	message := replaceVariables(messageTemplate, variables)
+
+	// Create the URL for the notification
+	ntfyURL := fmt.Sprintf("%s/%s", strings.TrimRight(server, "/"), topic)
+
+	// Create the notification data
+	ntfyData := map[string]interface{}{
+		"topic":    topic,
+		"title":    title,
+		"message":  message,
+		"priority": priority,
+	}
+
+	// Add username and password if provided
+	username := service.Config["username"]
+	password := service.Config["password"]
+
+	// Convert data to JSON
+	jsonData, err := json.Marshal(ntfyData)
+	if err != nil {
+		return fmt.Errorf("failed to marshal ntfy notification data: %v", err)
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequest("POST", ntfyURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create ntfy request: %v", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+
+	// Add basic auth if credentials provided
+	if username != "" && password != "" {
+		req.SetBasicAuth(username, password)
+	}
+
+	// Send the request
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send ntfy notification: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("ntfy API returned error status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	s.log.LogInfo("Successfully sent ntfy notification for job %d", job.ID)
+	return nil
+}
+
+// sendGotifyNotification sends a notification via Gotify
+func (s *Scheduler) sendGotifyNotification(service *db.NotificationService, job *db.Job, history *db.JobHistory, config *db.TransferConfig, eventType string) error {
+	s.log.LogDebug("Sending Gotify notification for job %d", job.ID)
+
+	// Get Gotify server URL and token from service config
+	serverURL, ok := service.Config["url"]
+	if !ok || serverURL == "" {
+		return fmt.Errorf("missing server URL for Gotify notification")
+	}
+
+	token, ok := service.Config["token"]
+	if !ok || token == "" {
+		return fmt.Errorf("missing application token for Gotify notification")
+	}
+
+	// Prepare notification title
+	titleTemplate := service.Config["title_template"]
+	if titleTemplate == "" {
+		titleTemplate = "GoMFT: {{job.event}} - {{job.name}}"
+	}
+
+	// Prepare notification message
+	messageTemplate := service.Config["message_template"]
+	if messageTemplate == "" {
+		messageTemplate = "Job '{{job.name}}' {{job.status}} at {{job.completed_at}}. {{job.file_count}} files transferred ({{job.transfer_bytes}} bytes)."
+	}
+
+	// Get priority if specified, default to 5
+	priority := 5
+	if priorityStr, ok := service.Config["priority"]; ok && priorityStr != "" {
+		if p, err := strconv.Atoi(priorityStr); err == nil {
+			priority = p
+		}
+	}
+
+	// Create variables for template replacement
+	variables := generateDefaultPayload(job, history, config, eventType)
+
+	// Replace variables in templates
+	title := replaceVariables(titleTemplate, variables)
+	message := replaceVariables(messageTemplate, variables)
+
+	// Create the URL for the notification
+	gotifyURL := fmt.Sprintf("%s/message", strings.TrimRight(serverURL, "/"))
+
+	// Create the notification data
+	gotifyData := map[string]interface{}{
+		"title":    title,
+		"message":  message,
+		"priority": priority,
+	}
+
+	// Convert data to JSON
+	jsonData, err := json.Marshal(gotifyData)
+	if err != nil {
+		return fmt.Errorf("failed to marshal Gotify notification data: %v", err)
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequest("POST", gotifyURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create Gotify request: %v", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Gotify-Key", token)
+
+	// Send the request
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send Gotify notification: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("Gotify API returned error status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	s.log.LogInfo("Successfully sent Gotify notification for job %d", job.ID)
+	return nil
+}
+
+// sendPushoverNotification sends a notification via Pushover
+func (s *Scheduler) sendPushoverNotification(service *db.NotificationService, job *db.Job, history *db.JobHistory, config *db.TransferConfig, eventType string) error {
+	s.log.LogDebug("Sending Pushover notification for job %d", job.ID)
+
+	// Get Pushover tokens from service config
+	appToken, ok := service.Config["app_token"]
+	if !ok || appToken == "" {
+		return fmt.Errorf("missing application token/key for Pushover notification")
+	}
+
+	userKey, ok := service.Config["user_key"]
+	if !ok || userKey == "" {
+		return fmt.Errorf("missing user key for Pushover notification")
+	}
+
+	// Get optional device
+	device := service.Config["device"]
+
+	// Prepare notification title
+	titleTemplate := service.Config["title_template"]
+	if titleTemplate == "" {
+		titleTemplate = "GoMFT: {{job.event}} - {{job.name}}"
+	}
+
+	// Prepare notification message
+	messageTemplate := service.Config["message_template"]
+	if messageTemplate == "" {
+		messageTemplate = "Job '{{job.name}}' {{job.status}} at {{job.completed_at}}. {{job.file_count}} files transferred ({{job.transfer_bytes}} bytes)."
+	}
+
+	// Get priority if specified, default to 0 (normal)
+	priority := 0
+	if priorityStr, ok := service.Config["priority"]; ok && priorityStr != "" {
+		if p, err := strconv.Atoi(priorityStr); err == nil && p >= -2 && p <= 2 {
+			priority = p
+		}
+	}
+
+	// Get sound if specified
+	sound := service.Config["sound"]
+	if sound == "" {
+		sound = "pushover" // Default sound
+	}
+
+	// Create variables for template replacement
+	variables := generateDefaultPayload(job, history, config, eventType)
+
+	// Replace variables in templates
+	title := replaceVariables(titleTemplate, variables)
+	message := replaceVariables(messageTemplate, variables)
+
+	// Create the URL for the notification
+	pushoverURL := "https://api.pushover.net/1/messages.json"
+
+	// Create the form data
+	formData := url.Values{}
+	formData.Set("token", appToken)
+	formData.Set("user", userKey)
+	formData.Set("title", title)
+	formData.Set("message", message)
+	formData.Set("priority", strconv.Itoa(priority))
+	formData.Set("sound", sound)
+
+	// Add device if specified
+	if device != "" {
+		formData.Set("device", device)
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequest("POST", pushoverURL, strings.NewReader(formData.Encode()))
+	if err != nil {
+		return fmt.Errorf("failed to create Pushover request: %v", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	// Send the request
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send Pushover notification: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response and parse the JSON
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("Pushover API returned error status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	// Check response for success status
+	var pushoverResp map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&pushoverResp); err != nil {
+		return fmt.Errorf("failed to decode Pushover response: %v", err)
+	}
+
+	// Verify the status is 1 (success)
+	if status, ok := pushoverResp["status"].(float64); !ok || status != 1 {
+		errMsg := "unknown error"
+		if errors, ok := pushoverResp["errors"].([]interface{}); ok && len(errors) > 0 {
+			errMsg = fmt.Sprintf("%v", errors[0])
+		}
+		return fmt.Errorf("Pushover API returned error: %s", errMsg)
+	}
+
+	s.log.LogInfo("Successfully sent Pushover notification for job %d", job.ID)
+	return nil
 }

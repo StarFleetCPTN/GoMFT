@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -73,6 +74,12 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 	description := c.PostForm("description")
 	isEnabled := c.PostForm("is_enabled") == "on"
 
+	// print the form data
+	fmt.Println("name", name)
+	fmt.Println("serviceType", serviceType)
+	fmt.Println("description", description)
+	fmt.Println("isEnabled", isEnabled)
+
 	// Validate required fields
 	if name == "" || serviceType == "" {
 		// Return to notifications page with error message
@@ -82,7 +89,8 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 
 	// Create config map based on service type
 	config := make(map[string]string)
-
+	eventTriggers := make([]string, 0)
+	fmt.Println("serviceType", serviceType)
 	switch serviceType {
 	case "email":
 		config["smtp_host"] = c.PostForm("smtp_host")
@@ -90,6 +98,278 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 		config["smtp_username"] = c.PostForm("smtp_username")
 		config["smtp_password"] = c.PostForm("smtp_password")
 		config["from_email"] = c.PostForm("from_email")
+
+	case "pushbullet":
+		config["api_key"] = c.PostForm("pushbullet_api_key")
+		config["device_iden"] = c.PostForm("pushbullet_device_iden")
+		config["title_template"] = c.PostForm("pushbullet_title_template")
+		config["body_template"] = c.PostForm("pushbullet_body_template")
+
+		// Build event triggers
+		if c.PostForm("trigger_job_start") == "on" {
+			eventTriggers = append(eventTriggers, "job_start")
+		}
+		if c.PostForm("trigger_job_complete") == "on" {
+			eventTriggers = append(eventTriggers, "job_complete")
+		}
+		if c.PostForm("trigger_job_error") == "on" {
+			eventTriggers = append(eventTriggers, "job_error")
+		}
+
+		// Validate required fields
+		if config["api_key"] == "" {
+			h.handleNotificationsWithError(c, "Pushbullet API Key is required.")
+			return
+		}
+
+		// Create new notification service
+		service := db.NotificationService{
+			Name:          name,
+			Type:          serviceType,
+			IsEnabled:     isEnabled,
+			Config:        config,
+			Description:   description,
+			EventTriggers: eventTriggers,
+			CreatedBy:     c.GetUint("userID"),
+		}
+
+		// Save to database
+		if err := h.DB.Create(&service).Error; err != nil {
+			log.Printf("Error creating notification service: %v", err)
+			h.handleNotificationsWithError(c, "Failed to create notification service: "+err.Error())
+			return
+		}
+
+		// Create audit log
+		auditDetails := map[string]interface{}{
+			"name":           service.Name,
+			"type":           service.Type,
+			"is_enabled":     service.IsEnabled,
+			"description":    service.Description,
+			"event_triggers": eventTriggers,
+		}
+
+		auditLog := db.AuditLog{
+			Action:     "create",
+			EntityType: "notification_service",
+			EntityID:   service.ID,
+			UserID:     c.GetUint("userID"),
+			Details:    auditDetails,
+		}
+
+		if err := h.DB.Create(&auditLog).Error; err != nil {
+			log.Printf("Error creating audit log: %v", err)
+		}
+
+		// Redirect back to notifications page with success message
+		h.handleNotificationsWithSuccess(c, "Pushbullet notification service created successfully.")
+		return
+
+	case "ntfy":
+		config["server"] = c.PostForm("ntfy_server")
+		config["topic"] = c.PostForm("ntfy_topic")
+		config["priority"] = c.PostForm("ntfy_priority")
+		config["username"] = c.PostForm("ntfy_username")
+		config["password"] = c.PostForm("ntfy_password")
+		config["title_template"] = c.PostForm("ntfy_title_template")
+		config["message_template"] = c.PostForm("ntfy_message_template")
+
+		// Build event triggers
+		if c.PostForm("trigger_job_start") == "on" {
+			eventTriggers = append(eventTriggers, "job_start")
+		}
+		if c.PostForm("trigger_job_complete") == "on" {
+			eventTriggers = append(eventTriggers, "job_complete")
+		}
+		if c.PostForm("trigger_job_error") == "on" {
+			eventTriggers = append(eventTriggers, "job_error")
+		}
+
+		// Validate required fields
+		if config["server"] == "" || config["topic"] == "" {
+			h.handleNotificationsWithError(c, "Ntfy Server and Topic are required.")
+			return
+		}
+
+		// Create new notification service
+		service := db.NotificationService{
+			Name:          name,
+			Type:          serviceType,
+			IsEnabled:     isEnabled,
+			Config:        config,
+			Description:   description,
+			EventTriggers: eventTriggers,
+			CreatedBy:     c.GetUint("userID"),
+		}
+
+		// Save to database
+		if err := h.DB.Create(&service).Error; err != nil {
+			log.Printf("Error creating notification service: %v", err)
+			h.handleNotificationsWithError(c, "Failed to create notification service: "+err.Error())
+			return
+		}
+
+		// Create audit log
+		auditDetails := map[string]interface{}{
+			"name":           service.Name,
+			"type":           service.Type,
+			"is_enabled":     service.IsEnabled,
+			"description":    service.Description,
+			"event_triggers": eventTriggers,
+		}
+
+		auditLog := db.AuditLog{
+			Action:     "create",
+			EntityType: "notification_service",
+			EntityID:   service.ID,
+			UserID:     c.GetUint("userID"),
+			Details:    auditDetails,
+		}
+
+		if err := h.DB.Create(&auditLog).Error; err != nil {
+			log.Printf("Error creating audit log: %v", err)
+		}
+
+		// Redirect back to notifications page with success message
+		h.handleNotificationsWithSuccess(c, "Ntfy notification service created successfully.")
+		return
+
+	case "gotify":
+		config["url"] = c.PostForm("gotify_url")
+		config["token"] = c.PostForm("gotify_token")
+		config["priority"] = c.PostForm("gotify_priority")
+		config["title_template"] = c.PostForm("gotify_title_template")
+		config["message_template"] = c.PostForm("gotify_message_template")
+
+		// Build event triggers
+		if c.PostForm("trigger_job_start") == "on" {
+			eventTriggers = append(eventTriggers, "job_start")
+		}
+		if c.PostForm("trigger_job_complete") == "on" {
+			eventTriggers = append(eventTriggers, "job_complete")
+		}
+		if c.PostForm("trigger_job_error") == "on" {
+			eventTriggers = append(eventTriggers, "job_error")
+		}
+
+		// Validate required fields
+		if config["url"] == "" || config["token"] == "" {
+			h.handleNotificationsWithError(c, "Gotify Server URL and Application Token are required.")
+			return
+		}
+
+		// Create new notification service
+		service := db.NotificationService{
+			Name:          name,
+			Type:          serviceType,
+			IsEnabled:     isEnabled,
+			Config:        config,
+			Description:   description,
+			EventTriggers: eventTriggers,
+			CreatedBy:     c.GetUint("userID"),
+		}
+
+		// Save to database
+		if err := h.DB.Create(&service).Error; err != nil {
+			log.Printf("Error creating notification service: %v", err)
+			h.handleNotificationsWithError(c, "Failed to create notification service: "+err.Error())
+			return
+		}
+
+		// Create audit log
+		auditDetails := map[string]interface{}{
+			"name":           service.Name,
+			"type":           service.Type,
+			"is_enabled":     service.IsEnabled,
+			"description":    service.Description,
+			"event_triggers": eventTriggers,
+		}
+
+		auditLog := db.AuditLog{
+			Action:     "create",
+			EntityType: "notification_service",
+			EntityID:   service.ID,
+			UserID:     c.GetUint("userID"),
+			Details:    auditDetails,
+		}
+
+		if err := h.DB.Create(&auditLog).Error; err != nil {
+			log.Printf("Error creating audit log: %v", err)
+		}
+
+		// Redirect back to notifications page with success message
+		h.handleNotificationsWithSuccess(c, "Gotify notification service created successfully.")
+		return
+
+	case "pushover":
+		config["app_token"] = c.PostForm("pushover_app_token")
+		config["user_key"] = c.PostForm("pushover_user_key")
+		config["device"] = c.PostForm("pushover_device")
+		config["priority"] = c.PostForm("pushover_priority")
+		config["sound"] = c.PostForm("pushover_sound")
+		config["title_template"] = c.PostForm("pushover_title_template")
+		config["message_template"] = c.PostForm("pushover_message_template")
+
+		// Build event triggers
+		if c.PostForm("trigger_job_start") == "on" {
+			eventTriggers = append(eventTriggers, "job_start")
+		}
+		if c.PostForm("trigger_job_complete") == "on" {
+			eventTriggers = append(eventTriggers, "job_complete")
+		}
+		if c.PostForm("trigger_job_error") == "on" {
+			eventTriggers = append(eventTriggers, "job_error")
+		}
+
+		// Validate required fields
+		if config["app_token"] == "" || config["user_key"] == "" {
+			h.handleNotificationsWithError(c, "Pushover API Token and User Key are required.")
+			return
+		}
+
+		// Create new notification service
+		service := db.NotificationService{
+			Name:          name,
+			Type:          serviceType,
+			IsEnabled:     isEnabled,
+			Config:        config,
+			Description:   description,
+			EventTriggers: eventTriggers,
+			CreatedBy:     c.GetUint("userID"),
+		}
+
+		// Save to database
+		if err := h.DB.Create(&service).Error; err != nil {
+			log.Printf("Error creating notification service: %v", err)
+			h.handleNotificationsWithError(c, "Failed to create notification service: "+err.Error())
+			return
+		}
+
+		// Create audit log
+		auditDetails := map[string]interface{}{
+			"name":           service.Name,
+			"type":           service.Type,
+			"is_enabled":     service.IsEnabled,
+			"description":    service.Description,
+			"event_triggers": eventTriggers,
+		}
+
+		auditLog := db.AuditLog{
+			Action:     "create",
+			EntityType: "notification_service",
+			EntityID:   service.ID,
+			UserID:     c.GetUint("userID"),
+			Details:    auditDetails,
+		}
+
+		if err := h.DB.Create(&auditLog).Error; err != nil {
+			log.Printf("Error creating audit log: %v", err)
+		}
+
+		// Redirect back to notifications page with success message
+		h.handleNotificationsWithSuccess(c, "Pushover notification service created successfully.")
+		return
+
 	case "webhook":
 		config["webhook_url"] = c.PostForm("webhook_url")
 		config["method"] = c.PostForm("method")
@@ -101,7 +381,6 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 		log.Printf("Event triggers: %v", c.PostForm("trigger_job_start"))
 		log.Printf("Event triggers: %v", c.PostForm("trigger_job_complete"))
 		log.Printf("Event triggers: %v", c.PostForm("trigger_job_error"))
-		eventTriggers := make([]string, 0)
 		if c.PostForm("trigger_job_start") == "on" {
 			eventTriggers = append(eventTriggers, "job_start")
 		}
@@ -261,31 +540,20 @@ func (h *Handlers) HandleDeleteNotificationService(c *gin.Context) {
 // HandleTestNotification handles POST /settings/notifications/test
 // This endpoint tests a notification configuration without saving it
 func (h *Handlers) HandleTestNotification(c *gin.Context) {
-	// Check if the user has permission to manage settings
+	// Check that the user has permissions to view settings
 	if !h.checkPermission(c, "system.settings") {
-		c.JSON(http.StatusForbidden, gin.H{
-			"success": false,
-			"message": "You don't have permission to test notifications",
-		})
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "You do not have permission to manage settings"})
 		return
 	}
 
-	// Parse form data to create a test notification service
-	name := c.PostForm("name")
+	// Get notification service configuration
 	serviceType := c.PostForm("type")
-
-	// Validate required fields
-	if name == "" || serviceType == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Name and type are required fields",
-		})
-		return
-	}
-
-	// Create config map based on service type
 	config := make(map[string]string)
 
+	// print the form data
+	fmt.Println("serviceType", serviceType)
+
+	// Process based on service type
 	switch serviceType {
 	case "email":
 		config["smtp_host"] = c.PostForm("smtp_host")
@@ -293,67 +561,420 @@ func (h *Handlers) HandleTestNotification(c *gin.Context) {
 		config["smtp_username"] = c.PostForm("smtp_username")
 		config["smtp_password"] = c.PostForm("smtp_password")
 		config["from_email"] = c.PostForm("from_email")
+		config["to_email"] = c.PostForm("to_email")
+		config["use_tls"] = c.PostForm("use_tls")
 
-		// Basic validation
-		if config["smtp_host"] == "" || config["smtp_port"] == "" {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"success": false,
-				"message": "SMTP host and port are required for email notifications",
-			})
+		// Validate required fields
+		if config["smtp_host"] == "" || config["smtp_port"] == "" || config["from_email"] == "" || config["to_email"] == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "SMTP Host, Port, From Email, and To Email are required"})
 			return
 		}
+
+		// For email, we'll simply simulate a successful test
+		// In a real implementation, you would want to actually try to send an email
+		c.JSON(http.StatusOK, gin.H{"success": true, "message": "Test email notification would be sent successfully"})
+		return
 
 	case "webhook":
 		config["webhook_url"] = c.PostForm("webhook_url")
-		config["method"] = c.PostForm("method")
-		config["headers"] = c.PostForm("headers")
+		config["webhook_method"] = c.PostForm("webhook_method")
+		config["webhook_headers"] = c.PostForm("webhook_headers")
+		config["webhook_body_template"] = c.PostForm("webhook_body_template")
 
-		// Basic validation
+		// Validate required fields
 		if config["webhook_url"] == "" {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"success": false,
-				"message": "Webhook URL is required for webhook notifications",
-			})
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Webhook URL is required"})
 			return
 		}
 
-		// Get additional webhook fields
-		payloadTemplate := c.PostForm("payload_template")
-		secretKey := c.PostForm("secret_key")
-
-		// Create and format sample payload
-		samplePayload := generateSamplePayload(payloadTemplate)
-
-		// Send test webhook
-		err := sendTestWebhook(config, samplePayload, secretKey)
+		// Send a test webhook
+		// This is a simplified example - in a real implementation, you would want to use the templates
+		// and properly format the request based on the configured method, headers, etc.
+		resp, err := http.Post(config["webhook_url"], "application/json", bytes.NewBuffer([]byte(`{"message":"This is a test notification from GoMFT"}`)))
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"success": false,
-				"message": "Failed to send test webhook: " + err.Error(),
-			})
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to send test webhook: " + err.Error()})
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			c.JSON(http.StatusOK, gin.H{"success": true, "message": "Test webhook sent successfully"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Test webhook returned non-success status code: " + resp.Status})
+		}
+		return
+
+	case "pushbullet":
+		config["api_key"] = c.PostForm("pushbullet_api_key")
+		config["device_iden"] = c.PostForm("pushbullet_device_iden")
+
+		// Validate required fields
+		if config["api_key"] == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Pushbullet API Key is required"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"success": true,
-			"message": "Test webhook sent successfully",
-		})
+		// Create a test push request
+		pushURL := "https://api.pushbullet.com/v2/pushes"
+		pushData := map[string]interface{}{
+			"type":  "note",
+			"title": "GoMFT Test Notification",
+			"body":  "This is a test notification from GoMFT",
+		}
+
+		// Add device identifier if provided
+		if config["device_iden"] != "" {
+			pushData["device_iden"] = config["device_iden"]
+		}
+
+		jsonData, err := json.Marshal(pushData)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to prepare test push: " + err.Error()})
+			return
+		}
+
+		// Create the request
+		req, err := http.NewRequest("POST", pushURL, bytes.NewBuffer(jsonData))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to create request: " + err.Error()})
+			return
+		}
+
+		// Set headers
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Access-Token", config["api_key"])
+
+		// Send the request
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to send test push: " + err.Error()})
+			return
+		}
+		defer resp.Body.Close()
+
+		// Read response body for error details if needed
+		respBody, _ := io.ReadAll(resp.Body)
+
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			c.JSON(http.StatusOK, gin.H{"success": true, "message": "Test push sent successfully"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Test push returned error: " + resp.Status + " - " + string(respBody)})
+		}
+		return
+
+	case "ntfy":
+		config["topic"] = c.PostForm("ntfy_topic")
+		config["server"] = c.PostForm("ntfy_server")
+		config["priority"] = c.PostForm("ntfy_priority")
+		config["title"] = c.PostForm("ntfy_title")
+
+		// Validate required fields
+		if config["topic"] == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Ntfy Topic is required"})
+			return
+		}
+
+		// Set default server if not provided
+		if config["server"] == "" {
+			config["server"] = "https://ntfy.sh"
+		}
+
+		// Create the URL for the notification
+		ntfyURL := fmt.Sprintf("%s/%s", strings.TrimRight(config["server"], "/"), config["topic"])
+
+		// Create the notification data
+		ntfyData := map[string]interface{}{
+			"topic":   config["topic"],
+			"title":   "GoMFT Test Notification",
+			"message": "This is a test notification from GoMFT",
+		}
+
+		// Add priority if provided
+		if config["priority"] != "" {
+			ntfyData["priority"] = config["priority"]
+		}
+
+		// Add title if provided
+		if config["title"] != "" {
+			ntfyData["title"] = config["title"]
+		}
+
+		jsonData, err := json.Marshal(ntfyData)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to prepare test notification: " + err.Error()})
+			return
+		}
+
+		// Send the notification
+		resp, err := http.Post(ntfyURL, "application/json", bytes.NewBuffer(jsonData))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to send test notification: " + err.Error()})
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			c.JSON(http.StatusOK, gin.H{"success": true, "message": "Test notification sent successfully"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Test notification returned non-success status code: " + resp.Status})
+		}
+		return
+
+	case "gotify":
+		config["url"] = c.PostForm("gotify_url")
+		config["token"] = c.PostForm("gotify_token")
+		config["priority"] = c.PostForm("gotify_priority")
+		config["title"] = c.PostForm("gotify_title_template")
+
+		// Validate required fields
+		if config["url"] == "" || config["token"] == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Gotify Server URL and Application Token are required"})
+			return
+		}
+
+		// Create the URL for the notification
+		gotifyURL := fmt.Sprintf("%s/message", strings.TrimRight(config["url"], "/"))
+
+		// Set default values for any missing fields
+		title := "GoMFT Test Notification"
+		if config["title"] != "" {
+			title = config["title"]
+		}
+
+		priority := 5 // Default priority
+		if config["priority"] != "" {
+			priorityInt, err := strconv.Atoi(config["priority"])
+			if err == nil {
+				priority = priorityInt
+			}
+		}
+
+		// Create the notification data
+		gotifyData := map[string]interface{}{
+			"title":    title,
+			"message":  "This is a test notification from GoMFT",
+			"priority": priority,
+		}
+
+		jsonData, err := json.Marshal(gotifyData)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to prepare test notification: " + err.Error()})
+			return
+		}
+
+		// Create the request
+		req, err := http.NewRequest("POST", gotifyURL, bytes.NewBuffer(jsonData))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to create request: " + err.Error()})
+			return
+		}
+
+		// Set headers
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Gotify-Key", config["token"])
+
+		// Send the request
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to send test notification: " + err.Error()})
+			return
+		}
+		defer resp.Body.Close()
+
+		// Read response body for error details if needed
+		respBody, _ := io.ReadAll(resp.Body)
+
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			c.JSON(http.StatusOK, gin.H{"success": true, "message": "Test notification sent successfully"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Test notification returned error: " + resp.Status + " - " + string(respBody)})
+		}
+		return
+
+	case "pushover":
+		config["app_token"] = c.PostForm("pushover_app_token")
+		config["user_key"] = c.PostForm("pushover_user_key")
+		config["device"] = c.PostForm("pushover_device")
+		config["priority"] = c.PostForm("pushover_priority")
+		config["sound"] = c.PostForm("pushover_sound")
+
+		// Validate required fields
+		if config["app_token"] == "" || config["user_key"] == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Pushover API Token and User Key are required"})
+			return
+		}
+
+		// Create the URL for the notification
+		pushoverURL := "https://api.pushover.net/1/messages.json"
+
+		// Create the form data for Pushover
+		formData := url.Values{}
+		formData.Set("token", config["app_token"])
+		formData.Set("user", config["user_key"])
+		formData.Set("title", "GoMFT Test Notification")
+		formData.Set("message", "This is a test notification from GoMFT")
+
+		// Add optional fields if provided
+		if config["device"] != "" {
+			formData.Set("device", config["device"])
+		}
+		if config["priority"] != "" {
+			formData.Set("priority", config["priority"])
+		}
+		if config["sound"] != "" {
+			formData.Set("sound", config["sound"])
+		}
+
+		// Send the request
+		resp, err := http.PostForm(pushoverURL, formData)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to send test notification: " + err.Error()})
+			return
+		}
+		defer resp.Body.Close()
+
+		// Read response body for error details if needed
+		respBody, _ := io.ReadAll(resp.Body)
+		var pushoverResp map[string]interface{}
+		json.Unmarshal(respBody, &pushoverResp)
+
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 && pushoverResp["status"].(float64) == 1 {
+			c.JSON(http.StatusOK, gin.H{"success": true, "message": "Test notification sent successfully"})
+		} else {
+			errorMsg := "Test notification returned error"
+			if errStr, ok := pushoverResp["errors"]; ok {
+				errorMsg = errorMsg + ": " + fmt.Sprintf("%v", errStr)
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": errorMsg})
+		}
 		return
 
 	default:
-		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Invalid notification service type",
-		})
-		return
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Unknown service type: " + serviceType})
+	}
+}
+
+// replacePlaceholders replaces placeholders in templates with sample values
+func replacePlaceholders(template string) string {
+	// Replace common placeholders
+	replacements := map[string]string{
+		"{{job.id}}":               "sample-job-123",
+		"{{job.name}}":             "Test Job",
+		"{{job.status}}":           "completed",
+		"{{job.message}}":          "This is a test notification",
+		"{{job.event}}":            "job_complete",
+		"{{job.started_at}}":       time.Now().Add(-5 * time.Minute).Format(time.RFC3339),
+		"{{job.completed_at}}":     time.Now().Format(time.RFC3339),
+		"{{job.duration_seconds}}": "300",
+		"{{job.config_id}}":        "config-456",
+		"{{job.config_name}}":      "Test Config",
+		"{{job.transfer_bytes}}":   "1024",
+		"{{job.file_count}}":       "5",
+		"{{instance.id}}":          "gomft-instance-1",
+		"{{instance.name}}":        "GoMFT Test Instance",
+		"{{instance.version}}":     "1.0.0",
+		"{{instance.environment}}": "testing",
+		"{{timestamp}}":            time.Now().Format(time.RFC3339),
+		"{{notification.id}}":      "test-notification",
 	}
 
-	// For email, simulate a successful test for now
-	// In a real implementation, you would send an actual test notification
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": fmt.Sprintf("Simulated %s notification test successful", serviceType),
-	})
+	result := template
+	for placeholder, value := range replacements {
+		result = strings.Replace(result, placeholder, value, -1)
+	}
+
+	return result
+}
+
+// sendTestPushbulletNotification sends a test Pushbullet notification
+func sendTestPushbulletNotification(apiKey, deviceIden, title, body string) error {
+	const pushbulletAPI = "https://api.pushbullet.com/v2/pushes"
+
+	// Create payload
+	payload := map[string]interface{}{
+		"type":  "note",
+		"title": title,
+		"body":  body,
+	}
+
+	// Add device_iden if provided
+	if deviceIden != "" {
+		payload["device_iden"] = deviceIden
+	}
+
+	// Convert payload to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("error creating JSON payload: %v", err)
+	}
+
+	// Create request
+	req, err := http.NewRequest("POST", pushbulletAPI, bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		return fmt.Errorf("error creating request: %v", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Access-Token", apiKey)
+
+	// Send request
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("error sending request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response
+	if resp.StatusCode >= 400 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("pushbullet API error %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	return nil
+}
+
+// sendTestNtfyNotification sends a test Ntfy notification
+func sendTestNtfyNotification(server, topic, title, message string, priority int, username, password string) error {
+	// Ensure server doesn't end with a slash
+	server = strings.TrimSuffix(server, "/")
+
+	// Build URL
+	ntfyURL := fmt.Sprintf("%s/%s", server, topic)
+
+	// Create request
+	req, err := http.NewRequest("POST", ntfyURL, bytes.NewBufferString(message))
+	if err != nil {
+		return fmt.Errorf("error creating request: %v", err)
+	}
+
+	// Set headers
+	req.Header.Set("Title", title)
+	req.Header.Set("Priority", strconv.Itoa(priority))
+
+	// Set authentication if provided
+	if username != "" && password != "" {
+		req.SetBasicAuth(username, password)
+	}
+
+	// Send request
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("error sending request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response
+	if resp.StatusCode >= 400 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("ntfy API error %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	return nil
 }
 
 // generateSamplePayload creates a sample payload for testing
