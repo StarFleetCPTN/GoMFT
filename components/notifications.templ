@@ -5,6 +5,66 @@ import (
 	"fmt"
 )
 
+// Dialog component for confirmation dialogs using Flowbite modal
+templ NotificationDialog(id string, title string, message string, confirmClass string, confirmText string, action string, serviceID uint, serviceName string) {
+	<div id={ id } tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-gray-900/50 dark:bg-gray-900/80 backdrop-blur-sm">
+		<div class="relative p-4 w-full max-w-md max-h-full mx-auto">
+			<div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
+				<div class="p-6 text-center">
+					if action == "delete" {
+						<i class="fas fa-trash-alt text-red-400 text-3xl mb-4"></i>
+					} else {
+						<i class="fas fa-exclamation-triangle text-yellow-400 text-3xl mb-4"></i>
+					}
+					<h3 class="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">{ message }</h3>
+					<button 
+						type="button" 
+						class={ confirmClass }
+						hx-delete={ fmt.Sprintf("/admin/settings/notifications/%d", serviceID) }
+						hx-target="body"
+						data-service-name={ serviceName }
+						data-service-id={ fmt.Sprint(serviceID) }
+						id={ fmt.Sprintf("delete-btn-%d", serviceID) }
+						onclick={ triggerServiceDelete(id, serviceID, serviceName) }>
+						{ confirmText }
+					</button>
+					<button type="button" data-modal-hide={ id } class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600">
+						Cancel
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+script hideNotificationDialog(id string) {
+	document.getElementById(id).classList.add("hidden");
+	document.getElementById(id).classList.remove("flex");
+}
+
+script showNotificationDialog(id string) {
+	document.getElementById(id).classList.remove("hidden");
+	document.getElementById(id).classList.add("flex");
+}
+
+script triggerServiceDelete(dialogId string, serviceID uint, serviceName string) {
+	// Hide the dialog
+	document.getElementById(dialogId).classList.add("hidden");
+	document.getElementById(dialogId).classList.remove("flex");
+	
+	// Add debugging info
+	console.log(`Notification service deletion triggered for: ${serviceName} (ID: ${serviceID})`);
+	
+	// Store data in a way that's accessible to event handlers
+	window.lastDeletedService = {
+		id: serviceID,
+		name: serviceName
+	};
+
+	// Add custom marker to track this deletion
+	window.currentlyDeletingService = true;
+}
+
 templ Notifications(ctx context.Context, data SettingsNotificationsData) {
 	@LayoutWithContext("Notification Services", ctx) {
 		<!-- Status and Error Messages -->
@@ -85,31 +145,113 @@ templ Notifications(ctx context.Context, data SettingsNotificationsData) {
 			// Track all HTMX events for debugging
 			document.addEventListener('htmx:beforeRequest', function(event) {
 				console.log("HTMX before request:", event.detail);
+				
+				// Check if this is a DELETE request for a notification service
+				const path = event.detail.path;
+				const method = event.detail.verb;
+				
+				console.log(`Request path: ${path}, method: ${method}`);
+				
+				// Pattern match for notification service deletions (e.g., /admin/settings/notifications/123)
+				if (path && method === 'DELETE' && path.match(/^\/admin\/settings\/notifications\/\d+$/)) {
+					console.log("Detected notification service deletion request via URL pattern");
+					
+					// This is definitely a delete request - store this information
+					window.isServiceDeleteRequest = true;
+				}
 			});
 
 			document.addEventListener('htmx:afterRequest', function(event) {
 				console.log("HTMX after request:", event.detail);
 				
-				// Check if this is a successful notification service deletion
-				if (event.detail.pathInfo && 
-					event.detail.pathInfo.requestPath && 
-					event.detail.pathInfo.requestPath.match(/^\/admin\/settings\/notifications\/\d+$/) && 
-					event.detail.verb === 'DELETE' &&
-					event.detail.successful) {
+				// Check for notification service deletion multiple ways
+				const isDeleteRequest = 
+					// Check global flag from the triggerServiceDelete function
+					window.currentlyDeletingService ||
+					// Check flag from beforeRequest handler
+					window.isServiceDeleteRequest ||
+					// Check URL pattern directly from this event
+					(event.detail.pathInfo && 
+					 event.detail.pathInfo.requestPath && 
+					 event.detail.pathInfo.requestPath.match(/^\/admin\/settings\/notifications\/\d+$/) && 
+					 event.detail.verb === 'DELETE');
+				
+				console.log(`Is delete request: ${isDeleteRequest}`);
+				
+				// If this is a successful delete request, show notification
+				if (isDeleteRequest && event.detail.successful) {
+					console.log("Delete request was successful");
 					
-					showToast('Notification service deleted successfully', 'success');
+					let serviceName = "Unknown";
+					
+					// Try multiple sources for service name
+					if (event.detail.elt && event.detail.elt.getAttribute) {
+						serviceName = event.detail.elt.getAttribute('data-service-name') || serviceName;
+					}
+					
+					if (serviceName === "Unknown" && window.lastDeletedService) {
+						// Fallback to our stored service info
+						serviceName = window.lastDeletedService.name;
+					}
+					
+					console.log(`Showing success notification for deleted service: ${serviceName}`);
+					showToast(`Notification service "${serviceName}" deleted successfully`, 'success');
+					
+					// Clear flags
+					window.currentlyDeletingService = false;
+					window.isServiceDeleteRequest = false;
+					window.lastDeletedService = null;
 				}
 			});
 			
 			document.addEventListener('htmx:responseError', function(event) {
 				console.log("HTMX response error:", event.detail);
 				
+				// Similar logic as success but for errors
+				const isDeleteRequest = 
+					window.currentlyDeletingService ||
+					window.isServiceDeleteRequest ||
+					(event.detail.pathInfo && 
+					 event.detail.pathInfo.requestPath && 
+					 event.detail.pathInfo.requestPath.match(/^\/admin\/settings\/notifications\/\d+$/) && 
+					 event.detail.verb === 'DELETE');
+				
 				let errorMsg = 'An error occurred';
 				if (event.detail.xhr && event.detail.xhr.responseText) {
 					errorMsg = event.detail.xhr.responseText;
 				}
 				
-				showToast(errorMsg, 'error');
+				if (isDeleteRequest) {
+					console.log("Delete request failed");
+					
+					let serviceName = "Unknown";
+					
+					// Try multiple sources for service name
+					if (event.detail.elt && event.detail.elt.getAttribute) {
+						serviceName = event.detail.elt.getAttribute('data-service-name') || serviceName;
+					}
+					
+					if (serviceName === "Unknown" && window.lastDeletedService) {
+						// Fallback to our stored service info
+						serviceName = window.lastDeletedService.name;
+					}
+					
+					let errorMsg = `Failed to delete notification service "${serviceName}"`;
+					
+					if (event.detail.xhr && event.detail.xhr.responseText) {
+						errorMsg = `Error: ${event.detail.xhr.responseText}`;
+					}
+					
+					console.log(`Showing error notification: ${errorMsg}`);
+					showToast(errorMsg, 'error');
+					
+					// Clear flags
+					window.currentlyDeletingService = false;
+					window.isServiceDeleteRequest = false;
+					window.lastDeletedService = null;
+				} else {
+					showToast(errorMsg, 'error');
+				}
 			});
 			
 			// Handle modal hide buttons
@@ -214,12 +356,21 @@ templ Notifications(ctx context.Context, data SettingsNotificationsData) {
 													>
 														<i class="fas fa-edit"></i>
 													</a>
+													<!-- Add notification delete dialog -->
+													@NotificationDialog(
+														fmt.Sprintf("delete-notification-dialog-%d", service.ID),
+														"Delete Notification Service",
+														fmt.Sprintf("Are you sure you want to delete the notification service '%s'? This cannot be undone.", service.Name),
+														"text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800",
+														"Delete",
+														"delete",
+														service.ID,
+														service.Name,
+													)
 													<button
 														type="button"
+														onclick={ showNotificationDialog(fmt.Sprintf("delete-notification-dialog-%d", service.ID)) }
 														class="text-red-500 bg-white focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 rounded-lg text-sm p-2 dark:bg-gray-800 dark:text-red-400 dark:hover:bg-gray-700 dark:hover:text-white dark:focus:ring-gray-700"
-														hx-delete={ "/admin/settings/notifications/" + fmt.Sprint(service.ID) }
-														hx-confirm="Are you sure you want to delete this notification service? This cannot be undone."
-														hx-target="body"
 													>
 														<i class="fas fa-trash-alt"></i>
 													</button>

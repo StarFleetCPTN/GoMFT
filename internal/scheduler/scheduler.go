@@ -1579,12 +1579,23 @@ func (s *Scheduler) sendServiceWebhookNotification(service *db.NotificationServi
 
 // generateDefaultPayload creates a standard webhook payload
 func generateDefaultPayload(job *db.Job, history *db.JobHistory, config *db.TransferConfig, eventType string) map[string]interface{} {
+	// get event type
+	switch eventType {
+	case "job_start":
+		eventType = "Job Started"
+	case "job_complete":
+		eventType = "Job Completed"
+	case "job_fail":
+		eventType = "Job Failed"
+	}
+
 	payload := map[string]interface{}{
 		"event": eventType,
 		"job": map[string]interface{}{
 			"id":             job.ID,
 			"name":           job.Name,
 			"status":         history.Status,
+			"event":          eventType,
 			"message":        history.ErrorMessage,
 			"started_at":     history.StartTime.Format(time.RFC3339),
 			"config_id":      config.ID,
@@ -2400,6 +2411,8 @@ func (s *Scheduler) sendNtfyNotification(service *db.NotificationService, job *d
 func (s *Scheduler) sendGotifyNotification(service *db.NotificationService, job *db.Job, history *db.JobHistory, config *db.TransferConfig, eventType string) error {
 	s.log.LogDebug("Sending Gotify notification for job %d", job.ID)
 
+	// pretty print job
+	fmt.Printf("Job: %+v\n", job)
 	// Get Gotify server URL and token from service config
 	serverURL, ok := service.Config["url"]
 	if !ok || serverURL == "" {

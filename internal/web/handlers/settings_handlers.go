@@ -74,12 +74,6 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 	description := c.PostForm("description")
 	isEnabled := c.PostForm("is_enabled") == "on"
 
-	// print the form data
-	fmt.Println("name", name)
-	fmt.Println("serviceType", serviceType)
-	fmt.Println("description", description)
-	fmt.Println("isEnabled", isEnabled)
-
 	// Validate required fields
 	if name == "" || serviceType == "" {
 		// Return to notifications page with error message
@@ -726,6 +720,8 @@ func (h *Handlers) HandleTestNotification(c *gin.Context) {
 		config["token"] = c.PostForm("gotify_token")
 		config["priority"] = c.PostForm("gotify_priority")
 		config["title"] = c.PostForm("gotify_title_template")
+
+		fmt.Println("config", config)
 
 		// Validate required fields
 		if config["url"] == "" || config["token"] == "" {

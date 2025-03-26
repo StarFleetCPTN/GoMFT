@@ -237,14 +237,20 @@ templ LayoutWithContext(title string, ctx context.Context) {
 											</svg>
 										</button>
 										<ul id="dropdown-settings" class="hidden py-2 space-y-2">
+											// <li>
+											// 	<a href="#" class="flex items-center w-full p-2 text-gray-900 transition duration-75 rounded-lg pl-11 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700">General (Coming Soon)</a>
+											// </li>
 											<li>
-												<a href="#" class="flex items-center w-full p-2 text-gray-900 transition duration-75 rounded-lg pl-11 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700">General (Coming Soon)</a>
+												<a href="/admin/settings/auth-providers" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+													<i class="fas fa-user-lock w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
+													Authentication Providers
+												</a>
 											</li>
 											<li>
-												<a href="/admin/settings/auth-providers" class="flex items-center w-full p-2 text-gray-900 transition duration-75 rounded-lg pl-11 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700">Authentication Providers</a>
-											</li>
-											<li>
-												<a href="/admin/settings/notifications" class="flex items-center w-full p-2 text-gray-900 transition duration-75 rounded-lg pl-11 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700">Notifications</a>
+												<a href="/admin/settings/notifications" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+													<i class="fas fa-bell w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
+													Notification Services
+												</a>
 											</li>
 										</ul>
 									}
@@ -458,8 +464,8 @@ templ LayoutWithContext(title string, ctx context.Context) {
 					}
 
 					// Initialize admin dropdown toggle if available
-					const adminDropdownToggle = document.querySelector('[data-collapse-toggle="dropdown-admin"]');
-					const adminDropdown = document.getElementById('dropdown-admin');
+					const adminDropdownToggle = document.querySelector('[data-collapse-toggle="dropdown-settings"]');
+					const adminDropdown = document.getElementById('dropdown-settings');
 					
 					if (adminDropdownToggle && adminDropdown) {
 						// Check if we should show the dropdown (if current page is under admin section)
