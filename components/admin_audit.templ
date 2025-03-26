@@ -302,6 +302,36 @@ templ AdminAuditLogs(ctx context.Context, data AuditLogsData) {
 			</div>
 		</div>
 		
+		<script>
+			// Modal functionality
+			document.addEventListener('DOMContentLoaded', function() {
+				const modal = document.getElementById('details-modal');
+				const detailsContent = document.getElementById('details-content');
+				
+				// Handle modal show/hide
+				document.querySelectorAll('[data-modal-target="details-modal"]').forEach(button => {
+					button.addEventListener('click', function() {
+						const details = this.getAttribute('data-details');
+						detailsContent.textContent = JSON.stringify(JSON.parse(details), null, 2);
+						modal.classList.remove('hidden');
+					});
+				});
+				
+				document.querySelectorAll('[data-modal-hide="details-modal"]').forEach(button => {
+					button.addEventListener('click', function() {
+						modal.classList.add('hidden');
+					});
+				});
+				
+				// Close modal when clicking outside
+				modal.addEventListener('click', function(e) {
+					if (e.target === modal) {
+						modal.classList.add('hidden');
+					}
+				});
+			});
+		</script>
+		
 	}
 }
 
