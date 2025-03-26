@@ -1163,6 +1163,268 @@ func (h *Handlers) HandleNotificationsPage(c *gin.Context) {
 	components.Notifications(ctx, data).Render(ctx, c.Writer)
 }
 
+// HandleNewNotificationPage handles GET /admin/settings/notifications/new
+func (h *Handlers) HandleNewNotificationPage(c *gin.Context) {
+	// Check if the user has permission to view settings
+	if !h.checkPermission(c, "system.settings") {
+		c.Redirect(http.StatusFound, "/dashboard")
+		return
+	}
+
+	data := components.NotificationFormData{
+		IsNew: true,
+	}
+
+	ctx := h.CreateTemplateContext(c)
+	components.NotificationForm(ctx, data).Render(ctx, c.Writer)
+}
+
+// HandleEditNotificationPage handles GET /admin/settings/notifications/:id/edit
+func (h *Handlers) HandleEditNotificationPage(c *gin.Context) {
+	// Check if the user has permission to view settings
+	if !h.checkPermission(c, "system.settings") {
+		c.Redirect(http.StatusFound, "/dashboard")
+		return
+	}
+
+	// Get service ID from path
+	serviceID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		h.handleNotificationsWithError(c, "Invalid notification service ID.")
+		return
+	}
+
+	// Find the notification service
+	var service db.NotificationService
+	if err := h.DB.First(&service, serviceID).Error; err != nil {
+		h.handleNotificationsWithError(c, "Notification service not found.")
+		return
+	}
+
+	// Convert to NotificationFormData
+	data := components.NotificationFormData{
+		IsNew: false,
+		NotificationService: &struct {
+			ID              uint
+			Name            string
+			Description     string
+			Type            string
+			IsEnabled       bool
+			EventTriggers   []string
+			RetryPolicy     string
+			WebhookURL      string
+			Method          string
+			Headers         string
+			PayloadTemplate string
+			SecretKey       string
+		}{
+			ID:              service.ID,
+			Name:            service.Name,
+			Description:     service.Description,
+			Type:            service.Type,
+			IsEnabled:       service.IsEnabled,
+			EventTriggers:   service.EventTriggers,
+			RetryPolicy:     service.RetryPolicy,
+			PayloadTemplate: service.PayloadTemplate,
+			SecretKey:       service.SecretKey,
+		},
+	}
+
+	// Add type-specific fields
+	if service.Type == "webhook" {
+		data.NotificationService.WebhookURL = service.Config["webhook_url"]
+		data.NotificationService.Method = service.Config["method"]
+		data.NotificationService.Headers = service.Config["headers"]
+	}
+
+	ctx := h.CreateTemplateContext(c)
+	components.NotificationForm(ctx, data).Render(ctx, c.Writer)
+}
+
+// HandleUpdateNotificationService handles PUT /admin/settings/notifications/:id
+func (h *Handlers) HandleUpdateNotificationService(c *gin.Context) {
+	// Check if the user has permission to manage settings
+	if !h.checkPermission(c, "system.settings") {
+		c.Redirect(http.StatusFound, "/dashboard")
+		return
+	}
+
+	// Get service ID from path
+	serviceID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		h.handleNotificationsWithError(c, "Invalid notification service ID.")
+		return
+	}
+
+	// Find the notification service
+	var service db.NotificationService
+	if err := h.DB.First(&service, serviceID).Error; err != nil {
+		h.handleNotificationsWithError(c, "Notification service not found.")
+		return
+	}
+
+	// Parse form data
+	name := c.PostForm("name")
+	serviceType := c.PostForm("type")
+	description := c.PostForm("description")
+	isEnabled := c.PostForm("is_enabled") == "on"
+
+	// Validate required fields
+	if name == "" || serviceType == "" {
+		h.handleNotificationsWithError(c, "Name and type are required fields.")
+		return
+	}
+
+	// Update basic fields
+	service.Name = name
+	service.Type = serviceType
+	service.Description = description
+	service.IsEnabled = isEnabled
+
+	// Update type-specific fields based on service type
+	switch serviceType {
+	case "webhook":
+		// Update webhook-specific fields
+		service.Config["webhook_url"] = c.PostForm("webhook_url")
+		service.Config["method"] = c.PostForm("method")
+		service.Config["headers"] = c.PostForm("headers")
+		service.PayloadTemplate = c.PostForm("payload_template")
+		service.SecretKey = c.PostForm("secret_key")
+		service.RetryPolicy = c.PostForm("retry_policy")
+
+		// Update event triggers
+		eventTriggers := make([]string, 0)
+		if c.PostForm("trigger_job_start") == "on" {
+			eventTriggers = append(eventTriggers, "job_start")
+		}
+		if c.PostForm("trigger_job_complete") == "on" {
+			eventTriggers = append(eventTriggers, "job_complete")
+		}
+		if c.PostForm("trigger_job_error") == "on" {
+			eventTriggers = append(eventTriggers, "job_error")
+		}
+		service.EventTriggers = eventTriggers
+
+	case "pushbullet":
+		// Update Pushbullet-specific fields
+		service.Config["api_key"] = c.PostForm("pushbullet_api_key")
+		service.Config["device_iden"] = c.PostForm("pushbullet_device_iden")
+		service.Config["title_template"] = c.PostForm("pushbullet_title_template")
+		service.Config["body_template"] = c.PostForm("pushbullet_body_template")
+
+		// Update event triggers
+		eventTriggers := make([]string, 0)
+		if c.PostForm("trigger_job_start") == "on" {
+			eventTriggers = append(eventTriggers, "job_start")
+		}
+		if c.PostForm("trigger_job_complete") == "on" {
+			eventTriggers = append(eventTriggers, "job_complete")
+		}
+		if c.PostForm("trigger_job_error") == "on" {
+			eventTriggers = append(eventTriggers, "job_error")
+		}
+		service.EventTriggers = eventTriggers
+
+	case "ntfy":
+		// Update Ntfy-specific fields
+		service.Config["server"] = c.PostForm("ntfy_server")
+		service.Config["topic"] = c.PostForm("ntfy_topic")
+		service.Config["priority"] = c.PostForm("ntfy_priority")
+		service.Config["username"] = c.PostForm("ntfy_username")
+		service.Config["password"] = c.PostForm("ntfy_password")
+		service.Config["title_template"] = c.PostForm("ntfy_title_template")
+		service.Config["message_template"] = c.PostForm("ntfy_message_template")
+
+		// Update event triggers
+		eventTriggers := make([]string, 0)
+		if c.PostForm("trigger_job_start") == "on" {
+			eventTriggers = append(eventTriggers, "job_start")
+		}
+		if c.PostForm("trigger_job_complete") == "on" {
+			eventTriggers = append(eventTriggers, "job_complete")
+		}
+		if c.PostForm("trigger_job_error") == "on" {
+			eventTriggers = append(eventTriggers, "job_error")
+		}
+		service.EventTriggers = eventTriggers
+
+	case "gotify":
+		// Update Gotify-specific fields
+		service.Config["url"] = c.PostForm("gotify_url")
+		service.Config["token"] = c.PostForm("gotify_token")
+		service.Config["priority"] = c.PostForm("gotify_priority")
+		service.Config["title_template"] = c.PostForm("gotify_title_template")
+		service.Config["message_template"] = c.PostForm("gotify_message_template")
+
+		// Update event triggers
+		eventTriggers := make([]string, 0)
+		if c.PostForm("trigger_job_start") == "on" {
+			eventTriggers = append(eventTriggers, "job_start")
+		}
+		if c.PostForm("trigger_job_complete") == "on" {
+			eventTriggers = append(eventTriggers, "job_complete")
+		}
+		if c.PostForm("trigger_job_error") == "on" {
+			eventTriggers = append(eventTriggers, "job_error")
+		}
+		service.EventTriggers = eventTriggers
+
+	case "pushover":
+		// Update Pushover-specific fields
+		service.Config["app_token"] = c.PostForm("pushover_app_token")
+		service.Config["user_key"] = c.PostForm("pushover_user_key")
+		service.Config["device"] = c.PostForm("pushover_device")
+		service.Config["priority"] = c.PostForm("pushover_priority")
+		service.Config["sound"] = c.PostForm("pushover_sound")
+		service.Config["title_template"] = c.PostForm("pushover_title_template")
+		service.Config["message_template"] = c.PostForm("pushover_message_template")
+
+		// Update event triggers
+		eventTriggers := make([]string, 0)
+		if c.PostForm("trigger_job_start") == "on" {
+			eventTriggers = append(eventTriggers, "job_start")
+		}
+		if c.PostForm("trigger_job_complete") == "on" {
+			eventTriggers = append(eventTriggers, "job_complete")
+		}
+		if c.PostForm("trigger_job_error") == "on" {
+			eventTriggers = append(eventTriggers, "job_error")
+		}
+		service.EventTriggers = eventTriggers
+	}
+
+	// Save to database
+	if err := h.DB.Save(&service).Error; err != nil {
+		log.Printf("Error updating notification service: %v", err)
+		h.handleNotificationsWithError(c, "Failed to update notification service: "+err.Error())
+		return
+	}
+
+	// Create audit log
+	auditDetails := map[string]interface{}{
+		"name":           service.Name,
+		"type":           service.Type,
+		"is_enabled":     service.IsEnabled,
+		"description":    service.Description,
+		"event_triggers": service.EventTriggers,
+	}
+
+	auditLog := db.AuditLog{
+		Action:     "update",
+		EntityType: "notification_service",
+		EntityID:   service.ID,
+		UserID:     c.GetUint("userID"),
+		Details:    auditDetails,
+	}
+
+	if err := h.DB.Create(&auditLog).Error; err != nil {
+		log.Printf("Error creating audit log: %v", err)
+	}
+
+	// Redirect back to notifications page with success message
+	h.handleNotificationsWithSuccess(c, "Notification service updated successfully.")
+}
+
 // handleNotificationsWithError renders the notifications page with an error message
 func (h *Handlers) handleNotificationsWithError(c *gin.Context, errorMessage string) {
 	var notificationServices []db.NotificationService

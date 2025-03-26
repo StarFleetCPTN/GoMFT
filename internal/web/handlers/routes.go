@@ -168,7 +168,10 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 
 			// Notification routes
 			settingsGroup.GET("/notifications", h.HandleNotificationsPage)
+			settingsGroup.GET("/notifications/new", h.HandleNewNotificationPage)
+			settingsGroup.GET("/notifications/:id/edit", h.HandleEditNotificationPage)
 			settingsGroup.POST("/notifications", h.HandleCreateNotificationService)
+			settingsGroup.PUT("/notifications/:id", h.HandleUpdateNotificationService)
 			settingsGroup.DELETE("/notifications/:id", h.HandleDeleteNotificationService)
 			settingsGroup.POST("/notifications/test", h.HandleTestNotification)
 
