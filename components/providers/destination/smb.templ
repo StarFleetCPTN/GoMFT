@@ -15,7 +15,7 @@ templ SMBDestinationForm() {
 				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 					<i class="fas fa-server text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input type="text" id="dest_host" name="dest_host" x-model="destinationHost" x-bind:required="requiresDestination"
+				<input type="text" id="dest_host" name="dest_host" x-model="destHost" x-bind:required="requiresDestination"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 					placeholder="192.168.1.100 or server.example.com" />
 			</div>
@@ -30,7 +30,7 @@ templ SMBDestinationForm() {
 				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 					<i class="fas fa-share-alt text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input type="text" id="dest_share" name="dest_share" x-model="destinationShare" x-bind:required="requiresDestination"
+				<input type="text" id="dest_share" name="dest_share" x-model="destShare" x-bind:required="requiresDestination"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 					placeholder="Documents" />
 			</div>
@@ -45,7 +45,7 @@ templ SMBDestinationForm() {
 				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 					<i class="fas fa-sitemap text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input type="text" id="dest_domain" name="dest_domain" x-model="destinationDomain"
+				<input type="text" id="dest_domain" name="dest_domain" x-model="destDomain"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 					placeholder="WORKGROUP or DOMAIN" />
 			</div>
@@ -60,7 +60,7 @@ templ SMBDestinationForm() {
 				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 					<i class="fas fa-user text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input type="text" id="dest_user" name="dest_user" x-model="destinationUser" x-bind:required="requiresDestination"
+				<input type="text" id="dest_user" name="dest_user" x-model="destUser" x-bind:required="requiresDestination"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 					placeholder="smb_username" />
 			</div>
@@ -75,7 +75,7 @@ templ SMBDestinationForm() {
 				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 					<i class="fas fa-lock text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input type="password" id="dest_password" name="dest_password" x-model="destinationPassword" x-bind:required="requiresDestination"
+				<input type="password" id="dest_password" name="dest_password" x-model="destPassword" x-bind:required="requiresDestination"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 					placeholder="SMB password" />
 			</div>

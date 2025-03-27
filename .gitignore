@@ -79,6 +79,8 @@ backups/
 /destination/
 /archive/
 
+# Ignore the dist directory
+static/dist/
 
 # Ignore binaries
 gomft

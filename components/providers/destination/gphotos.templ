@@ -1,10 +1,10 @@
 package destination
 
 templ GooglePhotosDestinationForm() {
-	<div class="space-y-6 mt-4" x-init="$watch('useBuiltinAuthDestination', value => {
+	<div class="space-y-6 mt-4" x-init="$watch('useBuiltinAuthDest', value => {
 			if(value) {
-				destinationClientId = '';
-				destinationClientSecret = '';
+				destClientId = '';
+				destClientSecret = '';
 			}
 		})">
 		<div class="p-4 mb-4 text-sm text-blue-800 rounded-lg bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300" role="alert">
@@ -38,7 +38,7 @@ templ GooglePhotosDestinationForm() {
 					<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 						<i class="fas fa-id-card text-gray-400 dark:text-gray-500"></i>
 					</div>
-					<input type="text" id="dest_client_id" name="dest_client_id" x-model="destinationClientId"
+					<input type="text" id="dest_client_id" name="dest_client_id" x-model="destClientId"
 						class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 						x-bind:disabled="useBuiltinAuthDest"
 						placeholder="Google Photos OAuth Client ID" />
@@ -57,7 +57,7 @@ templ GooglePhotosDestinationForm() {
 					<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 						<i class="fas fa-key text-gray-400 dark:text-gray-500"></i>
 					</div>
-					<input type="password" id="dest_client_secret" name="dest_client_secret" x-model="destinationClientSecret"
+					<input type="password" id="dest_client_secret" name="dest_client_secret" x-model="destClientSecret"
 						class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 						x-bind:disabled="useBuiltinAuthDest"
 						placeholder="Google Photos OAuth Client Secret" />

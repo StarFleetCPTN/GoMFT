@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -22,6 +23,40 @@ import (
 
 //go:embed static
 var staticFiles embed.FS
+
+// setCacheHeaders sets appropriate cache headers based on file type
+func setCacheHeaders(c *gin.Context, path string) {
+	// Set cache headers based on file type
+	if strings.HasSuffix(path, ".js") || strings.HasSuffix(path, ".css") {
+		c.Header("Cache-Control", "public, max-age=31536000") // Cache for 1 year
+	} else if strings.HasSuffix(path, ".png") || strings.HasSuffix(path, ".jpg") || strings.HasSuffix(path, ".webp") {
+		c.Header("Cache-Control", "public, max-age=86400") // Cache for 1 day
+	} else {
+		c.Header("Cache-Control", "no-cache")
+	}
+}
+
+// setContentType sets the correct content type based on file extension
+func setContentType(c *gin.Context, path string) {
+	switch {
+	case strings.HasSuffix(path, ".js"):
+		c.Header("Content-Type", "application/javascript")
+	case strings.HasSuffix(path, ".css"):
+		c.Header("Content-Type", "text/css")
+	case strings.HasSuffix(path, ".png"):
+		c.Header("Content-Type", "image/png")
+	case strings.HasSuffix(path, ".jpg"), strings.HasSuffix(path, ".jpeg"):
+		c.Header("Content-Type", "image/jpeg")
+	case strings.HasSuffix(path, ".webp"):
+		c.Header("Content-Type", "image/webp")
+	case strings.HasSuffix(path, ".svg"):
+		c.Header("Content-Type", "image/svg+xml")
+	case strings.HasSuffix(path, ".woff2"):
+		c.Header("Content-Type", "font/woff2")
+	case strings.HasSuffix(path, ".woff"):
+		c.Header("Content-Type", "font/woff")
+	}
+}
 
 func main() {
 	// Set Gin to release mode
@@ -110,12 +145,24 @@ func main() {
 	}))
 	router.Use(gin.Recovery())
 
-	// Serve embedded static files
+	// Serve embedded static files with proper content types and caching
 	staticFS, err := fs.Sub(staticFiles, "static")
 	if err != nil {
 		log.Fatalf("Failed to create sub-filesystem: %v", err)
 	}
-	router.StaticFS("/static", http.FS(staticFS))
+
+	// Custom static file handler
+	router.GET("/static/*filepath", func(c *gin.Context) {
+		path := c.Param("filepath")
+
+		// Set content type and cache headers
+		setContentType(c, path)
+		setCacheHeaders(c, path)
+
+		// Serve the file
+		c.FileFromFS(path, http.FS(staticFS))
+	})
+
 	log.Printf("Embedded static files configured for serving")
 
 	// Initialize web handlers

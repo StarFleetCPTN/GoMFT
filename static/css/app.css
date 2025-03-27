@@ -1,3 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles */
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  width: 100%;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.pb-mobile-nav {
+  padding-bottom: 4rem;
+}
+
+@media (min-width: 640px) {
+  .pb-mobile-nav {
+    padding-bottom: 0;
+  }
+}
+
+/* Dark mode styles */
+body.dark {
+  background-color: #111827; /* gray-900 */
+}
+
+body.dark .configs-page, 
+body.dark .jobs-page {
+  background-color: #111827 !important; /* gray-900 */
+  min-height: 100vh;
+}
+
+#jobs-container.dark, #configs-container.dark {
+  background-color: #111827 !important;
+  min-height: 100vh;
+}
+
+body.dark .bg-white {
+  background-color: #1f2937 !important;
+}
+
 /* Base styles */
 :root {
     --primary-color: #2563eb;

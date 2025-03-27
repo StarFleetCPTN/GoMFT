@@ -23,7 +23,7 @@ templ GoogleDriveDestinationForm() {
 			</p>
 		</div>
 
-		<div x-show="!useBuiltinAuthDestination">
+		<div x-show="!useBuiltinAuthDest">
 			<div class="p-4 mb-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300" role="alert">
 				<div class="flex">
 					<i class="fas fa-exclamation-triangle mr-2 flex-shrink-0"></i>
@@ -37,9 +37,9 @@ templ GoogleDriveDestinationForm() {
 					<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 						<i class="fas fa-id-card text-gray-400 dark:text-gray-500"></i>
 					</div>
-					<input type="text" id="dest_client_id" name="dest_client_id" x-model="destinationClientId"
+					<input type="text" id="dest_client_id" name="dest_client_id" x-model="destClientId"
 						class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-						placeholder="Your Google API Client ID" x-bind:required="!useBuiltinAuthDestination" />
+						placeholder="Your Google API Client ID" x-bind:required="!useBuiltinAuthDest" />
 				</div>
 				<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">OAuth 2.0 Client ID from Google Cloud Console</p>
 			</div>
@@ -50,9 +50,9 @@ templ GoogleDriveDestinationForm() {
 					<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 						<i class="fas fa-key text-gray-400 dark:text-gray-500"></i>
 					</div>
-					<input type="password" id="dest_client_secret" name="dest_client_secret" x-model="destinationClientSecret"
+					<input type="password" id="dest_client_secret" name="dest_client_secret" x-model="destClientSecret"
 						class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-						placeholder="Your Google API Client Secret" x-bind:required="!useBuiltinAuthDestination" />
+						placeholder="Your Google API Client Secret" x-bind:required="!useBuiltinAuthDest" />
 				</div>
 				<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">OAuth 2.0 Client Secret from Google Cloud Console</p>
 			</div>
@@ -79,7 +79,7 @@ templ GoogleDriveDestinationForm() {
 				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 					<i class="fas fa-fingerprint text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input type="text" id="dest_drive_id" name="dest_drive_id" x-model="destinationDriveId"
+				<input type="text" id="dest_drive_id" name="dest_drive_id" x-model="destDriveId"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 					placeholder="Specific Google Drive ID" />
 			</div>
@@ -94,7 +94,7 @@ templ GoogleDriveDestinationForm() {
 				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 					<i class="fas fa-users text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input type="text" id="dest_team_drive" name="dest_team_drive" x-model="destinationTeamDrive"
+				<input type="text" id="dest_team_drive" name="dest_team_drive" x-model="destTeamDrive"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 					placeholder="Team Drive ID" />
 			</div>
