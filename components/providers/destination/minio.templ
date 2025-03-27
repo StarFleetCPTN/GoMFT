@@ -1,91 +1,97 @@
 package destination
 
 templ MinIODestinationForm() {
-	<div class="sm:col-span-6 space-y-6">
-		<div class="sm:col-span-4">
-			<label for="dest_endpoint" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Endpoint URL</label>
-			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-server text-secondary-400 dark:text-secondary-600"></i>
-				</div>
-				<input
-					type="text"
-					name="dest_endpoint"
-					id="dest_endpoint"
-					x-model="destEndpoint"
-					required
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="https://minio.example.com"/>
+	<div class="space-y-6 mt-4">
+		<div class="p-4 mb-4 text-sm text-blue-800 rounded-lg bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300" role="alert">
+			<div class="flex items-center">
+				<i class="fas fa-info-circle mr-2"></i>
+				<span>Configure your MinIO server details below. You'll need your access key, secret key, and endpoint information.</span>
 			</div>
 		</div>
-
-		<div class="sm:col-span-4">
-			<label for="dest_bucket" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Bucket Name</label>
+		
+		<div class="mb-6">
+			<label for="dest_endpoint" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Endpoint URL</label>
 			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-database text-secondary-400 dark:text-secondary-600"></i>
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-server text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input
-					type="text"
-					name="dest_bucket"
-					id="dest_bucket"
-					x-model="destBucket"
-					required
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="my-bucket"/>
+				<input type="text" id="dest_endpoint" name="dest_endpoint" x-model="destinationEndpoint" x-bind:required="requiresDestination"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="https://minio.example.com" />
 			</div>
-		</div>
-
-		<div class="sm:col-span-4">
-			<label for="destination_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Path Prefix</label>
-			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-folder text-secondary-400 dark:text-secondary-600"></i>
-				</div>
-				<input
-					type="text"
-					name="destination_path"
-					id="destination_path"
-					x-model="destinationPath"
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="path/prefix/"/>
-			</div>
-			<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
-				Optional. If specified, files will be uploaded to this path in the bucket.
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Full URL to your MinIO server including protocol (http:// or https://)
 			</p>
 		</div>
 
-		<div class="sm:col-span-4">
-			<label for="dest_access_key" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Access Key</label>
+		<div class="mb-6">
+			<label for="dest_bucket" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Bucket Name</label>
 			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-archive text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input
-					type="text"
-					name="dest_access_key"
-					id="dest_access_key"
-					x-model="destAccessKey"
-					required
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
+				<input type="text" id="dest_bucket" name="dest_bucket" x-model="destinationBucket" x-bind:required="requiresDestination"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="my-bucket" />
 			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Name of your MinIO bucket (case-sensitive)
+			</p>
 		</div>
 
-		<div class="sm:col-span-4">
-			<label for="dest_secret_key" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Secret Key</label>
+		<div class="mb-6">
+			<label for="dest_access_key" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Access Key</label>
 			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-lock text-secondary-400 dark:text-secondary-600"></i>
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-key text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input
-					type="password"
-					name="dest_secret_key"
-					id="dest_secret_key"
-					x-model="destSecretKey"
-					required
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
+				<input type="text" id="dest_access_key" name="dest_access_key" x-model="destinationAccessKey" x-bind:required="requiresDestination"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="minioadmin" />
 			</div>
-			<input type="hidden" name="dest_secret_key" :value="destSecretKey"/>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Your MinIO Access Key for authentication
+			</p>
+		</div>
+
+		<div class="mb-6">
+			<label for="dest_secret_key" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Secret Key</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-lock text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<input type="password" id="dest_secret_key" name="dest_secret_key" x-model="destinationSecretKey" x-bind:required="requiresDestination"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="minioadmin" />
+			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Your MinIO Secret Key for authentication
+			</p>
+		</div>
+
+		<div class="mb-6">
+			<label for="destination_path" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Path in Bucket</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-folder-open text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<input type="text" id="destination_path" name="destination_path" x-model="destinationPath"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="path/to/files/" />
+			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Path prefix within the bucket (e.g., "backups/"). Leave empty to access the entire bucket.
+			</p>
+		</div>
+		
+		<div class="p-4 mb-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300" role="alert">
+			<div class="flex">
+				<i class="fas fa-exclamation-triangle mr-2 flex-shrink-0"></i>
+				<div>
+					<h3 class="font-medium">Configuration Note</h3>
+					<p class="mt-1">Make sure your MinIO server is properly configured with TLS if you're using HTTPS, and that the server is accessible from this machine.</p>
+				</div>
+			</div>
 		</div>
 	</div>
 } 

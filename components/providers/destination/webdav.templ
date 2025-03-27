@@ -1,75 +1,82 @@
 package destination
 
 templ WebDAVDestinationForm() {
-	<div class="sm:col-span-6 space-y-6">
-		<div class="sm:col-span-4">
-			<label for="dest_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">WebDAV URL</label>
-			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-globe text-secondary-400 dark:text-secondary-600"></i>
-				</div>
-				<input
-					type="text"
-					name="dest_host"
-					id="dest_host"
-					x-model="destHost"
-					required
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="https://webdav.example.com/remote.php/webdav/"/>
+	<div class="space-y-6 mt-4">
+		<div class="p-4 mb-4 text-sm text-blue-800 rounded-lg bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300" role="alert">
+			<div class="flex items-center">
+				<i class="fas fa-info-circle mr-2"></i>
+				<span>Configure your WebDAV connection details below. You'll need the server URL, username, and password.</span>
 			</div>
 		</div>
-
-		<div class="sm:col-span-4">
-			<label for="destination_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Remote Path</label>
+		
+		<div class="mb-6">
+			<label for="dest_endpoint" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">WebDAV URL</label>
 			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-folder text-secondary-400 dark:text-secondary-600"></i>
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-globe text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input
-					type="text"
-					name="destination_path"
-					id="destination_path"
-					x-model="destinationPath"
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="/path/to/destination"/>
+				<input type="text" id="dest_endpoint" name="dest_endpoint" x-model="destinationEndpoint" x-bind:required="requiresDestination"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="https://webdav.example.com" />
 			</div>
-			<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
-				Optional. Relative to the WebDAV URL.
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Full URL to your WebDAV server including protocol (https://)
 			</p>
 		</div>
 
-		<div class="sm:col-span-4">
-			<label for="dest_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
+		<div class="mb-6">
+			<label for="dest_user" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Username</label>
 			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-user text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input
-					type="text"
-					name="dest_user"
-					id="dest_user"
-					x-model="destUser"
-					required
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
+				<input type="text" id="dest_user" name="dest_user" x-model="destinationUser" x-bind:required="requiresDestination"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="webdav_username" />
 			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Your WebDAV username
+			</p>
 		</div>
 
-		<div class="sm:col-span-4">
-			<label for="dest_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password</label>
+		<div class="mb-6">
+			<label for="dest_password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Password</label>
 			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-lock text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input
-					type="password"
-					name="dest_password"
-					id="dest_password"
-					x-model="destPassword"
-					required
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="Password"/>
+				<input type="password" id="dest_password" name="dest_password" x-model="destinationPassword" x-bind:required="requiresDestination"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="WebDAV password" />
 			</div>
-			<input type="hidden" name="dest_password" :value="destPassword"/>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Your WebDAV account password
+			</p>
+		</div>
+
+		<div class="mb-6">
+			<label for="destination_path" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Remote Path</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-folder-open text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<input type="text" id="destination_path" name="destination_path" x-model="destinationPath"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="/path/to/files" />
+			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Path to your files on the WebDAV server
+			</p>
+		</div>
+		
+		<div class="p-4 mb-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300" role="alert">
+			<div class="flex">
+				<i class="fas fa-lightbulb mr-2 flex-shrink-0"></i>
+				<div>
+					<h3 class="font-medium">Integration Note</h3>
+					<p class="mt-1">WebDAV is supported by many services including ownCloud, Nextcloud, Box, and many others. Make sure your WebDAV URL includes the full path to the WebDAV interface.</p>
+				</div>
+			</div>
 		</div>
 	</div>
 } 

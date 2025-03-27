@@ -1,147 +1,97 @@
 package destination
 
 templ SFTPDestinationForm() {
-	<div class="sm:col-span-6 space-y-6">
-		<div class="sm:col-span-4">
-			<label for="dest_host" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Host</label>
+	<div class="space-y-6 mt-4">
+		<div>
+			<label for="dest_host" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">SFTP Host</label>
 			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-server text-secondary-400 dark:text-secondary-600"></i>
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-server text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input
-					type="text"
-					name="dest_host"
-					id="dest_host"
-					x-model="destHost"
-					required
-					aria-describedby="dest_host_help"
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="sftp.example.com"/>
+				<input type="text" id="dest_host" name="dest_host" x-model="destinationHost" x-bind:required="requiresDestination"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="sftp.example.com" />
 			</div>
-			<p id="dest_host_help" class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
-				Enter the SFTP server hostname or IP address.
-			</p>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Hostname or IP address of the SFTP server</p>
 		</div>
 
-		<div class="sm:col-span-4">
-			<label for="dest_port" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Port</label>
+		<div>
+			<label for="dest_port" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Port</label>
 			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-plug text-secondary-400 dark:text-secondary-600"></i>
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-network-wired text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input
-					type="number"
-					name="dest_port"
-					id="dest_port"
-					x-model="destPort"
-					required
-					min="1"
-					max="65535"
-					value="22"
-					aria-describedby="dest_port_help"
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="22"/>
+				<input type="number" id="dest_port" name="dest_port" x-model="destinationPort"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="22" min="1" max="65535" />
 			</div>
-			<p id="dest_port_help" class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
-				Default SFTP port is 22.
-			</p>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">SFTP port number (default: 22)</p>
 		</div>
 
-		<div class="sm:col-span-4">
-			<label for="dest_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Remote Path</label>
+		<div>
+			<label for="dest_user" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Username</label>
 			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-folder text-secondary-400 dark:text-secondary-600"></i>
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-user text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input
-					type="text"
-					name="destination_path"
-					id="destination_path"
-					x-model="destinationPath"
-					required
-					aria-describedby="destination_path_help"
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="/path/to/files"/>
+				<input type="text" id="dest_user" name="dest_user" x-model="destinationUser" x-bind:required="requiresDestination"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="username" />
 			</div>
-			<p id="destination_path_help" class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
-				Absolute path to the files on the remote server.
-			</p>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">SFTP username for authentication</p>
 		</div>
 
-		<div class="sm:col-span-4">
-			<label for="dest_user" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Username</label>
-			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-user text-secondary-400 dark:text-secondary-600"></i>
-				</div>
-				<input
-					type="text"
-					name="dest_user"
-					id="dest_user"
-					x-model="destUser"
-					required
-					aria-describedby="dest_user_help"
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"/>
+		<div>
+			<label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Authentication Method</label>
+			<div class="flex items-center mb-4">
+				<input id="dest_auth_password" type="radio" value="password" name="dest_auth_type" x-model="destAuthType"
+					class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+				<label for="dest_auth_password" class="ms-2 text-sm font-medium text-gray-900 dark:text-white">Password</label>
 			</div>
-			<p id="dest_user_help" class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
-				Username for SFTP authentication.
-			</p>
-		</div>
-
-		<div class="sm:col-span-4">
-			<label for="dest_auth_type" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Authentication Type</label>
-			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-lock text-secondary-400 dark:text-secondary-600"></i>
-				</div>
-				<select 
-					id="dest_auth_type" 
-					name="dest_auth_type" 
-					x-model="destAuthType"
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500">
-					<option value="password">Password</option>
-					<option value="key_file">SSH Key File</option>
-				</select>
+			<div class="flex items-center">
+				<input id="dest_auth_key" type="radio" value="key" name="dest_auth_type" x-model="destAuthType"
+					class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+				<label for="dest_auth_key" class="ms-2 text-sm font-medium text-gray-900 dark:text-white">SSH Key</label>
 			</div>
 		</div>
 
-		<div class="sm:col-span-4" x-show="destAuthType === 'password'">
-			<label for="dest_password" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Password</label>
+		<div x-show="destAuthType === 'password'">
+			<label for="dest_password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Password</label>
 			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-key text-secondary-400 dark:text-secondary-600"></i>
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-lock text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input
-					type="password"
-					name="dest_password"
-					id="dest_password"
-					x-model="destPassword"
-					x-bind:required="destAuthType === 'password'"
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="Password"/>
+				<input type="password" id="dest_password" name="dest_password" x-model="destinationPassword"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="Enter password" x-bind:required="destAuthType === 'password'" />
 			</div>
-			<input type="hidden" name="dest_password" :value="destPassword"/>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">SFTP password for authentication</p>
 		</div>
 
-		<div class="sm:col-span-4" x-show="destAuthType === 'key_file'">
-			<label for="dest_key_file" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Key File</label>
+		<div x-show="destAuthType === 'key'">
+			<label for="dest_key_file" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">SSH Key File</label>
 			<div class="relative">
-				<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-file-alt text-secondary-400 dark:text-secondary-600"></i>
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-key text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input
-					type="text"
-					name="dest_key_file"
-					id="dest_key_file"
-					x-model="destKeyFile"
-					x-bind:required="destAuthType === 'key_file'"
-					aria-describedby="dest_key_file_help"
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="/path/to/key"/>
+				<input type="text" id="dest_key_file" name="dest_key_file" x-model="destinationKeyFile"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="/path/to/id_rsa" x-bind:required="destAuthType === 'key'" />
 			</div>
-			<p id="dest_key_file_help" class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
-				Absolute path to SSH private key file.
-			</p>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Path to the SSH private key file</p>
+		</div>
+
+		<div>
+			<label for="destination_path" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Remote Path</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-folder-open text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<input type="text" id="destination_path" name="destination_path" x-model="destinationPath" x-bind:required="requiresDestination"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="/remote/path/to/files" />
+			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Full path to the directory on the SFTP server</p>
 		</div>
 	</div>
 } 

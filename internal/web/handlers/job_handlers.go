@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/starfleetcptn/gomft/components"
@@ -297,10 +298,53 @@ func (h *Handlers) HandleCreateJob(c *gin.Context) {
 	// Clear the Config field to prevent GORM from creating a new config
 	job.Config = db.TransferConfig{}
 
+	// Start a transaction
+	tx := h.DB.Begin()
+	if tx.Error != nil {
+		log.Printf("HandleCreateJob: Failed to begin transaction: %v", tx.Error)
+		c.String(http.StatusInternalServerError, "Failed to begin transaction")
+		return
+	}
+
 	// Create the job
-	if err := h.DB.CreateJob(&job); err != nil {
+	if err := tx.Create(&job).Error; err != nil {
+		tx.Rollback()
 		log.Printf("HandleCreateJob: Error creating job: %v", err)
 		c.String(http.StatusInternalServerError, "Failed to create job")
+		return
+	}
+
+	// Create audit log entry
+	auditDetails := map[string]interface{}{
+		"name":              job.Name,
+		"schedule":          job.Schedule,
+		"enabled":           job.GetEnabled(),
+		"config_ids":        configIDsList,
+		"webhook_enabled":   job.GetWebhookEnabled(),
+		"notify_on_success": job.GetNotifyOnSuccess(),
+		"notify_on_failure": job.GetNotifyOnFailure(),
+	}
+
+	auditLog := db.AuditLog{
+		Action:     "create",
+		EntityType: "job",
+		EntityID:   job.ID,
+		UserID:     userID,
+		Details:    auditDetails,
+		Timestamp:  time.Now(),
+	}
+
+	if err := tx.Create(&auditLog).Error; err != nil {
+		tx.Rollback()
+		log.Printf("HandleCreateJob: Error creating audit log: %v", err)
+		c.String(http.StatusInternalServerError, "Failed to create audit log")
+		return
+	}
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		log.Printf("HandleCreateJob: Error committing transaction: %v", err)
+		c.String(http.StatusInternalServerError, "Failed to commit transaction")
 		return
 	}
 
@@ -481,9 +525,61 @@ func (h *Handlers) HandleUpdateJob(c *gin.Context) {
 	// Clear the Config field to prevent GORM from updating or creating a new config
 	job.Config = db.TransferConfig{}
 
-	if err := h.DB.UpdateJob(&job); err != nil {
+	// Start a transaction
+	tx := h.DB.Begin()
+	if tx.Error != nil {
+		log.Printf("HandleUpdateJob: Failed to begin transaction: %v", tx.Error)
+		c.String(http.StatusInternalServerError, "Failed to begin transaction")
+		return
+	}
+
+	if err := tx.Save(&job).Error; err != nil {
+		tx.Rollback()
 		log.Printf("HandleUpdateJob: Error updating job: %v", err)
 		c.String(http.StatusInternalServerError, "Failed to update job")
+		return
+	}
+
+	// Create audit log entry
+	auditDetails := map[string]interface{}{
+		"name":              job.Name,
+		"schedule":          job.Schedule,
+		"enabled":           job.GetEnabled(),
+		"config_ids":        configIDsList,
+		"webhook_enabled":   job.GetWebhookEnabled(),
+		"notify_on_success": job.GetNotifyOnSuccess(),
+		"notify_on_failure": job.GetNotifyOnFailure(),
+		"previous_state": map[string]interface{}{
+			"name":              oldJob.Name,
+			"schedule":          oldJob.Schedule,
+			"enabled":           oldJob.GetEnabled(),
+			"config_ids":        oldJob.GetConfigIDsList(),
+			"webhook_enabled":   oldJob.GetWebhookEnabled(),
+			"notify_on_success": oldJob.GetNotifyOnSuccess(),
+			"notify_on_failure": oldJob.GetNotifyOnFailure(),
+		},
+	}
+
+	auditLog := db.AuditLog{
+		Action:     "update",
+		EntityType: "job",
+		EntityID:   job.ID,
+		UserID:     userID,
+		Details:    auditDetails,
+		Timestamp:  time.Now(),
+	}
+
+	if err := tx.Create(&auditLog).Error; err != nil {
+		tx.Rollback()
+		log.Printf("HandleUpdateJob: Error creating audit log: %v", err)
+		c.String(http.StatusInternalServerError, "Failed to create audit log")
+		return
+	}
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		log.Printf("HandleUpdateJob: Error committing transaction: %v", err)
+		c.String(http.StatusInternalServerError, "Failed to commit transaction")
 		return
 	}
 
@@ -519,14 +615,54 @@ func (h *Handlers) HandleDeleteJob(c *gin.Context) {
 		}
 	}
 
-	// Unschedule the job from the scheduler
-	h.Scheduler.UnscheduleJob(job.ID)
+	// Start a transaction
+	tx := h.DB.Begin()
+	if tx.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to begin transaction"})
+		return
+	}
+
+	// Create audit log before deletion
+	auditDetails := map[string]interface{}{
+		"name":              job.Name,
+		"schedule":          job.Schedule,
+		"enabled":           job.GetEnabled(),
+		"config_ids":        job.GetConfigIDsList(),
+		"webhook_enabled":   job.GetWebhookEnabled(),
+		"notify_on_success": job.GetNotifyOnSuccess(),
+		"notify_on_failure": job.GetNotifyOnFailure(),
+	}
+
+	auditLog := db.AuditLog{
+		Action:     "delete",
+		EntityType: "job",
+		EntityID:   job.ID,
+		UserID:     userID,
+		Details:    auditDetails,
+		Timestamp:  time.Now(),
+	}
+
+	if err := tx.Create(&auditLog).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create audit log"})
+		return
+	}
 
 	// Delete job
-	if err := h.DB.Delete(&job).Error; err != nil {
+	if err := tx.Delete(&job).Error; err != nil {
+		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete job"})
 		return
 	}
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
+		return
+	}
+
+	// Unschedule the job from the scheduler
+	h.Scheduler.UnscheduleJob(job.ID)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Job deleted successfully"})
 }
@@ -539,7 +675,7 @@ func (h *Handlers) HandleRunJob(c *gin.Context) {
 	var job db.Job
 	if err := h.DB.First(&job, id).Error; err != nil {
 		c.Header("Content-Type", "text/html")
-		c.String(http.StatusNotFound, "<script>window.notyfInstance.error('Job not found')</script>")
+		c.String(http.StatusNotFound, "Job not found")
 		return
 	}
 
@@ -549,7 +685,7 @@ func (h *Handlers) HandleRunJob(c *gin.Context) {
 		isAdmin, exists := c.Get("isAdmin")
 		if !exists || isAdmin != true {
 			c.Header("Content-Type", "text/html")
-			c.String(http.StatusForbidden, "<script>window.notyfInstance.error('You do not have permission to run this job')</script>")
+			c.String(http.StatusForbidden, "You do not have permission to run this job")
 			return
 		}
 	}
@@ -566,10 +702,25 @@ func (h *Handlers) HandleRunJob(c *gin.Context) {
 		}
 	}
 
+	// Create audit log for manual job run
+	auditLog := db.AuditLog{
+		Action:     "run_manual",
+		EntityType: "job",
+		EntityID:   job.ID,
+		UserID:     userID,
+		Details:    map[string]interface{}{"name": jobName, "job_id": job.ID},
+		Timestamp:  time.Now(),
+	}
+
+	if err := h.DB.Create(&auditLog).Error; err != nil {
+		log.Printf("HandleRunJob: Warning - Failed to create audit log: %v", err)
+		// Continue anyway, as this is not critical to running the job
+	}
+
 	// Run the job immediately using the scheduler
 	if err := h.Scheduler.RunJobNow(job.ID); err != nil {
 		c.Header("Content-Type", "text/html")
-		errorMsg := fmt.Sprintf("<script>window.notyfInstance.error('Failed to run job: %s')</script>", err.Error())
+		errorMsg := fmt.Sprintf("%s", err.Error())
 		c.String(http.StatusInternalServerError, errorMsg)
 		return
 	}
@@ -579,6 +730,90 @@ func (h *Handlers) HandleRunJob(c *gin.Context) {
 	c.Header("Content-Type", "text/html")
 
 	// Return HTML with JavaScript to trigger the notification
-	successScript := fmt.Sprintf("<script>window.notyfInstance.success('Job \"%s\" has been started successfully')</script>", jobName)
+	successScript := fmt.Sprintf("Job \"%s\" has been started successfully", jobName)
 	c.String(http.StatusOK, successScript)
+}
+
+// HandleDuplicateJob handles duplication of a job
+func (h *Handlers) HandleDuplicateJob(c *gin.Context) {
+	// Get the job ID from the URL
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid job ID"})
+		return
+	}
+
+	userID := c.GetUint("userID")
+
+	// Get the original job
+	var originalJob db.Job
+	if err := h.DB.First(&originalJob, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Job not found"})
+		return
+	}
+
+	// Create a new job as a copy of the original
+	newJob := originalJob
+	newJob.ID = 0 // Reset ID to create a new record
+	newJob.Name = originalJob.Name + " - Copy"
+	newJob.CreatedAt = time.Now()
+	newJob.UpdatedAt = time.Now()
+
+	// Reset execution specific fields
+	newJob.LastRun = nil
+	newJob.NextRun = nil
+
+	// Save the new job
+	if err := h.DB.Create(&newJob).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create duplicate job: " + err.Error()})
+		return
+	}
+
+	// If the job has associated configs, duplicate those associations
+	configIDs := originalJob.GetConfigIDsList()
+	if len(configIDs) > 0 {
+		// Set the new job's config IDs
+		newJob.SetConfigIDsList(configIDs)
+		if err := h.DB.Save(&newJob).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update config associations: " + err.Error()})
+			return
+		}
+	}
+
+	// Create audit log entry
+	auditDetails := map[string]interface{}{
+		"name":              newJob.Name,
+		"original_job_id":   originalJob.ID,
+		"new_job_id":        newJob.ID,
+		"schedule":          newJob.Schedule,
+		"enabled":           newJob.GetEnabled(),
+		"config_ids":        configIDs,
+		"webhook_enabled":   newJob.GetWebhookEnabled(),
+		"notify_on_success": newJob.GetNotifyOnSuccess(),
+		"notify_on_failure": newJob.GetNotifyOnFailure(),
+	}
+
+	auditLog := db.AuditLog{
+		Action:     "duplicate",
+		EntityType: "job",
+		EntityID:   newJob.ID,
+		UserID:     userID,
+		Details:    auditDetails,
+		Timestamp:  time.Now(),
+	}
+
+	if err := h.DB.Create(&auditLog).Error; err != nil {
+		log.Printf("Warning: Failed to create audit log for job duplication: %v", err)
+		// Continue anyway, as this is not critical
+	}
+
+	// Schedule the job with the scheduler
+	if err := h.Scheduler.ScheduleJob(&newJob); err != nil {
+		log.Printf("Warning: Failed to schedule duplicated job: %v", err)
+		// Continue anyway, as user can manually schedule later
+	}
+
+	// Redirect to jobs page
+	c.Redirect(http.StatusFound, "/jobs")
 }

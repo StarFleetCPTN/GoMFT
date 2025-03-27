@@ -52,6 +52,15 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
   - Custom HTTP headers
   - Selectable events (job success, job failure)
   - Detailed JSON payload with job information
+- **Multiple Notification Services**: Get job status updates through various notification channels:
+  - Email notifications with configurable SMTP settings
+  - Webhooks with authentication for custom integrations
+  - Pushbullet notifications with optional device targeting
+  - Ntfy.sh (both public and self-hosted) for simple push notifications
+  - Gotify server integration for self-hosted notifications
+  - Pushover notifications with customizable sounds and priorities
+  - Configurable message templates for all notification types
+  - Event-based triggers (job start, completion, errors)
 - **Scheduled Transfers**: Configure transfers using cron expressions with flexible scheduling options
 - **Transfer Monitoring**: Real-time status updates and detailed transfer logs with bytes and files transferred statistics
 - **File Metadata Tracking**: Complete history and status of all transferred files with detailed information:
@@ -77,6 +86,14 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
 - **Transfer Configurations**: Full control over source and destination connection parameters
 - **Job Management**: Create, edit, and monitor transfer jobs with scheduling
 - **Security**: Role-based access control with admin-managed user accounts and secure password management
+- **Authentication Providers**: Flexible authentication options:
+  - Built-in email/password authentication
+  - Authentik integration for enterprise SSO
+  - OpenID Connect (OIDC) support for standard identity providers
+  - OAuth2 integration for popular providers (Google, GitHub, etc.)
+  - Multiple provider support with fallback options
+  - Automatic user provisioning from external providers
+  - Role mapping from external identity providers
 - **Password Recovery**: Self-service password reset via email with secure token-based authentication
 - **User Profile Management**: Personal settings including theme preferences
 - **Modern UI**: Built with Templ, HTMX and Tailwind CSS for a responsive experience
@@ -355,7 +372,41 @@ Log files contain detailed information about file transfers, job execution, and 
    - Choose notification triggers (job success, job failure, or both)
    - Test your webhook integration with manual job runs
 
-8. Manage file metadata:
+8. **Webhook Notifications**:
+   - **Webhook Integration**: Send notifications to external systems when jobs complete
+   - **Secure Authentication**: HMAC-SHA256 signature for webhook verification
+   - **Custom Headers**: Add custom HTTP headers to webhook requests
+   - **Flexible Configuration**: Configure different webhooks for different jobs
+   - **Event Selection**: Choose to send notifications on success, failure, or both
+   - **Detailed Payload**: Rich JSON payload with complete job execution details
+
+9. **Multiple Notification Services**:
+   - **Pushbullet Integration**: Send notifications to your devices through Pushbullet
+     - Device targeting support for specific device delivery
+     - Customizable title and message templates
+     - API key-based authentication
+   - **Ntfy Integration**: Use public ntfy.sh or self-hosted ntfy server
+     - Topic-based routing of notifications
+     - Priority levels for different job events
+     - Optional username/password authentication for private servers
+     - Customizable title and message templates
+   - **Gotify Integration**: Send notifications to self-hosted Gotify servers
+     - Application token-based authentication
+     - Priority levels (1-10) for different notification importance
+     - Customizable title and message templates
+   - **Pushover Integration**: Professional notification delivery service
+     - Application and user key authentication
+     - Device targeting for selective delivery
+     - Sound selection for different notification types
+     - Priority levels from lowest to emergency
+     - Customizable title and message templates
+   - **Common Features**:
+     - Variable substitution in notification templates
+     - Job data access in templates (status, files, bytes, times)
+     - Event-based filtering (job start, completion, errors)
+     - Success/failure tracking for diagnostic purposes
+
+10. Manage file metadata:
    - Navigate to the "Files" section to view all processed files
    - Use filters to quickly find files by status, job ID, or filename
    - Click on any file to view detailed metadata including timestamps, size, and hash
@@ -363,7 +414,7 @@ Log files contain detailed information about file transfers, job execution, and 
    - Delete file metadata records when no longer needed
    - View files associated with specific jobs by navigating from the job details
 
-9. Utilize admin tools (administrators only):
+11. Utilize admin tools (administrators only):
    - Access the "Admin Tools" section from the navigation menu
    - View system statistics and server information
    - Create and manage database backups
@@ -373,19 +424,57 @@ Log files contain detailed information about file transfers, job execution, and 
 
 ### User Management
 
-GoMFT uses a role-based access control system:
+GoMFT uses a role-based access control system with flexible authentication options:
 
 - **Administrators**: Can create and manage users, access all features
 - **Regular Users**: Can manage transfers and view history
 
-User management features:
-- Only administrators can create new user accounts
-- User passwords are securely hashed with bcrypt
-- Password history tracking prevents reuse of recent passwords
-- Account lockout after multiple failed login attempts
-- Self-service password reset via secure email links
-- JWT-based authentication with tokens
-- User theme preference settings (light/dark)
+#### Authentication Options
+
+1. **Built-in Authentication**:
+   - Email/password login with secure password hashing
+   - JWT-based session management
+   - Password history tracking
+   - Account lockout protection
+   - Self-service password reset
+
+2. **External Authentication Providers**:
+   - **Authentik Integration**:
+     - Enterprise-grade SSO capabilities
+     - Automatic user provisioning
+     - Role synchronization
+     - Group mapping support
+     - Secure token exchange
+
+   - **OpenID Connect (OIDC)**:
+     - Standard-compliant identity provider support
+     - Automatic user creation and updates
+     - Role mapping from OIDC claims
+     - Multiple provider support
+     - Secure token validation
+
+   - **OAuth2 Providers**:
+     - Google authentication
+     - GitHub integration
+     - Other OAuth2-compliant providers
+     - Custom provider configuration
+     - Automatic profile synchronization
+
+3. **Security Features**:
+   - Secure password hashing with bcrypt
+   - JWT-based authentication with tokens
+   - Password history tracking prevents reuse
+   - Account lockout after failed attempts
+   - Two-factor authentication support
+   - Session management and timeout
+   - Secure token storage and handling
+
+4. **User Profile Management**:
+   - Theme preferences (light/dark mode)
+   - Profile information updates
+   - Password change functionality
+   - Two-factor authentication setup
+   - External account linking
 
 ### Two-Factor Authentication (2FA) Implementation
 
@@ -479,13 +568,16 @@ The following fields have been added to the `users` table:
    - Manual execution
    - Enable/disable schedules
 
-8. **Webhook Notifications**:
-   - **Webhook Integration**: Send notifications to external systems when jobs complete
-   - **Secure Authentication**: HMAC-SHA256 signature for webhook verification
-   - **Custom Headers**: Add custom HTTP headers to webhook requests
-   - **Flexible Configuration**: Configure different webhooks for different jobs
-   - **Event Selection**: Choose to send notifications on success, failure, or both
-   - **Detailed Payload**: Rich JSON payload with complete job execution details
+8. **Notification Options**:
+   - **Email Notifications**: Receive job status updates via email
+   - **Webhook Notifications**: Integration with external systems
+   - **Pushbullet**: Push notifications to your devices
+   - **Ntfy**: Simple push notifications via ntfy.sh
+   - **Gotify**: Self-hosted notification server integration
+   - **Pushover**: Professional notification service
+   - Configure event triggers (start, complete, error)
+   - Customize notification message templates
+   - Selective notification based on job status
 
 ### Email Notifications
 

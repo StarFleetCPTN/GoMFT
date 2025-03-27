@@ -5,13 +5,24 @@ import (
 	"gorm.io/gorm"
 )
 
-// InitMigrations initializes the migrations
-func InitMigrations(db *gorm.DB) *gormigrate.Gormigrate {
-	migrations := []*gormigrate.Migration{
-		InitialSchema(),
-		UpdateGDriveType(),
-		Add2FA(),
-	}
+var migrations []*gormigrate.Migration
+
+// GetMigrations returns all migrations
+func GetMigrations(db *gorm.DB) *gormigrate.Gormigrate {
+	// Add all migrations in order
+	migrations = append(migrations,
+		InitialSchema(),               // 001
+		UpdateGDriveType(),            // 002
+		Add2FA(),                      // 003
+		AddAuditLogs(),                // 004
+		AddDefaultRoles(),             // 005
+		AddTimestampsToJobHistories(), // 006
+		AddNotificationServices(),     // 007
+		AddUserNotifications(),        // 008
+		AddRcloneTables(),             // 009
+		AddRcloneCommandToConfig(),    // 010
+		AddAuthProviders(),            // 011
+	)
 
 	return gormigrate.New(db, gormigrate.DefaultOptions, migrations)
 }

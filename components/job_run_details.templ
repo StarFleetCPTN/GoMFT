@@ -22,168 +22,162 @@ templ JobRunDetails(ctx context.Context, data JobRunDetailsData) {
 // JobRunDetailsContent is the same as JobRunDetails but without the layout wrapper
 // This is used for testing
 templ JobRunDetailsContent(ctx context.Context, data JobRunDetailsData) {
-	<div class="py-6">
-		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-			<div class="mb-6">
-				<a href="/dashboard" class="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">
-					<i class="fas fa-arrow-left mr-1"></i> Back to Dashboard
-				</a>
-			</div>
-			
-			<div class="flex items-center justify-between mb-8">
-				<h1 class="text-3xl font-bold text-secondary-900 dark:text-secondary-100">
-					<i class="fas fa-file-alt mr-2 text-primary-600 dark:text-primary-400"></i>
-					Job Run Details
-				</h1>
-			</div>
+	<div class="py-6 px-4 mx-auto max-w-7xl lg:px-8">
+		<div class="mb-6">
+			<a href="/dashboard" class="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 inline-flex items-center">
+				<i class="fas fa-arrow-left mr-2"></i> Back to Dashboard
+			</a>
+		</div>
+		
+		<div class="flex items-center justify-between mb-8">
+			<h1 class="text-3xl font-bold text-gray-900 dark:text-white flex items-center">
+				<i class="fas fa-file-alt mr-3 text-blue-600 dark:text-blue-400"></i>
+				Job Run Details
+			</h1>
+		</div>
 
-			<!-- Job Run Information Card -->
-			<div class="bg-white dark:bg-secondary-800 shadow overflow-hidden rounded-lg mb-8">
-				<div class="px-4 py-5 sm:px-6 border-b border-secondary-200 dark:border-secondary-700">
-					<div class="flex items-center justify-between">
-						<h3 class="text-lg leading-6 font-medium text-secondary-900 dark:text-secondary-100">{ data.Job.Name }</h3>
-						if data.JobHistory.Status == "completed" {
-							<span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300">
-								<i class="fas fa-check mr-1"></i> Completed
-							</span>
-						} else if data.JobHistory.Status == "failed" {
-							<span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-300">
-								<i class="fas fa-times mr-1"></i> Failed
-							</span>
-						} else {
-							<span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300">
-								<i class="fas fa-spinner fa-spin mr-1"></i> Running
-							</span>
-						}
+		<!-- Job Run Information Card -->
+		<div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm mb-8">
+			<div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+				<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+					<h3 class="text-lg font-medium text-gray-900 dark:text-white">{ data.Job.Name }</h3>
+					if data.JobHistory.Status == "completed" {
+						<span class="px-3 py-1 text-sm font-medium rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300 inline-flex items-center">
+							<i class="fas fa-check mr-2"></i> Completed
+						</span>
+					} else if data.JobHistory.Status == "failed" {
+						<span class="px-3 py-1 text-sm font-medium rounded-full bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-300 inline-flex items-center">
+							<i class="fas fa-times mr-2"></i> Failed
+						</span>
+					} else {
+						<span class="px-3 py-1 text-sm font-medium rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300 inline-flex items-center">
+							<i class="fas fa-spinner fa-spin mr-2"></i> Running
+						</span>
+					}
+				</div>
+				<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Config: { data.Config.Name }</p>
+			</div>
+			<div class="px-4 py-5 sm:p-6">
+				<dl class="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
+					<div class="sm:col-span-1">
+						<dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center mb-1">
+							<i class="fas fa-calendar-alt mr-2 text-gray-400 dark:text-gray-500"></i> Start Time
+						</dt>
+						<dd class="text-sm text-gray-900 dark:text-white">
+							{ data.JobHistory.StartTime.Format("Jan 02, 2006 15:04:05") }
+						</dd>
 					</div>
-					<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">Config: { data.Config.Name }</p>
-				</div>
-				<div class="px-4 py-5 sm:p-6">
-					<dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
-						<div class="sm:col-span-1">
-							<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">
-								<i class="fas fa-calendar-alt mr-1"></i> Start Time
-							</dt>
-							<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100">
-								{ data.JobHistory.StartTime.Format("Jan 02, 2006 15:04:05") }
-							</dd>
-						</div>
-						<div class="sm:col-span-1">
-							<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">
-								<i class="fas fa-calendar-check mr-1"></i> End Time
-							</dt>
-							<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100">
-								if data.JobHistory.EndTime != nil {
-									{ data.JobHistory.EndTime.Format("Jan 02, 2006 15:04:05") }
-								} else {
-									<span class="italic text-secondary-500">In progress</span>
-								}
-							</dd>
-						</div>
-						<div class="sm:col-span-1">
-							<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">
-								<i class="fas fa-clock mr-1"></i> Duration
-							</dt>
-							<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100">
-								if data.JobHistory.EndTime != nil {
-									{ data.JobHistory.EndTime.Sub(data.JobHistory.StartTime).String() }
-								} else {
-									<span class="italic text-secondary-500">In progress</span>
-								}
-							</dd>
-						</div>
-						<div class="sm:col-span-1">
-							<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">
-								<i class="fas fa-upload mr-1"></i> Data Transferred
-							</dt>
-							<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100">
-								{ formatBytes(data.JobHistory.BytesTransferred) }
-							</dd>
-						</div>
-						<div class="sm:col-span-1">
-							<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">
-								<i class="fas fa-file mr-1"></i> Files Transferred
-							</dt>
-							<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100">
-								{ fmt.Sprintf("%d files", data.JobHistory.FilesTransferred) }
-							</dd>
-						</div>
-						<div class="sm:col-span-1">
-							<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">
-								<i class="fas fa-calendar-day mr-1"></i> Job Schedule
-							</dt>
-							<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100">
-								{ data.Job.Schedule }
-							</dd>
-						</div>
-					</dl>
-				</div>
-			</div>
-
-			<!-- Transfer Configuration Details -->
-			<div class="bg-white dark:bg-secondary-800 shadow overflow-hidden rounded-lg mb-8">
-				<div class="px-4 py-5 sm:px-6 border-b border-secondary-200 dark:border-secondary-700">
-					<h3 class="text-lg leading-6 font-medium text-secondary-900 dark:text-secondary-100">
-						<i class="fas fa-cog mr-2 text-primary-600 dark:text-primary-400"></i>
-						Transfer Configuration
-					</h3>
-				</div>
-				<div class="px-4 py-5 sm:p-6">
-					<dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2">
-						<div class="sm:col-span-1">
-							<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">Source Type</dt>
-							<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100">
-								<span class="px-2 py-1 text-xs font-medium rounded bg-secondary-100 dark:bg-secondary-700">{ data.Config.SourceType }</span>
-							</dd>
-						</div>
-						<div class="sm:col-span-1">
-							<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">Destination Type</dt>
-							<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100">
-								<span class="px-2 py-1 text-xs font-medium rounded bg-secondary-100 dark:bg-secondary-700">{ data.Config.DestinationType }</span>
-							</dd>
-						</div>
-						<div class="sm:col-span-1">
-							<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">Source Path</dt>
-							<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100 font-mono bg-secondary-50 dark:bg-secondary-900 p-2 rounded">{ data.Config.SourcePath }</dd>
-						</div>
-						<div class="sm:col-span-1">
-							<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">Destination Path</dt>
-							<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100 font-mono bg-secondary-50 dark:bg-secondary-900 p-2 rounded">{ data.Config.DestinationPath }</dd>
-						</div>
-						<div class="sm:col-span-1">
-							<dt class="text-sm font-medium text-secondary-500 dark:text-secondary-400">File Pattern</dt>
-							<dd class="mt-1 text-sm text-secondary-900 dark:text-secondary-100 font-mono">{ data.Config.FilePattern }</dd>
-						</div>
-					</dl>
-				</div>
-			</div>
-
-			<!-- Error Information (if any) -->
-			if data.JobHistory.Status == "failed" && data.JobHistory.ErrorMessage != "" {
-				<div class="bg-white dark:bg-secondary-800 shadow overflow-hidden rounded-lg mb-8 border-l-4 border-red-500">
-					<div class="px-4 py-5 sm:px-6 border-b border-secondary-200 dark:border-secondary-700">
-						<h3 class="text-lg leading-6 font-medium text-red-600 dark:text-red-400">
-							<i class="fas fa-exclamation-triangle mr-2"></i>
-							Error Information
-						</h3>
+					<div class="sm:col-span-1">
+						<dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center mb-1">
+							<i class="fas fa-calendar-check mr-2 text-gray-400 dark:text-gray-500"></i> End Time
+						</dt>
+						<dd class="text-sm text-gray-900 dark:text-white">
+							if data.JobHistory.EndTime != nil {
+								{ data.JobHistory.EndTime.Format("Jan 02, 2006 15:04:05") }
+							} else {
+								<span class="italic text-gray-500 dark:text-gray-400">In progress</span>
+							}
+						</dd>
 					</div>
-					<div class="px-4 py-5 sm:p-6">
-						<div class="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
-							<pre class="text-sm text-red-800 dark:text-red-300 whitespace-pre-wrap font-mono">{ data.JobHistory.ErrorMessage }</pre>
-						</div>
+					<div class="sm:col-span-1">
+						<dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center mb-1">
+							<i class="fas fa-clock mr-2 text-gray-400 dark:text-gray-500"></i> Duration
+						</dt>
+						<dd class="text-sm text-gray-900 dark:text-white">
+							if data.JobHistory.EndTime != nil {
+								{ data.JobHistory.EndTime.Sub(data.JobHistory.StartTime).String() }
+							} else {
+								<span class="italic text-gray-500 dark:text-gray-400">In progress</span>
+							}
+						</dd>
 					</div>
-				</div>
-			}
-
-			<!-- Action Buttons -->
-			<div class="flex flex-col sm:flex-row gap-4 mt-8">
-				<a href="/jobs" class="btn-secondary text-center flex items-center justify-center">
-					<i class="fas fa-list-ul mr-2"></i> View All Jobs
-				</a>
-				<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", data.Job.ID)) } class="btn-primary text-center flex items-center justify-center">
-					<i class="fas fa-edit mr-2"></i> Edit Job
-				</a>
+					<div class="sm:col-span-1">
+						<dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center mb-1">
+							<i class="fas fa-upload mr-2 text-gray-400 dark:text-gray-500"></i> Data Transferred
+						</dt>
+						<dd class="text-sm text-gray-900 dark:text-white">
+							{ formatBytes(data.JobHistory.BytesTransferred) }
+						</dd>
+					</div>
+					<div class="sm:col-span-1">
+						<dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center mb-1">
+							<i class="fas fa-file mr-2 text-gray-400 dark:text-gray-500"></i> Files Transferred
+						</dt>
+						<dd class="text-sm text-gray-900 dark:text-white">
+							{ fmt.Sprintf("%d files", data.JobHistory.FilesTransferred) }
+						</dd>
+					</div>
+					<div class="sm:col-span-1">
+						<dt class="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center mb-1">
+							<i class="fas fa-calendar-day mr-2 text-gray-400 dark:text-gray-500"></i> Job Schedule
+						</dt>
+						<dd class="text-sm text-gray-900 dark:text-white">
+							{ data.Job.Schedule }
+						</dd>
+					</div>
+				</dl>
 			</div>
+		</div>
+
+		<!-- Transfer Configuration Details -->
+		<div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm mb-8">
+			<div class="px-4 py-5 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+				<h3 class="text-lg font-medium text-gray-900 dark:text-white flex items-center">
+					<i class="fas fa-cog mr-3 text-blue-600 dark:text-blue-400"></i>
+					Transfer Configuration
+				</h3>
+			</div>
+			<div class="px-4 py-5 sm:p-6">
+				<dl class="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2">
+					<div class="sm:col-span-1">
+						<dt class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Source Type</dt>
+						<dd class="text-sm text-gray-900 dark:text-white">
+							<span class="px-2.5 py-0.5 text-xs font-medium rounded bg-gray-100 dark:bg-gray-700">{ data.Config.SourceType }</span>
+						</dd>
+					</div>
+					<div class="sm:col-span-1">
+						<dt class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Destination Type</dt>
+						<dd class="text-sm text-gray-900 dark:text-white">
+							<span class="px-2.5 py-0.5 text-xs font-medium rounded bg-gray-100 dark:bg-gray-700">{ data.Config.DestinationType }</span>
+						</dd>
+					</div>
+					<div class="sm:col-span-1">
+						<dt class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Source Path</dt>
+						<dd class="text-sm text-gray-900 dark:text-white font-mono bg-gray-50 dark:bg-gray-900 p-2 rounded-lg border border-gray-200 dark:border-gray-700">{ data.Config.SourcePath }</dd>
+					</div>
+					<div class="sm:col-span-1">
+						<dt class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Destination Path</dt>
+						<dd class="text-sm text-gray-900 dark:text-white font-mono bg-gray-50 dark:bg-gray-900 p-2 rounded-lg border border-gray-200 dark:border-gray-700">{ data.Config.DestinationPath }</dd>
+					</div>
+					<div class="sm:col-span-1">
+						<dt class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">File Pattern</dt>
+						<dd class="text-sm text-gray-900 dark:text-white font-mono">{ data.Config.FilePattern }</dd>
+					</div>
+				</dl>
+			</div>
+		</div>
+
+		<!-- Error Information (if any) -->
+		if data.JobHistory.Status == "failed" && data.JobHistory.ErrorMessage != "" {
+			<div class="p-4 mb-8 text-red-800 border-l-4 border-red-300 bg-red-50 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 rounded-lg">
+				<div class="flex items-center mb-2">
+					<i class="fas fa-exclamation-triangle flex-shrink-0 mr-2 text-red-600 dark:text-red-500"></i>
+					<h3 class="text-lg font-medium">Error Information</h3>
+				</div>
+				<div class="mt-2">
+					<pre class="text-sm whitespace-pre-wrap font-mono p-3 bg-white dark:bg-gray-900 rounded-lg border border-red-200 dark:border-red-800">{ data.JobHistory.ErrorMessage }</pre>
+				</div>
+			</div>
+		}
+
+		<!-- Action Buttons -->
+		<div class="flex flex-col sm:flex-row gap-4 mt-8">
+			<a href="/jobs" class="text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700 inline-flex items-center justify-center">
+				<i class="fas fa-list-ul mr-2"></i> View All Jobs
+			</a>
+			<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", data.Job.ID)) } class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800 inline-flex items-center justify-center">
+				<i class="fas fa-edit mr-2"></i> Edit Job
+			</a>
 		</div>
 	</div>
 }

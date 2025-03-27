@@ -6,98 +6,168 @@ import (
 
 templ Register(ctx context.Context, errorMessage string) {
 	@LayoutWithContext("Register", ctx) {
-		<div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-			<div class="max-w-md w-full space-y-8">
-				<div>
-					<h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-						Create a new user account
-					</h2>
-					<p class="mt-2 text-center text-sm text-gray-600">
-						Complete the form below to create a new user
-					</p>
-				</div>
-				
+		<div class="p-4 md:p-6 2xl:p-10">
+			<!-- Page Header -->
+			<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+				<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+					<i class="fas fa-user-plus w-6 h-6 mr-2 text-blue-500"></i>
+					Create Account
+				</h1>
+			</div>
+			<p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
+				Complete the form below to create a new user account
+			</p>
+			
+			<!-- Registration Card -->
+			<div class="max-w-md mx-auto">
 				if errorMessage != "" {
-					<div class="mt-4">
-						<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-							<span class="block sm:inline">{ errorMessage }</span>
+					<div class="p-4 mb-6 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-red-900/50 dark:text-red-400 border border-red-200 dark:border-red-800" role="alert">
+						<div class="flex items-center">
+							<i class="fas fa-exclamation-circle flex-shrink-0 mr-2"></i>
+							<span>{ errorMessage }</span>
 						</div>
 					</div>
 				}
 				
-				<form class="mt-8 space-y-6" hx-post="/register" hx-target="body"
-					x-data="{ 
-						email: '', 
-						password: '',
-						confirmPassword: '',
-						loading: false,
-						validate() {
-							return this.email && 
-								this.password && 
-								this.confirmPassword && 
-								this.password === this.confirmPassword;
-						}
-					}"
-					@htmx:before-request="loading = true"
-					@htmx:after-request="loading = false">
-					<input type="hidden" name="remember" value="true" />
-					<div class="rounded-md shadow-sm -space-y-px">
-						<div>
-							<label for="email" class="sr-only">Email address</label>
-							<input 
-								id="email" 
-								name="email" 
-								type="email" 
-								required 
-								x-model="email"
-								class="form-input rounded-t-md" 
-								placeholder="Email address"/>
-						</div>
-						<div>
-							<label for="password" class="sr-only">Password</label>
-							<input 
-								id="password" 
-								name="password" 
-								type="password" 
-								required 
-								x-model="password"
-								class="form-input" 
-								placeholder="Password"/>
-						</div>
-						<div>
-							<label for="confirm-password" class="sr-only">Confirm Password</label>
-							<input 
-								id="confirm-password" 
-								name="confirm_password" 
-								type="password" 
-								required 
-								x-model="confirmPassword"
-								class="form-input rounded-b-md" 
-								placeholder="Confirm Password"/>
+				<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800">
+					<div class="p-4 border-b border-gray-200 dark:border-gray-700">
+						<div class="flex items-center space-x-3">
+							<div class="h-10 w-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+								<i class="fas fa-user-plus text-blue-600 dark:text-blue-300"></i>
+							</div>
+							<div>
+								<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+									Registration
+								</h3>
+								<p class="text-sm text-gray-500 dark:text-gray-400">Create your account credentials</p>
+							</div>
 						</div>
 					</div>
+					<div class="p-6">
+						<form 
+							hx-post="/register" 
+							hx-target="body"
+							class="space-y-4"
+							x-data="{ 
+								email: '', 
+								password: '',
+								confirmPassword: '',
+								loading: false,
+								validate() {
+									return this.email && 
+										this.password && 
+										this.confirmPassword && 
+										this.password === this.confirmPassword;
+								}
+							}"
+							@htmx:before-request="loading = true"
+							@htmx:after-request="loading = false">
+							
+							<div>
+								<label for="email" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+									Email Address
+								</label>
+								<div class="relative">
+									<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+										<i class="fas fa-envelope text-gray-400 dark:text-gray-500"></i>
+									</div>
+									<input 
+										type="email" 
+										id="email" 
+										name="email" 
+										x-model="email"
+										class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+										placeholder="your.email@example.com"
+										required 
+									/>
+								</div>
+							</div>
 
-					<div>
-						<button 
-							type="submit" 
-							class="btn-primary w-full flex justify-center"
-							x-bind:disabled="!validate() || loading">
-							<span x-show="!loading">Create User</span>
-							<span x-show="loading" class="flex items-center">
-								<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-								</svg>
-								Processing...
-							</span>
-						</button>
+							<div>
+								<label for="password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+									Password
+								</label>
+								<div class="relative">
+									<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+										<i class="fas fa-lock text-gray-400 dark:text-gray-500"></i>
+									</div>
+									<input 
+										type="password" 
+										id="password" 
+										name="password" 
+										x-model="password"
+										class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+										placeholder="••••••••"
+										required 
+									/>
+								</div>
+							</div>
+
+							<div>
+								<label for="confirm-password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+									Confirm Password
+								</label>
+								<div class="relative">
+									<div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+										<i class="fas fa-lock text-gray-400 dark:text-gray-500"></i>
+									</div>
+									<input 
+										type="password" 
+										id="confirm-password" 
+										name="confirm_password" 
+										x-model="confirmPassword"
+										class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+										placeholder="••••••••"
+										required 
+									/>
+								</div>
+								<template x-if="confirmPassword && password !== confirmPassword">
+									<p class="mt-2 text-sm text-red-600 dark:text-red-500">
+										<i class="fas fa-exclamation-circle mr-1"></i>
+										Passwords do not match
+									</p>
+								</template>
+							</div>
+
+							<button 
+								type="submit" 
+								class="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+								x-bind:disabled="!validate() || loading">
+								<span x-show="!loading" class="flex items-center justify-center">
+									<i class="fas fa-user-plus mr-2"></i>
+									Create Account
+								</span>
+								<span x-show="loading" class="flex items-center justify-center">
+									<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+									</svg>
+									Processing...
+								</span>
+							</button>
+						</form>
 					</div>
-				</form>
-				<div class="text-center">
-					<p class="text-sm text-gray-600">
-						Already have an account?
-						<a href="/login" class="font-medium text-blue-600 hover:text-blue-500">Sign in</a>
-					</p>
+					<div class="p-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 rounded-b-lg">
+						<div class="text-center">
+							<p class="text-sm text-gray-600 dark:text-gray-400">
+								Already have an account?
+								<a href="/login" class="font-medium text-blue-600 dark:text-blue-500 hover:underline">
+									Sign in
+								</a>
+							</p>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Help Notice -->
+			<div class="mt-6 max-w-md mx-auto">
+				<div class="p-4 text-sm text-blue-800 rounded-lg bg-blue-50 dark:bg-blue-900/50 dark:text-blue-400 border border-blue-200 dark:border-blue-800 flex items-start">
+					<i class="fas fa-info-circle flex-shrink-0 mr-3 mt-0.5"></i>
+					<div>
+						<h4 class="text-sm font-medium mb-1">Account Information</h4>
+						<p>Creating an account will allow you to manage file transfers and configurations. Your email address will only be used for authentication and important notifications related to your transfers.</p>
+					</div>
 				</div>
 			</div>
 		</div>

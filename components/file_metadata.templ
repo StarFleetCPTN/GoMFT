@@ -47,17 +47,17 @@ type FileMetadataSearchData struct {
 func getStatusBadgeClass(status string) string {
 	switch status {
 	case "processed":
-		return "badge-success"
+		return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
 	case "archived":
-		return "badge-info"
+		return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
 	case "deleted":
-		return "badge-warning"
+		return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
 	case "archived_and_deleted":
-		return "badge-warning"
+		return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300"
 	case "error":
-		return "badge-danger"
+		return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
 	default:
-		return "badge-secondary"
+		return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
 	}
 }
 
@@ -74,53 +74,48 @@ func formatFileSize(size int64) string {
 	}
 }
 
-// Dialog component for confirmation dialogs
+// Updated Dialog component using Flowbite
 templ FileMetadataDialog(id string, title string, message string, confirmClass string, confirmText string, action string, fileID uint, fileName string, section string) {
-	<div id={ id } class="hidden fixed inset-0 bg-secondary-900/50 dark:bg-secondary-900/80 backdrop-blur-sm z-50 flex items-center justify-center">
-		<div class="bg-white dark:bg-secondary-800 rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden">
-			<div class="px-6 pt-5 pb-3 text-center">
-				<div class="flex justify-center mb-2">
-					<i class="fas fa-exclamation-triangle text-yellow-400 text-3xl"></i>
+	<div id={ id } tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-gray-900/50 dark:bg-gray-900/80 backdrop-blur-sm">
+		<div class="relative p-4 w-full max-w-md max-h-full mx-auto">
+			<div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
+				<div class="p-6 text-center">
+					if action == "delete" {
+						<i class="fas fa-trash-alt text-red-400 text-3xl mb-4"></i>
+					} else {
+						<i class="fas fa-exclamation-triangle text-yellow-400 text-3xl mb-4"></i>
+					}
+					<h3 class="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">{ message }</h3>
+					if section == "list" {
+						<button 
+							type="button" 
+							class="text-white font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 bg-red-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300 dark:bg-red-500 dark:hover:bg-red-600 dark:focus:ring-red-800"
+							hx-delete={ fmt.Sprintf("/files/%d", fileID) }
+							hx-target={ fmt.Sprintf("#file-row-%d", fileID) }
+							hx-swap="delete"
+							data-file-name={ fileName }
+							data-file-id={ fmt.Sprint(fileID) }
+							id={ fmt.Sprintf("delete-file-btn-%d", fileID) }
+							onclick={ triggerFileDelete(id, fileID, fileName) }>
+							{ confirmText }
+						</button>
+					} else {
+						<button 
+							type="button" 
+							class="text-white font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 bg-red-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300 dark:bg-red-500 dark:hover:bg-red-600 dark:focus:ring-red-800"
+							hx-delete={ fmt.Sprintf("/files/%d", fileID) }
+							hx-redirect="/files"
+							data-file-name={ fileName }
+							data-file-id={ fmt.Sprint(fileID) }
+							id={ fmt.Sprintf("delete-file-btn-%d", fileID) }
+							onclick={ triggerFileDelete(id, fileID, fileName) }>
+							{ confirmText }
+						</button>
+					}
+					<button type="button" data-modal-hide={ id } class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600">
+						Cancel
+					</button>
 				</div>
-				<h3 class="text-xl font-medium text-secondary-900 dark:text-secondary-100">
-					{ title }
-				</h3>
-			</div>
-			<div class="px-6 py-4 text-center">
-				<p class="text-secondary-700 dark:text-secondary-300">
-					{ message }
-				</p>
-			</div>
-			<div class="px-6 py-4 flex justify-end space-x-3">
-				<button type="button" class="btn-secondary" onclick={ hideFileDialog(id) }>
-					Cancel
-				</button>
-				if section == "list" {
-					<button 
-						type="button" 
-						class={ confirmClass }
-						hx-delete={ fmt.Sprintf("/files/%d", fileID) }
-						hx-target={ fmt.Sprintf("#file-row-%d", fileID) }
-						hx-swap="delete"
-						data-file-name={ fileName }
-						data-file-id={ fmt.Sprint(fileID) }
-						id={ fmt.Sprintf("delete-file-btn-%d", fileID) }
-						onclick={ triggerFileDelete(id, fileID, fileName) }>
-						{ confirmText }
-					</button>
-				} else {
-					<button 
-						type="button" 
-						class={ confirmClass }
-						hx-delete={ fmt.Sprintf("/files/%d", fileID) }
-						hx-redirect="/files"
-						data-file-name={ fileName }
-						data-file-id={ fmt.Sprint(fileID) }
-						id={ fmt.Sprintf("delete-file-btn-%d", fileID) }
-						onclick={ triggerFileDelete(id, fileID, fileName) }>
-						{ confirmText }
-					</button>
-				}
 			</div>
 		</div>
 	</div>
@@ -128,15 +123,18 @@ templ FileMetadataDialog(id string, title string, message string, confirmClass s
 
 script hideFileDialog(id string) {
 	document.getElementById(id).classList.add("hidden");
+	document.getElementById(id).classList.remove("flex");
 }
 
 script showFileDialog(id string) {
 	document.getElementById(id).classList.remove("hidden");
+	document.getElementById(id).classList.add("flex");
 }
 
 script triggerFileDelete(dialogId string, fileID uint, fileName string) {
 	// Hide the dialog
 	document.getElementById(dialogId).classList.add("hidden");
+	document.getElementById(dialogId).classList.remove("flex");
 		
 	// Store data in a way that's accessible to event handlers
 	window.lastDeletedFile = {
@@ -152,7 +150,7 @@ script triggerFileDelete(dialogId string, fileID uint, fileName string) {
 templ FileMetadataListPartial(data FileMetadataListData) {
 	<!-- Store file IDs for dialogs -->
 	<div id="dialog-container">
-		<!-- Dialogs will be rendered at the bottom of the container, outside the table -->
+		<!-- Dialogs will be rendered at the bottom of the container -->
 		for _, file := range data.Files {
 			@FileMetadataDialog(
 				fmt.Sprintf("delete-file-dialog-%d", file.ID),
@@ -167,181 +165,246 @@ templ FileMetadataListPartial(data FileMetadataListData) {
 			)
 		}
 	</div>
-	<table class="table w-full">
-		<thead>
-			<tr>
-				<th>ID</th>
-				<th>Filename</th>
-				<th>Size</th>
-				<th>Processed</th>
-				<th>Status</th>
-				if data.Job == nil {
-					<th>Job</th>
-				}
-				<th>Actions</th>
-			</tr>
-		</thead>
-		<tbody>
-			for _, file := range data.Files {
-				<tr id={ fmt.Sprintf("file-row-%d", file.ID) } class="hover:bg-secondary-50 dark:hover:bg-secondary-800 transition-colors duration-150">
-					<td>{ strconv.FormatUint(uint64(file.ID), 10) }</td>
-					<td class="text-primary-600 dark:text-primary-400">
-						<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="hover:underline">
-							{ file.FileName }
-						</a>
-					</td>
-					<td>{ formatFileSize(file.FileSize) }</td>
-					<td>{ file.ProcessedTime.Format("2006-01-02 15:04:05") }</td>
-					<td>
-						<span class={ "badge", getStatusBadgeClass(file.Status) }>
-							{ file.Status }
-						</span>
-					</td>
-					if data.Job == nil && file.Job.ID > 0 {
-						<td>
-							<a href={ templ.SafeURL(fmt.Sprintf("/files/job/%d", file.Job.ID)) } class="hover:underline text-primary-600 dark:text-primary-400">
-								{ file.Job.Name }
+
+	<div class="relative overflow-x-auto shadow-md sm:rounded-lg">
+		<table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+			<thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+				<tr>
+					<th scope="col" class="px-6 py-3">ID</th>
+					<th scope="col" class="px-6 py-3">Filename</th>
+					<th scope="col" class="px-6 py-3">Size</th>
+					<th scope="col" class="px-6 py-3">Processed</th>
+					<th scope="col" class="px-6 py-3">Status</th>
+					if data.Job == nil {
+						<th scope="col" class="px-6 py-3">Job</th>
+					}
+					<th scope="col" class="px-6 py-3">Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, file := range data.Files {
+					<tr id={ fmt.Sprintf("file-row-%d", file.ID) } class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+						<td class="px-6 py-4">{ strconv.FormatUint(uint64(file.ID), 10) }</td>
+						<td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
+							<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="hover:underline">
+								{ file.FileName }
 							</a>
 						</td>
+						<td class="px-6 py-4">{ formatFileSize(file.FileSize) }</td>
+						<td class="px-6 py-4">{ file.ProcessedTime.Format("2006-01-02 15:04:05") }</td>
+						<td class="px-6 py-4">
+							<span class={ "text-xs font-medium me-2 px-2.5 py-0.5 rounded", getStatusBadgeClass(file.Status) }>
+								{ file.Status }
+							</span>
+						</td>
+						if data.Job == nil && file.Job.ID > 0 {
+							<td class="px-6 py-4">
+								<a href={ templ.SafeURL(fmt.Sprintf("/files/job/%d", file.Job.ID)) } class="font-medium text-blue-600 dark:text-blue-500 hover:underline">
+									{ file.Job.Name }
+								</a>
+							</td>
+						}
+						<td class="px-6 py-4">
+							<div class="flex space-x-3">
+								<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="font-medium text-blue-600 dark:text-blue-500 hover:underline">
+									<i class="fas fa-eye"></i>
+								</a>
+								<button 
+									type="button"
+									onclick={ showFileDialog(fmt.Sprintf("delete-file-dialog-%d", file.ID)) }
+									class="font-medium text-red-600 dark:text-red-500 hover:underline">
+									<i class="fas fa-trash"></i>
+								</button>
+							</div>
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+		
+		<!-- Flowbite Pagination -->
+		if data.TotalPages > 1 {
+			<nav class="flex items-center flex-column flex-wrap md:flex-row justify-between p-4" aria-label="Table navigation">
+				<span class="text-sm font-normal text-gray-500 dark:text-gray-400 mb-4 md:mb-0">
+					Showing <span class="font-semibold text-gray-900 dark:text-white">{ strconv.Itoa((data.Page-1)*data.Limit+1) }-{ strconv.Itoa(func() int { 
+						end := data.Page*data.Limit
+						if int64(end) > data.TotalCount {
+							return int(data.TotalCount)
+						}
+						return end
+					}()) }</span> of <span class="font-semibold text-gray-900 dark:text-white">{ strconv.FormatInt(data.TotalCount, 10) }</span>
+				</span>
+				<ul class="inline-flex -space-x-px rtl:space-x-reverse text-sm h-8">
+					<li>
+						if data.Page == 1 {
+							<span class="flex items-center justify-center px-3 h-8 ms-0 leading-tight text-gray-500 bg-white border border-gray-300 rounded-s-lg cursor-not-allowed dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400">
+								Previous
+							</span>
+						} else {
+							<a hx-get={ fmt.Sprintf("/files/partial?page=%d&limit=%d&status=%s&filename=%s&job_id=%s", data.Page - 1, data.Limit, data.Filter.Status, data.Filter.FileName, data.Filter.JobID) }
+							   hx-target="#file-list-container"
+							   hx-swap="innerHTML"
+							   class="flex items-center justify-center px-3 h-8 ms-0 leading-tight text-gray-500 bg-white border border-gray-300 rounded-s-lg hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">
+								Previous
+							</a>
+						}
+					</li>
+					
+					for i := 1; i <= data.TotalPages; i++ {
+						// Always show first page, last page, and pages around current page
+						if i == 1 || i == data.TotalPages || (i >= data.Page-2 && i <= data.Page+2) {
+							<li>
+								if i == data.Page {
+									<span aria-current="page" class="flex items-center justify-center px-3 h-8 text-blue-600 border border-gray-300 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 dark:border-gray-700 dark:bg-gray-700 dark:text-white">
+										{ strconv.Itoa(i) }
+									</span>
+								} else {
+									<a hx-get={ fmt.Sprintf("/files/partial?page=%d&limit=%d&status=%s&filename=%s&job_id=%s", i, data.Limit, data.Filter.Status, data.Filter.FileName, data.Filter.JobID) }
+									   hx-target="#file-list-container"
+									   hx-swap="innerHTML"
+									   class="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">
+										{ strconv.Itoa(i) }
+									</a>
+								}
+							</li>
+						} else if (i == 2 && data.Page > 4) || (i == data.TotalPages-1 && data.Page < data.TotalPages-3) {
+							// Show ellipsis for gaps
+							<li>
+								<span class="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400">
+									...
+								</span>
+							</li>
+						}
 					}
-					<td class="flex space-x-2">
-						<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">
-							<i class="fas fa-eye"></i>
-						</a>
-						<!-- Delete button that triggers the dialog -->
-						<button 
-							type="button"
-							onclick={ showFileDialog(fmt.Sprintf("delete-file-dialog-%d", file.ID)) }
-							class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
-							<i class="fas fa-trash"></i>
-						</button>
-					</td>
-				</tr>
-			}
-		</tbody>
-	</table>
-	
-	<!-- Pagination -->
-	if data.TotalPages > 1 {
-		<div class="flex justify-center items-center py-4 bg-secondary-50 dark:bg-secondary-800 rounded-lg">
-			<div class="flex gap-2">
-				if data.Page > 1 {
-					<a hx-get={ fmt.Sprintf("/files/partial?page=%d&limit=%d&status=%s&filename=%s&job_id=%s", data.Page - 1, data.Limit, data.Filter.Status, data.Filter.FileName, data.Filter.JobID) }
-					   hx-target="#file-list-container"
-					   hx-swap="innerHTML"
-					   hx-push-url="true"
-					   class="w-10 h-10 flex items-center justify-center bg-secondary-200 text-secondary-800 hover:bg-secondary-300 rounded dark:bg-secondary-700 dark:text-secondary-200 dark:hover:bg-secondary-600">
-						<i class="fas fa-chevron-left"></i>
-					</a>
-				} else {
-					<span class="w-10 h-10 flex items-center justify-center bg-secondary-100 text-secondary-300 rounded dark:bg-secondary-800 dark:text-secondary-600 cursor-not-allowed">
-						<i class="fas fa-chevron-left"></i>
-					</span>
-				}
-				
-				for i := 1; i <= data.TotalPages; i++ {
-					if i == data.Page {
-						<span class="w-10 h-10 flex items-center justify-center bg-primary-600 text-white rounded">
-							{ strconv.Itoa(i) }
-						</span>
-					} else if i == 1 || i == data.TotalPages || (i >= data.Page-2 && i <= data.Page+2) {
-						<a hx-get={ fmt.Sprintf("/files/partial?page=%d&limit=%d&status=%s&filename=%s&job_id=%s", i, data.Limit, data.Filter.Status, data.Filter.FileName, data.Filter.JobID) }
-						   hx-target="#file-list-container"
-						   hx-swap="innerHTML"
-						   hx-push-url="true"
-						   class="w-10 h-10 flex items-center justify-center bg-secondary-200 text-secondary-800 hover:bg-secondary-300 rounded dark:bg-secondary-700 dark:text-secondary-200 dark:hover:bg-secondary-600">
-							{ strconv.Itoa(i) }
-						</a>
-					} else if i == data.Page-3 || i == data.Page+3 {
-						<span class="w-10 h-10 flex items-center justify-center">...</span>
-					}
-				}
-				
-				if data.Page < data.TotalPages {
-					<a hx-get={ fmt.Sprintf("/files/partial?page=%d&limit=%d&status=%s&filename=%s&job_id=%s", data.Page + 1, data.Limit, data.Filter.Status, data.Filter.FileName, data.Filter.JobID) }
-					   hx-target="#file-list-container"
-					   hx-swap="innerHTML"
-					   hx-push-url="true"
-					   class="w-10 h-10 flex items-center justify-center bg-secondary-200 text-secondary-800 hover:bg-secondary-300 rounded dark:bg-secondary-700 dark:text-secondary-200 dark:hover:bg-secondary-600">
-						<i class="fas fa-chevron-right"></i>
-					</a>
-				} else {
-					<span class="w-10 h-10 flex items-center justify-center bg-secondary-100 text-secondary-300 rounded dark:bg-secondary-800 dark:text-secondary-600 cursor-not-allowed">
-						<i class="fas fa-chevron-right"></i>
-					</span>
-				}
-			</div>
-		</div>
-	}
+					
+					<li>
+						if data.Page == data.TotalPages {
+							<span class="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 rounded-e-lg cursor-not-allowed dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400">
+								Next
+							</span>
+						} else {
+							<a hx-get={ fmt.Sprintf("/files/partial?page=%d&limit=%d&status=%s&filename=%s&job_id=%s", data.Page + 1, data.Limit, data.Filter.Status, data.Filter.FileName, data.Filter.JobID) }
+							   hx-target="#file-list-container"
+							   hx-swap="innerHTML"
+							   class="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 rounded-e-lg hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">
+								Next
+							</a>
+						}
+					</li>
+				</ul>
+			</nav>
+		}
+	</div>
 }
 
 // Update the main FileMetadataList template to use the partial template
 templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
 	@LayoutWithContext("File Metadata", ctx) {
+		<!-- Status and Error Messages -->
+		<div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2"></div>
+		
 		<script>
 			// Debug notification system
 			console.log("File Metadata template loaded, setting up notification system");
 			
-			// Create a global notyf instance if it doesn't exist yet
-			if (!window.notyf) {
-				window.notyf = new Notyf({
-					duration: 3000,
-					position: {
-						x: 'right',
-						y: 'top',
-					},
-					types: [
-						{
-							type: 'success',
-							background: '#38c172',
-							icon: {
-								className: 'fas fa-check-circle',
-								tagName: 'i'
-							}
-						},
-						{
-							type: 'error',
-							background: '#e3342f',
-							icon: {
-								className: 'fas fa-exclamation-circle',
-								tagName: 'i'
-							}
-						}
-					]
-				});
-				console.log("Notyf initialized:", window.notyf);
-			}
-
-			// HTMX indicator styles
-			document.addEventListener('DOMContentLoaded', function() {
-				// Add CSS for HTMX loading indicators
-				if (!document.getElementById('htmx-indicator-style')) {
-					const style = document.createElement('style');
-					style.id = 'htmx-indicator-style';
-					style.textContent = `
-						.htmx-indicator {
-							opacity: 0;
-							transition: opacity 200ms ease-in;
-						}
-						.htmx-request .htmx-indicator {
-							opacity: 1;
-						}
-						.htmx-request.htmx-indicator {
-							opacity: 1;
-						}
-					`;
-					document.head.appendChild(style);
+			// Function to create and show a toast
+			function showToast(message, type) {
+				const toastContainer = document.getElementById('toast-container');
+				
+				// Create toast element
+				const toast = document.createElement('div');
+				toast.id = 'toast-' + type + '-' + Date.now();
+				toast.className = 'flex items-center w-full max-w-xs p-4 mb-4 rounded-lg shadow text-gray-500 bg-white dark:text-gray-400 dark:bg-gray-800 transform translate-y-16 opacity-0 transition-all duration-300 ease-out';
+				toast.role = 'alert';
+				
+				// Set toast content based on type
+				let iconClass, bgColorClass, textColorClass;
+				
+				if (type === 'success') {
+					iconClass = 'text-green-500 bg-green-100 dark:bg-green-800 dark:text-green-200';
+					bgColorClass = 'text-green-500 dark:text-green-200';
+					textColorClass = 'text-green-500 dark:text-green-200';
+				} else if (type === 'error') {
+					iconClass = 'text-red-500 bg-red-100 dark:bg-red-800 dark:text-red-200';
+					bgColorClass = 'text-red-500 dark:text-red-200';
+					textColorClass = 'text-red-500 dark:text-red-200';
+				} else {
+					iconClass = 'text-blue-500 bg-blue-100 dark:bg-blue-800 dark:text-blue-200';
+					bgColorClass = 'text-blue-500 dark:text-blue-200';
+					textColorClass = 'text-blue-500 dark:text-blue-200';
 				}
+				
+				// Set inner HTML with appropriate icon and message
+				toast.innerHTML = `
+					<div class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg ${iconClass}">
+						${type === 'success' 
+							? '<i class="fas fa-check"></i>' 
+							: type === 'error' 
+							? '<i class="fas fa-exclamation-circle"></i>'
+							: '<i class="fas fa-info-circle"></i>'}
+					</div>
+					<div class="ml-3 text-sm font-normal">${message}</div>
+					<button type="button" class="ml-auto -mx-1.5 -my-1.5 bg-white text-gray-400 hover:text-gray-900 rounded-lg focus:ring-2 focus:ring-gray-300 p-1.5 hover:bg-gray-100 inline-flex h-8 w-8 dark:text-gray-500 dark:hover:text-white dark:bg-gray-800 dark:hover:bg-gray-700" data-dismiss-target="#${toast.id}" aria-label="Close">
+						<span class="sr-only">Close</span>
+						<i class="fas fa-times"></i>
+					</button>
+				`;
+				
+				// Add toast to container
+				toastContainer.appendChild(toast);
+				
+				// Trigger animation after a small delay to ensure the DOM has updated
+				setTimeout(() => {
+					toast.classList.remove('translate-y-16', 'opacity-0');
+					toast.classList.add('translate-y-0', 'opacity-100');
+				}, 10);
+				
+				// Add event listener to close button
+				const closeButton = toast.querySelector('button[data-dismiss-target]');
+				closeButton.addEventListener('click', function() {
+					// Animate out before removing
+					toast.classList.add('opacity-0', 'translate-y-4');
+					setTimeout(() => {
+						toast.remove();
+					}, 300);
+				});
+				
+				// Auto-remove toast after 5 seconds
+				setTimeout(() => {
+					toast.classList.add('opacity-0', 'translate-y-4');
+					setTimeout(() => {
+						toast.remove();
+					}, 300);
+				}, 5000);
+			}
+			
+			// Handle modal hide buttons
+			document.addEventListener('DOMContentLoaded', function() {
+				const hideButtons = document.querySelectorAll('[data-modal-hide]');
+				hideButtons.forEach(button => {
+					button.addEventListener('click', function() {
+						const modalId = this.getAttribute('data-modal-hide');
+						const modal = document.getElementById(modalId);
+						modal.classList.add('hidden');
+						modal.classList.remove('flex');
+					});
+				});
 			});
-
+			
 			// Track all HTMX events for debugging
 			document.addEventListener('htmx:beforeRequest', function(event) {
+				console.log("HTMX before request:", event.detail);
+				
 				// Check if this is a DELETE request by examining the URL and method
 				const path = event.detail.path;
 				const method = event.detail.verb;
-								
+				
+				console.log(`Request path: ${path}, method: ${method}`);
+				
 				// Pattern match for file deletions (e.g., /files/123)
 				if (path && method === 'DELETE' && path.match(/^\/files\/\d+$/)) {
+					console.log("Detected file deletion request via URL pattern");
+					
 					// This is definitely a delete request - store this information
 					window.isFileDeleteRequest = true;
 				}
@@ -349,6 +412,8 @@ templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
 
 			// Track HTMX after-request events for file deletion
 			document.addEventListener('htmx:afterRequest', function(event) {
+				console.log("HTMX after request:", event.detail);
+				
 				// Check for file deletion multiple ways
 				const isDeleteRequest = 
 					// Check global flag from the triggerFileDelete function
@@ -360,8 +425,12 @@ templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
 					 event.detail.pathInfo.requestPath.match(/^\/files\/\d+$/) && 
 					 event.detail.verb === 'DELETE');
 				
+				console.log(`Is delete request: ${isDeleteRequest}`);
+				
 				// If this is a successful delete request, show notification
 				if (isDeleteRequest && event.detail.successful) {
+					console.log("Delete request was successful");
+					
 					let fileName = "Unknown";
 					
 					// Try multiple sources for file name
@@ -374,18 +443,20 @@ templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
 						fileName = window.lastDeletedFile.name;
 					}
 					
-					window.notyf.success(`File "${fileName}" deleted successfully`);
+					console.log(`Showing success notification for deleted file: ${fileName}`);
+					showToast(`File "${fileName}" deleted successfully`, 'success');
 					
 					// Clear flags
 					window.currentlyDeletingFile = false;
 					window.isFileDeleteRequest = false;
 					window.lastDeletedFile = null;
-					
 				}
 			});
 			
 			// Track HTMX error events for file deletion
 			document.addEventListener('htmx:responseError', function(event) {
+				console.log("HTMX response error:", event.detail);
+				
 				// Similar logic as success but for errors
 				const isDeleteRequest = 
 					window.currentlyDeletingFile ||
@@ -395,6 +466,8 @@ templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
 					 event.detail.verb === 'DELETE');
 				
 				if (isDeleteRequest) {
+					console.log("Delete request failed");
+					
 					let fileName = "Unknown";
 					
 					// Try multiple sources for file name
@@ -410,17 +483,11 @@ templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
 					let errorMsg = `Failed to delete file "${fileName}"`;
 					
 					if (event.detail.xhr && event.detail.xhr.responseText) {
-						errorMsg = event.detail.xhr.responseText
-						// error message is a json object
-						try {
-							const error = JSON.parse(errorMsg);
-							errorMsg = `Error: ${error.error}`;
-						} catch(e) {
-							// Not JSON, use as is
-						}
+						errorMsg = `Error: ${event.detail.xhr.responseText}`;
 					}
 					
-					window.notyf.error(errorMsg);
+					console.log(`Showing error notification: ${errorMsg}`);
+					showToast(errorMsg, 'error');
 					
 					// Clear flags
 					window.currentlyDeletingFile = false;
@@ -430,28 +497,25 @@ templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
 			});
 		</script>
 		
-		<div class="container mx-auto px-4 py-8 animate-fadeIn">
-			<div class="flex justify-between items-center mb-6">
-				<h1 class="text-2xl font-bold text-secondary-800 dark:text-secondary-200">
-					if data.Job != nil {
-						Files for Job: { data.Job.Name }
-					} else {
-						File Metadata
-					}
-				</h1>
-				<div class="flex space-x-2">
-					<a href="/files/search" class="btn-primary">
-						<i class="fas fa-search mr-2"></i> Advanced Search
+		<div id="file-metadata-container" style="min-height: 100vh;" class="bg-gray-50 dark:bg-gray-900">
+			<div class="pb-8 w-full">
+				<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+					<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+						<i class="fas fa-file-alt w-6 h-6 mr-2 text-blue-500"></i>
+						if data.Job != nil {
+							Files for Job: { data.Job.Name }
+						} else {
+							File Metadata
+						}
+					</h1>
+					<a href="/files/search" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+						<i class="fas fa-search mr-2"></i>Advanced Search
 					</a>
 				</div>
-			</div>
-			
-			<!-- Filter Form -->
-			<div class="card mb-6">
-				<div class="card-header">
-					<h2 class="text-lg font-semibold">Filter Files</h2>
-				</div>
-				<div class="card-body">
+				
+				<!-- Filter Form -->
+				<div class="p-4 mb-6 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 w-full">
+					<h5 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Filter Files</h5>
 					<form 
 						hx-get="/files/partial" 
 						hx-target="#file-list-container" 
@@ -461,14 +525,14 @@ templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
 						class="grid grid-cols-1 md:grid-cols-3 gap-4">
 						if data.Job == nil {
 							<div>
-								<label for="job_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Job</label>
+								<label for="job_id" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Job</label>
 								<input type="text" id="job_id" name="job_id" value={ data.Filter.JobID } placeholder="Job ID" 
-									class="form-input w-full" />
+									class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
 							</div>
 						}
 						<div>
-							<label for="status" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Status</label>
-							<select id="status" name="status" class="form-input w-full">
+							<label for="status" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Status</label>
+							<select id="status" name="status" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
 								<option value="">All Statuses</option>
 								<option value="processed" selected?={ data.Filter.Status == "processed" }>Processed</option>
 								<option value="archived" selected?={ data.Filter.Status == "archived" }>Archived</option>
@@ -478,41 +542,63 @@ templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
 							</select>
 						</div>
 						<div>
-							<label for="filename" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Filename</label>
+							<label for="filename" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Filename</label>
 							<input type="text" id="filename" name="filename" value={ data.Filter.FileName } placeholder="Filename or partial match" 
-								class="form-input w-full" />
+								class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
 						</div>
-						<div class="md:col-span-3 flex justify-end">
-							<button type="submit" class="btn-primary">
+						<div class="md:col-span-3 flex justify-end items-center">
+							<button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
 								<i class="fas fa-filter mr-2"></i> Apply Filters
 							</button>
 							<div id="filter-loading" class="htmx-indicator ml-2 flex items-center">
-								<i class="fas fa-circle-notch fa-spin text-primary-600"></i>
+								<i class="fas fa-circle-notch fa-spin text-blue-600"></i>
 							</div>
 						</div>
 					</form>
 				</div>
-			</div>
-			
-			<!-- Results -->
-			<div class="card">
-				<div class="card-header flex justify-between items-center">
-					<h2 class="text-lg font-semibold">Files ({ strconv.FormatInt(data.TotalCount, 10) })</h2>
-					<div class="text-sm text-secondary-600 dark:text-secondary-400">
-						Page { strconv.Itoa(data.Page) } of { strconv.Itoa(data.TotalPages) }
+				
+				<!-- Results -->
+				<div class="bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 w-full">
+					<div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-600">
+						<h5 class="text-lg font-semibold text-gray-900 dark:text-white">Files ({ strconv.FormatInt(data.TotalCount, 10) })</h5>
+						<span class="text-sm text-gray-500 dark:text-gray-400">
+							Page { strconv.Itoa(data.Page) } of { strconv.Itoa(data.TotalPages) }
+						</span>
+					</div>
+					<div id="file-list-container" class="w-full">
+						if len(data.Files) > 0 {
+							@FileMetadataListPartial(data)
+						} else {
+							<div class="p-6 text-center text-gray-500 dark:text-gray-400">
+								<svg class="mx-auto mb-4 w-12 h-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+								</svg>
+								<p>No file metadata found matching your criteria.</p>
+							</div>
+						}
 					</div>
 				</div>
-				<div id="file-list-container" class="overflow-x-auto">
-					if len(data.Files) > 0 {
-						@FileMetadataListPartial(data)
-					} else {
-						<div class="p-6 text-center text-secondary-600 dark:text-secondary-400">
-							<i class="fas fa-file-alt text-5xl mb-3"></i>
-							<p>No file metadata found matching your criteria.</p>
-						</div>
-					}
-				</div>
 			</div>
+
+			<script>
+				// Set dark background color if in dark mode
+				if (document.documentElement.classList.contains('dark')) {
+					document.getElementById('file-metadata-container').style.backgroundColor = '#111827';
+				}
+				
+				// Add event listener for theme changes
+				document.addEventListener('DOMContentLoaded', function() {
+					const themeToggle = document.getElementById('theme-toggle');
+					if (themeToggle) {
+						themeToggle.addEventListener('click', function() {
+							setTimeout(function() {
+								const isDark = document.documentElement.classList.contains('dark');
+								document.getElementById('file-metadata-container').style.backgroundColor = isDark ? '#111827' : 'rgb(249, 250, 251)';
+							}, 50);
+						});
+					}
+				});
+			</script>
 		</div>
 	}
 }
@@ -520,133 +606,158 @@ templ FileMetadataList(ctx context.Context, data FileMetadataListData) {
 // FileMetadataDetails renders detailed information about a file
 templ FileMetadataDetails(ctx context.Context, data FileMetadataDetailsData) {
 	@LayoutWithContext("File Details", ctx) {
+		<!-- Status and Error Messages -->
+		<div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2"></div>
+		
 		<script>
 			// Debug notification system
 			console.log("File Details template loaded, setting up notification system");
 			
-			// Create a global notyf instance if it doesn't exist yet
-			if (!window.notyf) {
-				window.notyf = new Notyf({
-					duration: 3000,
-					position: {
-						x: 'right',
-						y: 'top',
-					},
-					types: [
-						{
-							type: 'success',
-							background: '#38c172',
-							icon: {
-								className: 'fas fa-check-circle',
-								tagName: 'i'
-							}
-						},
-						{
-							type: 'error',
-							background: '#e3342f',
-							icon: {
-								className: 'fas fa-exclamation-circle',
-								tagName: 'i'
-							}
-						}
-					]
+			// Function to create and show a toast
+			function showToast(message, type) {
+				const toastContainer = document.getElementById('toast-container');
+				
+				// Create toast element
+				const toast = document.createElement('div');
+				toast.id = 'toast-' + type + '-' + Date.now();
+				toast.className = 'flex items-center w-full max-w-xs p-4 mb-4 rounded-lg shadow text-gray-500 bg-white dark:text-gray-400 dark:bg-gray-800 transform translate-y-16 opacity-0 transition-all duration-300 ease-out';
+				toast.role = 'alert';
+				
+				// Set toast content based on type
+				let iconClass, bgColorClass, textColorClass;
+				
+				if (type === 'success') {
+					iconClass = 'text-green-500 bg-green-100 dark:bg-green-800 dark:text-green-200';
+					bgColorClass = 'text-green-500 dark:text-green-200';
+					textColorClass = 'text-green-500 dark:text-green-200';
+				} else if (type === 'error') {
+					iconClass = 'text-red-500 bg-red-100 dark:bg-red-800 dark:text-red-200';
+					bgColorClass = 'text-red-500 dark:text-red-200';
+					textColorClass = 'text-red-500 dark:text-red-200';
+				} else {
+					iconClass = 'text-blue-500 bg-blue-100 dark:bg-blue-800 dark:text-blue-200';
+					bgColorClass = 'text-blue-500 dark:text-blue-200';
+					textColorClass = 'text-blue-500 dark:text-blue-200';
+				}
+				
+				// Set inner HTML with appropriate icon and message
+				toast.innerHTML = `
+					<div class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg ${iconClass}">
+						${type === 'success' 
+							? '<i class="fas fa-check"></i>' 
+							: type === 'error' 
+							? '<i class="fas fa-exclamation-circle"></i>'
+							: '<i class="fas fa-info-circle"></i>'}
+					</div>
+					<div class="ml-3 text-sm font-normal">${message}</div>
+					<button type="button" class="ml-auto -mx-1.5 -my-1.5 bg-white text-gray-400 hover:text-gray-900 rounded-lg focus:ring-2 focus:ring-gray-300 p-1.5 hover:bg-gray-100 inline-flex h-8 w-8 dark:text-gray-500 dark:hover:text-white dark:bg-gray-800 dark:hover:bg-gray-700" data-dismiss-target="#${toast.id}" aria-label="Close">
+						<span class="sr-only">Close</span>
+						<i class="fas fa-times"></i>
+					</button>
+				`;
+				
+				// Add toast to container
+				toastContainer.appendChild(toast);
+				
+				// Trigger animation after a small delay to ensure the DOM has updated
+				setTimeout(() => {
+					toast.classList.remove('translate-y-16', 'opacity-0');
+					toast.classList.add('translate-y-0', 'opacity-100');
+				}, 10);
+				
+				// Add event listener to close button
+				const closeButton = toast.querySelector('button[data-dismiss-target]');
+				closeButton.addEventListener('click', function() {
+					// Animate out before removing
+					toast.classList.add('opacity-0', 'translate-y-4');
+					setTimeout(() => {
+						toast.remove();
+					}, 300);
 				});
-				console.log("Notyf initialized:", window.notyf);
+				
+				// Auto-remove toast after 5 seconds
+				setTimeout(() => {
+					toast.classList.add('opacity-0', 'translate-y-4');
+					setTimeout(() => {
+						toast.remove();
+					}, 300);
+				}, 5000);
 			}
-
-			// Track all HTMX events for debugging
+			
+			// Handle modal hide buttons
+			document.addEventListener('DOMContentLoaded', function() {
+				const hideButtons = document.querySelectorAll('[data-modal-hide]');
+				hideButtons.forEach(button => {
+					button.addEventListener('click', function() {
+						const modalId = this.getAttribute('data-modal-hide');
+						const modal = document.getElementById(modalId);
+						modal.classList.add('hidden');
+						modal.classList.remove('flex');
+					});
+				});
+			});
+			
+			// Track deletion events
 			document.addEventListener('htmx:beforeRequest', function(event) {
-				// Check if this is a DELETE request by examining the URL and method
-				const path = event.detail.path;
-				const method = event.detail.verb;
-								
-				// Pattern match for file deletions (e.g., /files/123)
-				if (path && method === 'DELETE' && path.match(/^\/files\/\d+$/)) {
-					// This is definitely a delete request - store this information
+				if (event.detail.path && event.detail.path.match(/^\/files\/\d+$/) && event.detail.verb === 'DELETE') {
 					window.isFileDeleteRequest = true;
 				}
 			});
-
-			// Track HTMX after-request events for file deletion
+			
 			document.addEventListener('htmx:afterRequest', function(event) {
-				// Check for file deletion multiple ways
 				const isDeleteRequest = 
-					// Check global flag from the triggerFileDelete function
 					window.currentlyDeletingFile ||
-					// Check flag from beforeRequest handler
 					window.isFileDeleteRequest ||
-					// Check URL pattern directly from this event
 					(event.detail.pathInfo && event.detail.pathInfo.requestPath && 
-					 event.detail.pathInfo.requestPath.match(/^\/files\/\d+$/) && 
-					 event.detail.verb === 'DELETE');
+					event.detail.pathInfo.requestPath.match(/^\/files\/\d+$/) && 
+					event.detail.verb === 'DELETE');
 				
-				// If this is a successful delete request, show notification and redirect
 				if (isDeleteRequest && event.detail.successful) {
 					let fileName = "Unknown";
 					
-					// Try multiple sources for file name
 					if (event.detail.elt && event.detail.elt.getAttribute) {
 						fileName = event.detail.elt.getAttribute('data-file-name') || fileName;
 					}
 					
 					if (fileName === "Unknown" && window.lastDeletedFile) {
-						// Fallback to our stored file info
 						fileName = window.lastDeletedFile.name;
 					}
 					
-					window.notyf.success(`File "${fileName}" deleted successfully`);
+					showToast(`File "${fileName}" deleted successfully`, 'success');
 					
-					// Clear flags
 					window.currentlyDeletingFile = false;
 					window.isFileDeleteRequest = false;
 					window.lastDeletedFile = null;
-					
-					// Redirect to files list after successful deletion
-					setTimeout(function() {
-						window.location.href = "/files";
-					}, 1000);
 				}
 			});
 			
-			// Track HTMX error events for file deletion
 			document.addEventListener('htmx:responseError', function(event) {
-				// Similar logic as success but for errors
 				const isDeleteRequest = 
 					window.currentlyDeletingFile ||
 					window.isFileDeleteRequest ||
 					(event.detail.pathInfo && event.detail.pathInfo.requestPath && 
-					 event.detail.pathInfo.requestPath.match(/^\/files\/\d+$/) && 
-					 event.detail.verb === 'DELETE');
+					event.detail.pathInfo.requestPath.match(/^\/files\/\d+$/) && 
+					event.detail.verb === 'DELETE');
 				
 				if (isDeleteRequest) {
 					let fileName = "Unknown";
 					
-					// Try multiple sources for file name
 					if (event.detail.elt && event.detail.elt.getAttribute) {
 						fileName = event.detail.elt.getAttribute('data-file-name') || fileName;
 					}
 					
 					if (fileName === "Unknown" && window.lastDeletedFile) {
-						// Fallback to our stored file info
 						fileName = window.lastDeletedFile.name;
 					}
 					
 					let errorMsg = `Failed to delete file "${fileName}"`;
 					
 					if (event.detail.xhr && event.detail.xhr.responseText) {
-						errorMsg = event.detail.xhr.responseText
-						// error message is a json object
-						try {
-							const error = JSON.parse(errorMsg);
-							errorMsg = `Error: ${error.error}`;
-						} catch(e) {
-							// Not JSON, use as is
-						}
+						errorMsg = `Error: ${event.detail.xhr.responseText}`;
 					}
 					
-					window.notyf.error(errorMsg);
+					showToast(errorMsg, 'error');
 					
-					// Clear flags
 					window.currentlyDeletingFile = false;
 					window.isFileDeleteRequest = false;
 					window.lastDeletedFile = null;
@@ -654,116 +765,192 @@ templ FileMetadataDetails(ctx context.Context, data FileMetadataDetailsData) {
 			});
 		</script>
 		
-		<div class="container mx-auto px-4 py-8 animate-fadeIn">
-			<div class="mb-6">
-				<a href="/files" class="text-primary-600 dark:text-primary-400 hover:underline">
-					<i class="fas fa-arrow-left mr-2"></i> Back to Files
-				</a>
-			</div>
-			
-			<div class="card">
-				<div class="card-header">
-					<h1 class="text-2xl font-bold text-secondary-800 dark:text-secondary-200">
-						File: { data.File.FileName }
+		<div id="file-details-container" style="min-height: 100vh;" class="bg-gray-50 dark:bg-gray-900">
+			<div class="pb-8 w-full">
+				<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+					<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+						<i class="fas fa-file-alt w-6 h-6 mr-2 text-blue-500"></i>
+						File Details: { data.File.FileName }
 					</h1>
+					<a href="/files" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+						<i class="fas fa-arrow-left mr-2"></i> Back to Files
+					</a>
 				</div>
-				<div class="card-body">
-					<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-						<div>
-							<h2 class="text-lg font-semibold mb-4 text-secondary-800 dark:text-secondary-200">File Information</h2>
-							<table class="w-full">
-								<tbody>
-									<tr class="border-b border-secondary-200 dark:border-secondary-700">
-										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">ID</td>
-										<td class="py-2">{ strconv.FormatUint(uint64(data.File.ID), 10) }</td>
-									</tr>
-									<tr class="border-b border-secondary-200 dark:border-secondary-700">
-										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Filename</td>
-										<td class="py-2">{ data.File.FileName }</td>
-									</tr>
-									<tr class="border-b border-secondary-200 dark:border-secondary-700">
-										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Size</td>
-										<td class="py-2">{ formatFileSize(data.File.FileSize) }</td>
-									</tr>
-									<tr class="border-b border-secondary-200 dark:border-secondary-700">
-										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Hash</td>
-										<td class="py-2 break-all">
-											if data.File.FileHash != "" {
-												{ data.File.FileHash }
-											} else {
-												<span class="text-secondary-500 dark:text-secondary-500 italic">Not available</span>
-											}
-										</td>
-									</tr>
-									<tr class="border-b border-secondary-200 dark:border-secondary-700">
-										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Status</td>
-										<td class="py-2">
-											<span class={ "badge", getStatusBadgeClass(data.File.Status) }>
-												{ data.File.Status }
-											</span>
-										</td>
-									</tr>
-									<tr class="border-b border-secondary-200 dark:border-secondary-700">
-										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Original Path</td>
-										<td class="py-2 break-all">{ data.File.OriginalPath }</td>
-									</tr>
-									<tr class="border-b border-secondary-200 dark:border-secondary-700">
-										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Destination Path</td>
-										<td class="py-2 break-all">{ data.File.DestinationPath }</td>
-									</tr>
-								</tbody>
-							</table>
-						</div>
-						
-						<div>
-							<h2 class="text-lg font-semibold mb-4 text-secondary-800 dark:text-secondary-200">Processing Information</h2>
-							<table class="w-full">
-								<tbody>
-									<tr class="border-b border-secondary-200 dark:border-secondary-700">
-										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Job</td>
-										<td class="py-2">
-											<a href={ templ.SafeURL(fmt.Sprintf("/files/job/%d", data.File.JobID)) } class="text-primary-600 dark:text-primary-400 hover:underline">
-												{ data.File.Job.Name }
-											</a>
-										</td>
-									</tr>
-									<tr class="border-b border-secondary-200 dark:border-secondary-700">
-										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Processed Time</td>
-										<td class="py-2">{ data.File.ProcessedTime.Format("2006-01-02 15:04:05") }</td>
-									</tr>
-									<tr class="border-b border-secondary-200 dark:border-secondary-700">
-										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Creation Time</td>
-										<td class="py-2">{ data.File.CreationTime.Format("2006-01-02 15:04:05") }</td>
-									</tr>
-									<tr class="border-b border-secondary-200 dark:border-secondary-700">
-										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Modification Time</td>
-										<td class="py-2">{ data.File.ModTime.Format("2006-01-02 15:04:05") }</td>
-									</tr>
-									if data.File.Status == "error" && data.File.ErrorMessage != "" {
-										<tr class="border-b border-secondary-200 dark:border-secondary-700">
-											<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Error</td>
-											<td class="py-2 text-red-600 dark:text-red-400 break-all">{ data.File.ErrorMessage }</td>
-										</tr>
-									}
-									<tr class="border-b border-secondary-200 dark:border-secondary-700">
-										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Record Created</td>
-										<td class="py-2">{ data.File.CreatedAt.Format("2006-01-02 15:04:05") }</td>
-									</tr>
-									<tr class="border-b border-secondary-200 dark:border-secondary-700">
-										<td class="py-2 font-medium text-secondary-700 dark:text-secondary-300">Record Updated</td>
-										<td class="py-2">{ data.File.UpdatedAt.Format("2006-01-02 15:04:05") }</td>
-									</tr>
-								</tbody>
-							</table>
-						</div>
+				
+				<div class="bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 w-full">
+					<!-- Card header -->
+					<div class="p-4 md:p-5 border-b border-gray-200 dark:border-gray-700">
+						<h5 class="text-xl font-bold leading-none text-gray-900 dark:text-white">
+							{ data.File.FileName }
+						</h5>
+						<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+							File ID: { strconv.FormatUint(uint64(data.File.ID), 10) }
+						</p>
 					</div>
 					
-					<div class="mt-8 flex justify-end space-x-4">
-						<a href="/files" class="btn-secondary">
-							<i class="fas fa-list mr-2"></i> Back to Files
-						</a>
+					<!-- Card content -->
+					<div class="p-4 md:p-5">
+						<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+							<!-- File Information -->
+							<div>
+								<h6 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center">
+									<i class="fas fa-file-alt mr-2 text-gray-500 dark:text-gray-400"></i> File Information
+								</h6>
+								<div class="overflow-x-auto relative shadow-md sm:rounded-lg">
+									<table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+										<tbody>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Filename
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													{ data.File.FileName }
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Size
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													{ formatFileSize(data.File.FileSize) }
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Hash
+												</th>
+												<td class="py-3 px-4 break-all bg-white dark:bg-gray-800">
+													if data.File.FileHash != "" {
+														<span class="font-mono">{ data.File.FileHash }</span>
+													} else {
+														<span class="text-gray-400 dark:text-gray-500 italic">Not available</span>
+													}
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Status
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													<span class={ "text-xs font-medium px-2.5 py-0.5 rounded", getStatusBadgeClass(data.File.Status) }>
+														{ data.File.Status }
+													</span>
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Original Path
+												</th>
+												<td class="py-3 px-4 break-all bg-white dark:bg-gray-800">
+													<div class="flex items-center">
+														<i class="fas fa-folder mr-2 text-yellow-500"></i>
+														<span>{ data.File.OriginalPath }</span>
+													</div>
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Destination Path
+												</th>
+												<td class="py-3 px-4 break-all bg-white dark:bg-gray-800">
+													<div class="flex items-center">
+														<i class="fas fa-folder-open mr-2 text-blue-500"></i>
+														<span>{ data.File.DestinationPath }</span>
+													</div>
+												</td>
+											</tr>
+										</tbody>
+									</table>
+								</div>
+							</div>
+							
+							<!-- Processing Information -->
+							<div>
+								<h6 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center">
+									<i class="fas fa-cogs mr-2 text-gray-500 dark:text-gray-400"></i> Processing Information
+								</h6>
+								<div class="overflow-x-auto relative shadow-md sm:rounded-lg">
+									<table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+										<tbody>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Job
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													<a href={ templ.SafeURL(fmt.Sprintf("/files/job/%d", data.File.JobID)) } class="font-medium text-blue-600 dark:text-blue-500 hover:underline">
+														{ data.File.Job.Name }
+													</a>
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Processed Time
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													<div class="flex items-center">
+														<i class="far fa-clock mr-2 text-gray-500"></i>
+														<span>{ data.File.ProcessedTime.Format("2006-01-02 15:04:05") }</span>
+													</div>
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Creation Time
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													<div class="flex items-center">
+														<i class="fas fa-calendar-plus mr-2 text-green-500"></i>
+														<span>{ data.File.CreationTime.Format("2006-01-02 15:04:05") }</span>
+													</div>
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Modification Time
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													<div class="flex items-center">
+														<i class="fas fa-calendar-alt mr-2 text-purple-500"></i>
+														<span>{ data.File.ModTime.Format("2006-01-02 15:04:05") }</span>
+													</div>
+												</td>
+											</tr>
+											if data.File.Status == "error" && data.File.ErrorMessage != "" {
+												<tr class="border-b dark:border-gray-700">
+													<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+														Error
+													</th>
+													<td class="py-3 px-4 break-all bg-white dark:bg-gray-800">
+														<div class="flex items-start">
+															<i class="fas fa-exclamation-triangle mt-1 mr-2 text-red-500"></i>
+															<span class="text-red-600 dark:text-red-400">{ data.File.ErrorMessage }</span>
+														</div>
+													</td>
+												</tr>
+											}
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Record Created
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													{ data.File.CreatedAt.Format("2006-01-02 15:04:05") }
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Record Updated
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													{ data.File.UpdatedAt.Format("2006-01-02 15:04:05") }
+												</td>
+											</tr>
+										</tbody>
+									</table>
+								</div>
+							</div>
+						</div>
 						
-						<!-- Add dialog for the file -->
+						<!-- Delete dialog -->
 						@FileMetadataDialog(
 							fmt.Sprintf("delete-file-dialog-%d", data.File.ID),
 							"Delete File Metadata",
@@ -775,15 +962,42 @@ templ FileMetadataDetails(ctx context.Context, data FileMetadataDetailsData) {
 							data.File.FileName,
 							"details",
 						)
-						<button 
-							type="button"
-							onclick={ showFileDialog(fmt.Sprintf("delete-file-dialog-%d", data.File.ID)) }
-							class="btn-danger">
-							<i class="fas fa-trash mr-2"></i> Delete Record
-						</button>
+						
+						<!-- Action buttons -->
+						<div class="mt-6 flex flex-wrap justify-end gap-3">
+							<a href="/files" class="py-2.5 px-5 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">
+								<i class="fas fa-list mr-2"></i> Back to Files
+							</a>
+							<button 
+								type="button"
+								onclick={ showFileDialog(fmt.Sprintf("delete-file-dialog-%d", data.File.ID)) }
+								class="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800">
+								<i class="fas fa-trash mr-2"></i> Delete Record
+							</button>
+						</div>
 					</div>
 				</div>
 			</div>
+
+			<script>
+				// Set dark background color if in dark mode
+				if (document.documentElement.classList.contains('dark')) {
+					document.getElementById('file-details-container').style.backgroundColor = '#111827';
+				}
+				
+				// Add event listener for theme changes
+				document.addEventListener('DOMContentLoaded', function() {
+					const themeToggle = document.getElementById('theme-toggle');
+					if (themeToggle) {
+						themeToggle.addEventListener('click', function() {
+							setTimeout(function() {
+								const isDark = document.documentElement.classList.contains('dark');
+								document.getElementById('file-details-container').style.backgroundColor = isDark ? '#111827' : 'rgb(249, 250, 251)';
+							}, 50);
+						});
+					}
+				});
+			</script>
 		</div>
 	}
 }
@@ -791,193 +1005,158 @@ templ FileMetadataDetails(ctx context.Context, data FileMetadataDetailsData) {
 // FileMetadataSearch renders an advanced search form for file metadata
 templ FileMetadataSearch(ctx context.Context, data FileMetadataSearchData) {
 	@LayoutWithContext("Search Files", ctx) {
+		<!-- Status and Error Messages -->
+		<div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2"></div>
+		
 		<script>
 			// Debug notification system
 			console.log("File Search template loaded, setting up notification system");
 			
-			// Create a global notyf instance if it doesn't exist yet
-			if (!window.notyf) {
-				window.notyf = new Notyf({
-					duration: 3000,
-					position: {
-						x: 'right',
-						y: 'top',
-					},
-					types: [
-						{
-							type: 'success',
-							background: '#38c172',
-							icon: {
-								className: 'fas fa-check-circle',
-								tagName: 'i'
-							}
-						},
-						{
-							type: 'error',
-							background: '#e3342f',
-							icon: {
-								className: 'fas fa-exclamation-circle',
-								tagName: 'i'
-							}
-						}
-					]
-				});
-				console.log("Notyf initialized:", window.notyf);
-			}
-
-			// HTMX event handler for search requests
-			document.addEventListener('htmx:afterRequest', function(event) {
-				// Check if this is a search request
-				const path = event.detail.pathInfo?.requestPath;
+			// Function to create and show a toast
+			function showToast(message, type) {
+				const toastContainer = document.getElementById('toast-container');
 				
-				if (path && path.startsWith('/files/search')) {
-					
-					// Check if the response has HTML content
-					const content = event.detail.xhr.responseText;
-					
-					// If the response contains a full HTML page (likely has html, head, body tags)
-					if (content && (content.includes('<html') || content.includes('<body'))) {
-						console.error('Received full page instead of partial content');
-						
-						// Try to extract just the table content
-						const tempDiv = document.createElement('div');
-						tempDiv.innerHTML = content;
-						
-						// Look for the container inside the response
-						const resultsContainer = tempDiv.querySelector('#search-results-container');
-						
-						if (resultsContainer) {
-							// Replace our container with just the content from the response
-							document.querySelector('#search-results-container').innerHTML = resultsContainer.innerHTML;
-							event.preventDefault(); // Prevent HTMX from doing the swap
-							return;
-						}
-						
-						// If we couldn't find the search results container, try finding the table directly
-						const tableContent = tempDiv.querySelector('#search-results-container table');
-						if (tableContent) {
-							// Replace our container with just the table from the response
-							document.querySelector('#search-results-container').innerHTML = tableContent.outerHTML;
-							event.preventDefault();
-							return;
-						}
-					}
+				// Create toast element
+				const toast = document.createElement('div');
+				toast.id = 'toast-' + type + '-' + Date.now();
+				toast.className = 'flex items-center w-full max-w-xs p-4 mb-4 rounded-lg shadow text-gray-500 bg-white dark:text-gray-400 dark:bg-gray-800 transform translate-y-16 opacity-0 transition-all duration-300 ease-out';
+				toast.role = 'alert';
+				
+				// Set toast content based on type
+				let iconClass, bgColorClass, textColorClass;
+				
+				if (type === 'success') {
+					iconClass = 'text-green-500 bg-green-100 dark:bg-green-800 dark:text-green-200';
+					bgColorClass = 'text-green-500 dark:text-green-200';
+					textColorClass = 'text-green-500 dark:text-green-200';
+				} else if (type === 'error') {
+					iconClass = 'text-red-500 bg-red-100 dark:bg-red-800 dark:text-red-200';
+					bgColorClass = 'text-red-500 dark:text-red-200';
+					textColorClass = 'text-red-500 dark:text-red-200';
+				} else {
+					iconClass = 'text-blue-500 bg-blue-100 dark:bg-blue-800 dark:text-blue-200';
+					bgColorClass = 'text-blue-500 dark:text-blue-200';
+					textColorClass = 'text-blue-500 dark:text-blue-200';
 				}
-			});
-
-			// HTMX indicator styles
+				
+				// Set inner HTML with appropriate icon and message
+				toast.innerHTML = `
+					<div class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg ${iconClass}">
+						${type === 'success' 
+							? '<i class="fas fa-check"></i>' 
+							: type === 'error' 
+							? '<i class="fas fa-exclamation-circle"></i>'
+							: '<i class="fas fa-info-circle"></i>'}
+					</div>
+					<div class="ml-3 text-sm font-normal">${message}</div>
+					<button type="button" class="ml-auto -mx-1.5 -my-1.5 bg-white text-gray-400 hover:text-gray-900 rounded-lg focus:ring-2 focus:ring-gray-300 p-1.5 hover:bg-gray-100 inline-flex h-8 w-8 dark:text-gray-500 dark:hover:text-white dark:bg-gray-800 dark:hover:bg-gray-700" data-dismiss-target="#${toast.id}" aria-label="Close">
+						<span class="sr-only">Close</span>
+						<i class="fas fa-times"></i>
+					</button>
+				`;
+				
+				// Add toast to container
+				toastContainer.appendChild(toast);
+				
+				// Trigger animation after a small delay to ensure the DOM has updated
+				setTimeout(() => {
+					toast.classList.remove('translate-y-16', 'opacity-0');
+					toast.classList.add('translate-y-0', 'opacity-100');
+				}, 10);
+				
+				// Add event listener to close button
+				const closeButton = toast.querySelector('button[data-dismiss-target]');
+				closeButton.addEventListener('click', function() {
+					// Animate out before removing
+					toast.classList.add('opacity-0', 'translate-y-4');
+					setTimeout(() => {
+						toast.remove();
+					}, 300);
+				});
+				
+				// Auto-remove toast after 5 seconds
+				setTimeout(() => {
+					toast.classList.add('opacity-0', 'translate-y-4');
+					setTimeout(() => {
+						toast.remove();
+					}, 300);
+				}, 5000);
+			}
+			
+			// Handle modal hide buttons
 			document.addEventListener('DOMContentLoaded', function() {
-				// Add CSS for HTMX loading indicators
-				if (!document.getElementById('htmx-indicator-style')) {
-					const style = document.createElement('style');
-					style.id = 'htmx-indicator-style';
-					style.textContent = `
-						.htmx-indicator {
-							opacity: 0;
-							transition: opacity 200ms ease-in;
-						}
-						.htmx-request .htmx-indicator {
-							opacity: 1;
-						}
-						.htmx-request.htmx-indicator {
-							opacity: 1;
-						}
-					`;
-					document.head.appendChild(style);
-				}
+				const hideButtons = document.querySelectorAll('[data-modal-hide]');
+				hideButtons.forEach(button => {
+					button.addEventListener('click', function() {
+						const modalId = this.getAttribute('data-modal-hide');
+						const modal = document.getElementById(modalId);
+						modal.classList.add('hidden');
+						modal.classList.remove('flex');
+					});
+				});
 			});
-
-			// Track all HTMX events for debugging
+			
+			// Track deletion events
 			document.addEventListener('htmx:beforeRequest', function(event) {
-				// Check if this is a DELETE request by examining the URL and method
-				const path = event.detail.path;
-				const method = event.detail.verb;
-								
-				// Pattern match for file deletions (e.g., /files/123)
-				if (path && method === 'DELETE' && path.match(/^\/files\/\d+$/)) {
-					// This is definitely a delete request - store this information
+				if (event.detail.path && event.detail.path.match(/^\/files\/\d+$/) && event.detail.verb === 'DELETE') {
 					window.isFileDeleteRequest = true;
 				}
 			});
-
-			// Track HTMX after-request events for file deletion
+			
 			document.addEventListener('htmx:afterRequest', function(event) {
-				// Check for file deletion multiple ways
 				const isDeleteRequest = 
-					// Check global flag from the triggerFileDelete function
 					window.currentlyDeletingFile ||
-					// Check flag from beforeRequest handler
 					window.isFileDeleteRequest ||
-					// Check URL pattern directly from this event
 					(event.detail.pathInfo && event.detail.pathInfo.requestPath && 
-					 event.detail.pathInfo.requestPath.match(/^\/files\/\d+$/) && 
-					 event.detail.verb === 'DELETE');
+					event.detail.pathInfo.requestPath.match(/^\/files\/\d+$/) && 
+					event.detail.verb === 'DELETE');
 				
-				// If this is a successful delete request, show notification
 				if (isDeleteRequest && event.detail.successful) {
 					let fileName = "Unknown";
 					
-					// Try multiple sources for file name
 					if (event.detail.elt && event.detail.elt.getAttribute) {
 						fileName = event.detail.elt.getAttribute('data-file-name') || fileName;
 					}
 					
 					if (fileName === "Unknown" && window.lastDeletedFile) {
-						// Fallback to our stored file info
 						fileName = window.lastDeletedFile.name;
 					}
 					
-					window.notyf.success(`File "${fileName}" deleted successfully`);
+					showToast(`File "${fileName}" deleted successfully`, 'success');
 					
-					// Clear flags
 					window.currentlyDeletingFile = false;
 					window.isFileDeleteRequest = false;
 					window.lastDeletedFile = null;
-					
-					// Reload the page to update the file list
-					window.location.reload();
 				}
 			});
 			
-			// Track HTMX error events for file deletion
 			document.addEventListener('htmx:responseError', function(event) {
-				// Similar logic as success but for errors
 				const isDeleteRequest = 
 					window.currentlyDeletingFile ||
 					window.isFileDeleteRequest ||
 					(event.detail.pathInfo && event.detail.pathInfo.requestPath && 
-					 event.detail.pathInfo.requestPath.match(/^\/files\/\d+$/) && 
-					 event.detail.verb === 'DELETE');
+					event.detail.pathInfo.requestPath.match(/^\/files\/\d+$/) && 
+					event.detail.verb === 'DELETE');
 				
 				if (isDeleteRequest) {
 					let fileName = "Unknown";
 					
-					// Try multiple sources for file name
 					if (event.detail.elt && event.detail.elt.getAttribute) {
 						fileName = event.detail.elt.getAttribute('data-file-name') || fileName;
 					}
 					
 					if (fileName === "Unknown" && window.lastDeletedFile) {
-						// Fallback to our stored file info
 						fileName = window.lastDeletedFile.name;
 					}
 					
 					let errorMsg = `Failed to delete file "${fileName}"`;
 					
 					if (event.detail.xhr && event.detail.xhr.responseText) {
-						errorMsg = event.detail.xhr.responseText
-						// error message is a json object
-						try {
-							const error = JSON.parse(errorMsg);
-							errorMsg = `Error: ${error.error}`;
-						} catch(e) {
-							// Not JSON, use as is
-						}
+						errorMsg = `Error: ${event.detail.xhr.responseText}`;
 					}
 					
-					window.notyf.error(errorMsg);
+					showToast(errorMsg, 'error');
 					
-					// Clear flags
 					window.currentlyDeletingFile = false;
 					window.isFileDeleteRequest = false;
 					window.lastDeletedFile = null;
@@ -985,20 +1164,20 @@ templ FileMetadataSearch(ctx context.Context, data FileMetadataSearchData) {
 			});
 		</script>
 		
-		<div class="container mx-auto px-4 py-8 animate-fadeIn">
-			<div class="mb-6">
-				<a href="/files" class="text-primary-600 dark:text-primary-400 hover:underline">
-					<i class="fas fa-arrow-left mr-2"></i> Back to Files
-				</a>
-			</div>
-			
-			<div class="card mb-6">
-				<div class="card-header">
-					<h1 class="text-2xl font-bold text-secondary-800 dark:text-secondary-200">
-						Advanced File Search
+		<div id="file-search-container" style="min-height: 100vh;" class="bg-gray-50 dark:bg-gray-900">
+			<div class="pb-8 w-full">
+				<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+					<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+						<i class="fas fa-search w-6 h-6 mr-2 text-blue-500"></i>
+						File Metadata Search
 					</h1>
+					<a href="/files" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+						<i class="fas fa-arrow-left mr-2"></i> Back to Files
+					</a>
 				</div>
-				<div class="card-body">
+				
+				<div class="p-4 mb-6 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 w-full">
+					<h5 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Advanced File Search</h5>
 					<form 
 						hx-get="/files/search/partial"
 						hx-target="#search-results-container" 
@@ -1006,15 +1185,15 @@ templ FileMetadataSearch(ctx context.Context, data FileMetadataSearchData) {
 						hx-indicator="#search-form-loading"
 						hx-headers='{"X-HX-Request": "true"}'
 						hx-boost="false"
-						class="grid grid-cols-1 md:grid-cols-2 gap-6">
+						class="grid grid-cols-1 md:grid-cols-2 gap-4">
 						<div>
-							<label for="job_id" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Job ID</label>
+							<label for="job_id" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Job ID</label>
 							<input type="text" id="job_id" name="job_id" value={ data.Filter.JobID } placeholder="Job ID" 
-								class="form-input w-full" />
+								class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
 						</div>
 						<div>
-							<label for="status" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Status</label>
-							<select id="status" name="status" class="form-input w-full">
+							<label for="status" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Status</label>
+							<select id="status" name="status" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
 								<option value="">All Statuses</option>
 								<option value="processed" selected?={ data.Filter.Status == "processed" }>Processed</option>
 								<option value="archived" selected?={ data.Filter.Status == "archived" }>Archived</option>
@@ -1024,49 +1203,69 @@ templ FileMetadataSearch(ctx context.Context, data FileMetadataSearchData) {
 							</select>
 						</div>
 						<div>
-							<label for="filename" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Filename</label>
+							<label for="filename" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Filename</label>
 							<input type="text" id="filename" name="filename" value={ data.Filter.FileName } placeholder="Filename or partial match" 
-								class="form-input w-full" />
+								class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
 						</div>
 						<div>
-							<label for="hash" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">File Hash</label>
+							<label for="hash" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">File Hash</label>
 							<input type="text" id="hash" name="hash" value={ data.Filter.Hash } placeholder="MD5 hash" 
-								class="form-input w-full" />
+								class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
 						</div>
 						<div>
-							<label for="start_date" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Processed After</label>
+							<label for="start_date" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Processed After</label>
 							<input type="date" id="start_date" name="start_date" value={ data.Filter.StartDate } 
-								class="form-input w-full" />
+								class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
 						</div>
 						<div>
-							<label for="end_date" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Processed Before</label>
+							<label for="end_date" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Processed Before</label>
 							<input type="date" id="end_date" name="end_date" value={ data.Filter.EndDate } 
-								class="form-input w-full" />
+								class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
 						</div>
 						<div class="md:col-span-2 flex justify-end">
-							<button type="submit" class="btn-primary">
+							<button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
 								<i class="fas fa-search mr-2"></i> Search Files
 							</button>
 							<div id="search-form-loading" class="htmx-indicator ml-2 flex items-center">
-								<i class="fas fa-circle-notch fa-spin text-primary-600"></i>
+								<i class="fas fa-circle-notch fa-spin text-blue-600"></i>
 							</div>
 						</div>
 					</form>
 				</div>
-			</div>
-			
-			<!-- Results -->
-			<div class="card">
-				<div class="card-header flex justify-between items-center">
-					<h2 class="text-lg font-semibold">Search Results ({ strconv.FormatInt(data.TotalCount, 10) })</h2>
-					<div class="text-sm text-secondary-600 dark:text-secondary-400">
-						Page { strconv.Itoa(data.Page) } of { strconv.Itoa(data.TotalPages) }
+				
+				<!-- Results -->
+				<div class="bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 w-full">
+					<div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-600">
+						<h5 class="text-lg font-semibold text-gray-900 dark:text-white">Search Results ({ strconv.FormatInt(data.TotalCount, 10) })</h5>
+						<span class="text-sm text-gray-500 dark:text-gray-400">
+							Page { strconv.Itoa(data.Page) } of { strconv.Itoa(data.TotalPages) }
+						</span>
+					</div>
+					<div id="search-results-container" class="w-full">
+						@FileMetadataSearchContent(data)
 					</div>
 				</div>
-				<div id="search-results-container" class="overflow-x-auto">
-					@FileMetadataSearchContent(data)
-				</div>
 			</div>
+
+			<script>
+				// Set dark background color if in dark mode
+				if (document.documentElement.classList.contains('dark')) {
+					document.getElementById('file-search-container').style.backgroundColor = '#111827';
+				}
+				
+				// Add event listener for theme changes
+				document.addEventListener('DOMContentLoaded', function() {
+					const themeToggle = document.getElementById('theme-toggle');
+					if (themeToggle) {
+						themeToggle.addEventListener('click', function() {
+							setTimeout(function() {
+								const isDark = document.documentElement.classList.contains('dark');
+								document.getElementById('file-search-container').style.backgroundColor = isDark ? '#111827' : 'rgb(249, 250, 251)';
+							}, 50);
+						});
+					}
+				});
+			</script>
 		</div>
 	}
 }
@@ -1090,120 +1289,149 @@ templ FileMetadataSearchContent(data FileMetadataSearchData) {
 			)
 		}
 	</div>
-	<table class="table w-full">
-		<thead>
-			<tr>
-				<th>ID</th>
-				<th>Filename</th>
-				<th>Size</th>
-				<th>Processed</th>
-				<th>Status</th>
-				<th>Job</th>
-				<th>Actions</th>
-			</tr>
-		</thead>
-		<tbody>
-			if len(data.Files) > 0 {
-				for _, file := range data.Files {
-					<tr id={ fmt.Sprintf("file-row-%d", file.ID) } class="hover:bg-secondary-50 dark:hover:bg-secondary-800 transition-colors duration-150">
-						<td>{ strconv.FormatUint(uint64(file.ID), 10) }</td>
-						<td class="text-primary-600 dark:text-primary-400">
-							<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="hover:underline">
-								{ file.FileName }
-							</a>
-						</td>
-						<td>{ formatFileSize(file.FileSize) }</td>
-						<td>{ file.ProcessedTime.Format("2006-01-02 15:04:05") }</td>
-						<td>
-							<span class={ "badge", getStatusBadgeClass(file.Status) }>
-								{ file.Status }
-							</span>
-						</td>
-						<td>
-							if file.Job.ID > 0 {
-								<a href={ templ.SafeURL(fmt.Sprintf("/files/job/%d", file.Job.ID)) } class="hover:underline text-primary-600 dark:text-primary-400">
-									{ file.Job.Name }
+	
+	<div class="relative overflow-x-auto">
+		<table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+			<thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+				<tr>
+					<th scope="col" class="px-6 py-3">ID</th>
+					<th scope="col" class="px-6 py-3">Filename</th>
+					<th scope="col" class="px-6 py-3">Size</th>
+					<th scope="col" class="px-6 py-3">Processed</th>
+					<th scope="col" class="px-6 py-3">Status</th>
+					<th scope="col" class="px-6 py-3">Job</th>
+					<th scope="col" class="px-6 py-3">Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				if len(data.Files) > 0 {
+					for _, file := range data.Files {
+						<tr id={ fmt.Sprintf("file-row-%d", file.ID) } class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+							<td class="px-6 py-4">{ strconv.FormatUint(uint64(file.ID), 10) }</td>
+							<td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
+								<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="hover:underline">
+									{ file.FileName }
 								</a>
-							} else {
-								<span class="text-secondary-500 dark:text-secondary-500 italic">N/A</span>
-							}
-						</td>
-						<td class="flex space-x-2">
-							<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300">
-								<i class="fas fa-eye"></i>
-							</a>
-							<!-- Delete button that triggers the dialog -->
-							<button 
-								type="button"
-								onclick={ showFileDialog(fmt.Sprintf("delete-file-dialog-%d", file.ID)) }
-								class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300">
-								<i class="fas fa-trash"></i>
-							</button>
+							</td>
+							<td class="px-6 py-4">{ formatFileSize(file.FileSize) }</td>
+							<td class="px-6 py-4">{ file.ProcessedTime.Format("2006-01-02 15:04:05") }</td>
+							<td class="px-6 py-4">
+								<span class={ "text-xs font-medium px-2.5 py-0.5 rounded", getStatusBadgeClass(file.Status) }>
+									{ file.Status }
+								</span>
+							</td>
+							<td class="px-6 py-4">
+								if file.Job.ID > 0 {
+									<a href={ templ.SafeURL(fmt.Sprintf("/files/job/%d", file.Job.ID)) } class="font-medium text-blue-600 dark:text-blue-500 hover:underline">
+										{ file.Job.Name }
+									</a>
+								} else {
+									<span class="text-gray-400 dark:text-gray-500 italic">N/A</span>
+								}
+							</td>
+							<td class="px-6 py-4">
+								<div class="flex space-x-3">
+									<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="font-medium text-blue-600 dark:text-blue-500 hover:underline">
+										<i class="fas fa-eye"></i>
+									</a>
+									<button 
+										type="button"
+										onclick={ showFileDialog(fmt.Sprintf("delete-file-dialog-%d", file.ID)) }
+										class="font-medium text-red-600 dark:text-red-500 hover:underline">
+										<i class="fas fa-trash"></i>
+									</button>
+								</div>
+							</td>
+						</tr>
+					}
+				} else {
+					<tr>
+						<td colspan="7" class="px-6 py-10 text-center text-gray-500 dark:text-gray-400">
+							<svg class="mx-auto mb-4 w-12 h-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+							</svg>
+							<p>No files found matching your search criteria.</p>
 						</td>
 					</tr>
 				}
-			} else {
-				<tr>
-					<td colspan="7" class="py-6 text-center text-secondary-600 dark:text-secondary-400">
-						<i class="fas fa-search text-5xl mb-3"></i>
-						<p>No files found matching your search criteria.</p>
-					</td>
-				</tr>
-			}
-		</tbody>
-	</table>
+			</tbody>
+		</table>
+	</div>
 	
 	<!-- Pagination for search results -->
 	if data.TotalPages > 1 {
-		<div class="flex justify-center items-center py-4 bg-secondary-50 dark:bg-secondary-800 rounded-lg">
-			<div class="flex gap-2">
-				if data.Page > 1 {
-					<a hx-get={ fmt.Sprintf("/files/search/partial?page=%d&limit=%d&status=%s&filename=%s&job_id=%s&hash=%s&start_date=%s&end_date=%s", data.Page - 1, data.Limit, data.Filter.Status, data.Filter.FileName, data.Filter.JobID, data.Filter.Hash, data.Filter.StartDate, data.Filter.EndDate) }
-					   hx-target="#search-results-container"
-					   hx-swap="innerHTML"
-					   hx-headers='{"X-HX-Request": "true"}'
-					   class="w-10 h-10 flex items-center justify-center bg-secondary-200 text-secondary-800 hover:bg-secondary-300 rounded dark:bg-secondary-700 dark:text-secondary-200 dark:hover:bg-secondary-600">
-						<i class="fas fa-chevron-left"></i>
-					</a>
-				} else {
-					<span class="w-10 h-10 flex items-center justify-center bg-secondary-100 text-secondary-300 rounded dark:bg-secondary-800 dark:text-secondary-600 cursor-not-allowed">
-						<i class="fas fa-chevron-left"></i>
-					</span>
-				}
-				
-				for i := 1; i <= data.TotalPages; i++ {
-					if i == data.Page {
-						<span class="w-10 h-10 flex items-center justify-center bg-primary-600 text-white rounded">
-							{ strconv.Itoa(i) }
+		<nav class="flex items-center flex-column flex-wrap md:flex-row justify-between p-4" aria-label="Table navigation">
+			<span class="text-sm font-normal text-gray-500 dark:text-gray-400 mb-4 md:mb-0">
+				Showing <span class="font-semibold text-gray-900 dark:text-white">{ strconv.Itoa((data.Page-1)*data.Limit+1) }-{ strconv.Itoa(func() int { 
+					end := data.Page*data.Limit
+					if int64(end) > data.TotalCount {
+						return int(data.TotalCount)
+					}
+					return end
+				}()) }</span> of <span class="font-semibold text-gray-900 dark:text-white">{ strconv.FormatInt(data.TotalCount, 10) }</span>
+			</span>
+			<ul class="inline-flex -space-x-px rtl:space-x-reverse text-sm h-8">
+				<li>
+					if data.Page == 1 {
+						<span class="flex items-center justify-center px-3 h-8 ms-0 leading-tight text-gray-500 bg-white border border-gray-300 rounded-s-lg cursor-not-allowed dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400">
+							Previous
 						</span>
-					} else if i == 1 || i == data.TotalPages || (i >= data.Page-2 && i <= data.Page+2) {
-						<a hx-get={ fmt.Sprintf("/files/search/partial?page=%d&limit=%d&status=%s&filename=%s&job_id=%s&hash=%s&start_date=%s&end_date=%s", i, data.Limit, data.Filter.Status, data.Filter.FileName, data.Filter.JobID, data.Filter.Hash, data.Filter.StartDate, data.Filter.EndDate) }
+					} else {
+						<a hx-get={ fmt.Sprintf("/files/search/partial?page=%d&limit=%d&status=%s&filename=%s&job_id=%s&hash=%s&start_date=%s&end_date=%s", data.Page - 1, data.Limit, data.Filter.Status, data.Filter.FileName, data.Filter.JobID, data.Filter.Hash, data.Filter.StartDate, data.Filter.EndDate) }
 						   hx-target="#search-results-container"
 						   hx-swap="innerHTML"
 						   hx-headers='{"X-HX-Request": "true"}'
-						   class="w-10 h-10 flex items-center justify-center bg-secondary-200 text-secondary-800 hover:bg-secondary-300 rounded dark:bg-secondary-700 dark:text-secondary-200 dark:hover:bg-secondary-600">
-							{ strconv.Itoa(i) }
+						   class="flex items-center justify-center px-3 h-8 ms-0 leading-tight text-gray-500 bg-white border border-gray-300 rounded-s-lg hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">
+							Previous
 						</a>
-					} else if i == data.Page-3 || i == data.Page+3 {
-						<span class="w-10 h-10 flex items-center justify-center">...</span>
+					}
+				</li>
+				
+				for i := 1; i <= data.TotalPages; i++ {
+					// Always show first page, last page, and pages around current page
+					if i == 1 || i == data.TotalPages || (i >= data.Page-2 && i <= data.Page+2) {
+						<li>
+							if i == data.Page {
+								<span aria-current="page" class="flex items-center justify-center px-3 h-8 text-blue-600 border border-gray-300 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 dark:border-gray-700 dark:bg-gray-700 dark:text-white">
+									{ strconv.Itoa(i) }
+								</span>
+							} else {
+								<a hx-get={ fmt.Sprintf("/files/search/partial?page=%d&limit=%d&status=%s&filename=%s&job_id=%s&hash=%s&start_date=%s&end_date=%s", i, data.Limit, data.Filter.Status, data.Filter.FileName, data.Filter.JobID, data.Filter.Hash, data.Filter.StartDate, data.Filter.EndDate) }
+								   hx-target="#search-results-container"
+								   hx-swap="innerHTML"
+								   hx-headers='{"X-HX-Request": "true"}'
+								   class="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">
+									{ strconv.Itoa(i) }
+								</a>
+							}
+						</li>
+					} else if (i == 2 && data.Page > 4) || (i == data.TotalPages-1 && data.Page < data.TotalPages-3) {
+						// Show ellipsis for gaps
+						<li>
+							<span class="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400">
+								...
+							</span>
+						</li>
 					}
 				}
 				
-				if data.Page < data.TotalPages {
-					<a hx-get={ fmt.Sprintf("/files/search/partial?page=%d&limit=%d&status=%s&filename=%s&job_id=%s&hash=%s&start_date=%s&end_date=%s", data.Page + 1, data.Limit, data.Filter.Status, data.Filter.FileName, data.Filter.JobID, data.Filter.Hash, data.Filter.StartDate, data.Filter.EndDate) }
-					   hx-target="#search-results-container"
-					   hx-swap="innerHTML"
-					   hx-headers='{"X-HX-Request": "true"}'
-					   class="w-10 h-10 flex items-center justify-center bg-secondary-200 text-secondary-800 hover:bg-secondary-300 rounded dark:bg-secondary-700 dark:text-secondary-200 dark:hover:bg-secondary-600">
-						<i class="fas fa-chevron-right"></i>
-					</a>
-				} else {
-					<span class="w-10 h-10 flex items-center justify-center bg-secondary-100 text-secondary-300 rounded dark:bg-secondary-800 dark:text-secondary-600 cursor-not-allowed">
-						<i class="fas fa-chevron-right"></i>
-					</span>
-				}
-			</div>
-		</div>
+				<li>
+					if data.Page == data.TotalPages {
+						<span class="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 rounded-e-lg cursor-not-allowed dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400">
+							Next
+						</span>
+					} else {
+						<a hx-get={ fmt.Sprintf("/files/search/partial?page=%d&limit=%d&status=%s&filename=%s&job_id=%s&hash=%s&start_date=%s&end_date=%s", data.Page + 1, data.Limit, data.Filter.Status, data.Filter.FileName, data.Filter.JobID, data.Filter.Hash, data.Filter.StartDate, data.Filter.EndDate) }
+						   hx-target="#search-results-container"
+						   hx-swap="innerHTML"
+						   hx-headers='{"X-HX-Request": "true"}'
+						   class="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 rounded-e-lg hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">
+							Next
+						</a>
+					}
+				</li>
+			</ul>
+		</nav>
 	}
 }
 

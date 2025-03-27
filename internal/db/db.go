@@ -1,6 +1,8 @@
 package db
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/glebarez/sqlite"
 	"github.com/starfleetcptn/gomft/internal/db/migrations"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -29,6 +32,7 @@ type User struct {
 	TwoFactorSecret     string `gorm:"type:varchar(32)"`
 	TwoFactorEnabled    bool   `gorm:"default:false"`
 	BackupCodes         string `gorm:"type:text"` // Comma-separated backup codes
+	Roles               []Role `gorm:"many2many:user_roles"`
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }
@@ -117,9 +121,13 @@ type TransferConfig struct {
 	UseBuiltinAuthDest       *bool `form:"use_builtin_auth_dest"`   // For Google and other OAuth services
 	GoogleDriveAuthenticated *bool // Whether Google Drive auth is completed
 	// General fields
-	ArchivePath            string `form:"archive_path"`
-	ArchiveEnabled         *bool  `gorm:"default:false" form:"archive_enabled"`
-	RcloneFlags            string `form:"rclone_flags"`
+	ArchivePath    string `form:"archive_path"`
+	ArchiveEnabled *bool  `gorm:"default:false" form:"archive_enabled"`
+	RcloneFlags    string `form:"rclone_flags"`
+	// Rclone command fields
+	CommandID              uint   `gorm:"default:1" form:"command_id"` // Default to 'copy' command ID (1)
+	CommandFlags           string `form:"command_flags"`               // JSON string of selected flags
+	CommandFlagValues      string `form:"command_flag_values"`         // JSON string of flag values by ID
 	DeleteAfterTransfer    *bool  `gorm:"default:false" form:"delete_after_transfer"`
 	SkipProcessedFiles     *bool  `gorm:"default:true" form:"skip_processed_files"`
 	MaxConcurrentTransfers int    `gorm:"default:4" form:"max_concurrent_transfers"` // Number of concurrent file transfers
@@ -219,6 +227,8 @@ type JobHistory struct {
 	BytesTransferred int64
 	FilesTransferred int
 	ErrorMessage     string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 // FileMetadata stores information about processed files
@@ -245,6 +255,31 @@ type DB struct {
 	*gorm.DB
 }
 
+// RcloneCommand represents a command available in rclone
+type RcloneCommand struct {
+	ID          uint                `gorm:"primarykey"`
+	Name        string              `gorm:"not null;uniqueIndex"`
+	Description string              `gorm:"not null"`
+	Category    string              `gorm:"not null;index"`
+	IsAdvanced  bool                `gorm:"not null;default:false"`
+	Flags       []RcloneCommandFlag `gorm:"foreignKey:CommandID;constraint:OnDelete:CASCADE"`
+	CreatedAt   time.Time           `gorm:"not null"`
+}
+
+// RcloneCommandFlag represents a flag that can be used with an rclone command
+type RcloneCommandFlag struct {
+	ID           uint          `gorm:"primarykey"`
+	CommandID    uint          `gorm:"not null;index"`
+	Command      RcloneCommand `gorm:"foreignKey:CommandID"`
+	Name         string        `gorm:"not null;index"`
+	ShortName    string
+	Description  string `gorm:"not null"`
+	DataType     string `gorm:"not null"` // string, int, bool, etc.
+	IsRequired   bool   `gorm:"not null;default:false"`
+	DefaultValue string
+	CreatedAt    time.Time `gorm:"not null"`
+}
+
 func Initialize(dbPath string) (*DB, error) {
 	// Create directory if it doesn't exist
 	dir := filepath.Dir(dbPath)
@@ -259,9 +294,21 @@ func Initialize(dbPath string) (*DB, error) {
 	}
 
 	// Initialize and run migrations
-	m := migrations.InitMigrations(db)
+	m := migrations.GetMigrations(db)
 	if err := m.Migrate(); err != nil {
 		return nil, fmt.Errorf("failed to run migrations: %v", err)
+	}
+
+	return &DB{DB: db}, nil
+}
+
+// ReopenWithoutMigrations reopens the database connection without running migrations
+// This should be used when temporarily closing and reopening the database
+func ReopenWithoutMigrations(dbPath string) (*DB, error) {
+	// Open database connection with modernc.org/sqlite driver
+	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to database: %v", err)
 	}
 
 	return &DB{DB: db}, nil
@@ -1507,4 +1554,556 @@ func (tc *TransferConfig) GetUseBuiltinAuthDest() bool {
 // SetUseBuiltinAuthDest sets the UseBuiltinAuthDest field
 func (tc *TransferConfig) SetUseBuiltinAuthDest(value bool) {
 	tc.UseBuiltinAuthDest = &value
+}
+
+// HasRole checks if the user has a specific role
+func (u *User) HasRole(roleName string) bool {
+	for _, role := range u.Roles {
+		if role.Name == roleName {
+			return true
+		}
+	}
+	return false
+}
+
+// HasPermission checks if the user has a specific permission through any of their roles
+func (u *User) HasPermission(permission string) bool {
+	for _, role := range u.Roles {
+		if role.HasPermission(permission) {
+			return true
+		}
+	}
+	return false
+}
+
+// GetRoles returns all roles assigned to the user
+func (u *User) GetRoles(tx *gorm.DB) ([]Role, error) {
+	var roles []Role
+	err := tx.Model(u).Association("Roles").Find(&roles)
+	return roles, err
+}
+
+// AssignRole assigns a role to the user
+func (u *User) AssignRole(tx *gorm.DB, roleID uint, assignedByID uint) error {
+	var role Role
+	if err := tx.First(&role, roleID).Error; err != nil {
+		return err
+	}
+	return role.AssignToUser(tx, u.ID, assignedByID)
+}
+
+// UnassignRole removes a role from the user
+func (u *User) UnassignRole(tx *gorm.DB, roleID uint, unassignedByID uint) error {
+	var role Role
+	if err := tx.First(&role, roleID).Error; err != nil {
+		return err
+	}
+	return role.UnassignFromUser(tx, u.ID, unassignedByID)
+}
+
+// Role operations
+func (db *DB) CreateRole(role *Role) error {
+	return db.Create(role).Error
+}
+
+func (db *DB) GetRole(id uint) (*Role, error) {
+	var role Role
+	err := db.First(&role, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &role, nil
+}
+
+func (db *DB) GetRoleByName(name string) (*Role, error) {
+	var role Role
+	err := db.Where("name = ?", name).First(&role).Error
+	if err != nil {
+		return nil, err
+	}
+	return &role, nil
+}
+
+func (db *DB) UpdateRole(role *Role) error {
+	return db.Save(role).Error
+}
+
+func (db *DB) DeleteRole(id uint) error {
+	var role Role
+	if err := db.First(&role, id).Error; err != nil {
+		return err
+	}
+
+	if role.IsSystemRole() {
+		return errors.New("cannot delete system role")
+	}
+
+	// Start transaction
+	tx := db.Begin()
+	if err := tx.Error; err != nil {
+		return err
+	}
+
+	// Delete role assignments
+	if err := tx.Exec("DELETE FROM user_roles WHERE role_id = ?", id).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Delete the role
+	if err := tx.Delete(&role).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
+}
+
+func (db *DB) ListRoles() ([]Role, error) {
+	var roles []Role
+	err := db.Find(&roles).Error
+	return roles, err
+}
+
+func (db *DB) GetUserRoles(userID uint) ([]Role, error) {
+	var user User
+	if err := db.Preload("Roles").First(&user, userID).Error; err != nil {
+		return nil, err
+	}
+	return user.Roles, nil
+}
+
+// AssignRoleToUser assigns a role to a user
+func (db *DB) AssignRoleToUser(roleID, userID, assignedByID uint) error {
+	var role Role
+	if err := db.First(&role, roleID).Error; err != nil {
+		return err
+	}
+
+	tx := db.Begin()
+	if err := tx.Error; err != nil {
+		return err
+	}
+
+	if err := role.AssignToUser(tx, userID, assignedByID); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
+}
+
+// UnassignRoleFromUser removes a role from a user
+func (db *DB) UnassignRoleFromUser(roleID, userID, unassignedByID uint) error {
+	var role Role
+	if err := db.First(&role, roleID).Error; err != nil {
+		return err
+	}
+
+	tx := db.Begin()
+	if err := tx.Error; err != nil {
+		return err
+	}
+
+	if err := role.UnassignFromUser(tx, userID, unassignedByID); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
+}
+
+// User struct method to set password with secure hashing
+func (u *User) SetPassword(password string) error {
+	// Validate password length
+	if len(password) < 8 {
+		return fmt.Errorf("password must be at least 8 characters long")
+	}
+
+	// Hash the password using bcrypt
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	// Store the hashed password
+	u.PasswordHash = string(hashedPassword)
+	u.LastPasswordChange = time.Now()
+
+	return nil
+}
+
+func (u *User) CheckPassword(password string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password))
+	return err == nil
+}
+
+// GetRcloneCommands returns all rclone commands
+func (db *DB) GetRcloneCommands() ([]RcloneCommand, error) {
+	var commands []RcloneCommand
+	err := db.Find(&commands).Error
+	return commands, err
+}
+
+// GetRcloneCommand returns a specific rclone command by ID
+func (db *DB) GetRcloneCommand(id uint) (*RcloneCommand, error) {
+	var command RcloneCommand
+	err := db.First(&command, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &command, nil
+}
+
+// GetRcloneCommandByName returns a specific rclone command by name
+func (db *DB) GetRcloneCommandByName(name string) (*RcloneCommand, error) {
+	var command RcloneCommand
+	err := db.Where("name = ?", name).First(&command).Error
+	if err != nil {
+		return nil, err
+	}
+	return &command, nil
+}
+
+// GetRcloneCommandsInCategory returns all commands in a specific category
+func (db *DB) GetRcloneCommandsInCategory(category string) ([]RcloneCommand, error) {
+	var commands []RcloneCommand
+	err := db.Where("category = ?", category).Find(&commands).Error
+	return commands, err
+}
+
+// GetRcloneCommandFlag returns a specific flag by ID
+func (db *DB) GetRcloneCommandFlag(id uint) (*RcloneCommandFlag, error) {
+	var flag RcloneCommandFlag
+	err := db.First(&flag, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &flag, nil
+}
+
+// GetRcloneCommandFlagByName returns a specific flag by name for a command
+func (db *DB) GetRcloneCommandFlagByName(commandID uint, name string) (*RcloneCommandFlag, error) {
+	var flag RcloneCommandFlag
+	err := db.Where("command_id = ? AND name = ?", commandID, name).First(&flag).Error
+	if err != nil {
+		return nil, err
+	}
+	return &flag, nil
+}
+
+// GetRcloneCommandFlags returns all flags for a specific command
+func (db *DB) GetRcloneCommandFlags(commandID uint) ([]RcloneCommandFlag, error) {
+	var flags []RcloneCommandFlag
+	err := db.Where("command_id = ?", commandID).Find(&flags).Error
+	return flags, err
+}
+
+// GetRcloneCommandWithFlags returns a command with all its flags
+func (db *DB) GetRcloneCommandWithFlags(commandID uint) (*RcloneCommand, error) {
+	var command RcloneCommand
+	err := db.Preload("Flags").First(&command, commandID).Error
+	if err != nil {
+		return nil, err
+	}
+	return &command, nil
+}
+
+// BuildRcloneCommand builds an rclone command string with the specified command and flags
+func (db *DB) BuildRcloneCommand(commandName string, flags map[string]string) (string, error) {
+	// Get the command details
+	command, err := db.GetRcloneCommandByName(commandName)
+	if err != nil {
+		return "", fmt.Errorf("command not found: %s", commandName)
+	}
+
+	// Start building the command string
+	cmdStr := "rclone " + command.Name
+
+	// Get all flags for this command
+	allFlags, err := db.GetRcloneCommandFlags(command.ID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get flags for command: %v", err)
+	}
+
+	// Create a map of flag details for easy lookup
+	flagDetails := make(map[string]RcloneCommandFlag)
+	for _, f := range allFlags {
+		flagDetails[f.Name] = f
+	}
+
+	// Add the flags to the command
+	for name, value := range flags {
+		// Check if the flag exists for this command
+		flag, exists := flagDetails[name]
+		if !exists {
+			return "", fmt.Errorf("invalid flag for command %s: %s", commandName, name)
+		}
+
+		// Handle different flag types
+		switch flag.DataType {
+		case "bool":
+			if value == "true" {
+				cmdStr += " " + name
+			}
+		default:
+			cmdStr += " " + name + " " + value
+		}
+	}
+
+	return cmdStr, nil
+}
+
+// ValidateRcloneFlags validates if the provided flags are valid for the command
+func (db *DB) ValidateRcloneFlags(commandName string, flags map[string]string) (bool, map[string]string) {
+	// Initialize errors map
+	errors := make(map[string]string)
+
+	// Get the command details
+	command, err := db.GetRcloneCommandByName(commandName)
+	if err != nil {
+		errors["command"] = "Command not found: " + commandName
+		return false, errors
+	}
+
+	// Get all flags for this command
+	allFlags, err := db.GetRcloneCommandFlags(command.ID)
+	if err != nil {
+		errors["command"] = "Failed to get flags for command"
+		return false, errors
+	}
+
+	// Create a map of flag details for easy lookup
+	flagDetails := make(map[string]RcloneCommandFlag)
+	for _, f := range allFlags {
+		flagDetails[f.Name] = f
+	}
+
+	// Check each provided flag
+	for name, value := range flags {
+		// Check if the flag exists for this command
+		flag, exists := flagDetails[name]
+		if !exists {
+			errors[name] = "Invalid flag for command " + commandName
+			continue
+		}
+
+		// Validate the flag value based on data type
+		switch flag.DataType {
+		case "int":
+			if _, err := strconv.Atoi(value); err != nil {
+				errors[name] = "Value must be an integer"
+			}
+		case "float":
+			if _, err := strconv.ParseFloat(value, 64); err != nil {
+				errors[name] = "Value must be a number"
+			}
+		case "bool":
+			if value != "true" && value != "false" {
+				errors[name] = "Value must be true or false"
+			}
+		}
+	}
+
+	// Check for required flags
+	for _, flag := range allFlags {
+		if flag.IsRequired {
+			if _, provided := flags[flag.Name]; !provided {
+				errors[flag.Name] = "This flag is required"
+			}
+		}
+	}
+
+	return len(errors) == 0, errors
+}
+
+// GetRcloneCategories returns all unique categories of rclone commands
+func (db *DB) GetRcloneCategories() ([]string, error) {
+	var categories []string
+	err := db.Model(&RcloneCommand{}).Distinct("category").Pluck("category", &categories).Error
+	return categories, err
+}
+
+// GetRcloneCommandsByAdvanced returns commands filtered by their advanced status
+func (db *DB) GetRcloneCommandsByAdvanced(isAdvanced bool) ([]RcloneCommand, error) {
+	var commands []RcloneCommand
+	err := db.Where("is_advanced = ?", isAdvanced).Find(&commands).Error
+	return commands, err
+}
+
+// SearchRcloneCommands searches for commands by name or description
+func (db *DB) SearchRcloneCommands(query string) ([]RcloneCommand, error) {
+	var commands []RcloneCommand
+	searchQuery := "%" + query + "%"
+	err := db.Where("name LIKE ? OR description LIKE ?", searchQuery, searchQuery).Find(&commands).Error
+	return commands, err
+}
+
+// GetRcloneFlagUsage returns a human-readable usage example for a flag
+func (flag *RcloneCommandFlag) GetUsageExample() string {
+	switch flag.DataType {
+	case "bool":
+		return flag.Name
+	case "int":
+		return fmt.Sprintf("%s=<number>", flag.Name)
+	case "float":
+		return fmt.Sprintf("%s=<decimal>", flag.Name)
+	case "string":
+		return fmt.Sprintf("%s=<text>", flag.Name)
+	default:
+		return fmt.Sprintf("%s=<value>", flag.Name)
+	}
+}
+
+// GetRcloneCommandUsage returns a basic usage example for a command with its required flags
+func (db *DB) GetRcloneCommandUsage(commandID uint) (string, error) {
+	command, err := db.GetRcloneCommandWithFlags(commandID)
+	if err != nil {
+		return "", err
+	}
+
+	usage := fmt.Sprintf("rclone %s [flags] <source> <dest>", command.Name)
+
+	// Add basic usage examples for required flags
+	requiredFlags := []string{}
+	for _, flag := range command.Flags {
+		if flag.IsRequired {
+			requiredFlags = append(requiredFlags, flag.GetUsageExample())
+		}
+	}
+
+	if len(requiredFlags) > 0 {
+		usage += "\n\nRequired flags:\n  " + strings.Join(requiredFlags, "\n  ")
+	}
+
+	return usage, nil
+}
+
+// ParseRcloneFlags parses a string of rclone flags into a map
+func ParseRcloneFlags(flagsStr string) map[string]string {
+	result := make(map[string]string)
+	if flagsStr == "" {
+		return result
+	}
+
+	// Split the flags string by spaces
+	parts := strings.Fields(flagsStr)
+
+	for i := 0; i < len(parts); i++ {
+		part := parts[i]
+
+		// Check if it's a flag (starts with --)
+		if strings.HasPrefix(part, "--") {
+			// Remove the -- prefix
+			flagName := part
+
+			// Check if the flag has a value
+			if i+1 < len(parts) && !strings.HasPrefix(parts[i+1], "--") {
+				// Next part is a value
+				result[flagName] = parts[i+1]
+				i++ // Skip the value in the next iteration
+			} else {
+				// Flag without value, treat as boolean
+				result[flagName] = "true"
+			}
+		}
+	}
+
+	return result
+}
+
+// RenderRcloneCommandHelp generates a help text for a command with its flags
+func (db *DB) RenderRcloneCommandHelp(commandID uint) (string, error) {
+	command, err := db.GetRcloneCommandWithFlags(commandID)
+	if err != nil {
+		return "", err
+	}
+
+	// Build the help text
+	help := fmt.Sprintf("COMMAND: %s\n", command.Name)
+	help += fmt.Sprintf("DESCRIPTION: %s\n\n", command.Description)
+	help += "FLAGS:\n"
+
+	// Group flags by required status
+	var requiredFlags, optionalFlags []RcloneCommandFlag
+	for _, flag := range command.Flags {
+		if flag.IsRequired {
+			requiredFlags = append(requiredFlags, flag)
+		} else {
+			optionalFlags = append(optionalFlags, flag)
+		}
+	}
+
+	// Add required flags
+	if len(requiredFlags) > 0 {
+		help += "  Required:\n"
+		for _, flag := range requiredFlags {
+			shortName := ""
+			if flag.ShortName != "" {
+				shortName = fmt.Sprintf(" (-%s)", flag.ShortName)
+			}
+			help += fmt.Sprintf("    %s%s - %s\n", flag.Name, shortName, flag.Description)
+			if flag.DataType != "bool" && flag.DefaultValue != "" {
+				help += fmt.Sprintf("      Default: %s\n", flag.DefaultValue)
+			}
+		}
+	}
+
+	// Add optional flags
+	if len(optionalFlags) > 0 {
+		help += "\n  Optional:\n"
+		for _, flag := range optionalFlags {
+			shortName := ""
+			if flag.ShortName != "" {
+				shortName = fmt.Sprintf(" (-%s)", flag.ShortName)
+			}
+			help += fmt.Sprintf("    %s%s - %s\n", flag.Name, shortName, flag.Description)
+			if flag.DataType != "bool" && flag.DefaultValue != "" {
+				help += fmt.Sprintf("      Default: %s\n", flag.DefaultValue)
+			}
+		}
+	}
+
+	return help, nil
+}
+
+func (db *DB) GetRcloneCommandFlagsMap(commandID uint) (map[uint]RcloneCommandFlag, error) {
+	flags, err := db.GetRcloneCommandFlags(commandID)
+	if err != nil {
+		return nil, err
+	}
+
+	flagsMap := make(map[uint]RcloneCommandFlag)
+	for _, flag := range flags {
+		flagsMap[flag.ID] = flag
+	}
+
+	return flagsMap, nil
+}
+
+// GetEnabledAuthProviders returns all enabled authentication providers
+// func (db *DB) GetEnabledAuthProviders(ctx context.Context) ([]AuthProvider, error) {
+// 	var providers []AuthProvider
+// 	result := db.WithContext(ctx).Where("enabled = ?", true).Find(&providers)
+// 	return providers, result.Error
+// }
+
+// GetExternalIdentity retrieves an external identity by provider ID and external ID
+func (db *DB) GetExternalIdentity(ctx context.Context, providerID uint, externalID string) (*ExternalUserIdentity, error) {
+	var identity ExternalUserIdentity
+	result := db.WithContext(ctx).Where("provider_id = ? AND external_id = ?", providerID, externalID).First(&identity)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &identity, nil
+}
+
+// CreateExternalIdentity creates a new external user identity
+func (db *DB) CreateExternalIdentity(ctx context.Context, identity *ExternalUserIdentity) error {
+	return db.WithContext(ctx).Create(identity).Error
+}
+
+// UpdateExternalIdentity updates an existing external user identity
+func (db *DB) UpdateExternalIdentity(ctx context.Context, identity *ExternalUserIdentity) error {
+	return db.WithContext(ctx).Save(identity).Error
 }

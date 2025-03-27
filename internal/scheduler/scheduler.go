@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -447,6 +448,9 @@ func (s *Scheduler) processConfiguration(job *db.Job, config *db.TransferConfig,
 
 	s.log.LogDebug("Creating job history record: %+v", history)
 
+	// Send webhook notification for job start
+	s.sendWebhookNotification(job, history, config)
+
 	// Execute the configuration transfer
 	s.executeConfigTransfer(*job, *config, history)
 }
@@ -461,6 +465,30 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 	// Get rclone config path
 	configPath := s.db.GetConfigRclonePath(&config)
 
+	// Get the command to use for the transfer
+	var rcloneCommand string = "copyto" // Default command
+	if config.CommandID > 0 {
+		// Get the command by ID
+		command, err := s.db.GetRcloneCommand(config.CommandID)
+		if err == nil && command != nil {
+			rcloneCommand = command.Name
+			s.log.LogDebug("Using rclone command %s for job %d, config %d", rcloneCommand, job.ID, config.ID)
+		} else {
+			s.log.LogError("Failed to get rclone command with ID %d: %v", config.CommandID, err)
+		}
+	}
+
+	// Determine command type to handle execution appropriately
+	commandType := determineCommandType(rcloneCommand)
+	s.log.LogDebug("Command %s is of type: %s", rcloneCommand, commandType)
+
+	// For non-file-by-file transfer commands, use the simple execution approach
+	if commandType != "transfer" || isDirectoryBasedTransfer(rcloneCommand) {
+		s.executeSimpleCommand(rcloneCommand, commandType, job, config, history, configPath)
+		return
+	}
+
+	// The rest of the function handles file-by-file transfer commands (copyto, moveto)
 	// Use lsjson to get file list and metadata in one operation instead of separate size and ls commands
 	listArgs := []string{
 		"--config", configPath,
@@ -484,6 +512,7 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 			}
 			// Send webhook notification for failure
 			s.sendWebhookNotification(&job, history, &config)
+
 			return
 		}
 		defer os.Remove(filterFile)
@@ -560,7 +589,7 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 	var files []map[string]interface{}
 	var totalSize int64
 	for _, entry := range fileEntries {
-		// Skip directories
+		// Process directories
 		if isDir, ok := entry["IsDir"].(bool); ok && isDir {
 			continue
 		}
@@ -749,14 +778,41 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 				wg.Done()
 			}()
 
-			// Prepare moveto command for transfer
+			// Prepare rclone command
 			transferArgs := []string{
 				"--config", configPath,
-				"copyto",
 				"--progress",
 				"--stats-one-line",
 				"--verbose",
 				"--stats", "1s",
+			}
+
+			// Add the command to the arguments
+			transferArgs = append(transferArgs, rcloneCommand)
+
+			// Add command flags if specified
+			if config.CommandFlags != "" {
+				var flagIDs []uint
+				if err := json.Unmarshal([]byte(config.CommandFlags), &flagIDs); err == nil {
+					// Get the flags for the selected command
+					for _, flagID := range flagIDs {
+						flag, err := s.db.GetRcloneCommandFlag(flagID)
+						if err == nil && flag != nil {
+							if flag.DataType == "bool" {
+								// For boolean flags, just add the flag name with -- prefix
+								transferArgs = append(transferArgs, "--"+flag.Name)
+							} else if flag.DefaultValue != "" {
+								// For flags with default values, use the default with -- prefix
+								transferArgs = append(transferArgs, "--"+flag.Name, flag.DefaultValue)
+							}
+							s.log.LogDebug("Added flag %s for job %d, config %d", flag.Name, job.ID, config.ID)
+						} else {
+							s.log.LogError("Failed to get rclone flag with ID %d: %v", flagID, err)
+						}
+					}
+				} else {
+					s.log.LogError("Failed to unmarshal command flags for job %d, config %d: %v", job.ID, config.ID, err)
+				}
 			}
 
 			// Source and destination paths
@@ -974,8 +1030,26 @@ func (s *Scheduler) executeConfigTransfer(job db.Job, config db.TransferConfig, 
 		s.log.LogError("Error updating job history for job %d, config %d: %v", job.ID, config.ID, err)
 	}
 
+	// Create job notification
+	if err := s.createJobNotification(&job, history); err != nil {
+		s.log.LogError("Failed to create job notification", "jobID", job.ID, "error", err)
+	}
+
 	// Send webhook notification for success or with errors
 	s.sendWebhookNotification(&job, history, &config)
+}
+
+// isDirectoryBasedTransfer checks if a transfer command operates on directories rather than individual files
+func isDirectoryBasedTransfer(commandName string) bool {
+	// These commands operate on entire directories, not file-by-file
+	dirBasedCommands := map[string]bool{
+		"sync":   true,
+		"bisync": true,
+		"copy":   true,
+		"move":   true,
+	}
+
+	return dirBasedCommands[commandName]
 }
 
 // ProcessOutputPattern processes an output pattern with variables and returns the result
@@ -1098,20 +1172,25 @@ func (s *Scheduler) checkFileProcessingHistory(jobID uint, fileName string) (*db
 
 // sendWebhookNotification sends a notification to the configured webhook URL
 func (s *Scheduler) sendWebhookNotification(job *db.Job, history *db.JobHistory, config *db.TransferConfig) {
-	if !job.GetWebhookEnabled() || job.WebhookURL == "" {
-		return
+	// First, handle job-specific webhook if configured
+	if job.GetWebhookEnabled() && job.WebhookURL != "" {
+		// Skip notifications based on settings
+		if history.Status == "completed" && !job.GetNotifyOnSuccess() {
+			s.log.LogDebug("Skipping success notification for job %d (notifyOnSuccess=false)", job.ID)
+		} else if history.Status == "failed" && !job.GetNotifyOnFailure() {
+			s.log.LogDebug("Skipping failure notification for job %d (notifyOnFailure=false)", job.ID)
+		} else {
+			s.log.LogInfo("Sending job-specific webhook notification for job %d", job.ID)
+			s.sendJobWebhookNotification(job, history, config)
+		}
 	}
 
-	// Skip notifications based on settings
-	if history.Status == "completed" && !job.GetNotifyOnSuccess() {
-		return
-	}
-	if history.Status == "failed" && !job.GetNotifyOnFailure() {
-		return
-	}
+	// Next, process global notification services
+	s.sendGlobalNotifications(job, history, config)
+}
 
-	s.log.LogInfo("Sending webhook notification for job %d", job.ID)
-
+// sendJobWebhookNotification sends a notification to the job's configured webhook URL
+func (s *Scheduler) sendJobWebhookNotification(job *db.Job, history *db.JobHistory, config *db.TransferConfig) {
 	// Create the payload with useful information
 	payload := map[string]interface{}{
 		"event_type":        "job_execution",
@@ -1207,4 +1286,1321 @@ func (s *Scheduler) sendWebhookNotification(job *db.Job, history *db.JobHistory,
 			s.log.LogDebug("Webhook response: %s", respBody)
 		}
 	}
+}
+
+// sendGlobalNotifications sends notifications through all configured notification services
+func (s *Scheduler) sendGlobalNotifications(job *db.Job, history *db.JobHistory, config *db.TransferConfig) {
+	// Fetch all enabled notification services
+	services, err := s.db.GetNotificationServices(true)
+	if err != nil {
+		s.log.LogError("Error fetching notification services: %v", err)
+		return
+	}
+
+	if len(services) == 0 {
+		s.log.LogDebug("No enabled notification services found")
+		return
+	}
+
+	s.log.LogInfo("Found %d enabled notification services", len(services))
+
+	// Determine event type based on job status
+	var eventType string
+	switch history.Status {
+	case "running":
+		eventType = "job_start"
+	case "completed", "completed_with_errors":
+		eventType = "job_complete"
+	case "failed":
+		eventType = "job_error"
+	default:
+		eventType = "job_status"
+	}
+
+	// Process each notification service
+	for i := range services {
+		service := &services[i] // Use pointer to update stats
+		s.log.LogInfo("Processing notification service %s (%s)", service.Name, service.Type)
+		// Check if this service should handle this event type
+		shouldSend := false
+		for _, trigger := range service.EventTriggers {
+			if trigger == eventType {
+				shouldSend = true
+				break
+			}
+		}
+
+		// Skip if this service doesn't handle this event type
+		if !shouldSend {
+			s.log.LogDebug("Skipping notification service %s (%s) for event %s (not in triggers)",
+				service.Name, service.Type, eventType)
+			continue
+		}
+
+		s.log.LogInfo("Sending notification via service %s (%s) for job %d",
+			service.Name, service.Type, job.ID)
+
+		// Send notification based on service type
+		var notifyErr error
+		switch service.Type {
+		case "email":
+			notifyErr = s.sendEmailNotification(service, job, history, config, eventType)
+		case "webhook":
+			notifyErr = s.sendServiceWebhookNotification(service, job, history, config, eventType)
+		case "pushbullet":
+			notifyErr = s.sendPushbulletNotification(service, job, history, config, eventType)
+		case "ntfy":
+			notifyErr = s.sendNtfyNotification(service, job, history, config, eventType)
+		case "gotify":
+			notifyErr = s.sendGotifyNotification(service, job, history, config, eventType)
+		case "pushover":
+			notifyErr = s.sendPushoverNotification(service, job, history, config, eventType)
+		default:
+			s.log.LogError("Unsupported notification service type: %s", service.Type)
+			continue
+		}
+
+		// Update service success/failure count
+		if notifyErr != nil {
+			service.FailureCount++
+			s.log.LogError("Notification service %s failed: %v", service.Name, notifyErr)
+		} else {
+			service.SuccessCount++
+			service.LastUsed = time.Now()
+			s.log.LogInfo("Notification service %s sent successfully", service.Name)
+		}
+
+		// Update notification service stats in the database
+		if err := s.db.UpdateNotificationService(service); err != nil {
+			s.log.LogError("Error updating notification service stats: %v", err)
+		}
+	}
+}
+
+// sendEmailNotification sends an email notification using the configured email service
+func (s *Scheduler) sendEmailNotification(service *db.NotificationService, job *db.Job, history *db.JobHistory, config *db.TransferConfig, eventType string) error {
+	s.log.LogDebug("Preparing email notification via service %s for job %d", service.Name, job.ID)
+
+	// Extract SMTP settings from service config
+	smtpHost := service.Config["smtp_host"]
+	smtpPortStr := service.Config["smtp_port"]
+	fromEmail := service.Config["from_email"]
+	toEmail := service.Config["to_email"]
+
+	// Validate required settings
+	if smtpHost == "" || smtpPortStr == "" || fromEmail == "" || toEmail == "" {
+		return fmt.Errorf("missing required SMTP settings")
+	}
+
+	// Parse SMTP port
+	smtpPort, err := strconv.Atoi(smtpPortStr)
+	if err != nil {
+		return fmt.Errorf("invalid SMTP port: %v", err)
+	}
+
+	// Prepare email content
+	subject := fmt.Sprintf("[GoMFT] Job %s: %s", job.Name, history.Status)
+	body := generateEmailBody(job, history, config, eventType)
+
+	// TODO: Implement actual email sending logic
+	// This would typically involve using a package like "net/smtp" or a third-party
+	// email library to send the actual email.
+	// For actual implementation, you would use:
+	// - smtpUsername := service.Config["smtp_username"]
+	// - smtpPassword := service.Config["smtp_password"]
+
+	s.log.LogInfo("Email would be sent to %s with subject: %s", toEmail, subject)
+	s.log.LogDebug("Email body: %s", body)
+
+	// Placeholder for actual email sending
+	// For now, we'll just log that the email would be sent
+	s.log.LogInfo("Email notification prepared (SMTP: %s:%d, From: %s, To: %s)",
+		smtpHost, smtpPort, fromEmail, toEmail)
+
+	return nil
+}
+
+// generateEmailBody creates the email body for job notifications
+func generateEmailBody(job *db.Job, history *db.JobHistory, config *db.TransferConfig, eventType string) string {
+	var b strings.Builder
+
+	b.WriteString(fmt.Sprintf("Job: %s (ID: %d)\n", job.Name, job.ID))
+	b.WriteString(fmt.Sprintf("Status: %s\n", history.Status))
+	b.WriteString(fmt.Sprintf("Start Time: %s\n", history.StartTime.Format(time.RFC3339)))
+
+	if history.EndTime != nil {
+		b.WriteString(fmt.Sprintf("End Time: %s\n", history.EndTime.Format(time.RFC3339)))
+		duration := history.EndTime.Sub(history.StartTime)
+		b.WriteString(fmt.Sprintf("Duration: %.2f seconds\n", duration.Seconds()))
+	}
+
+	b.WriteString(fmt.Sprintf("Files Transferred: %d\n", history.FilesTransferred))
+	b.WriteString(fmt.Sprintf("Bytes Transferred: %d\n", history.BytesTransferred))
+
+	b.WriteString("\nTransfer Configuration:\n")
+	b.WriteString(fmt.Sprintf("Name: %s (ID: %d)\n", config.Name, config.ID))
+	b.WriteString(fmt.Sprintf("Source: %s:%s\n", config.SourceType, config.SourcePath))
+	b.WriteString(fmt.Sprintf("Destination: %s:%s\n", config.DestinationType, config.DestinationPath))
+
+	if history.ErrorMessage != "" {
+		b.WriteString("\nError Details:\n")
+		b.WriteString(history.ErrorMessage)
+	}
+
+	return b.String()
+}
+
+// sendServiceWebhookNotification sends a webhook notification using a configured notification service
+func (s *Scheduler) sendServiceWebhookNotification(service *db.NotificationService, job *db.Job, history *db.JobHistory, config *db.TransferConfig, eventType string) error {
+	s.log.LogDebug("Preparing webhook notification via service %s for job %d", service.Name, job.ID)
+
+	// Extract webhook settings
+	webhookURL := service.Config["webhook_url"]
+	method := service.Config["method"]
+	if method == "" {
+		method = "POST" // Default to POST if not specified
+	}
+
+	// Validate required settings
+	if webhookURL == "" {
+		return fmt.Errorf("missing webhook URL")
+	}
+
+	// Prepare payload
+	var payload map[string]interface{}
+
+	// Use custom payload template if provided
+	if service.PayloadTemplate != "" {
+		// Parse the template and fill in variables
+		payload = generateCustomPayload(service.PayloadTemplate, job, history, config, eventType)
+	} else {
+		// Use default payload format
+		payload = generateDefaultPayload(job, history, config, eventType)
+	}
+
+	// Convert payload to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("error marshaling webhook payload: %v", err)
+	}
+
+	s.log.LogDebug("Webhook payload: %s", string(jsonPayload))
+
+	// Create HTTP request
+	req, err := http.NewRequest(method, webhookURL, bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		return fmt.Errorf("error creating webhook request: %v", err)
+	}
+
+	// Set default headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "GoMFT-Notification/1.0")
+
+	// Add signature if secret key is provided
+	if service.SecretKey != "" {
+		h := hmac.New(sha256.New, []byte(service.SecretKey))
+		h.Write(jsonPayload)
+		signature := hex.EncodeToString(h.Sum(nil))
+		req.Header.Set("X-GoMFT-Signature", signature)
+	}
+
+	// Add custom headers if specified
+	if headersStr := service.Config["headers"]; headersStr != "" {
+		var headers map[string]string
+		if err := json.Unmarshal([]byte(headersStr), &headers); err == nil {
+			for key, value := range headers {
+				req.Header.Set(key, value)
+			}
+		}
+	}
+
+	s.log.LogDebug("Webhook headers: %+v", req.Header)
+
+	// Determine timeout based on retry policy
+	timeout := 10 * time.Second
+	maxRetries := 0
+
+	switch service.RetryPolicy {
+	case "none":
+		maxRetries = 0
+	case "simple":
+		maxRetries = 3
+		timeout = 15 * time.Second
+	case "exponential":
+		maxRetries = 5
+		timeout = 30 * time.Second
+	default:
+		// Default to simple
+		maxRetries = 3
+		timeout = 15 * time.Second
+	}
+
+	// Prepare client with timeout
+	client := &http.Client{
+		Timeout: timeout,
+	}
+
+	// Attempt to send with retries
+	var resp *http.Response
+	var lastErr error
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			// Wait before retry with increasing backoff
+			backoffDuration := time.Duration(1<<uint(attempt-1)) * time.Second
+			s.log.LogInfo("Retrying webhook notification (attempt %d/%d) after %v",
+				attempt, maxRetries, backoffDuration)
+			time.Sleep(backoffDuration)
+		}
+
+		resp, err = client.Do(req)
+		if err == nil {
+			// Check for success status code
+			if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				defer resp.Body.Close()
+				s.log.LogInfo("Webhook notification sent successfully (status: %d)", resp.StatusCode)
+				return nil
+			}
+
+			// Error status code
+			respBody, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			lastErr = fmt.Errorf("webhook returned status %d: %s", resp.StatusCode, respBody)
+			s.log.LogError("Webhook error (attempt %d/%d): %v", attempt+1, maxRetries+1, lastErr)
+		} else {
+			// Network or request error
+			lastErr = fmt.Errorf("webhook request failed: %v", err)
+			s.log.LogError("Webhook request error (attempt %d/%d): %v", attempt+1, maxRetries+1, lastErr)
+		}
+	}
+
+	return lastErr
+}
+
+// generateDefaultPayload creates a standard webhook payload
+func generateDefaultPayload(job *db.Job, history *db.JobHistory, config *db.TransferConfig, eventType string) map[string]interface{} {
+	// get event type
+	switch eventType {
+	case "job_start":
+		eventType = "Job Started"
+	case "job_complete":
+		eventType = "Job Completed"
+	case "job_fail":
+		eventType = "Job Failed"
+	}
+
+	payload := map[string]interface{}{
+		"event": eventType,
+		"job": map[string]interface{}{
+			"id":             job.ID,
+			"name":           job.Name,
+			"status":         history.Status,
+			"event":          eventType,
+			"message":        history.ErrorMessage,
+			"started_at":     history.StartTime.Format(time.RFC3339),
+			"config_id":      config.ID,
+			"config_name":    config.Name,
+			"transfer_bytes": history.BytesTransferred,
+			"file_count":     history.FilesTransferred,
+		},
+		"instance": map[string]interface{}{
+			"id":          "gomft",
+			"name":        "GoMFT",
+			"version":     "1.0",        // TODO: Get actual version
+			"environment": "production", // TODO: Get from env
+		},
+		"timestamp": time.Now().Format(time.RFC3339),
+	}
+
+	if history.EndTime != nil {
+		payload["job"].(map[string]interface{})["completed_at"] = history.EndTime.Format(time.RFC3339)
+		duration := history.EndTime.Sub(history.StartTime)
+		payload["job"].(map[string]interface{})["duration_seconds"] = duration.Seconds()
+	}
+
+	return payload
+}
+
+// generateCustomPayload creates a webhook payload from a template
+func generateCustomPayload(template string, job *db.Job, history *db.JobHistory, config *db.TransferConfig, eventType string) map[string]interface{} {
+	// Start with the default payload as a base
+	defaultPayload := generateDefaultPayload(job, history, config, eventType)
+
+	// Parse the template string to JSON
+	var customPayload map[string]interface{}
+	if err := json.Unmarshal([]byte(template), &customPayload); err != nil {
+		// If template can't be parsed, fall back to default payload
+		return defaultPayload
+	}
+
+	// Replace variables in the template
+	// This is a simplified version - a real implementation would do deep traversal
+	// and replace all variables in the structure
+	processedPayload := processPayloadVariables(customPayload, defaultPayload)
+
+	return processedPayload
+}
+
+// processPayloadVariables recursively processes a payload structure and replaces variables
+func processPayloadVariables(customPayload map[string]interface{}, variables map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	// Process each key-value pair in the custom payload
+	for key, value := range customPayload {
+		switch v := value.(type) {
+		case string:
+			// Replace string variables
+			result[key] = replaceVariables(v, variables)
+		case map[string]interface{}:
+			// Recursively process nested maps
+			result[key] = processPayloadVariables(v, variables)
+		case []interface{}:
+			// Process arrays
+			result[key] = processArrayVariables(v, variables)
+		default:
+			// Keep other types as is
+			result[key] = value
+		}
+	}
+
+	return result
+}
+
+// processArrayVariables processes array elements for variable replacement
+func processArrayVariables(array []interface{}, variables map[string]interface{}) []interface{} {
+	result := make([]interface{}, len(array))
+
+	for i, value := range array {
+		switch v := value.(type) {
+		case string:
+			result[i] = replaceVariables(v, variables)
+		case map[string]interface{}:
+			result[i] = processPayloadVariables(v, variables)
+		case []interface{}:
+			result[i] = processArrayVariables(v, variables)
+		default:
+			result[i] = value
+		}
+	}
+
+	return result
+}
+
+// replaceVariables replaces variable placeholders in a string with their values
+func replaceVariables(template string, variables map[string]interface{}) string {
+	// Check for variable pattern like {{job.name}}
+	re := regexp.MustCompile(`{{([^{}]+)}}`)
+	result := re.ReplaceAllStringFunc(template, func(match string) string {
+		// Extract variable path (e.g., "job.name")
+		varPath := re.FindStringSubmatch(match)[1]
+		parts := strings.Split(varPath, ".")
+
+		// Navigate the variables structure to find the value
+		var current interface{} = variables
+		for _, part := range parts {
+			if m, ok := current.(map[string]interface{}); ok {
+				if val, exists := m[part]; exists {
+					current = val
+				} else {
+					return match // Keep original if not found
+				}
+			} else {
+				return match // Keep original if structure doesn't match
+			}
+		}
+
+		// Convert the found value to string
+		switch v := current.(type) {
+		case string:
+			return v
+		case int, int64, uint, uint64, float32, float64:
+			return fmt.Sprintf("%v", v)
+		case bool:
+			return fmt.Sprintf("%v", v)
+		case time.Time:
+			return v.Format(time.RFC3339)
+		default:
+			// For complex types, convert to JSON
+			if bytes, err := json.Marshal(v); err == nil {
+				return string(bytes)
+			}
+			return match
+		}
+	})
+
+	return result
+}
+
+func (s *Scheduler) updateJobStatus(jobID uint, status string, startTime, endTime time.Time, message string) (*db.JobHistory, error) {
+	// Create the history record
+	history := &db.JobHistory{
+		JobID:        jobID,
+		Status:       status,
+		StartTime:    startTime,
+		EndTime:      &endTime,
+		ErrorMessage: message,
+	}
+
+	// Add code to create notifications for job events
+	if job, err := s.db.GetJob(jobID); err == nil {
+		// Get the user who created the job
+		userID := job.CreatedBy
+
+		// Create job title from job name or ID
+		jobTitle := job.Name
+		if jobTitle == "" {
+			jobTitle = fmt.Sprintf("Job #%d", job.ID)
+		}
+
+		// Check which notification to send based on status
+		var notificationType db.NotificationType
+		var title string
+		var message string
+
+		switch status {
+		case "running":
+			notificationType = db.NotificationJobStart
+			title = "Job Started"
+			message = jobTitle
+		case "completed":
+			notificationType = db.NotificationJobComplete
+			title = "Job Complete"
+			message = jobTitle
+		case "failed":
+			notificationType = db.NotificationJobFail
+			title = "Job Failed"
+			message = jobTitle
+			if history.ErrorMessage != "" {
+				message = jobTitle + ": " + history.ErrorMessage
+			}
+		default:
+			// Don't create notifications for other statuses
+			return history, nil
+		}
+
+		// Create the notification
+		err = s.db.CreateJobNotification(
+			userID,
+			jobID,
+			history.ID, // Use the job history ID
+			notificationType,
+			title,
+			message,
+		)
+
+		if err != nil {
+			s.log.LogError("Failed to create job notification", "jobID", job.ID, "error", err)
+			// Continue anyway, not critical
+		}
+	}
+
+	return history, nil
+}
+
+// Create a job history record and send notification
+func (s *Scheduler) createJobHistoryAndNotify(job *db.Job, status string, startTime time.Time, endTime time.Time, message string) error {
+	// Create the job history entry
+	history := db.JobHistory{
+		JobID:        job.ID,
+		Status:       status,
+		StartTime:    startTime,
+		EndTime:      &endTime,
+		ErrorMessage: message,
+	}
+
+	// Save to database
+	if err := s.db.Create(&history).Error; err != nil {
+		s.log.LogError("Failed to create job history", "jobID", job.ID, "error", err)
+		return err
+	}
+
+	// Create notification
+	err := s.createJobNotification(job, &history)
+	if err != nil {
+		s.log.LogError("Failed to create job notification", "jobID", job.ID, "error", err)
+		// Continue anyway - notification is not critical
+	}
+
+	return nil
+}
+
+// Create a notification for a job event
+func (s *Scheduler) createJobNotification(job *db.Job, history *db.JobHistory) error {
+	// Get the user who created the job
+	userID := job.CreatedBy
+
+	// Create job title from job name or ID
+	jobTitle := job.Name
+	if jobTitle == "" {
+		jobTitle = fmt.Sprintf("Job #%d", job.ID)
+	}
+
+	// Determine notification type and content
+	var notificationType db.NotificationType
+	var title string
+	var message string
+
+	switch history.Status {
+	case "running":
+		notificationType = db.NotificationJobStart
+		title = "Job Started"
+		message = jobTitle
+	case "completed":
+		notificationType = db.NotificationJobComplete
+		title = "Job Complete"
+		message = jobTitle
+	case "failed":
+		notificationType = db.NotificationJobFail
+		title = "Job Failed"
+		message = jobTitle
+		if history.ErrorMessage != "" {
+			message = jobTitle + ": " + history.ErrorMessage
+		}
+	default:
+		// Don't create notifications for other statuses
+		return nil
+	}
+
+	// Create the notification
+	return s.db.CreateJobNotification(
+		userID,
+		job.ID,
+		history.ID,
+		notificationType,
+		title,
+		message,
+	)
+}
+
+// determineCommandType categorizes rclone commands into types for execution
+func determineCommandType(commandName string) string {
+	// File transfer commands
+	transferCommands := map[string]bool{
+		"copy":   true,
+		"copyto": true,
+		"move":   true,
+		"moveto": true,
+		"sync":   true,
+		"bisync": true,
+	}
+
+	// Listing commands
+	listingCommands := map[string]bool{
+		"ls":          true,
+		"lsd":         true,
+		"lsl":         true,
+		"lsf":         true,
+		"lsjson":      true,
+		"listremotes": true,
+	}
+
+	// Information commands
+	infoCommands := map[string]bool{
+		"md5sum":  true,
+		"sha1sum": true,
+		"size":    true,
+		"version": true,
+	}
+
+	// Directory operations
+	dirCommands := map[string]bool{
+		"mkdir":  true,
+		"rmdir":  true,
+		"rmdirs": true,
+	}
+
+	// Destructive commands
+	destructiveCommands := map[string]bool{
+		"delete": true,
+		"purge":  true,
+	}
+
+	// Maintenance commands
+	maintenanceCommands := map[string]bool{
+		"cleanup": true,
+		"dedupe":  true,
+		"check":   true,
+	}
+
+	// Specialized commands
+	specialCommands := map[string]bool{
+		"obscure":    true,
+		"cryptcheck": true,
+	}
+
+	// Determine the command type
+	if transferCommands[commandName] {
+		return "transfer"
+	} else if listingCommands[commandName] {
+		return "listing"
+	} else if infoCommands[commandName] {
+		return "info"
+	} else if dirCommands[commandName] {
+		return "directory"
+	} else if destructiveCommands[commandName] {
+		return "destructive"
+	} else if maintenanceCommands[commandName] {
+		return "maintenance"
+	} else if specialCommands[commandName] {
+		return "special"
+	}
+
+	// Default to transfer if unknown
+	return "transfer"
+}
+
+// executeSimpleCommand executes a simple command (non file-by-file transfer)
+func (s *Scheduler) executeSimpleCommand(cmdName string, cmdType string, job db.Job, config db.TransferConfig, history *db.JobHistory, configPath string) {
+	s.log.LogInfo("Executing simple command '%s' of type '%s' for job %d, config %d", cmdName, cmdType, job.ID, config.ID)
+
+	// Prepare base arguments
+	baseArgs := []string{
+		"--config", configPath,
+		"--progress",
+		"--stats-one-line",
+		"--verbose",
+		"--stats", "1s",
+	}
+
+	// Add the command name
+	args := append(baseArgs, cmdName)
+
+	// Add command flags if specified
+	if config.CommandFlags != "" {
+		var flagIDs []uint
+		if err := json.Unmarshal([]byte(config.CommandFlags), &flagIDs); err == nil {
+			// Get the flags for the selected command
+			for _, flagID := range flagIDs {
+				flag, err := s.db.GetRcloneCommandFlag(flagID)
+				if err == nil && flag != nil {
+					if flag.DataType == "bool" {
+						// For boolean flags, just add the flag name with -- prefix
+						args = append(args, "--"+flag.Name)
+					} else if flag.DefaultValue != "" {
+						// For flags with default values, use the default with -- prefix
+						args = append(args, "--"+flag.Name, flag.DefaultValue)
+					}
+					s.log.LogDebug("Added flag %s for job %d, config %d", flag.Name, job.ID, config.ID)
+				} else {
+					s.log.LogError("Failed to get rclone flag with ID %d: %v", flagID, err)
+				}
+			}
+		} else {
+			s.log.LogError("Failed to unmarshal command flags for job %d, config %d: %v", job.ID, config.ID, err)
+		}
+	}
+
+	// Add custom flags if specified
+	if config.RcloneFlags != "" {
+		customFlags := strings.Split(config.RcloneFlags, " ")
+		args = append(args, customFlags...)
+		s.log.LogDebug("Added custom flags for job %d, config %d: %v", job.ID, config.ID, customFlags)
+	}
+
+	// Prepare source and destination paths
+	var sourcePath, destPath string
+
+	// Handle source path with bucket for S3-compatible storage
+	if config.SourceType == "s3" || config.SourceType == "minio" || config.SourceType == "b2" {
+		sourcePath = fmt.Sprintf("source_%d:%s", config.ID, config.SourceBucket)
+		if config.SourcePath != "" && config.SourcePath != "/" {
+			sourcePath = fmt.Sprintf("source_%d:%s/%s", config.ID, config.SourceBucket, config.SourcePath)
+		}
+	} else {
+		sourcePath = fmt.Sprintf("source_%d:%s", config.ID, config.SourcePath)
+	}
+
+	// Handle destination path with bucket for S3-compatible storage
+	if config.DestinationType == "s3" || config.DestinationType == "minio" || config.DestinationType == "b2" {
+		destPath = fmt.Sprintf("dest_%d:%s", config.ID, config.DestBucket)
+		if config.DestinationPath != "" && config.DestinationPath != "/" {
+			destPath = fmt.Sprintf("dest_%d:%s/%s", config.ID, config.DestBucket, config.DestinationPath)
+		}
+	} else {
+		destPath = fmt.Sprintf("dest_%d:%s", config.ID, config.DestinationPath)
+	}
+
+	// Add appropriate paths based on command type
+	switch cmdType {
+	case "transfer":
+		// Directory-based transfers and file-specific transfers handled here
+		args = append(args, sourcePath, destPath)
+	case "maintenance":
+		// Check command needs both source and destination, others may just need source
+		if cmdName == "check" {
+			args = append(args, sourcePath, destPath)
+		} else {
+			args = append(args, sourcePath)
+		}
+	case "listing":
+		// Listing commands only need source path
+		args = append(args, sourcePath)
+	case "info":
+		// Info commands typically need only source path
+		args = append(args, sourcePath)
+	case "directory":
+		// Directory operations might need one or both paths depending on operation
+		if cmdName == "rmdirs" && strings.Contains(config.RcloneFlags, "--dst") {
+			// Special case: rmdirs with --dst flag needs both paths
+			args = append(args, sourcePath, destPath)
+		} else {
+			// Default case: just source path
+			args = append(args, sourcePath)
+		}
+	case "destructive":
+		// Destructive commands only need source path
+		args = append(args, sourcePath)
+	case "special":
+		// Special commands handled case by case
+		if cmdName == "cryptcheck" {
+			args = append(args, sourcePath, destPath)
+		} else if cmdName == "obscure" || cmdName == "version" || cmdName == "listremotes" {
+			// These commands don't need paths at all
+		} else {
+			args = append(args, sourcePath)
+		}
+	default:
+		// Default to source path only
+		args = append(args, sourcePath)
+	}
+
+	// Execute the command
+	rclonePath := os.Getenv("RCLONE_PATH")
+	if rclonePath == "" {
+		rclonePath = "rclone"
+	}
+
+	s.log.LogDebug("Full command: %s %v", rclonePath, args)
+	cmd := exec.Command(rclonePath, args...)
+
+	// Capture output
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	// Start timer for operation
+	startTime := time.Now()
+
+	// Run the command
+	err := cmd.Run()
+
+	// Calculate duration
+	duration := time.Since(startTime)
+
+	// Update history with basic info
+	history.EndTime = &time.Time{}
+	*history.EndTime = startTime.Add(duration)
+
+	// Check for pattern in stderr that indicates successful completion with warnings
+	// Some commands like sync may complete successfully but with warnings
+	successWithWarnings := strings.Contains(stderr.String(), "Transferred:") &&
+		strings.Contains(stderr.String(), "Errors:") &&
+		strings.Contains(stderr.String(), "Checks:")
+
+	// Process results
+	if err != nil && !successWithWarnings {
+		s.log.LogError("Error executing command '%s' for job %d, config %d: %v", cmdName, job.ID, config.ID, err)
+		s.log.LogError("Command stderr: %s", stderr.String())
+
+		history.Status = "failed"
+		history.ErrorMessage = fmt.Sprintf("Command Error: %v\nStderr: %s", err, stderr.String())
+	} else {
+		s.log.LogInfo("Successfully executed command '%s' for job %d, config %d (duration: %v)",
+			cmdName, job.ID, config.ID, duration)
+
+		// Handle different command output types
+		if cmdType == "listing" {
+			// For listing commands, count the number of lines in the output as "files processed"
+			lines := strings.Count(stdout.String(), "\n")
+			history.FilesTransferred = lines
+			history.Status = "completed"
+		} else if cmdType == "transfer" {
+			// Try to extract transfer statistics from command output
+			history.Status = "completed"
+
+			// Look for metrics in stderr which is where rclone puts stats
+			// Extract bytes transferred if available
+			bytesRegex := regexp.MustCompile(`Transferred:\s+(\d+)\s+/\s+(\d+)\s+Bytes`)
+			if matches := bytesRegex.FindStringSubmatch(stderr.String()); len(matches) >= 3 {
+				if bytesTransferred, err := strconv.ParseInt(matches[1], 10, 64); err == nil {
+					history.BytesTransferred = bytesTransferred
+				}
+			}
+
+			// Extract files transferred if available
+			filesRegex := regexp.MustCompile(`Transferred:\s+(\d+)\s+/\s+(\d+)\s+Files`)
+			if matches := filesRegex.FindStringSubmatch(stderr.String()); len(matches) >= 3 {
+				if filesTransferred, err := strconv.Atoi(matches[1]); err == nil {
+					history.FilesTransferred = filesTransferred
+				}
+			}
+		} else {
+			// For other commands, we don't have file counts, but the command completed
+			history.Status = "completed"
+		}
+
+		// Store command output in the history for reference
+		if cmdType == "listing" || cmdType == "info" {
+			// For listing and info commands, the output is the result
+			// Limit to first 1000 characters to avoid huge entries
+			output := stdout.String()
+			if len(output) > 1000 {
+				output = output[:997] + "..."
+			}
+			history.ErrorMessage = fmt.Sprintf("Command Output:\n%s", output)
+		}
+	}
+
+	// Update job history in the database
+	if err := s.db.UpdateJobHistory(history); err != nil {
+		s.log.LogError("Error updating job history for job %d, config %d: %v", job.ID, config.ID, err)
+	}
+
+	// Send webhook notification
+	s.sendWebhookNotification(&job, history, &config)
+}
+
+// prepareBaseArguments prepares the base arguments for a command
+func (s *Scheduler) prepareBaseArguments(command string, config *db.TransferConfig, progressCallback func(string)) []string {
+	args := []string{command}
+
+	// Add rclone flags from the config
+	if config.CommandFlags != "" {
+		var flagIDs []uint
+		if err := json.Unmarshal([]byte(config.CommandFlags), &flagIDs); err != nil {
+			s.log.LogError("Error parsing command flags: %v", err)
+		} else {
+			// Get all available flags for this command and their values
+			flagsMap, err := s.db.GetRcloneCommandFlagsMap(config.CommandID)
+			if err != nil {
+				s.log.LogError("Error getting flags map: %v", err)
+			} else {
+				// Parse flag values if available
+				var flagValues map[uint]string
+				if config.CommandFlagValues != "" {
+					if err := json.Unmarshal([]byte(config.CommandFlagValues), &flagValues); err != nil {
+						s.log.LogError("Error parsing flag values: %v", err)
+					}
+				}
+
+				// Add each selected flag
+				for _, flagID := range flagIDs {
+					if flag, ok := flagsMap[flagID]; ok {
+						if flag.DataType == "bool" {
+							// Boolean flags don't have values
+							args = append(args, flag.Name)
+						} else if flagValues != nil {
+							// Check if we have a value for this flag
+							if value, ok := flagValues[flagID]; ok && value != "" {
+								args = append(args, flag.Name, value)
+							} else {
+								// If there's a default value, use it
+								if flag.DefaultValue != "" {
+									args = append(args, flag.Name, flag.DefaultValue)
+								} else {
+									// Skip flags without values
+									s.log.LogError("Skipping flag %s: no value provided", flag.Name)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Add any additional rclone flags specified by the user
+	if config.RcloneFlags != "" {
+		additionalFlags := strings.Fields(config.RcloneFlags)
+		args = append(args, additionalFlags...)
+	}
+
+	// Add common rclone options
+	args = append(args, "--progress")
+	args = append(args, "--stats", "1s")
+
+	// Add config file location
+	configPath := s.db.GetConfigRclonePath(config)
+	args = append(args, "--config", configPath)
+
+	// Add progress callback
+	args = append(args, "--stats-one-line")
+
+	// Set JSON output for easier parsing
+	args = append(args, "--json")
+
+	return args
+}
+
+// sendPushbulletNotification sends a notification via Pushbullet
+func (s *Scheduler) sendPushbulletNotification(service *db.NotificationService, job *db.Job, history *db.JobHistory, config *db.TransferConfig, eventType string) error {
+	s.log.LogDebug("Sending Pushbullet notification for job %d", job.ID)
+
+	// Get API key from service config
+	apiKey, ok := service.Config["api_key"]
+	if !ok || apiKey == "" {
+		return fmt.Errorf("missing API key for Pushbullet notification")
+	}
+
+	// Get device identifier (optional)
+	deviceIden := service.Config["device_iden"]
+
+	// Prepare notification title
+	titleTemplate := service.Config["title_template"]
+	if titleTemplate == "" {
+		titleTemplate = "GoMFT: {{job.event}} - {{job.name}}"
+	}
+
+	// Prepare notification body
+	bodyTemplate := service.Config["body_template"]
+	if bodyTemplate == "" {
+		bodyTemplate = "Job '{{job.name}}' {{job.status}} at {{job.completed_at}}. {{job.file_count}} files transferred ({{job.transfer_bytes}} bytes)."
+	}
+
+	// Create variables for template replacement
+	variables := generateDefaultPayload(job, history, config, eventType)
+
+	// Replace variables in templates
+	title := replaceVariables(titleTemplate, variables)
+	body := replaceVariables(bodyTemplate, variables)
+
+	// Prepare request data
+	url := "https://api.pushbullet.com/v2/pushes"
+	data := map[string]interface{}{
+		"type":  "note",
+		"title": title,
+		"body":  body,
+	}
+
+	// Add device identifier if provided
+	if deviceIden != "" {
+		data["device_iden"] = deviceIden
+	}
+
+	// Convert data to JSON
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal Pushbullet notification data: %v", err)
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create Pushbullet request: %v", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Access-Token", apiKey)
+
+	// Send the request
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send Pushbullet notification: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("Pushbullet API returned error status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	s.log.LogInfo("Successfully sent Pushbullet notification for job %d", job.ID)
+	return nil
+}
+
+// sendNtfyNotification sends a notification via ntfy.sh or a self-hosted ntfy server
+func (s *Scheduler) sendNtfyNotification(service *db.NotificationService, job *db.Job, history *db.JobHistory, config *db.TransferConfig, eventType string) error {
+	s.log.LogDebug("Sending ntfy notification for job %d", job.ID)
+
+	// Get ntfy server and topic from service config
+	topic, ok := service.Config["topic"]
+	if !ok || topic == "" {
+		return fmt.Errorf("missing topic for ntfy notification")
+	}
+
+	// Get server (use default if not provided)
+	server := service.Config["server"]
+	if server == "" {
+		server = "https://ntfy.sh"
+	}
+
+	// Prepare notification title
+	titleTemplate := service.Config["title_template"]
+	if titleTemplate == "" {
+		titleTemplate = "GoMFT: {{job.event}} - {{job.name}}"
+	}
+
+	// Prepare notification body
+	messageTemplate := service.Config["message_template"]
+	if messageTemplate == "" {
+		messageTemplate = "Job '{{job.name}}' {{job.status}} at {{job.completed_at}}. {{job.file_count}} files transferred ({{job.transfer_bytes}} bytes)."
+	}
+
+	// Get priority if specified, default to 3
+	priority := 3
+	if priorityStr, ok := service.Config["priority"]; ok && priorityStr != "" {
+		if p, err := strconv.Atoi(priorityStr); err == nil && p >= 1 && p <= 5 {
+			priority = p
+		}
+	}
+
+	// Create variables for template replacement
+	variables := generateDefaultPayload(job, history, config, eventType)
+
+	// Replace variables in templates
+	title := replaceVariables(titleTemplate, variables)
+	message := replaceVariables(messageTemplate, variables)
+
+	// Create the URL for the notification
+	ntfyURL := fmt.Sprintf("%s/%s", strings.TrimRight(server, "/"), topic)
+
+	// Create the notification data
+	ntfyData := map[string]interface{}{
+		"topic":    topic,
+		"title":    title,
+		"message":  message,
+		"priority": priority,
+	}
+
+	// Add username and password if provided
+	username := service.Config["username"]
+	password := service.Config["password"]
+
+	// Convert data to JSON
+	jsonData, err := json.Marshal(ntfyData)
+	if err != nil {
+		return fmt.Errorf("failed to marshal ntfy notification data: %v", err)
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequest("POST", ntfyURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create ntfy request: %v", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+
+	// Add basic auth if credentials provided
+	if username != "" && password != "" {
+		req.SetBasicAuth(username, password)
+	}
+
+	// Send the request
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send ntfy notification: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("ntfy API returned error status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	s.log.LogInfo("Successfully sent ntfy notification for job %d", job.ID)
+	return nil
+}
+
+// sendGotifyNotification sends a notification via Gotify
+func (s *Scheduler) sendGotifyNotification(service *db.NotificationService, job *db.Job, history *db.JobHistory, config *db.TransferConfig, eventType string) error {
+	s.log.LogDebug("Sending Gotify notification for job %d", job.ID)
+
+	// pretty print job
+	fmt.Printf("Job: %+v\n", job)
+	// Get Gotify server URL and token from service config
+	serverURL, ok := service.Config["url"]
+	if !ok || serverURL == "" {
+		return fmt.Errorf("missing server URL for Gotify notification")
+	}
+
+	token, ok := service.Config["token"]
+	if !ok || token == "" {
+		return fmt.Errorf("missing application token for Gotify notification")
+	}
+
+	// Prepare notification title
+	titleTemplate := service.Config["title_template"]
+	if titleTemplate == "" {
+		titleTemplate = "GoMFT: {{job.event}} - {{job.name}}"
+	}
+
+	// Prepare notification message
+	messageTemplate := service.Config["message_template"]
+	if messageTemplate == "" {
+		messageTemplate = "Job '{{job.name}}' {{job.status}} at {{job.completed_at}}. {{job.file_count}} files transferred ({{job.transfer_bytes}} bytes)."
+	}
+
+	// Get priority if specified, default to 5
+	priority := 5
+	if priorityStr, ok := service.Config["priority"]; ok && priorityStr != "" {
+		if p, err := strconv.Atoi(priorityStr); err == nil {
+			priority = p
+		}
+	}
+
+	// Create variables for template replacement
+	variables := generateDefaultPayload(job, history, config, eventType)
+
+	// Replace variables in templates
+	title := replaceVariables(titleTemplate, variables)
+	message := replaceVariables(messageTemplate, variables)
+
+	// Create the URL for the notification
+	gotifyURL := fmt.Sprintf("%s/message", strings.TrimRight(serverURL, "/"))
+
+	// Create the notification data
+	gotifyData := map[string]interface{}{
+		"title":    title,
+		"message":  message,
+		"priority": priority,
+	}
+
+	// Convert data to JSON
+	jsonData, err := json.Marshal(gotifyData)
+	if err != nil {
+		return fmt.Errorf("failed to marshal Gotify notification data: %v", err)
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequest("POST", gotifyURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create Gotify request: %v", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Gotify-Key", token)
+
+	// Send the request
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send Gotify notification: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("Gotify API returned error status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	s.log.LogInfo("Successfully sent Gotify notification for job %d", job.ID)
+	return nil
+}
+
+// sendPushoverNotification sends a notification via Pushover
+func (s *Scheduler) sendPushoverNotification(service *db.NotificationService, job *db.Job, history *db.JobHistory, config *db.TransferConfig, eventType string) error {
+	s.log.LogDebug("Sending Pushover notification for job %d", job.ID)
+
+	// Get Pushover tokens from service config
+	appToken, ok := service.Config["app_token"]
+	if !ok || appToken == "" {
+		return fmt.Errorf("missing application token/key for Pushover notification")
+	}
+
+	userKey, ok := service.Config["user_key"]
+	if !ok || userKey == "" {
+		return fmt.Errorf("missing user key for Pushover notification")
+	}
+
+	// Get optional device
+	device := service.Config["device"]
+
+	// Prepare notification title
+	titleTemplate := service.Config["title_template"]
+	if titleTemplate == "" {
+		titleTemplate = "GoMFT: {{job.event}} - {{job.name}}"
+	}
+
+	// Prepare notification message
+	messageTemplate := service.Config["message_template"]
+	if messageTemplate == "" {
+		messageTemplate = "Job '{{job.name}}' {{job.status}} at {{job.completed_at}}. {{job.file_count}} files transferred ({{job.transfer_bytes}} bytes)."
+	}
+
+	// Get priority if specified, default to 0 (normal)
+	priority := 0
+	if priorityStr, ok := service.Config["priority"]; ok && priorityStr != "" {
+		if p, err := strconv.Atoi(priorityStr); err == nil && p >= -2 && p <= 2 {
+			priority = p
+		}
+	}
+
+	// Get sound if specified
+	sound := service.Config["sound"]
+	if sound == "" {
+		sound = "pushover" // Default sound
+	}
+
+	// Create variables for template replacement
+	variables := generateDefaultPayload(job, history, config, eventType)
+
+	// Replace variables in templates
+	title := replaceVariables(titleTemplate, variables)
+	message := replaceVariables(messageTemplate, variables)
+
+	// Create the URL for the notification
+	pushoverURL := "https://api.pushover.net/1/messages.json"
+
+	// Create the form data
+	formData := url.Values{}
+	formData.Set("token", appToken)
+	formData.Set("user", userKey)
+	formData.Set("title", title)
+	formData.Set("message", message)
+	formData.Set("priority", strconv.Itoa(priority))
+	formData.Set("sound", sound)
+
+	// Add device if specified
+	if device != "" {
+		formData.Set("device", device)
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequest("POST", pushoverURL, strings.NewReader(formData.Encode()))
+	if err != nil {
+		return fmt.Errorf("failed to create Pushover request: %v", err)
+	}
+
+	// Set headers
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	// Send the request
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send Pushover notification: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response and parse the JSON
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("Pushover API returned error status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	// Check response for success status
+	var pushoverResp map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&pushoverResp); err != nil {
+		return fmt.Errorf("failed to decode Pushover response: %v", err)
+	}
+
+	// Verify the status is 1 (success)
+	if status, ok := pushoverResp["status"].(float64); !ok || status != 1 {
+		errMsg := "unknown error"
+		if errors, ok := pushoverResp["errors"].([]interface{}); ok && len(errors) > 0 {
+			errMsg = fmt.Sprintf("%v", errors[0])
+		}
+		return fmt.Errorf("Pushover API returned error: %s", errMsg)
+	}
+
+	s.log.LogInfo("Successfully sent Pushover notification for job %d", job.ID)
+	return nil
 }

@@ -1,0 +1,323 @@
+package components
+
+import (
+	"context"
+	"fmt"
+)
+
+type Role struct {
+	ID          uint
+	Name        string
+	Description string
+	Permissions []string
+}
+
+type RolesData struct {
+	Roles []Role
+	Error string
+}
+
+templ AdminRoles(ctx context.Context, data RolesData) {
+	@LayoutWithContext("Role Management", ctx) {
+		<!-- Toast container for status messages -->
+		<div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2"></div>
+		
+		<!-- Roles Management Content -->
+		<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+			<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+				<i class="fas fa-user-shield w-6 h-6 mr-2 text-blue-500 dark:text-blue-400"></i>
+				Role Management
+			</h1>
+			<a href="/admin/roles/new" class="flex items-center justify-center text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+				<i class="fas fa-plus w-4 h-4 mr-2"></i>
+				New Role
+			</a>
+		</div>
+
+		<!-- Roles Table -->
+		<div class="bg-white rounded-lg shadow-sm dark:bg-gray-800">
+			<div class="overflow-x-auto">
+				<table class="w-full">
+					<thead class="bg-gray-50 dark:bg-gray-700">
+						<tr>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Role Name</th>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Description</th>
+							<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Permissions</th>
+							<th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actions</th>
+						</tr>
+					</thead>
+					<tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+						if len(data.Roles) == 0 {
+							<tr>
+								<td colspan="4" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+									No roles found. Create your first role to get started.
+								</td>
+							</tr>
+						} else {
+							for _, role := range data.Roles {
+								<!-- Dialog for this role -->
+								@RoleDialog(
+									fmt.Sprintf("delete-role-dialog-%d", role.ID),
+									"Delete Role",
+									fmt.Sprintf("Are you sure you want to delete role \"%s\"? This action cannot be undone.", role.Name),
+									"bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700",
+									"Delete Role",
+									"delete",
+									role.ID,
+									role.Name,
+								)
+								
+								<tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+									<td class="px-6 py-4 text-sm text-gray-900 dark:text-white">{ role.Name }</td>
+									<td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{ role.Description }</td>
+									<td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+										<div class="flex flex-wrap gap-1">
+											for _, perm := range role.Permissions {
+												<span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
+													{ perm }
+												</span>
+											}
+										</div>
+									</td>
+									<td class="px-6 py-4 text-sm text-right">
+										<div class="flex items-center justify-end space-x-2">
+											<a href={ templ.SafeURL("/admin/roles/" + fmt.Sprint(role.ID)) } class="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300">
+												<i class="fas fa-edit"></i>
+											</a>
+											<button 
+												data-role-id={ fmt.Sprint(role.ID) }
+												data-role-name={ role.Name }
+												onclick={ showRoleDialog(fmt.Sprintf("delete-role-dialog-%d", role.ID)) }
+												class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">
+												<i class="fas fa-trash"></i>
+											</button>
+										</div>
+									</td>
+								</tr>
+							}
+						}
+					</tbody>
+				</table>
+			</div>
+		</div>
+
+		<script>
+			// Function to create and show a toast
+			function showToast(message, type) {
+				const toastContainer = document.getElementById('toast-container');
+				
+				// Create toast element
+				const toast = document.createElement('div');
+				toast.id = 'toast-' + type + '-' + Date.now();
+				toast.className = 'flex items-center w-full max-w-xs p-4 mb-4 rounded-lg shadow text-gray-500 bg-white dark:text-gray-400 dark:bg-gray-800 transform translate-y-16 opacity-0 transition-all duration-300 ease-out';
+				toast.role = 'alert';
+				
+				// Set toast content based on type
+				let iconClass, bgColorClass, textColorClass;
+				
+				if (type === 'success') {
+					iconClass = 'text-green-500 bg-green-100 dark:bg-green-800 dark:text-green-200';
+					bgColorClass = 'text-green-500 dark:text-green-200';
+					textColorClass = 'text-green-500 dark:text-green-200';
+				} else if (type === 'error') {
+					iconClass = 'text-red-500 bg-red-100 dark:bg-red-800 dark:text-red-200';
+					bgColorClass = 'text-red-500 dark:text-red-200';
+					textColorClass = 'text-red-500 dark:text-red-200';
+				} else {
+					iconClass = 'text-blue-500 bg-blue-100 dark:bg-blue-800 dark:text-blue-200';
+					bgColorClass = 'text-blue-500 dark:text-blue-200';
+					textColorClass = 'text-blue-500 dark:text-blue-200';
+				}
+				
+				// Set inner HTML with appropriate icon and message
+				toast.innerHTML = `
+					<div class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg ${iconClass}">
+						${type === 'success' 
+							? '<i class="fas fa-check"></i>' 
+							: type === 'error' 
+							? '<i class="fas fa-exclamation-circle"></i>'
+							: '<i class="fas fa-info-circle"></i>'}
+					</div>
+					<div class="ml-3 text-sm font-normal">${message}</div>
+					<button type="button" class="ml-auto -mx-1.5 -my-1.5 bg-white text-gray-400 hover:text-gray-900 rounded-lg focus:ring-2 focus:ring-gray-300 p-1.5 hover:bg-gray-100 inline-flex h-8 w-8 dark:text-gray-500 dark:hover:text-white dark:bg-gray-800 dark:hover:bg-gray-700" data-dismiss-target="#${toast.id}" aria-label="Close">
+						<span class="sr-only">Close</span>
+						<i class="fas fa-times"></i>
+					</button>
+				`;
+				
+				// Add toast to container
+				toastContainer.appendChild(toast);
+				
+				// Trigger animation after a small delay to ensure the DOM has updated
+				setTimeout(() => {
+					toast.classList.remove('translate-y-16', 'opacity-0');
+					toast.classList.add('translate-y-0', 'opacity-100');
+				}, 10);
+				
+				// Add event listener to close button
+				const closeButton = toast.querySelector('button[data-dismiss-target]');
+				closeButton.addEventListener('click', function() {
+					// Animate out before removing
+					toast.classList.add('opacity-0', 'translate-y-4');
+					setTimeout(() => {
+						toast.remove();
+					}, 300);
+				});
+				
+				// Auto-remove toast after 5 seconds
+				setTimeout(() => {
+					toast.classList.add('opacity-0', 'translate-y-4');
+					setTimeout(() => {
+						toast.remove();
+					}, 300);
+				}, 5000);
+			}
+			
+			// Handle modal hide buttons
+			document.addEventListener('DOMContentLoaded', function() {
+				const hideButtons = document.querySelectorAll('[data-modal-hide]');
+				hideButtons.forEach(button => {
+					button.addEventListener('click', function() {
+						const modalId = this.getAttribute('data-modal-hide');
+						const modal = document.getElementById(modalId);
+						modal.classList.add('hidden');
+						modal.classList.remove('flex');
+					});
+				});
+				
+				// Check for URL parameters after page load to show success/error messages
+				const urlParams = new URLSearchParams(window.location.search);
+				const successMsg = urlParams.get('success');
+				const errorMsg = urlParams.get('error');
+				
+				// Show success toast if parameter exists
+				if (successMsg) {
+					showToast(decodeURIComponent(successMsg), 'success');
+				}
+				
+				// Show error toast if parameter exists
+				if (errorMsg) {
+					showToast(decodeURIComponent(errorMsg), 'error');
+				}
+				
+				// Show error from the data if it exists
+				if (document.querySelector('[data-error-message]')) {
+					const errorMsg = document.querySelector('[data-error-message]').getAttribute('data-error-message');
+					if (errorMsg) {
+						showToast(errorMsg, 'error');
+					}
+				}
+				
+				// Set up window variables to track deletions
+				window.lastDeletedRole = null;
+				window.isRoleDeletingRequest = false;
+			});
+			
+			// Handle role deletion
+			document.addEventListener('DOMContentLoaded', function() {
+				const confirmDeleteButtons = document.querySelectorAll('[id^="delete-role-btn-"]');
+				confirmDeleteButtons.forEach(button => {
+					button.addEventListener('click', function() {
+						const roleId = this.getAttribute('data-role-id');
+						const roleName = this.getAttribute('data-role-name');
+						
+						// Store deletion info for event tracking
+						window.lastDeletedRole = {
+							id: roleId,
+							name: roleName
+						};
+						
+						// Send DELETE request
+						fetch(`/admin/roles/${roleId}`, {
+							method: 'DELETE',
+							headers: {
+								'Content-Type': 'application/json'
+							}
+						})
+						.then(response => {
+							if (response.ok) {
+								// Show success toast
+								showToast(`Role "${roleName}" deleted successfully`, 'success');
+								// Reload page on success after a short delay
+								setTimeout(() => {
+									window.location.reload();
+								}, 1000);
+							} else {
+								// Handle error
+								return response.json().then(data => {
+									showToast(`Error: ${data.error || 'Failed to delete role'}`, 'error');
+								}).catch(() => {
+									showToast(`Error deleting role "${roleName}"`, 'error');
+								});
+							}
+						})
+						.catch(error => {
+							console.error('Error:', error);
+							showToast(`Error: ${error.message || 'Failed to connect to server'}`, 'error');
+						});
+					});
+				});
+			});
+		</script>
+		
+		<!-- Store error message if it exists -->
+		if data.Error != "" {
+			<div data-error-message={ data.Error } class="hidden"></div>
+		}
+	}
+} 
+
+// RoleDialog for confirmation actions
+templ RoleDialog(id string, title string, message string, confirmClass string, confirmText string, action string, roleID uint, roleName string) {
+	<div id={ id } tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-gray-900/50 dark:bg-gray-900/80 backdrop-blur-sm">
+		<div class="relative p-4 w-full max-w-md max-h-full mx-auto">
+			<div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
+				<div class="p-6 text-center">
+					if action == "delete" {
+						<i class="fas fa-trash-alt text-red-400 text-3xl mb-4"></i>
+					} else {
+						<i class="fas fa-exclamation-triangle text-yellow-400 text-3xl mb-4"></i>
+					}
+					<h3 class="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">{ message }</h3>
+					<button 
+						type="button" 
+						class="text-white font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 bg-red-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300 dark:bg-red-500 dark:hover:bg-red-600 dark:focus:ring-red-800"
+						id={ fmt.Sprintf("delete-role-btn-%d", roleID) }
+						data-role-id={ fmt.Sprint(roleID) }
+						data-role-name={ roleName }
+						onclick={ triggerRoleDelete(id, roleID, roleName) }>
+						{ confirmText }
+					</button>
+					<button type="button" data-modal-hide={ id } class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600">
+						Cancel
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+script hideRoleDialog(id string) {
+	document.getElementById(id).classList.add("hidden");
+	document.getElementById(id).classList.remove("flex");
+}
+
+script showRoleDialog(id string) {
+	document.getElementById(id).classList.remove("hidden");
+	document.getElementById(id).classList.add("flex");
+}
+
+script triggerRoleDelete(dialogId string, roleID uint, roleName string) {
+	// Hide the dialog
+	document.getElementById(dialogId).classList.add("hidden");
+	document.getElementById(dialogId).classList.remove("flex");
+		
+	// Store data in a way that's accessible to event handlers
+	window.lastDeletedRole = {
+		id: roleID,
+		name: roleName
+	};
+
+	// Add custom marker to track this deletion
+	window.isRoleDeletingRequest = true;
+} 

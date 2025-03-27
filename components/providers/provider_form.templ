@@ -54,7 +54,7 @@ templ ProviderForm(formType string, providers []string, isSource bool) {
 						id={fmt.Sprintf("%s_provider", formType)} 
 						name={fmt.Sprintf("%s_provider", formType)}
 						x-model={fmt.Sprintf("%sProvider", formType)}
-						class="form-select pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500">
+						class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
 						<option value="" disabled selected>Select provider type</option>
 						for _, provider := range providers {
 							<option value={provider}>{providerDisplayName(provider)}</option>

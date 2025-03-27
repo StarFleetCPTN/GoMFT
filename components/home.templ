@@ -6,130 +6,155 @@ import (
 
 templ Home(ctx context.Context) {
 	@LayoutWithContext("Home", ctx) {
-		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-			<div class="text-center">
-				<h1 class="text-4xl font-bold text-secondary-900 dark:text-secondary-100 mb-4">
-					<i class="fas fa-exchange-alt text-primary-600 dark:text-primary-400 mr-3"></i>
+		<div class="p-4 md:p-6 2xl:p-10">
+			<!-- Page Header -->
+			<div class="mb-8 text-center">
+				<h1 class="text-3xl font-bold text-gray-900 dark:text-white flex items-center justify-center">
+					<i class="fas fa-exchange-alt w-8 h-8 mr-3 text-blue-500"></i>
 					Welcome to GoMFT
 				</h1>
-				<p class="text-xl text-secondary-600 dark:text-secondary-300 mb-12">A modern managed file transfer solution</p>
-				
-				if isLoggedIn(ctx) {
-					<div class="space-y-8">
-						<!-- Feature Cards -->
-						<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-							<div class="card hover:shadow-lg transition-shadow duration-300">
-								<div class="p-6">
-									<div class="rounded-full bg-primary-100 dark:bg-primary-900 p-4 w-16 h-16 flex items-center justify-center mb-4 mx-auto">
-										<i class="fas fa-cogs text-primary-600 dark:text-primary-300 text-2xl"></i>
-									</div>
-									<h2 class="text-2xl font-semibold text-secondary-900 dark:text-secondary-100 mb-4 text-center">Transfer Configs</h2>
-									<p class="text-secondary-600 dark:text-secondary-400 mb-6 text-center">Set up and manage file transfer configurations with ease.</p>
-									<div class="flex justify-center">
-										<a href="/configs" class="btn-primary inline-flex items-center">
-											<span>View Configs</span>
-											<i class="fas fa-arrow-right ml-2"></i>
-										</a>
-									</div>
+				<p class="text-lg text-gray-500 dark:text-gray-400 mt-2">
+					A modern managed file transfer solution
+				</p>
+			</div>
+			
+			if isLoggedIn(ctx) {
+				<!-- Logged-in User View -->
+				<div class="space-y-8">
+					<!-- Feature Cards -->
+					<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+						<!-- Transfer Configs Card -->
+						<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 hover:shadow-lg transition-shadow duration-300">
+							<div class="p-6 text-center">
+								<div class="inline-flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 mb-4 dark:bg-blue-900">
+									<i class="fas fa-cogs text-blue-600 dark:text-blue-300 text-2xl"></i>
 								</div>
-							</div>
-							
-							<div class="card hover:shadow-lg transition-shadow duration-300">
-								<div class="p-6">
-									<div class="rounded-full bg-blue-100 dark:bg-blue-900 p-4 w-16 h-16 flex items-center justify-center mb-4 mx-auto">
-										<i class="fas fa-calendar-alt text-blue-600 dark:text-blue-300 text-2xl"></i>
-									</div>
-									<h2 class="text-2xl font-semibold text-secondary-900 dark:text-secondary-100 mb-4 text-center">Schedule Jobs</h2>
-									<p class="text-secondary-600 dark:text-secondary-400 mb-6 text-center">Create and monitor automated file transfer jobs.</p>
-									<div class="flex justify-center">
-										<a href="/jobs" class="btn-primary inline-flex items-center">
-											<span>View Jobs</span>
-											<i class="fas fa-arrow-right ml-2"></i>
-										</a>
-									</div>
-								</div>
-							</div>
-							
-							<div class="card hover:shadow-lg transition-shadow duration-300">
-								<div class="p-6">
-									<div class="rounded-full bg-green-100 dark:bg-green-900 p-4 w-16 h-16 flex items-center justify-center mb-4 mx-auto">
-										<i class="fas fa-history text-green-600 dark:text-green-300 text-2xl"></i>
-									</div>
-									<h2 class="text-2xl font-semibold text-secondary-900 dark:text-secondary-100 mb-4 text-center">Track History</h2>
-									<p class="text-secondary-600 dark:text-secondary-400 mb-6 text-center">View detailed history of all file transfer operations.</p>
-									<div class="flex justify-center">
-										<a href="/history" class="btn-primary inline-flex items-center">
-											<span>View History</span>
-											<i class="fas fa-arrow-right ml-2"></i>
-										</a>
-									</div>
-								</div>
+								<h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-3">Transfer Configs</h2>
+								<p class="text-gray-500 dark:text-gray-400 mb-5">Set up and manage file transfer configurations with ease.</p>
+								<a href="/configs" class="inline-flex items-center px-4 py-2 text-sm font-medium text-center text-white bg-blue-700 rounded-lg hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+									View Configs
+									<i class="fas fa-arrow-right ml-2"></i>
+								</a>
 							</div>
 						</div>
 						
-						<!-- Quick Access Section -->
-						<div class="mt-12">
-							<h2 class="text-2xl font-bold text-secondary-900 dark:text-secondary-100 mb-6">
-								<i class="fas fa-bolt text-primary-600 dark:text-primary-400 mr-2"></i>
-								Quick Access
-							</h2>
-							<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-								<a href="/dashboard" class="card p-4 hover:bg-secondary-50 dark:hover:bg-secondary-800 flex items-center transition-colors">
-									<i class="fas fa-tachometer-alt text-primary-600 dark:text-primary-400 text-xl mr-3"></i>
-									<span class="text-secondary-900 dark:text-secondary-100">Dashboard</span>
+						<!-- Schedule Jobs Card -->
+						<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 hover:shadow-lg transition-shadow duration-300">
+							<div class="p-6 text-center">
+								<div class="inline-flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-indigo-100 mb-4 dark:bg-indigo-900">
+									<i class="fas fa-calendar-alt text-indigo-600 dark:text-indigo-300 text-2xl"></i>
+								</div>
+								<h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-3">Schedule Jobs</h2>
+								<p class="text-gray-500 dark:text-gray-400 mb-5">Create and monitor automated file transfer jobs.</p>
+								<a href="/jobs" class="inline-flex items-center px-4 py-2 text-sm font-medium text-center text-white bg-blue-700 rounded-lg hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+									View Jobs
+									<i class="fas fa-arrow-right ml-2"></i>
 								</a>
-								<a href="/configs/new" class="card p-4 hover:bg-secondary-50 dark:hover:bg-secondary-800 flex items-center transition-colors">
-									<i class="fas fa-plus-circle text-primary-600 dark:text-primary-400 text-xl mr-3"></i>
-									<span class="text-secondary-900 dark:text-secondary-100">New Config</span>
-								</a>
-								<a href="/jobs/new" class="card p-4 hover:bg-secondary-50 dark:hover:bg-secondary-800 flex items-center transition-colors">
-									<i class="fas fa-play-circle text-primary-600 dark:text-primary-400 text-xl mr-3"></i>
-									<span class="text-secondary-900 dark:text-secondary-100">New Job</span>
-								</a>
-								<a href="/profile" class="card p-4 hover:bg-secondary-50 dark:hover:bg-secondary-800 flex items-center transition-colors">
-									<i class="fas fa-user-circle text-primary-600 dark:text-primary-400 text-xl mr-3"></i>
-									<span class="text-secondary-900 dark:text-secondary-100">Profile</span>
+							</div>
+						</div>
+						
+						<!-- Track History Card -->
+						<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 hover:shadow-lg transition-shadow duration-300">
+							<div class="p-6 text-center">
+								<div class="inline-flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full bg-green-100 mb-4 dark:bg-green-900">
+									<i class="fas fa-history text-green-600 dark:text-green-300 text-2xl"></i>
+								</div>
+								<h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-3">Track History</h2>
+								<p class="text-gray-500 dark:text-gray-400 mb-5">View detailed history of all file transfer operations.</p>
+								<a href="/history" class="inline-flex items-center px-4 py-2 text-sm font-medium text-center text-white bg-blue-700 rounded-lg hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+									View History
+									<i class="fas fa-arrow-right ml-2"></i>
 								</a>
 							</div>
 						</div>
 					</div>
-				} else {
-					<div class="max-w-md mx-auto card p-8 hover:shadow-lg transition-shadow duration-300">
-						<div class="inline-flex items-center justify-center w-64 h-64 mb-4">
-							<img src="/static/img/logo.svg" alt="GoMFT Logo" class="w-full h-full"/>
+					
+					<!-- Quick Access Section -->
+					<div class="mt-10">
+						<div class="flex items-center mb-4">
+							<i class="fas fa-bolt text-blue-500 w-6 h-6 mr-2"></i>
+							<h2 class="text-xl font-bold text-gray-900 dark:text-white">Quick Access</h2>
 						</div>
-						<h2 class="text-2xl font-semibold text-secondary-900 dark:text-secondary-100 mb-4">Get Started</h2>
-						<p class="text-secondary-600 dark:text-secondary-400 mb-6">Log in to access the file transfer management system.</p>
-						<a href="/login" class="btn-primary inline-flex items-center px-8 py-3">
-							<i class="fas fa-lock mr-2"></i>
-							<span>Log In</span>
-						</a>
+						<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+							<a href="/dashboard" class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 p-4 flex items-center transition-colors hover:bg-gray-50 dark:hover:bg-gray-700">
+								<div class="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 mr-3 dark:bg-blue-900">
+									<i class="fas fa-tachometer-alt text-blue-600 dark:text-blue-300"></i>
+								</div>
+								<span class="font-medium text-gray-900 dark:text-white">Dashboard</span>
+							</a>
+							<a href="/configs/new" class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 p-4 flex items-center transition-colors hover:bg-gray-50 dark:hover:bg-gray-700">
+								<div class="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 mr-3 dark:bg-blue-900">
+									<i class="fas fa-plus-circle text-blue-600 dark:text-blue-300"></i>
+								</div>
+								<span class="font-medium text-gray-900 dark:text-white">New Config</span>
+							</a>
+							<a href="/jobs/new" class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 p-4 flex items-center transition-colors hover:bg-gray-50 dark:hover:bg-gray-700">
+								<div class="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 mr-3 dark:bg-blue-900">
+									<i class="fas fa-play-circle text-blue-600 dark:text-blue-300"></i>
+								</div>
+								<span class="font-medium text-gray-900 dark:text-white">New Job</span>
+							</a>
+							<a href="/profile" class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 p-4 flex items-center transition-colors hover:bg-gray-50 dark:hover:bg-gray-700">
+								<div class="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 mr-3 dark:bg-blue-900">
+									<i class="fas fa-user-circle text-blue-600 dark:text-blue-300"></i>
+								</div>
+								<span class="font-medium text-gray-900 dark:text-white">Profile</span>
+							</a>
+						</div>
+					</div>
+				</div>
+			} else {
+				<!-- Login Card for Non-Logged-In Users -->
+				<div class="max-w-md mx-auto">
+					<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800">
+						<div class="p-6 text-center">
+							<div class="inline-flex items-center justify-center w-32 h-32 mb-6">
+								<img src="/static/img/logo.svg" alt="GoMFT Logo" class="w-full h-full"/>
+							</div>
+							<h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-3">Get Started</h2>
+							<p class="text-gray-500 dark:text-gray-400 mb-6">Log in to access the file transfer management system.</p>
+							<a href="/login" class="inline-flex items-center px-5 py-2.5 text-sm font-medium text-center text-white bg-blue-700 rounded-lg hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+								<i class="fas fa-lock mr-2"></i>
+								Log In
+							</a>
+						</div>
 						
 						<!-- Features Preview -->
-						<div class="mt-12 pt-8 border-t border-secondary-200 dark:border-secondary-700">
-							<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100 mb-4">Key Features</h3>
-							<ul class="space-y-3 text-left">
+						<div class="p-6 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 rounded-b-lg">
+							<h3 class="text-base font-medium text-gray-900 dark:text-white mb-4">Key Features</h3>
+							<ul class="space-y-3">
 								<li class="flex items-start">
-									<i class="fas fa-check-circle text-green-500 mt-1 mr-2"></i>
-									<span class="text-secondary-600 dark:text-secondary-400">Secure file transfers with encryption</span>
+									<i class="fas fa-check-circle text-green-500 mt-0.5 mr-2 flex-shrink-0"></i>
+									<span class="text-gray-500 dark:text-gray-400">Secure file transfers with encryption</span>
 								</li>
 								<li class="flex items-start">
-									<i class="fas fa-check-circle text-green-500 mt-1 mr-2"></i>
-									<span class="text-secondary-600 dark:text-secondary-400">Automated scheduling and monitoring</span>
+									<i class="fas fa-check-circle text-green-500 mt-0.5 mr-2 flex-shrink-0"></i>
+									<span class="text-gray-500 dark:text-gray-400">Automated scheduling and monitoring</span>
 								</li>
 								<li class="flex items-start">
-									<i class="fas fa-check-circle text-green-500 mt-1 mr-2"></i>
-									<span class="text-secondary-600 dark:text-secondary-400">Comprehensive transfer history tracking</span>
+									<i class="fas fa-check-circle text-green-500 mt-0.5 mr-2 flex-shrink-0"></i>
+									<span class="text-gray-500 dark:text-gray-400">Comprehensive transfer history tracking</span>
 								</li>
 								<li class="flex items-start">
-									<i class="fas fa-check-circle text-green-500 mt-1 mr-2"></i>
-									<span class="text-secondary-600 dark:text-secondary-400">User-friendly interface with dark mode support</span>
+									<i class="fas fa-check-circle text-green-500 mt-0.5 mr-2 flex-shrink-0"></i>
+									<span class="text-gray-500 dark:text-gray-400">User-friendly interface with dark mode support</span>
 								</li>
 							</ul>
 						</div>
 					</div>
-				}
-			</div>
+					
+					<!-- Help Notice -->
+					<div class="mt-6">
+						<div class="p-4 text-sm text-blue-800 rounded-lg bg-blue-50 dark:bg-blue-900/50 dark:text-blue-400 border border-blue-200 dark:border-blue-800 flex items-start">
+							<i class="fas fa-info-circle flex-shrink-0 mr-3 mt-0.5"></i>
+							<div>
+								<h4 class="text-sm font-medium mb-1">About GoMFT</h4>
+								<p>GoMFT is a modern, secure file transfer solution that allows you to effortlessly move files between different systems and storage providers with robust tracking and monitoring.</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			}
 		</div>
 	}
 }

@@ -6,39 +6,34 @@ import (
 	"github.com/starfleetcptn/gomft/internal/db"
 )
 
-// Dialog component for confirmation dialogs - copied from admin_tools.templ
+// Dialog component for confirmation dialogs using Flowbite modal
 templ JobDialog(id string, title string, message string, confirmClass string, confirmText string, action string, jobID uint, jobName string) {
-	<div id={ id } class="hidden fixed inset-0 bg-secondary-900/50 dark:bg-secondary-900/80 backdrop-blur-sm z-50 flex items-center justify-center">
-		<div class="bg-white dark:bg-secondary-800 rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden">
-			<div class="px-6 pt-5 pb-3 text-center">
-				<div class="flex justify-center mb-2">
-					<i class="fas fa-exclamation-triangle text-yellow-400 text-3xl"></i>
+	<div id={ id } tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-gray-900/50 dark:bg-gray-900/80 backdrop-blur-sm">
+		<div class="relative p-4 w-full max-w-md max-h-full mx-auto">
+			<div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
+				<div class="p-6 text-center">
+					if action == "delete" {
+						<i class="fas fa-trash-alt text-red-400 text-3xl mb-4"></i>
+					} else {
+						<i class="fas fa-exclamation-triangle text-yellow-400 text-3xl mb-4"></i>
+					}
+					<h3 class="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">{ message }</h3>
+					<button 
+						type="button" 
+						class={ confirmClass }
+						hx-delete={ fmt.Sprintf("/jobs/%d", jobID) }
+						hx-target="closest li"
+						hx-swap="delete"
+						data-job-name={ jobName }
+						data-job-id={ fmt.Sprint(jobID) }
+						id={ fmt.Sprintf("delete-btn-%d", jobID) }
+						onclick={ triggerJobDelete(id, jobID, jobName) }>
+						{ confirmText }
+					</button>
+					<button type="button" data-modal-hide={ id } class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600">
+						Cancel
+					</button>
 				</div>
-				<h3 class="text-xl font-medium text-secondary-900 dark:text-secondary-100">
-					{ title }
-				</h3>
-			</div>
-			<div class="px-6 py-4 text-center">
-				<p class="text-secondary-700 dark:text-secondary-300">
-					{ message }
-				</p>
-			</div>
-			<div class="px-6 py-4 flex justify-end space-x-3">
-				<button type="button" class="btn-secondary" onclick={ hideJobDialog(id) }>
-					Cancel
-				</button>
-				<button 
-					type="button" 
-					class={ confirmClass }
-					hx-delete={ fmt.Sprintf("/jobs/%d", jobID) }
-					hx-target="closest li"
-					hx-swap="delete"
-					data-job-name={ jobName }
-					data-job-id={ fmt.Sprint(jobID) }
-					id={ fmt.Sprintf("delete-btn-%d", jobID) }
-					onclick={ triggerJobDelete(id, jobID, jobName) }>
-					{ confirmText }
-				</button>
 			</div>
 		</div>
 	</div>
@@ -46,15 +41,18 @@ templ JobDialog(id string, title string, message string, confirmClass string, co
 
 script hideJobDialog(id string) {
 	document.getElementById(id).classList.add("hidden");
+	document.getElementById(id).classList.remove("flex");
 }
 
 script showJobDialog(id string) {
 	document.getElementById(id).classList.remove("hidden");
+	document.getElementById(id).classList.add("flex");
 }
 
 script triggerJobDelete(dialogId string, jobID uint, jobName string) {
 	// Hide the dialog
 	document.getElementById(dialogId).classList.add("hidden");
+	document.getElementById(dialogId).classList.remove("flex");
 	
 	// Add debugging info
 	console.log(`Job deletion triggered for: ${jobName} (ID: ${jobID})`);
@@ -75,38 +73,84 @@ type JobsData struct {
 }
 
 templ Jobs(ctx context.Context, data JobsData) {
-	@LayoutWithContext("Transfer Jobs", ctx) {
+	@LayoutWithContext("Scheduled Jobs", ctx) {
+		<!-- Status and Error Messages -->
+		<div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2"></div>
+		
 		<script>
 			// Debug notification system
 			console.log("Jobs template loaded, setting up notification system");
 			
-			// Create a global notyf instance immediately
-			window.notyf = new Notyf({
-				duration: 3000,
-				position: {
-					x: 'right',
-					y: 'top',
-				},
-				types: [
-					{
-						type: 'success',
-						background: '#38c172',
-						icon: {
-							className: 'fas fa-check-circle',
-							tagName: 'i'
-						}
-					},
-					{
-						type: 'error',
-						background: '#e3342f',
-						icon: {
-							className: 'fas fa-exclamation-circle',
-							tagName: 'i'
-						}
-					}
-				]
-			});
-			console.log("Notyf initialized:", window.notyf);
+			// Function to create and show a toast
+			function showToast(message, type) {
+				const toastContainer = document.getElementById('toast-container');
+				
+				// Create toast element
+				const toast = document.createElement('div');
+				toast.id = 'toast-' + type + '-' + Date.now();
+				toast.className = 'flex items-center w-full max-w-xs p-4 mb-4 rounded-lg shadow text-gray-500 bg-white dark:text-gray-400 dark:bg-gray-800 transform translate-y-16 opacity-0 transition-all duration-300 ease-out';
+				toast.role = 'alert';
+				
+				// Set toast content based on type
+				let iconClass, bgColorClass, textColorClass;
+				
+				if (type === 'success') {
+					iconClass = 'text-green-500 bg-green-100 dark:bg-green-800 dark:text-green-200';
+					bgColorClass = 'text-green-500 dark:text-green-200';
+					textColorClass = 'text-green-500 dark:text-green-200';
+				} else if (type === 'error') {
+					iconClass = 'text-red-500 bg-red-100 dark:bg-red-800 dark:text-red-200';
+					bgColorClass = 'text-red-500 dark:text-red-200';
+					textColorClass = 'text-red-500 dark:text-red-200';
+				} else {
+					iconClass = 'text-blue-500 bg-blue-100 dark:bg-blue-800 dark:text-blue-200';
+					bgColorClass = 'text-blue-500 dark:text-blue-200';
+					textColorClass = 'text-blue-500 dark:text-blue-200';
+				}
+				
+				// Set inner HTML with appropriate icon and message
+				toast.innerHTML = `
+					<div class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg ${iconClass}">
+						${type === 'success' 
+							? '<i class="fas fa-check"></i>' 
+							: type === 'error' 
+							? '<i class="fas fa-exclamation-circle"></i>'
+							: '<i class="fas fa-info-circle"></i>'}
+					</div>
+					<div class="ml-3 text-sm font-normal">${message}</div>
+					<button type="button" class="ml-auto -mx-1.5 -my-1.5 bg-white text-gray-400 hover:text-gray-900 rounded-lg focus:ring-2 focus:ring-gray-300 p-1.5 hover:bg-gray-100 inline-flex h-8 w-8 dark:text-gray-500 dark:hover:text-white dark:bg-gray-800 dark:hover:bg-gray-700" data-dismiss-target="#${toast.id}" aria-label="Close">
+						<span class="sr-only">Close</span>
+						<i class="fas fa-times"></i>
+					</button>
+				`;
+				
+				// Add toast to container
+				toastContainer.appendChild(toast);
+				
+				// Trigger animation after a small delay to ensure the DOM has updated
+				setTimeout(() => {
+					toast.classList.remove('translate-y-16', 'opacity-0');
+					toast.classList.add('translate-y-0', 'opacity-100');
+				}, 10);
+				
+				// Add event listener to close button
+				const closeButton = toast.querySelector('button[data-dismiss-target]');
+				closeButton.addEventListener('click', function() {
+					// Animate out before removing
+					toast.classList.add('opacity-0', 'translate-y-4');
+					setTimeout(() => {
+						toast.remove();
+					}, 300);
+				});
+				
+				// Auto-remove toast after 5 seconds
+				setTimeout(() => {
+					toast.classList.add('opacity-0', 'translate-y-4');
+					setTimeout(() => {
+						toast.remove();
+					}, 300);
+				}, 5000);
+			}
 			
 			// Global function to handle job running
 			window.runJob = function(button) {
@@ -126,17 +170,30 @@ templ Jobs(ctx context.Context, data JobsData) {
 							displayName = event.detail.headers['HX-Job-Name'];
 						}
 						console.log(`Showing success notification for job: ${displayName}`);
-						window.notyf.success(`Job "${displayName}" started successfully!`);
+						showToast(`Job "${displayName}" started successfully!`, 'success');
 					} else {
 						let errorMsg = `Failed to start job "${jobName}"`;
 						if (event.detail.xhr && event.detail.xhr.responseText) {
 							errorMsg = `Error: ${event.detail.xhr.responseText}`;
 						}
 						console.log(`Showing error notification: ${errorMsg}`);
-						window.notyf.error(errorMsg);
+						showToast(errorMsg, 'error');
 					}
 				}, { once: true });
 			};
+
+			// Handle modal hide buttons
+			document.addEventListener('DOMContentLoaded', function() {
+				const hideButtons = document.querySelectorAll('[data-modal-hide]');
+				hideButtons.forEach(button => {
+					button.addEventListener('click', function() {
+						const modalId = this.getAttribute('data-modal-hide');
+						const modal = document.getElementById(modalId);
+						modal.classList.add('hidden');
+						modal.classList.remove('flex');
+					});
+				});
+			});
 
 			// Track all HTMX events for debugging
 			document.addEventListener('htmx:beforeRequest', function(event) {
@@ -191,7 +248,7 @@ templ Jobs(ctx context.Context, data JobsData) {
 					}
 					
 					console.log(`Showing success notification for deleted job: ${jobName}`);
-					window.notyf.success(`Job "${jobName}" deleted successfully`);
+					showToast(`Job "${jobName}" deleted successfully`, 'success');
 					
 					// Clear flags
 					window.currentlyDeletingJob = false;
@@ -234,7 +291,7 @@ templ Jobs(ctx context.Context, data JobsData) {
 					}
 					
 					console.log(`Showing error notification: ${errorMsg}`);
-					window.notyf.error(errorMsg);
+					showToast(errorMsg, 'error');
 					
 					// Clear flags
 					window.currentlyDeletingJob = false;
@@ -244,147 +301,187 @@ templ Jobs(ctx context.Context, data JobsData) {
 			});
 		</script>
 		
-		<div class="py-6">
-			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-				<div class="flex justify-between items-center mb-8">
-					<h1 class="text-3xl font-bold text-secondary-900 dark:text-secondary-100">
-						<i class="fas fa-exchange-alt mr-2 text-primary-600 dark:text-primary-400"></i>
-						Transfer Jobs
+		<div id="jobs-container" style="min-height: 100vh; background-color: rgb(249, 250, 251);" class="jobs-page bg-gray-50 dark:bg-gray-900">
+			<div class="pb-8 w-full">
+				<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+					<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+						<i class="fas fa-calendar-alt w-6 h-6 mr-2 text-blue-500 dark:text-blue-400"></i>
+						Scheduled Jobs
 					</h1>
-					<a href="/jobs/new" class="btn-primary">
-						<i class="fas fa-plus mr-2"></i>
+					<a href="/jobs/new" class="flex items-center justify-center text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+						<i class="fas fa-plus w-4 h-4 mr-2"></i>
 						New Job
 					</a>
 				</div>
 				<div class="mt-6">
 					if len(data.Jobs) == 0 {
-						<div class="card p-12 flex flex-col items-center justify-center text-center">
-							<div class="inline-block p-4 rounded-full bg-secondary-100 dark:bg-secondary-700 mb-4">
-								<i class="fas fa-tasks text-secondary-400 dark:text-secondary-500 text-3xl"></i>
+						<div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-12 flex flex-col items-center justify-center text-center">
+							<div class="inline-block p-4 rounded-full bg-gray-100 dark:bg-gray-700 mb-4">
+								<i class="fas fa-list text-3xl text-gray-400 dark:text-gray-500"></i>
 							</div>
-							<h3 class="mt-2 text-lg font-medium text-secondary-900 dark:text-secondary-100">No jobs</h3>
-							<p class="mt-1 text-sm text-secondary-500 dark:text-secondary-400">Get started by creating a new transfer job.</p>
+							<h3 class="mt-2 text-lg font-medium text-gray-900 dark:text-white">No jobs</h3>
+							<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Get started by creating a new transfer job.</p>
 							<div class="mt-6">
-								<a href="/jobs/new" class="btn-primary">
+								<a href="/jobs/new" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
 									<i class="fas fa-plus mr-2"></i>
 									New Job
 								</a>
 							</div>
 						</div>
 					} else {
-						<div class="card overflow-hidden">
-							<ul role="list" class="divide-y divide-secondary-200 dark:divide-secondary-700">
-								for _, job := range data.Jobs {
-									<li>
-										<div class="block hover:bg-secondary-50 dark:hover:bg-secondary-750 transition-colors">
-											<div class="px-4 py-4 sm:px-6">
-												<div class="flex items-center justify-between">
-													<div class="flex items-center">
-														<p class="text-sm font-medium text-primary-600 dark:text-primary-400 truncate">
-															if job.Name != "" {
-																{ job.Name }
-															} else {
-																{ job.Config.Name }
-															}
-														</p>
-														if job.GetEnabled() {
-															<span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300">
-																Active
-															</span>
-														} else {
-															<span class="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-secondary-100 dark:bg-secondary-700 text-secondary-800 dark:text-secondary-300">
-																Inactive
-															</span>
-														}
-													</div>
-													<div class="ml-2 flex-shrink-0 flex space-x-2">
-														<button 
-															hx-post={ fmt.Sprintf("/jobs/%d/run", job.ID) }
-															hx-swap="none"
-															class="btn-primary btn-sm"
-															data-job-id={ fmt.Sprint(job.ID) }
-															data-job-name={ job.Name }
-															onclick="window.runJob(this)">
-															<i class="fas fa-play mr-1"></i>
-															Run Now
-														</button>
-														<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) } class="btn-secondary btn-sm">
-															<i class="fas fa-edit mr-1"></i>
-															Edit
-														</a>
-														<!-- Add delete dialog for each job -->
-														@JobDialog(
-															fmt.Sprintf("delete-job-dialog-%d", job.ID),
-															"Delete Job",
-															fmt.Sprintf("Are you sure you want to delete the job '%s'? This cannot be undone.", determineJobName(job)),
-															"btn-danger",
-															"Delete",
-															"delete",
-															job.ID,
-															determineJobName(job),
-														)
-														<button 
-															type="button"
-															onclick={ showJobDialog(fmt.Sprintf("delete-job-dialog-%d", job.ID)) }
-															class="btn-danger btn-sm">
-															<i class="fas fa-trash-alt mr-1"></i>
-															Delete
-														</button>
-													</div>
-												</div>
-												<div class="mt-2 sm:flex sm:justify-between">
-													<div class="sm:flex">
-														<p class="flex items-center text-sm text-secondary-500 dark:text-secondary-400">
-															<i class="fas fa-cogs flex-shrink-0 mr-1.5 h-5 w-5 text-secondary-400 dark:text-secondary-500"></i>
-															Configs: 
-															<span class="ml-1">
-																if count, ok := data.ConfigCount[job.ID]; ok && count > 1 {
-																	{ fmt.Sprintf("%d configurations", count) }
-																} else if job.ConfigID > 0 {
-																	{ job.Config.Name }
+						<div class="bg-white dark:bg-gray-800 shadow-md sm:rounded-lg overflow-hidden">
+							<div class="relative overflow-x-auto">
+								<ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
+									for _, job := range data.Jobs {
+										<li>
+											<div class="block hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+												<div class="px-4 py-4 sm:px-6">
+													<div class="flex items-center justify-between">
+														<div class="flex items-center">
+															<p class="text-sm font-medium text-blue-600 dark:text-blue-400 truncate">
+																if job.Name != "" {
+																	{ job.Name }
 																} else {
-																	{ "None" }
+																	{ job.Config.Name }
 																}
-															</span>
-														</p>
-														<p class="mt-2 flex items-center text-sm text-secondary-500 dark:text-secondary-400 sm:mt-0 sm:ml-6">
-															<i class="fas fa-calendar-alt flex-shrink-0 mr-1.5 h-5 w-5 text-secondary-400 dark:text-secondary-500"></i>
-															Schedule: { job.Schedule }
-														</p>
-														if job.LastRun != nil {
-															<p class="mt-2 flex items-center text-sm text-secondary-500 dark:text-secondary-400 sm:mt-0 sm:ml-6">
-																<i class="fas fa-history flex-shrink-0 mr-1.5 h-5 w-5 text-secondary-400 dark:text-secondary-500"></i>
-																Last Run: { job.LastRun.Format("2006-01-02 15:04:05") }
 															</p>
+															if job.GetEnabled() {
+																<span class="inline-flex items-center bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full dark:bg-green-900 dark:text-green-300 ml-2">
+																	<i class="fas fa-circle-check text-green-500 dark:text-green-400 mr-1"></i>
+																	Active
+																</span>
+															} else {
+																<span class="inline-flex items-center bg-gray-100 text-gray-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full dark:bg-gray-700 dark:text-gray-300 ml-2">
+																	<i class="fas fa-circle-xmark text-gray-500 dark:text-gray-400 mr-1"></i>
+																	Inactive
+																</span>
+															}
+														</div>
+														<div class="ml-2 flex-shrink-0 flex space-x-2">
+															<button 
+																hx-post={ fmt.Sprintf("/jobs/%d/run", job.ID) }
+																hx-swap="none"
+																class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-xs px-3 py-1.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
+																data-job-id={ fmt.Sprint(job.ID) }
+																data-job-name={ job.Name }
+																onclick="window.runJob(this)">
+																<i class="fas fa-play mr-1"></i>
+																Run Now
+															</button>
+															<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) } class="py-1.5 px-3 text-xs font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">
+																<i class="fas fa-pen-to-square mr-1"></i>
+																Edit
+															</a>
+															<button 
+																hx-post={ fmt.Sprintf("/jobs/%d/duplicate", job.ID) }
+																hx-swap="innerHTML"
+																hx-target="body"
+																class="text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:ring-4 focus:outline-none focus:ring-indigo-300 font-medium rounded-lg text-xs px-3 py-1.5 text-center inline-flex items-center dark:bg-indigo-700 dark:text-indigo-300 dark:hover:bg-indigo-600 dark:focus:ring-indigo-800"
+																data-job-id={ fmt.Sprint(job.ID) }
+																data-job-name={ job.Name }>
+																<i class="fas fa-clone mr-1"></i>
+																Duplicate
+															</button>
+															<!-- Add delete dialog for each job -->
+															@JobDialog(
+																fmt.Sprintf("delete-job-dialog-%d", job.ID),
+																"Delete Job",
+																fmt.Sprintf("Are you sure you want to delete the job '%s'? This cannot be undone.", determineJobName(job)),
+																"text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800",
+																"Delete",
+																"delete",
+																job.ID,
+																determineJobName(job),
+															)
+															<button 
+																type="button"
+																onclick={ showJobDialog(fmt.Sprintf("delete-job-dialog-%d", job.ID)) }
+																class="focus:outline-none text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-xs px-3 py-1.5 dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-900">
+																<i class="fas fa-trash mr-1"></i>
+																Delete
+															</button>
+														</div>
+													</div>
+													<div class="mt-2 sm:flex sm:justify-between">
+														<div class="sm:flex flex-wrap">
+															<p class="flex items-center text-sm text-gray-500 dark:text-gray-400">
+																<i class="fas fa-gear text-gray-400 dark:text-gray-500 mr-1.5"></i>
+																Configs: 
+																<span class="ml-1">
+																	if count, ok := data.ConfigCount[job.ID]; ok && count > 1 {
+																		{ fmt.Sprintf("%d configurations", count) }
+																	} else if job.ConfigID > 0 {
+																		{ job.Config.Name }
+																	} else {
+																		{ "None" }
+																	}
+																</span>
+															</p>
+															<p class="mt-2 flex items-center text-sm text-gray-500 dark:text-gray-400 sm:mt-0 sm:ml-6">
+																<i class="fas fa-calendar text-gray-400 dark:text-gray-500 mr-1.5"></i>
+																Schedule: { job.Schedule }
+															</p>
+															if job.LastRun != nil {
+																<p class="mt-2 flex items-center text-sm text-gray-500 dark:text-gray-400 sm:mt-0 sm:ml-6">
+																	<i class="fas fa-clock text-gray-400 dark:text-gray-500 mr-1.5"></i>
+																	Last Run: { job.LastRun.Format("2006-01-02 15:04:05") }
+																</p>
+															}
+														</div>
+														if job.NextRun != nil {
+															<div class="mt-2 flex items-center text-sm text-gray-500 dark:text-gray-400 sm:mt-0">
+																<i class="fas fa-hourglass-start text-gray-400 dark:text-gray-500 mr-1.5"></i>
+																<p>
+																	Next Run: { job.NextRun.Format("2006-01-02 15:04:05") }
+																</p>
+															</div>
 														}
 													</div>
-													if job.NextRun != nil {
-														<div class="mt-2 flex items-center text-sm text-secondary-500 dark:text-secondary-400 sm:mt-0">
-															<i class="fas fa-clock flex-shrink-0 mr-1.5 h-5 w-5 text-secondary-400 dark:text-secondary-500"></i>
-															<p>
-																Next Run: { job.NextRun.Format("2006-01-02 15:04:05") }
-															</p>
-														</div>
-													}
 												</div>
 											</div>
-										</div>
-									</li>
-								}
-							</ul>
+										</li>
+									}
+								</ul>
+							</div>
 						</div>
 					}
 				</div>
 				
 				<!-- Help Notice -->
-				<div class="mt-8 text-center">
-					<p class="text-sm text-secondary-500 dark:text-secondary-400">
-						<i class="fas fa-info-circle mr-1 text-primary-500"></i>
-						Transfer jobs run according to their schedule and transfer files between configured sources and destinations
-					</p>
+				<div class="mt-8 p-4 bg-gray-50 border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700">
+					<div class="flex">
+						<div class="flex-shrink-0">
+							<i class="fas fa-info-circle text-blue-400 dark:text-blue-400"></i>
+						</div>
+						<div class="ml-3">
+							<p class="text-sm text-blue-700 dark:text-blue-400">
+								Transfer jobs run according to their schedule and transfer files between configured sources and destinations
+							</p>
+						</div>
+					</div>
 				</div>
 			</div>
 		</div>
+		
+		<script>
+			// Set dark background color if in dark mode
+			if (document.documentElement.classList.contains('dark')) {
+				document.getElementById('jobs-container').style.backgroundColor = '#111827';
+			}
+			
+			// Add event listener for theme changes
+			document.addEventListener('DOMContentLoaded', function() {
+				const themeToggle = document.getElementById('theme-toggle');
+				if (themeToggle) {
+					themeToggle.addEventListener('click', function() {
+						setTimeout(function() {
+							const isDark = document.documentElement.classList.contains('dark');
+							document.getElementById('jobs-container').style.backgroundColor = isDark ? '#111827' : 'rgb(249, 250, 251)';
+						}, 50);
+					});
+				}
+			});
+		</script>
 	}
 }
 

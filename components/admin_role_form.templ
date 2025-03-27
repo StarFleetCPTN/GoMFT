@@ -1,0 +1,175 @@
+package components
+
+import (
+    "context"
+    "fmt"
+    "strings"
+)
+
+type RoleFormData struct {
+    Role          *Role
+    IsNew         bool
+    ErrorMessage  string
+    AllPermissions []string
+}
+
+templ AdminRoleForm(ctx context.Context, data RoleFormData) {
+    @LayoutWithContext(getFormTitle(data.IsNew), ctx) {
+        <div class="mb-6">
+            <nav class="flex" aria-label="Breadcrumb">
+                <ol class="inline-flex items-center space-x-1 md:space-x-3">
+                    <li class="inline-flex items-center">
+                        <a href="/admin" class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-400 dark:hover:text-white">
+                            <i class="fas fa-shield-alt w-4 h-4 mr-2"></i>
+                            Admin
+                        </a>
+                    </li>
+                    <li>
+                        <div class="flex items-center">
+                            <i class="fas fa-chevron-right w-3 h-3 text-gray-400 mx-1"></i>
+                            <a href="/admin/roles" class="ml-1 text-sm font-medium text-gray-700 hover:text-blue-600 md:ml-2 dark:text-gray-400 dark:hover:text-white">Roles</a>
+                        </div>
+                    </li>
+                    <li aria-current="page">
+                        <div class="flex items-center">
+                            <i class="fas fa-chevron-right w-3 h-3 text-gray-400 mx-1"></i>
+                            <span class="ml-1 text-sm font-medium text-gray-500 md:ml-2 dark:text-gray-400">
+                                if data.IsNew {
+                                    New Role
+                                } else {
+                                    Edit Role
+                                }
+                            </span>
+                        </div>
+                    </li>
+                </ol>
+            </nav>
+        </div>
+
+        if data.ErrorMessage != "" {
+            <div class="p-4 mb-6 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-red-900/50 dark:text-red-400" role="alert">
+                <span class="font-medium">Error!</span> { data.ErrorMessage }
+            </div>
+        }
+
+        <div class="bg-white rounded-lg shadow-sm dark:bg-gray-800">
+            <div class="p-6 space-y-6">
+                <form method="POST" action={ getFormAction(data.IsNew, data.Role) }>
+                    if !data.IsNew {
+                        <input type="hidden" name="_method" value="PUT"/>
+                    }
+                    
+                    <!-- Role Name -->
+                    <div class="mb-6">
+                        <label for="name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Role Name</label>
+                        <input
+                            type="text"
+                            id="name"
+                            name="name"
+                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                            placeholder="Enter role name"
+                            required
+                            if !data.IsNew {
+                                value={ data.Role.Name }
+                            }
+                        />
+                    </div>
+
+                    <!-- Role Description -->
+                    <div class="mb-6">
+                        <label for="description" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Description</label>
+                        <textarea
+                            id="description"
+                            name="description"
+                            rows="3"
+                            class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                            placeholder="Enter role description"
+                        >
+                            if !data.IsNew {
+                                { data.Role.Description }
+                            }
+                        </textarea>
+                    </div>
+
+                    <!-- Permissions -->
+                    <div class="mb-6">
+                        <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Permissions</label>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            for _, perm := range data.AllPermissions {
+                                <div class="flex items-center">
+                                    <input
+                                        type="checkbox"
+                                        id={ "perm_" + perm }
+                                        name="permissions[]"
+                                        value={ perm }
+                                        class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                                        if !data.IsNew && hasPermission(data.Role, perm) {
+                                            checked
+                                        }
+                                    />
+                                    <label for={ "perm_" + perm } class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">
+                                        { formatPermissionLabel(perm) }
+                                    </label>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Form Actions -->
+                    <div class="flex items-center justify-end space-x-3">
+                        <a href="/admin/roles" class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-blue-300 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600">
+                            Cancel
+                        </a>
+                        <button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+                            if data.IsNew {
+                                Create Role
+                            } else {
+                                Update Role
+                            }
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    }
+}
+
+// Helper functions
+func getFormTitle(isNew bool) string {
+    if isNew {
+        return "New Role"
+    }
+    return "Edit Role"
+}
+
+func getFormAction(isNew bool, role *Role) templ.SafeURL {
+    if isNew {
+        return "/admin/roles"
+    }
+    return templ.SafeURL("/admin/roles/" + fmt.Sprint(role.ID))
+}
+
+func hasPermission(role *Role, permission string) bool {
+    if role == nil || role.Permissions == nil {
+        return false
+    }
+    for _, p := range role.Permissions {
+        if p == permission {
+            return true
+        }
+    }
+    return false
+}
+
+func formatPermissionLabel(permission string) string {
+    // Convert permission strings like "users.create" to "Create Users"
+    parts := strings.Split(permission, ".")
+    if len(parts) != 2 {
+        return permission
+    }
+    
+    resource := strings.Title(parts[0])
+    action := strings.Title(parts[1])
+    
+    return action + " " + resource
+} 

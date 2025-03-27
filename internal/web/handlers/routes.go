@@ -6,6 +6,9 @@ import (
 
 // RegisterRoutes registers all the routes for the web interface
 func (h *Handlers) RegisterRoutes(router *gin.Engine) {
+	// Register error handlers first
+	h.RegisterErrorHandlers(router)
+
 	// Public routes
 	router.GET("/", h.HandleHome)
 	router.GET("/login", h.HandleLoginPage)
@@ -17,6 +20,11 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 	router.POST("/forgot-password", h.HandleForgotPassword)
 	router.GET("/reset-password", h.HandleResetPasswordPage)
 	router.POST("/reset-password", h.HandleResetPassword)
+
+	// External Authentication Provider routes for login page
+	router.GET("/auth/providers", h.GetAuthProviders)
+	router.GET("/auth/provider/:id", h.HandleAuthProviderInit)
+	router.GET("/auth/callback", h.HandleAuthProviderCallback)
 
 	// Protected routes
 	authorized := router.Group("/")
@@ -32,6 +40,13 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 	authorized.GET("/profile/2fa/backup-codes", h.Handle2FABackupCodes)
 	authorized.POST("/profile/2fa/regenerate-codes", h.Handle2FARegenerateCodes)
 
+	// Add notifications routes
+	authorized.GET("/notifications", h.HandleNotifications)
+	authorized.GET("/notifications/dropdown", h.HandleLoadNotifications)
+	authorized.GET("/notifications/count", h.HandleNotificationCount)
+	authorized.POST("/notifications/:id/read", h.HandleMarkNotificationAsRead)
+	authorized.POST("/notifications/mark-all-read", h.HandleMarkAllNotificationsAsRead)
+
 	{
 		authorized.GET("/dashboard", h.HandleDashboard)
 		authorized.GET("/configs", h.HandleConfigs)
@@ -41,6 +56,7 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 		authorized.PUT("/configs/:id", h.HandleUpdateConfig)
 		authorized.POST("/configs/:id", h.HandleUpdateConfig)
 		authorized.DELETE("/configs/:id", h.HandleDeleteConfig)
+		authorized.POST("/configs/:id/duplicate", h.HandleDuplicateConfig)
 
 		// Path validation endpoint
 		authorized.GET("/check-path", h.HandleCheckPath)
@@ -50,6 +66,12 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 		authorized.GET("/configs/gdrive-callback", h.HandleGDriveAuthCallback)
 		authorized.GET("/configs/gdrive-token", h.HandleGDriveTokenProcess)
 
+		// Duplicate rclone endpoints for web interface to access - same path as API
+		rcloneHandler := NewRcloneHandler(h.DB)
+		authorized.GET("api/rclone/commands", func(c *gin.Context) { rcloneHandler.RcloneCommandOptions(c) })
+		authorized.GET("api/rclone/command-flags", func(c *gin.Context) { rcloneHandler.RcloneCommandFlags(c) })
+		authorized.GET("api/rclone/command/:id/usage", func(c *gin.Context) { rcloneHandler.RcloneCommandUsage(c) })
+
 		authorized.GET("/jobs", h.HandleJobs)
 		authorized.GET("/jobs/new", h.HandleNewJob)
 		authorized.GET("/jobs/:id", h.HandleEditJob)
@@ -57,6 +79,7 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 		authorized.PUT("/jobs/:id", h.HandleUpdateJob)
 		authorized.POST("/jobs/:id", h.HandleUpdateJob)
 		authorized.DELETE("/jobs/:id", h.HandleDeleteJob)
+		authorized.POST("/jobs/:id/duplicate", h.HandleDuplicateJob)
 		authorized.POST("/jobs/:id/run", h.HandleRunJob)
 		authorized.GET("/history", h.HandleHistory)
 		authorized.GET("/job-runs/:id", h.HandleJobRunDetails)
@@ -84,35 +107,95 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 
 	// Admin-only routes
 	admin := router.Group("/admin")
-	admin.Use(h.AuthMiddleware(), h.AdminMiddleware())
+	admin.Use(h.AuthMiddleware())
 	{
-		admin.GET("/users", h.HandleUsers)
-		admin.GET("/users/new", h.HandleNewUser)
-		admin.POST("/users", h.HandleCreateUser)
-		admin.DELETE("/users/:id", h.HandleDeleteUser)
-		admin.GET("/register", h.HandleRegisterPage)
-		admin.POST("/register", h.HandleRegister)
+		// Main admin dashboard - requires admin role
+		// admin.GET("", h.AdminMiddleware(), h.HandleAdminDashboard)
 
-		// Admin tools routes
-		admin.GET("/tools", h.HandleAdminTools)
-		admin.POST("/backup-database", h.HandleBackupDatabase)
-		admin.POST("/restore-database", h.HandleRestoreDatabase)
-		admin.POST("/restore-database/:filename", h.HandleRestoreDatabaseByFilename)
-		admin.GET("/export-configs", h.HandleExportConfigs)
-		admin.GET("/export-jobs", h.HandleExportJobs)
-		admin.POST("/clear-job-history", h.HandleClearJobHistory)
-		admin.POST("/vacuum-database", h.HandleVacuumDatabase)
-		admin.GET("/download-backup/:filename", h.HandleDownloadBackup)
-		admin.DELETE("/delete-backup/:filename", h.HandleDeleteBackup)
-		admin.GET("/refresh-backups", h.HandleRefreshBackups)
+		// User management routes
+		userGroup := admin.Group("/users")
+		userGroup.Use(h.PermissionMiddleware("users.view"))
+		{
+			userGroup.GET("", h.HandleUsers)
+			userGroup.GET("/new", h.PermissionMiddleware("users.create"), h.HandleNewUser)
+			userGroup.POST("", h.PermissionMiddleware("users.create"), h.HandleCreateUser)
+			userGroup.GET("/:id/edit", h.PermissionMiddleware("users.edit"), h.HandleEditUser)
+			userGroup.PUT("/:id", h.PermissionMiddleware("users.edit"), h.HandleUpdateUser)
+			userGroup.DELETE("/:id", h.PermissionMiddleware("users.delete"), h.HandleDeleteUser)
+			userGroup.PUT("/:id/toggle-lock", h.PermissionMiddleware("users.edit"), h.AdminToggleLockUser)
+		}
 
-		// Log viewer routes
-		admin.GET("/logs/refresh", h.HandleRefreshLogs)
-		admin.GET("/logs/view/:fileName", h.HandleViewLog)
-		admin.GET("/logs/download/:fileName", h.HandleDownloadLog)
+		// Admin routes for role management
+		adminRoles := admin.Group("/roles")
+		adminRoles.Use(h.PermissionMiddleware("roles.admin"))
+		{
+			adminRoles.GET("", h.HandleRoles)
+			adminRoles.GET("/new", h.HandleNewRole)
+			adminRoles.GET("/:id/edit", h.HandleRoles)
+			adminRoles.POST("", h.HandleCreateRole)
+			adminRoles.PUT("/:id", h.HandleEditRole)
+			adminRoles.DELETE("/:id", h.HandleDeleteRole)
+		}
 
-		// Email test route
-		admin.POST("/test-email", h.HandleTestEmail)
+		// Audit log routes
+		auditGroup := admin.Group("/audit")
+		auditGroup.Use(h.PermissionMiddleware("audit.view"))
+		{
+			auditGroup.GET("", h.HandleAuditLogs)
+			auditGroup.GET("/export", h.PermissionMiddleware("audit.export"), h.HandleExportAuditLogs)
+		}
+
+		// System settings routes
+		settingsGroup := admin.Group("/settings")
+		settingsGroup.Use(h.PermissionMiddleware("system.settings"))
+		{
+			settingsGroup.GET("", h.HandleSettings)
+			// settingsGroup.GET("/backups", h.HandleBackupsPage)
+			// settingsGroup.POST("/backups", h.HandleCreateBackup)
+			// settingsGroup.GET("/logs", h.HandleLogsPage)
+			// settingsGroup.POST("/logs/download", h.HandleDownloadLogs)
+			// settingsGroup.DELETE("/logs", h.HandlePurgeLogs)
+
+			// Auth Provider routes
+			authProviderGroup := settingsGroup.Group("/auth-providers")
+			authProviderGroup.GET("", h.AuthProvidersPage)
+			authProviderGroup.GET("/new", h.NewAuthProviderPage)
+			authProviderGroup.POST("", h.HandleCreateAuthProvider)
+			authProviderGroup.GET("/:id/edit", h.EditAuthProviderPage)
+			authProviderGroup.POST("/:id", h.HandleUpdateAuthProvider)
+			authProviderGroup.DELETE("/:id", h.HandleDeleteAuthProvider)
+			authProviderGroup.POST("/:id/test", h.HandleTestAuthProviderConnection)
+
+			// Notification routes
+			settingsGroup.GET("/notifications", h.HandleNotificationsPage)
+			settingsGroup.GET("/notifications/new", h.HandleNewNotificationPage)
+			settingsGroup.GET("/notifications/:id/edit", h.HandleEditNotificationPage)
+			settingsGroup.POST("/notifications", h.HandleCreateNotificationService)
+			settingsGroup.PUT("/notifications/:id", h.HandleUpdateNotificationService)
+			settingsGroup.DELETE("/notifications/:id", h.HandleDeleteNotificationService)
+			settingsGroup.POST("/notifications/test", h.HandleTestNotification)
+
+			settingsGroup.POST("/general", h.HandleSettings)  // Placeholder for future implementation
+			settingsGroup.POST("/security", h.HandleSettings) // Placeholder for future implementation
+		}
+
+		// Database tools routes
+		dbGroup := admin.Group("/database")
+		dbGroup.Use(h.PermissionMiddleware("system.backup"))
+		{
+			dbGroup.GET("", h.HandleDatabaseTools)
+			dbGroup.POST("/backup-database", h.HandleBackupDatabase)
+			dbGroup.POST("/restore-database", h.PermissionMiddleware("system.restore"), h.HandleRestoreDatabase)
+			dbGroup.GET("/restore-database/:filename", h.PermissionMiddleware("system.restore"), h.HandleRestoreDatabase)
+			dbGroup.GET("/download-backup/:filename", h.HandleDownloadBackup)
+			dbGroup.POST("/delete-backup/:filename", h.HandleDeleteBackup)
+			dbGroup.GET("/refresh-backups", h.HandleRefreshBackups)
+			dbGroup.POST("/vacuum-database", h.HandleVacuumDatabase)
+			dbGroup.POST("/clear-job-history", h.HandleClearJobHistory)
+			dbGroup.GET("/export-configs", h.PermissionMiddleware("system.export"), h.HandleExportConfigs)
+			dbGroup.GET("/export-jobs", h.PermissionMiddleware("system.export"), h.HandleExportJobs)
+		}
+
 	}
 
 	// API routes
@@ -153,6 +236,14 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 				apiAdmin.POST("/users", h.HandleAPICreateUser)
 				apiAdmin.PUT("/users/:id", h.HandleAPIUpdateUser)
 				apiAdmin.DELETE("/users/:id", h.HandleAPIDeleteUser)
+
+				// Auth providers API routes
+				apiAdmin.GET("/auth-providers", h.HandleAPIUsers)             // Placeholder for now
+				apiAdmin.GET("/auth-providers/:id", h.HandleAPIUser)          // Placeholder for now
+				apiAdmin.POST("/auth-providers", h.HandleAPICreateUser)       // Placeholder for now
+				apiAdmin.PUT("/auth-providers/:id", h.HandleAPIUpdateUser)    // Placeholder for now
+				apiAdmin.DELETE("/auth-providers/:id", h.HandleAPIDeleteUser) // Placeholder for now
+				apiAdmin.POST("/auth-providers/:id/test", h.HandleAPIUser)    // Placeholder for now
 			}
 		}
 	}

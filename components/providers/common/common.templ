@@ -1,63 +1,66 @@
 package common
 
+import (
+	"fmt"
+	"github.com/starfleetcptn/gomft/internal/db"
+)
+
 templ NameField() {
-<div class="space-y-6">
-	<div class="sm:col-span-4">
-		<label for="name" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Name</label>
-		<div class="relative">
-			<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-				<i class="fas fa-tag text-secondary-400 dark:text-secondary-600"></i>
-			</div>
-			<input type="text" name="name" id="name" x-model="name" required
-				class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-				placeholder="Transfer configuration name" />
+<div class="mb-6">
+	<label for="name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Configuration Name</label>
+	<div class="relative">
+		<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+			<i class="fas fa-tag text-gray-400 dark:text-gray-500"></i>
 		</div>
+		<input type="text" name="name" id="name" x-model="name" required
+			class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+			placeholder="Transfer configuration name" />
 	</div>
+	<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Choose a descriptive name to identify this configuration.</p>
 </div>
 }
 
 templ FilePatternFields() {
 <div class="space-y-6">
-	<div class="sm:col-span-4">
-		<label for="file_pattern" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">File
-			Pattern</label>
+	<div class="mb-6">
+		<label for="file_pattern" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">File Pattern</label>
 		<div class="relative">
-			<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-				<i class="fas fa-filter text-secondary-400 dark:text-secondary-600"></i>
+			<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+				<i class="fas fa-filter text-gray-400 dark:text-gray-500"></i>
 			</div>
 			<input type="text" name="file_pattern" id="file_pattern" x-model="filePattern"
-				class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+				class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 				placeholder="*.txt, *.csv" />
 		</div>
-		<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+		<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
 			Glob pattern for files to transfer. Leave empty to transfer all files.
 		</p>
 	</div>
 
-	<div class="sm:col-span-4">
-		<label for="output_pattern"
-			class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Output Pattern</label>
+	<div class="mb-6">
+		<label for="output_pattern" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Output Pattern</label>
 		<div class="relative">
-			<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-				<i class="fas fa-file-export text-secondary-400 dark:text-secondary-600"></i>
+			<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+				<i class="fas fa-file-export text-gray-400 dark:text-gray-500"></i>
 			</div>
 			<input type="text" name="output_pattern" id="output_pattern" x-model="outputPattern"
-				class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+				class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 				placeholder="${filename}" />
 		</div>
-		<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+		<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
 			Pattern for output filename. Use variables like ${`filename`}, ${`timestamp`}, ${`date`}
 		</p>
-		<div>
-			<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
-				Pattern for filenames. Available variables:<br />
-				${`filename`} - Original filename without extension (e.g., "report")<br />
-				${`ext`} - Original file extension (e.g., "csv")<br />
-				${`date:format`} - Current date using Go's time format:<br />
-				• 2006-01-02 → YYYY-MM-DD<br />
-				• 20060102 → YYYYMMDD<br />
-				• 2006-01-02 15:04:05 → YYYY-MM-DD_HH:MM:SS<br />
-				Example: ${`filename`}_${`date:2006-01-02`}_${`ext`} → "report_2023-03-01.csv"
+
+		<div class="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+			<h4 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Available variables:</h4>
+			<p class="text-sm text-gray-500 dark:text-gray-400 space-y-1">
+				<span class="block">• ${`filename`} - Original filename without extension (e.g., "report")</span>
+				<span class="block">• ${`ext`} - Original file extension (e.g., "csv")</span>
+				<span class="block">• ${`date:format`} - Current date using Go's time format:</span>
+				<span class="block pl-4">- 2006-01-02 → YYYY-MM-DD</span>
+				<span class="block pl-4">- 20060102 → YYYYMMDD</span>
+				<span class="block pl-4">- 2006-01-02 15:04:05 → YYYY-MM-DD_HH:MM:SS</span>
+				<span class="block italic mt-2">Example: ${`filename`}_${`date:2006-01-02`}_${`ext`} → "report_2023-03-01.csv"</span>
 			</p>
 		</div>
 	</div>
@@ -65,127 +68,129 @@ templ FilePatternFields() {
 }
 
 templ ArchiveOptions() {
-	<div class="border border-secondary-200 dark:border-secondary-700 rounded-lg p-6 bg-secondary-50 dark:bg-secondary-800/50 shadow-sm">
-		<h3 class="text-lg font-medium text-secondary-900 dark:text-secondary-100 mb-4">Archive &amp; Delete Options</h3>
-		
-		<div class="mb-4">
-			<label for="archive_enabled" class="flex items-center cursor-pointer">
-				<div class="relative">
-					<input id="archive_enabled" name="archive_enabled" type="checkbox" x-model="archiveEnabled"
-						class="sr-only"
-						:value="archiveEnabled ? 'true' : 'false'"
-					/>
-					<div class="block bg-secondary-200 dark:bg-secondary-700 w-14 h-8 rounded-full"></div>
-					<div class="dot absolute left-1 top-1 bg-white dark:bg-secondary-100 w-6 h-6 rounded-full transition"
-						:class="archiveEnabled ? 'transform translate-x-6 bg-primary-500' : ''"></div>
-				</div>
-				<div class="ml-3 text-secondary-700 dark:text-secondary-300 font-medium">
-					Enable archiving
-				</div>
+<div class="p-4 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+	<div class="space-y-6">
+		<div class="flex items-center">
+			<label class="relative inline-flex items-center cursor-pointer">
+				<input type="checkbox" id="archive_enabled" name="archive_enabled" x-model="archiveEnabled" 
+					class="sr-only peer" :value="archiveEnabled ? 'true' : 'false'">
+				<div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+				<span class="ms-3 text-sm font-medium text-gray-900 dark:text-white">Enable archiving</span>
 			</label>
 		</div>
 		
-		<div class="mb-4" x-show="archiveEnabled">
-			<label for="archive_path" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Archive Path</label>
+		<div x-show="archiveEnabled" class="mt-4">
+			<label for="archive_path" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Archive Path</label>
 			<div class="relative">
-				<span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-					<i class="fas fa-folder text-secondary-400 dark:text-secondary-600"></i>
-				</span>
-				<input id="archive_path" name="archive_path" type="text" 
-					class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
-					placeholder="Path to archive files"
-					x-model="archivePath"
-				/>
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-folder text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<input id="archive_path" name="archive_path" type="text" x-model="archivePath"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="Path to archive files" />
 			</div>
-			<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
 				Files will be moved here after successful transfer
 			</p>
 		</div>
 		
-		<div class="mb-4">
-			<label for="delete_after_transfer" class="flex items-center cursor-pointer">
-				<div class="relative">
-					<input id="delete_after_transfer" name="delete_after_transfer" type="checkbox" x-model="deleteAfterTransfer"
-						class="sr-only"
-						:value="deleteAfterTransfer ? 'true' : 'false'"
-					/>
-					<div class="block bg-secondary-200 dark:bg-secondary-700 w-14 h-8 rounded-full"></div>
-					<div class="dot absolute left-1 top-1 bg-white dark:bg-secondary-100 w-6 h-6 rounded-full transition"
-						:class="deleteAfterTransfer ? 'transform translate-x-6 bg-red-500' : ''"></div>
-				</div>
-				<div class="ml-3 text-secondary-700 dark:text-secondary-300 font-medium">
-					Delete source files after transfer
-				</div>
+		<div class="flex items-center">
+			<label class="relative inline-flex items-center cursor-pointer">
+				<input type="checkbox" id="delete_after_transfer" name="delete_after_transfer" x-model="deleteAfterTransfer" 
+					class="sr-only peer" :value="deleteAfterTransfer ? 'true' : 'false'">
+				<div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 dark:peer-focus:ring-red-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-red-600"></div>
+				<span class="ms-3 text-sm font-medium text-gray-900 dark:text-white">Delete source files after transfer</span>
 			</label>
-			<p class="mt-1 ml-14 text-xs text-red-500 dark:text-red-400" x-show="deleteAfterTransfer">
-				<i class="fas fa-exclamation-triangle mr-1"></i> Warning: This will permanently delete the original files
-			</p>
+		</div>
+		<div x-show="deleteAfterTransfer" class="mt-2">
+			<div class="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-red-900/30 dark:text-red-300" role="alert">
+				<div class="flex items-center">
+					<i class="fas fa-exclamation-triangle mr-2"></i>
+					<span>Warning: This will permanently delete the original files</span>
+				</div>
+			</div>
 		</div>
 		
-		<div class="mb-4">
-			<label for="skip_processed_files" class="flex items-center cursor-pointer">
-				<div class="relative">
-					<input id="skip_processed_files" name="skip_processed_files" type="checkbox" x-model="skipProcessedFiles"
-						class="sr-only"
-						:value="skipProcessedFiles ? 'true' : 'false'"
-					/>
-					<div class="block bg-secondary-200 dark:bg-secondary-700 w-14 h-8 rounded-full"></div>
-					<div class="dot absolute left-1 top-1 bg-white dark:bg-secondary-100 w-6 h-6 rounded-full transition"
-						:class="skipProcessedFiles ? 'transform translate-x-6 bg-primary-500' : ''"></div>
-				</div>
-				<div class="ml-3 text-secondary-700 dark:text-secondary-300 font-medium">
-					Skip files that have already been processed
-				</div>
+		<div class="flex items-center">
+			<label class="relative inline-flex items-center cursor-pointer">
+				<input type="checkbox" id="skip_processed_files" name="skip_processed_files" x-model="skipProcessedFiles" 
+					class="sr-only peer" :value="skipProcessedFiles ? 'true' : 'false'">
+				<div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+				<span class="ms-3 text-sm font-medium text-gray-900 dark:text-white">Skip files that have already been processed</span>
 			</label>
-			<p class="mt-1 ml-14 text-xs text-secondary-500 dark:text-secondary-400">
-				Files with the same hash that have been successfully processed before will be skipped
-			</p>
 		</div>
+		<p class="ms-14 text-sm text-gray-500 dark:text-gray-400">
+			Files with the same hash that have been successfully processed before will be skipped
+		</p>
 
-		<div class="mb-4">
-			<label for="max_concurrent_transfers" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Concurrent Transfers</label>
-			<div class="flex items-center">
-				<input type="range" id="max_concurrent_transfers" name="max_concurrent_transfers" 
-					class="form-range w-2/3 h-2 bg-secondary-200 dark:bg-secondary-700 rounded-lg appearance-none cursor-pointer"
-					min="1" max="32" step="1"
-					x-model="maxConcurrentTransfers" 
-				/>
-				<span class="ml-4 text-secondary-700 dark:text-secondary-300" x-text="maxConcurrentTransfers"></span>
-			</div>
-			<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+		<div class="mt-6">
+			<label for="max_concurrent_transfers" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+				Concurrent Transfers: <span x-text="maxConcurrentTransfers"></span>
+			</label>
+			<input type="range" id="max_concurrent_transfers" name="max_concurrent_transfers" 
+				class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+				min="1" max="32" step="1" x-model="maxConcurrentTransfers">
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
 				Number of files to transfer simultaneously (higher values may improve performance but increase resource usage)
 			</p>
 		</div>
 	</div>
+</div>
 }
 
 templ RcloneFlags() {
-<div>
-	<label for="rclone_flags" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300">Rclone Flags</label>
-	<div class="mt-1 relative rounded-md shadow-sm">
-		<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-			<i class="fas fa-flag text-secondary-400 dark:text-secondary-600"></i>
+<div class="mb-6">
+	<label for="command_id" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Rclone Command</label>
+	<div class="relative">
+		<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+			<i class="fas fa-terminal text-gray-400 dark:text-gray-500"></i>
+		</div>
+		@RcloneCommandOptions()
+	</div>
+	<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+		Select the rclone command to use for this configuration.
+	</p>
+
+	<!-- Command flags container - will be populated via HTMX -->
+	<div id="command-flags-container" class="mt-4"></div>
+
+	<label for="rclone_flags" class="block mb-2 mt-6 text-sm font-medium text-gray-900 dark:text-white">Additional Rclone Flags</label>
+	<div class="relative">
+		<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+			<i class="fas fa-flag text-gray-400 dark:text-gray-500"></i>
 		</div>
 		<input type="text" name="rclone_flags" id="rclone_flags" x-model="rcloneFlags"
-			class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500"
+			@change="updateCommandRequirements()"
+			class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 			placeholder="--transfers 4 --checkers 8" />
 	</div>
-	<p class="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
+	<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
 		Optional: Additional rclone flags for fine-tuning the transfer.
 	</p>
 </div>
 }
 
+// New placeholder templ for rclone command options
+templ RcloneCommandOptions() {
+	<div 
+		hx-get="/api/rclone/commands" 
+		hx-trigger="load"
+		hx-target="this"
+		hx-swap="outerHTML">
+		<!-- Loading placeholder -->
+		<option value="">Loading commands...</option>
+	</div>
+}
+
 templ SourceSelection() {
-<div class="sm:col-span-3">
-	<label for="source_type" class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Source
-		Type</label>
+<div class="mb-6">
+	<label for="source_type" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Source Type</label>
 	<div class="relative">
-		<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-			<i class="fas fa-server text-secondary-400 dark:text-secondary-600"></i>
+		<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+			<i class="fas fa-server text-gray-400 dark:text-gray-500"></i>
 		</div>
 		<select id="source_type" name="source_type" x-model="sourceType"
-			class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500">
+			class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
 			<option value="local">Local</option>
 			<option value="sftp">SFTP</option>
 			<option value="ftp">FTP</option>
@@ -194,23 +199,22 @@ templ SourceSelection() {
 			<option value="smb">SMB</option>
 			<option value="nextcloud">NextCloud</option>
 			<option value="webdav">WebDAV</option>
-			<option value="gdrive">Google Drive</option>
-			<option value="gphotos">Google Photos</option>
+			<option value="gdrive">Google Drive (BETA)</option>
+			<option value="gphotos">Google Photos (BETA)</option>
 		</select>
 	</div>
 </div>
 }
 
 templ DestinationSelection() {
-<div class="sm:col-span-3">
-	<label for="destination_type"
-		class="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-1">Destination Type</label>
+<div class="mb-6">
+	<label for="destination_type" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Destination Type</label>
 	<div class="relative">
-		<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-			<i class="fas fa-server text-secondary-400 dark:text-secondary-600"></i>
+		<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+			<i class="fas fa-server text-gray-400 dark:text-gray-500"></i>
 		</div>
 		<select id="destination_type" name="destination_type" x-model="destinationType"
-			class="form-input pl-10 w-full rounded-lg border-secondary-300 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100 focus:ring-primary-500 focus:border-primary-500">
+			class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
 			<option value="local">Local</option>
 			<option value="sftp">SFTP</option>
 			<option value="ftp">FTP</option>
@@ -219,9 +223,241 @@ templ DestinationSelection() {
 			<option value="smb">SMB</option>
 			<option value="nextcloud">NextCloud</option>
 			<option value="webdav">WebDAV</option>
-			<option value="gdrive">Google Drive</option>
-			<option value="gphotos">Google Photos</option>
+			<option value="gdrive">Google Drive (BETA)</option>
+			<option value="gphotos">Google Photos (BETA)</option>
 		</select>
 	</div>
 </div>
+}
+
+// RcloneCommandOptionsContent renders the command options organized by category
+templ RcloneCommandOptionsContent(categoryMap map[string][]db.RcloneCommand, categories []string) {
+	<select id="command_id" name="command_id" x-model="commandId"
+		hx-get="/api/rclone/command-flags"
+		hx-target="#command-flags-container"
+		hx-trigger="change"
+		hx-include="[name='command_id']"
+		@change="updateCommandRequirements()"
+		class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+		<option value="">Select command...</option>
+		for _, category := range categories {
+			if commands, ok := categoryMap[category]; ok && len(commands) > 0 {
+				<optgroup label={ category }>
+					for _, cmd := range commands {
+						<option value={ fmt.Sprintf("%d", cmd.ID) }>{ cmd.Name } - { cmd.Description }</option>
+					}
+				</optgroup>
+			}
+		}
+	</select>
+}
+
+// RcloneCommandFlagsContent renders the command flags for a selected command
+templ RcloneCommandFlagsContent(command *db.RcloneCommand) {
+	if command == nil {
+		<div class="p-4 text-red-500">Command not found</div>
+		return
+	}
+
+	<div class="mb-4">
+		<h4 class="font-medium text-gray-900 dark:text-white mb-2">{ command.Name }</h4>
+		<p class="text-sm text-gray-600 dark:text-gray-400 mb-4">{ command.Description }</p>
+		
+		if len(command.Flags) > 0 {
+			<div class="mb-3">
+				<h5 class="font-medium text-gray-900 dark:text-white mb-2">Command Flags:</h5>
+				<div class="space-y-3">
+					for _, flag := range command.Flags {
+						if flag.DataType == "bool" {
+							<!-- Boolean flag (simple checkbox) -->
+							<div class="flex items-start mb-4">
+								<input
+									type="checkbox"
+									id={ fmt.Sprintf("flag_%d", flag.ID) }
+									name="command_flags"
+									value={ fmt.Sprintf("%d", flag.ID) }
+									class="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-blue-600"
+								/>
+								<div class="ml-3">
+									<label for={ fmt.Sprintf("flag_%d", flag.ID) } class="font-medium text-gray-900 dark:text-white">
+										{ flag.Name } - { flag.Description }
+									</label>
+									if flag.DefaultValue != "" {
+										<p class="text-xs text-gray-500 dark:text-gray-400">Default: { flag.DefaultValue }</p>
+									}
+								</div>
+							</div>
+						} else {
+							<!-- Non-boolean flag (requires value) -->
+							<div class="flex items-start mb-4 w-full">
+								<div class="w-full">
+									<div class="flex items-center mb-2">
+										<input
+											type="checkbox"
+											id={ fmt.Sprintf("flag_enable_%d", flag.ID) }
+											name={ fmt.Sprintf("flag_enable_%d", flag.ID) }
+											class="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-blue-600"
+											data-input-id={ fmt.Sprintf("flag_value_%d", flag.ID) }
+											onclick="toggleFlagValue(this)"
+										/>
+										<label for={ fmt.Sprintf("flag_enable_%d", flag.ID) } class="font-medium text-gray-900 dark:text-white">
+											{ flag.Name } - { flag.Description }
+										</label>
+									</div>
+									
+									<div class="w-full mt-2">
+										@renderFlagInput(flag)
+										if flag.DefaultValue != "" {
+											<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Default: { flag.DefaultValue }</p>
+										}
+									</div>
+								</div>
+							</div>
+						}
+					}
+				</div>
+			</div>
+			
+			<!-- JavaScript to handle enabling/disabling flag value inputs -->
+			<script>
+				function toggleFlagValue(checkbox) {
+					const inputId = checkbox.getAttribute('data-input-id');
+					const input = document.getElementById(inputId);
+					
+					if (input) {
+						input.disabled = !checkbox.checked;
+						if (checkbox.checked) {
+							// Focus on the input when enabled
+							input.focus();
+						}
+						
+						// Also enable/disable the hidden input for flag ID
+						const hiddenId = inputId.replace('flag_value_', 'flag_hidden_');
+						const hiddenInput = document.getElementById(hiddenId);
+						if (hiddenInput) {
+							hiddenInput.disabled = !checkbox.checked;
+							console.log('Toggle hidden input:', hiddenId, checkbox.checked);
+						}
+						
+						// For debugging
+						console.log('Toggle flag value:', inputId, checkbox.checked);
+					}
+				}
+				
+				// Initialize all flag inputs on page load
+				document.addEventListener('DOMContentLoaded', function() {
+					const checkboxes = document.querySelectorAll('input[id^="flag_enable_"]');
+					checkboxes.forEach(function(checkbox) {
+						const inputId = checkbox.getAttribute('data-input-id');
+						const input = document.getElementById(inputId);
+						if (input) {
+							input.disabled = !checkbox.checked;
+							
+							// Also initialize the hidden input
+							const hiddenId = inputId.replace('flag_value_', 'flag_hidden_');
+							const hiddenInput = document.getElementById(hiddenId);
+							if (hiddenInput) {
+								hiddenInput.disabled = !checkbox.checked;
+							}
+						}
+					});
+				});
+			</script>
+			
+			<div class="mt-4 p-3 bg-blue-50 text-blue-800 rounded-lg border border-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-900 text-sm">
+				<div class="flex items-center mb-1">
+					<i class="fas fa-info-circle mr-2"></i>
+					<span class="font-medium">Usage Examples</span>
+				</div>
+				if  command.Name == "ls" || 
+					command.Name == "lsd" ||
+					command.Name == "lsl" ||
+					command.Name == "lsjson" || 
+					command.Name == "lsf" ||
+					command.Name == "delete" ||
+					command.Name == "purge" ||
+					command.Name == "rmdirs" ||
+					command.Name == "mkdir" ||
+					command.Name == "touch" ||
+					command.Name == "md5sum" ||
+					command.Name == "sha1sum" ||
+					command.Name == "sha256sum" ||
+					command.Name == "size" ||
+					command.Name == "stat" ||
+					command.Name == "version" {
+					<code class="block mt-1 font-mono text-xs overflow-x-auto">rclone { command.Name } [flags] source:path</code>
+				} else {
+					<code class="block mt-1 font-mono text-xs overflow-x-auto">rclone { command.Name } [flags] source:path dest:path</code>
+				}
+			</div>
+		} else {
+			<div class="p-3 bg-gray-50 text-gray-600 rounded-lg border border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 text-sm">
+				<div class="flex items-center">
+					<i class="fas fa-info-circle mr-2"></i>
+					<span>This command doesn't have any specific flags.</span>
+				</div>
+			</div>
+		}
+	</div>
+}
+
+// Helper function to render appropriate input based on flag data type
+templ renderFlagInput(flag db.RcloneCommandFlag) {
+	if flag.DataType == "int" {
+		<input
+			type="number"
+			id={ fmt.Sprintf("flag_value_%d", flag.ID) }
+			name={ fmt.Sprintf("flag_value_%d", flag.ID) }
+			class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+			placeholder={ flag.DefaultValue }
+			disabled
+		/>
+		<!-- Hidden input to include this flag ID when checked -->
+		<input 
+			type="hidden" 
+			name="command_flags" 
+			value={ fmt.Sprintf("%d", flag.ID) }
+			disabled
+			id={ fmt.Sprintf("flag_hidden_%d", flag.ID) }
+			data-enable-with={ fmt.Sprintf("flag_enable_%d", flag.ID) }
+		/>
+	} else if flag.DataType == "float" {
+		<input
+			type="number"
+			id={ fmt.Sprintf("flag_value_%d", flag.ID) }
+			name={ fmt.Sprintf("flag_value_%d", flag.ID) }
+			step="0.01"
+			class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+			placeholder={ flag.DefaultValue }
+			disabled
+		/>
+		<!-- Hidden input to include this flag ID when checked -->
+		<input 
+			type="hidden" 
+			name="command_flags" 
+			value={ fmt.Sprintf("%d", flag.ID) }
+			disabled
+			id={ fmt.Sprintf("flag_hidden_%d", flag.ID) }
+			data-enable-with={ fmt.Sprintf("flag_enable_%d", flag.ID) }
+		/>
+	} else {
+		<!-- Default to text input for string and other types -->
+		<input
+			type="text"
+			id={ fmt.Sprintf("flag_value_%d", flag.ID) }
+			name={ fmt.Sprintf("flag_value_%d", flag.ID) }
+			class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+			placeholder={ flag.DefaultValue }
+			disabled
+		/>
+		<!-- Hidden input to include this flag ID when checked -->
+		<input 
+			type="hidden" 
+			name="command_flags" 
+			value={ fmt.Sprintf("%d", flag.ID) }
+			disabled
+			id={ fmt.Sprintf("flag_hidden_%d", flag.ID) }
+			data-enable-with={ fmt.Sprintf("flag_enable_%d", flag.ID) }
+		/>
+	}
 }
