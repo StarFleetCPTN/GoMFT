@@ -1169,6 +1169,43 @@ func (h *Handlers) HandleNewNotificationPage(c *gin.Context) {
 
 	data := components.NotificationFormData{
 		IsNew: true,
+		NotificationService: &struct {
+			ID                      uint
+			Name                    string
+			Description             string
+			Type                    string
+			IsEnabled               bool
+			EventTriggers           []string
+			RetryPolicy             string
+			WebhookURL              string
+			Method                  string
+			Headers                 string
+			PayloadTemplate         string
+			SecretKey               string
+			PushbulletAPIKey        string
+			PushbulletDeviceID      string
+			PushbulletTitleTemplate string
+			PushbulletBodyTemplate  string
+			NtfyServer              string
+			NtfyTopic               string
+			NtfyPriority            string
+			NtfyUsername            string
+			NtfyPassword            string
+			NtfyTitleTemplate       string
+			NtfyMessageTemplate     string
+			GotifyURL               string
+			GotifyToken             string
+			GotifyPriority          string
+			GotifyTitleTemplate     string
+			GotifyMessageTemplate   string
+			PushoverAPIToken        string
+			PushoverUserKey         string
+			PushoverDevice          string
+			PushoverPriority        string
+			PushoverSound           string
+			PushoverTitleTemplate   string
+			PushoverMessageTemplate string
+		}{},
 	}
 
 	ctx := h.CreateTemplateContext(c)
