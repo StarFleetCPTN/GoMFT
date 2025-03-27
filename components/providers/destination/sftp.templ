@@ -23,7 +23,7 @@ templ SFTPDestinationForm() {
 				</div>
 				<input type="number" id="dest_port" name="dest_port" x-model="destPort"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-					placeholder="22" min="1" max="65535" />
+					placeholder="22" min="1" max="65535" x-init="if (!destPort || destPort === 0) destPort = 22" />
 			</div>
 			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">SFTP port number (default: 22)</p>
 		</div>
@@ -74,7 +74,7 @@ templ SFTPDestinationForm() {
 				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 					<i class="fas fa-key text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input type="text" id="dest_key_file" name="dest_key_file" x-model="destinationKeyFile"
+				<input type="text" id="dest_key_file" name="dest_key_file" x-model="destKeyFile"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 					placeholder="/path/to/id_rsa" x-bind:required="destAuthType === 'key'" />
 			</div>
