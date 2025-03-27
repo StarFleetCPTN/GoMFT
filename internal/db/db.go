@@ -653,7 +653,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 	case "webdav":
 		args := []string{
 			"config", "create", sourceName, "webdav",
-			"url", config.SourceHost,
+			"url", config.SourceEndpoint,
 			"user", config.SourceUser,
 			"pass", config.SourcePassword,
 			"--non-interactive",
@@ -668,7 +668,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 	case "nextcloud":
 		args := []string{
 			"config", "create", sourceName, "webdav",
-			"url", config.SourceHost,
+			"url", config.SourceEndpoint,
 			"user", config.SourceUser,
 			"pass", config.SourcePassword,
 			"vendor", "nextcloud",
@@ -760,6 +760,9 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 	}
 
 	destName := fmt.Sprintf("dest_%d", config.ID)
+
+	fmt.Println("config", config)
+
 	switch config.DestinationType {
 	case "sftp":
 		args := []string{
@@ -875,7 +878,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 	case "webdav":
 		args := []string{
 			"config", "create", destName, "webdav",
-			"url", config.DestHost,
+			"url", config.DestEndpoint,
 			"user", config.DestUser,
 			"pass", config.DestPassword,
 			"--non-interactive",
@@ -890,7 +893,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 	case "nextcloud":
 		args := []string{
 			"config", "create", destName, "webdav",
-			"url", config.DestHost,
+			"url", config.DestEndpoint,
 			"user", config.DestUser,
 			"pass", config.DestPassword,
 			"vendor", "nextcloud",

@@ -30,6 +30,23 @@ jobs:
         with:
           fetch-depth: 0  # Needed to get all tags for versioning
 
+      # Set up Node.js for frontend build
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # Install dependencies
+      - name: Install dependencies
+        run: npm ci
+
+      # Build frontend assets
+      - name: Build frontend assets
+        run: |
+          node build.js
+          ls -la static/dist/
+
       # Set version information
       - name: Set Version
         id: version

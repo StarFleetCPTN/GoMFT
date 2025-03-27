@@ -27,6 +27,26 @@ jobs:
         with:
           fetch-depth: 0
       
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Node.js dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        run: |
+          # Build JavaScript and CSS assets
+          node build.js
+          
+          # Ensure the dist directory exists
+          mkdir -p static/dist
+          
+          # Verify the build output
+          ls -la static/dist
+      
       - name: Set up Go
         uses: actions/setup-go@v5
         with:

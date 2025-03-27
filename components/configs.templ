@@ -8,7 +8,10 @@ import (
 
 // Dialog component for confirmation dialogs using Flowbite modal
 templ ConfigDialog(id string, title string, message string, confirmClass string, confirmText string, action string, configID uint, configName string) {
-	<div id={ id } tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-gray-900/50 dark:bg-gray-900/80 backdrop-blur-sm">
+	<div id={ id } tabindex="-1" aria-hidden="true" class="hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+		<!-- Backdrop -->
+		<div id={ fmt.Sprintf("%s-backdrop", id) } class="fixed inset-0 bg-gray-900/50 dark:bg-gray-900/80 backdrop-blur-sm"></div>
+		<!-- Modal content -->
 		<div class="relative p-4 w-full max-w-md max-h-full mx-auto">
 			<div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
 				<div class="p-6 text-center">
@@ -30,7 +33,7 @@ templ ConfigDialog(id string, title string, message string, confirmClass string,
 						onclick={ triggerConfigDelete(id, configID, configName) }>
 						{ confirmText }
 					</button>
-					<button type="button" data-modal-hide={ id } class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600">
+					<button type="button" onclick={ closeModal(id) } class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600">
 						Cancel
 					</button>
 				</div>
@@ -39,14 +42,26 @@ templ ConfigDialog(id string, title string, message string, confirmClass string,
 	</div>
 }
 
-script hideConfigDialog(id string) {
-	document.getElementById(id).classList.add("hidden");
-	document.getElementById(id).classList.remove("flex");
+script closeModal(id string) {
+	const modal = document.getElementById(id);
+	const backdrop = document.getElementById(id + '-backdrop');
+	if (modal) {
+		modal.classList.add('hidden');
+		modal.classList.remove('flex');
+	}
+	if (backdrop) {
+		backdrop.remove();
+	}
+	document.body.style.overflow = '';
 }
 
-script showConfigDialog(id string) {
-	document.getElementById(id).classList.remove("hidden");
-	document.getElementById(id).classList.add("flex");
+script showModal(id string) {
+	const modal = document.getElementById(id);
+	if (modal) {
+		modal.classList.remove('hidden');
+		modal.classList.add('flex');
+		document.body.style.overflow = 'hidden';
+	}
 }
 
 script triggerConfigDelete(dialogId string, configID uint, configName string) {
@@ -429,7 +444,7 @@ templ Configs(ctx context.Context, data ConfigsData) {
 														)
 														<button 
 															type="button"
-															onclick={ showConfigDialog(fmt.Sprintf("delete-config-dialog-%d", config.ID)) }
+															onclick={ showModal(fmt.Sprintf("delete-config-dialog-%d", config.ID)) }
 															class="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm px-3 py-1.5 text-center inline-flex items-center dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-800">
 															<i class="fas fa-trash-alt w-3.5 h-3.5 mr-1.5"></i>
 															Delete

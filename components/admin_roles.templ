@@ -87,7 +87,7 @@ templ AdminRoles(ctx context.Context, data RolesData) {
 											<button 
 												data-role-id={ fmt.Sprint(role.ID) }
 												data-role-name={ role.Name }
-												onclick={ showRoleDialog(fmt.Sprintf("delete-role-dialog-%d", role.ID)) }
+												onclick={ showModal(fmt.Sprintf("delete-role-dialog-%d", role.ID)) }
 												class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">
 												<i class="fas fa-trash"></i>
 											</button>
@@ -269,7 +269,10 @@ templ AdminRoles(ctx context.Context, data RolesData) {
 
 // RoleDialog for confirmation actions
 templ RoleDialog(id string, title string, message string, confirmClass string, confirmText string, action string, roleID uint, roleName string) {
-	<div id={ id } tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full bg-gray-900/50 dark:bg-gray-900/80 backdrop-blur-sm">
+	<div id={ id } tabindex="-1" aria-hidden="true" class="hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+		<!-- Backdrop -->
+		<div id={ fmt.Sprintf("%s-backdrop", id) } class="fixed inset-0 bg-gray-900/50 dark:bg-gray-900/80 backdrop-blur-sm"></div>
+		<!-- Modal content -->
 		<div class="relative p-4 w-full max-w-md max-h-full mx-auto">
 			<div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
 				<div class="p-6 text-center">
@@ -288,23 +291,13 @@ templ RoleDialog(id string, title string, message string, confirmClass string, c
 						onclick={ triggerRoleDelete(id, roleID, roleName) }>
 						{ confirmText }
 					</button>
-					<button type="button" data-modal-hide={ id } class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600">
+					<button type="button" onclick={ closeModal(id) } class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600">
 						Cancel
 					</button>
 				</div>
 			</div>
 		</div>
 	</div>
-}
-
-script hideRoleDialog(id string) {
-	document.getElementById(id).classList.add("hidden");
-	document.getElementById(id).classList.remove("flex");
-}
-
-script showRoleDialog(id string) {
-	document.getElementById(id).classList.remove("hidden");
-	document.getElementById(id).classList.add("flex");
 }
 
 script triggerRoleDelete(dialogId string, roleID uint, roleName string) {

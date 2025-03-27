@@ -54,42 +54,36 @@ templ LayoutWithContext(title string, ctx context.Context) {
 			<link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png"/>
 			<link rel="manifest" href="/static/site.webmanifest"/>
 			<title>{ title } - GoMFT</title>
-			<script src="https://unpkg.com/htmx.org@1.9.10"></script>
-			<script src="https://unpkg.com/alpinejs@3.13.5/dist/cdn.min.js" defer></script>
-			<!-- Tailwind CSS with Flowbite -->
-			<script src="https://cdn.tailwindcss.com"></script>
-			<link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.1/flowbite.min.css" rel="stylesheet"/>
-			<script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.1/flowbite.min.js"></script>
-			<script src="/static/js/app.js"></script>
-			<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
-			<link rel="stylesheet" href="/static/css/app.css"/>
+			<!-- Font Awesome -->
+			<link rel="stylesheet" href="/static/dist/fontawesome/css/all.min.css"/>
+			<!-- Application assets -->
+			<link rel="stylesheet" href="/static/dist/app.css"/>
+			<link rel="stylesheet" href="https://rsms.me/inter/inter.css"/>
 
 			<script>
-				tailwind.config = {
-					darkMode: 'class',
-					theme: {
-						extend: {
-							colors: {
-								primary: {
-									50: '#f0f9ff',
-									100: '#e0f2fe',
-									200: '#bae6fd',
-									300: '#7dd3fc',
-									400: '#38bdf8',
-									500: '#0ea5e9',
-									600: '#0284c7',
-									700: '#0369a1',
-									800: '#075985',
-									900: '#0c4a6e',
-									950: '#082f49',
+				// Immediate theme application
+				// This script runs before the DOM is fully loaded
+				(function() {
+					const isDark = localStorage.theme === 'dark' || 
+						(!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+					
+					if (isDark) {
+						document.documentElement.classList.add('dark');
+						document.addEventListener('DOMContentLoaded', function() {
+							document.body.classList.add('dark');
+							
+							// Apply dark theme to containers
+							const containers = ['jobs-container', 'configs-container'];
+							containers.forEach(function(id) {
+								const container = document.getElementById(id);
+								if (container) {
+									container.classList.add('dark');
+									container.style.backgroundColor = '#111827';
 								}
-							},
-							fontFamily: {
-								sans: ['Inter var', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
-							}
-						}
+							});
+						});
 					}
-				}
+				})();
 			</script>
 			<style>
 				html, body {
@@ -146,32 +140,6 @@ templ LayoutWithContext(title string, ctx context.Context) {
 					background-color: #1f2937 !important;
 				}
 			</style>
-			<link rel="stylesheet" href="https://rsms.me/inter/inter.css"/>
-			<script>
-				// Immediate theme application
-				// This script runs before the DOM is fully loaded
-				(function() {
-					const isDark = localStorage.theme === 'dark' || 
-						(!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
-					
-					if (isDark) {
-						document.documentElement.classList.add('dark');
-						document.addEventListener('DOMContentLoaded', function() {
-							document.body.classList.add('dark');
-							
-							// Apply dark theme to containers
-							const containers = ['jobs-container', 'configs-container'];
-							containers.forEach(function(id) {
-								const container = document.getElementById(id);
-								if (container) {
-									container.classList.add('dark');
-									container.style.backgroundColor = '#111827';
-								}
-							});
-						});
-					}
-				})();
-			</script>
 		</head>
 		<body class="min-h-full bg-gray-50 dark:bg-gray-900" style="min-height: 100vh; display: flex; flex-direction: column;">
 			if isLoggedIn(ctx) {
@@ -269,10 +237,93 @@ templ LayoutWithContext(title string, ctx context.Context) {
 									<button data-drawer-target="mobile-menu" data-drawer-toggle="mobile-menu" class="p-2 text-gray-500 rounded-lg hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700">
 										<i class="fas fa-bars text-lg"></i>
 									</button>
-									<!-- User menu (same as desktop) -->
 								</div>
 							</div>
 						</div>
+					</div>
+					<!-- Add this drawer element for mobile menu -->
+					<div id="mobile-menu" class="fixed top-0 left-0 z-40 h-screen p-4 overflow-y-auto transition-transform -translate-x-full bg-white w-64 dark:bg-gray-800" tabindex="-1">
+						<div class="flex items-center justify-between">
+							<a href="/" class="flex items-center text-xl font-bold text-primary-600 dark:text-primary-400">
+								<i class="fas fa-exchange-alt mr-2"></i>
+								GoMFT
+							</a>
+							<button type="button" data-drawer-hide="mobile-menu" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 inline-flex items-center dark:hover:bg-gray-600 dark:hover:text-white">
+								<i class="fas fa-times"></i>
+							</button>
+						</div>
+						<!-- Copy the same navigation items from the desktop sidebar -->
+						<nav class="mt-5">
+							<div class="space-y-1">
+								<!-- Copy the same links from the desktop sidebar -->
+								<a href="/dashboard" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+									<i class="fas fa-tachometer-alt mr-3 text-gray-500 dark:text-gray-400"></i>
+									Dashboard
+								</a>
+								<a href="/configs" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+									<i class="fas fa-cogs mr-3 text-gray-500 dark:text-gray-400"></i>
+									Configs
+								</a>
+								<a href="/jobs" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+									<i class="fas fa-tasks mr-3 text-gray-500 dark:text-gray-400"></i>
+									Jobs
+								</a>
+								<a href="/history" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+									<i class="fas fa-history mr-3 text-gray-500 dark:text-gray-400"></i>
+									History
+								</a>
+								<a href="/files" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+									<i class="fas fa-file-alt mr-3 text-gray-500 dark:text-gray-400"></i>
+									Files
+								</a>
+								if isAdmin(ctx) {
+									<p class="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+										Administration
+									</p>
+									<a href="/admin/users" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+										<i class="fas fa-users w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
+										Users
+									</a>
+									<a href="/admin/roles" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+										<i class="fas fa-user-shield w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
+										Roles
+									</a>
+									<a href="/admin/audit" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+										<i class="fas fa-clipboard-list w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
+										Audit Logs
+									</a>
+									<a href="/admin/database" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+										<i class="fas fa-database w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
+										Database Tools
+									</a>
+									// Settings Dropdown
+									<button type="button" class="flex items-center w-full p-2 text-base text-gray-900 transition duration-75 rounded-lg group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700" aria-controls="dropdown-settings" data-collapse-toggle="dropdown-settings">
+										<i class="fas fa-cog w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
+										<span class="flex-1 ms-3 text-left rtl:text-right whitespace-nowrap">Settings</span>
+										<svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
+											<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 4 4 4-4"/>
+										</svg>
+									</button>
+									<ul id="dropdown-settings" class="hidden py-2 space-y-2">
+										// <li>
+										// 	<a href="#" class="flex items-center w-full p-2 text-gray-900 transition duration-75 rounded-lg pl-11 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700">General (Coming Soon)</a>
+										// </li>
+										<li>
+											<a href="/admin/settings/auth-providers" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+												<i class="fas fa-user-lock w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
+												Authentication Providers
+											</a>
+										</li>
+										<li>
+											<a href="/admin/settings/notifications" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+												<i class="fas fa-bell w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
+												Notification Services
+											</a>
+										</li>
+									</ul>
+								}
+							</div>
+						</nav>
 					</div>
 					<!-- Main Content -->
 					<div class="md:pl-64 flex flex-col flex-1 w-full bg-gray-50 dark:bg-gray-900">
@@ -280,9 +331,6 @@ templ LayoutWithContext(title string, ctx context.Context) {
 						<header class="bg-white dark:bg-gray-800 shadow-sm">
 							<div class="flex items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
 								<div class="flex items-center space-x-3">
-									<button data-drawer-target="desktop-menu" data-drawer-toggle="desktop-menu" class="md:hidden p-2 text-gray-500 rounded-lg hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700">
-										<i class="fas fa-bars text-lg"></i>
-									</button>
 									<h1 class="text-lg font-semibold text-gray-900 dark:text-white">{ title }</h1>
 								</div>
 								<!-- Theme toggle and user menu -->
@@ -447,40 +495,12 @@ templ LayoutWithContext(title string, ctx context.Context) {
 					</footer>
 				</div>
 			}
-			<script>
-				// Add script to ensure dark mode is properly applied
-				document.addEventListener('DOMContentLoaded', function() {
-					// Apply body dark class when theme changes
-					const isDark = document.documentElement.classList.contains('dark');
-					if (isDark) {
-						document.body.classList.add('dark');
-						
-						// Also apply to containers
-						const jobsContainer = document.getElementById('jobs-container');
-						const configsContainer = document.getElementById('configs-container');
-						
-						if (jobsContainer) jobsContainer.classList.add('dark');
-						if (configsContainer) configsContainer.classList.add('dark');
-					}
-
-					// Initialize admin dropdown toggle if available
-					const adminDropdownToggle = document.querySelector('[data-collapse-toggle="dropdown-settings"]');
-					const adminDropdown = document.getElementById('dropdown-settings');
-					
-					if (adminDropdownToggle && adminDropdown) {
-						// Check if we should show the dropdown (if current page is under admin section)
-						const currentPath = window.location.pathname;
-						if (currentPath.startsWith('/admin')) {
-							adminDropdown.classList.remove('hidden');
-						}
-
-						// Add click event listener
-						adminDropdownToggle.addEventListener('click', function() {
-							adminDropdown.classList.toggle('hidden');
-						});
-					}
-				});
-			</script>
+			<!-- Scripts -->
+			<!-- Alpine.js and dependencies -->
+			<script defer src="/static/dist/vendor.js"></script>
+			<!-- Application scripts -->
+			<script defer src="/static/dist/app.js"></script>
+			<script defer src="/static/dist/init.js"></script>
 		</body>
 	</html>
 }
