@@ -27,7 +27,7 @@ func getInitialData(config *db.TransferConfig) string {
 	sourceType := "local"
 	sourcePath := ""
 	sourceHost := ""
-	sourcePort := 22
+	sourcePort := 0  // Initialize to 0 to trigger default setting
 	sourceUser := ""
 	sourcePassword := ""
 	sourceKeyFile := ""
@@ -55,7 +55,7 @@ func getInitialData(config *db.TransferConfig) string {
 	destinationType := "local"
 	destinationPath := ""
 	destHost := ""
-	destPort := 22
+	destPort := 0  // Initialize to 0 to trigger default setting
 	destUser := ""
 	destPassword := ""
 	destKeyFile := ""
@@ -386,11 +386,41 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 							// Ensure initial form state displays correctly on load
 							sourceType = sourceType || 'local';
 							destinationType = destinationType || 'local';
-							sourcePort = sourcePort || 22;
-							destPort = destPort || 22;
+							
+							// Set default ports based on connection type
+							if (sourcePort === 0 || !sourcePort) {
+								if (sourceType === 'sftp') {
+									sourcePort = 22;
+								} else if (sourceType === 'ftp') {
+									sourcePort = 21;
+								}
+							}
+							
+							if (destPort === 0 || !destPort) {
+								if (destinationType === 'sftp') {
+									destPort = 22;
+								} else if (destinationType === 'ftp') {
+									destPort = 21;
+								}
+							}
+
 							// Initialize command requirements
 							updateCommandRequirements();
 						})"
+						x-effect="if (sourceType === 'sftp' && (sourcePort === 0 || sourcePort === 21)) {
+							sourcePort = 22;
+							console.log('Updating source port to 22 for SFTP');
+						} else if (sourceType === 'ftp' && (sourcePort === 0 || sourcePort === 22)) {
+							sourcePort = 21;
+							console.log('Updating source port to 21 for FTP');
+						}"
+						x-effect="if (destinationType === 'sftp' && (destPort === 0 || destPort === 21)) {
+							destPort = 22;
+							console.log('Updating destination port to 22 for SFTP');
+						} else if (destinationType === 'ftp' && (destPort === 0 || destPort === 22)) {
+							destPort = 21;
+							console.log('Updating destination port to 21 for FTP');
+						}"
 						>
 						
 						<!-- Configuration Details Section -->

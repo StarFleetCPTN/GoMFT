@@ -637,6 +637,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"host", config.SourceHost,
 			"user", config.SourceUser,
 			"pass", config.SourcePassword,
+			"port", fmt.Sprintf("%d", config.SourcePort),
 			"--non-interactive",
 			"--config", configPath,
 			"--log-level", "ERROR",
@@ -860,6 +861,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 		args := []string{
 			"config", "create", destName, "ftp",
 			"host", config.DestHost,
+			"port", fmt.Sprintf("%d", config.DestPort),
 			"user", config.DestUser,
 			"pass", config.DestPassword,
 			"--non-interactive",

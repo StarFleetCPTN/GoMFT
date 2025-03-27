@@ -23,7 +23,9 @@ templ FTPDestinationForm() {
 				</div>
 				<input type="number" id="dest_port" name="dest_port" x-model="destPort"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-					placeholder="21" min="1" max="65535" />
+					placeholder="21" min="1" max="65535" 
+					x-init="if (!destPort || destPort === 0) destPort = 21"
+					x-effect="if (destinationType === 'ftp' && (destPort === 0 || destPort === 22)) destPort = 21" />
 			</div>
 			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">FTP port number (default: 21)</p>
 		</div>
