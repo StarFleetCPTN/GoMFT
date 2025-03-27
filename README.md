@@ -86,6 +86,14 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
 - **Transfer Configurations**: Full control over source and destination connection parameters
 - **Job Management**: Create, edit, and monitor transfer jobs with scheduling
 - **Security**: Role-based access control with admin-managed user accounts and secure password management
+- **Authentication Providers**: Flexible authentication options:
+  - Built-in email/password authentication
+  - Authentik integration for enterprise SSO
+  - OpenID Connect (OIDC) support for standard identity providers
+  - OAuth2 integration for popular providers (Google, GitHub, etc.)
+  - Multiple provider support with fallback options
+  - Automatic user provisioning from external providers
+  - Role mapping from external identity providers
 - **Password Recovery**: Self-service password reset via email with secure token-based authentication
 - **User Profile Management**: Personal settings including theme preferences
 - **Modern UI**: Built with Templ, HTMX and Tailwind CSS for a responsive experience
@@ -416,19 +424,57 @@ Log files contain detailed information about file transfers, job execution, and 
 
 ### User Management
 
-GoMFT uses a role-based access control system:
+GoMFT uses a role-based access control system with flexible authentication options:
 
 - **Administrators**: Can create and manage users, access all features
 - **Regular Users**: Can manage transfers and view history
 
-User management features:
-- Only administrators can create new user accounts
-- User passwords are securely hashed with bcrypt
-- Password history tracking prevents reuse of recent passwords
-- Account lockout after multiple failed login attempts
-- Self-service password reset via secure email links
-- JWT-based authentication with tokens
-- User theme preference settings (light/dark)
+#### Authentication Options
+
+1. **Built-in Authentication**:
+   - Email/password login with secure password hashing
+   - JWT-based session management
+   - Password history tracking
+   - Account lockout protection
+   - Self-service password reset
+
+2. **External Authentication Providers**:
+   - **Authentik Integration**:
+     - Enterprise-grade SSO capabilities
+     - Automatic user provisioning
+     - Role synchronization
+     - Group mapping support
+     - Secure token exchange
+
+   - **OpenID Connect (OIDC)**:
+     - Standard-compliant identity provider support
+     - Automatic user creation and updates
+     - Role mapping from OIDC claims
+     - Multiple provider support
+     - Secure token validation
+
+   - **OAuth2 Providers**:
+     - Google authentication
+     - GitHub integration
+     - Other OAuth2-compliant providers
+     - Custom provider configuration
+     - Automatic profile synchronization
+
+3. **Security Features**:
+   - Secure password hashing with bcrypt
+   - JWT-based authentication with tokens
+   - Password history tracking prevents reuse
+   - Account lockout after failed attempts
+   - Two-factor authentication support
+   - Session management and timeout
+   - Secure token storage and handling
+
+4. **User Profile Management**:
+   - Theme preferences (light/dark mode)
+   - Profile information updates
+   - Password change functionality
+   - Two-factor authentication setup
+   - External account linking
 
 ### Two-Factor Authentication (2FA) Implementation
 
