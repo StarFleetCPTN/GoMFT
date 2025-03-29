@@ -1,0 +1,154 @@
+package fields
+
+import (
+	"github.com/starfleetcptn/gomft/components/notifications/types"
+	"github.com/starfleetcptn/gomft/components/notifications/form/utils"
+)
+
+templ PushoverFields(data types.NotificationFormData) {
+	<div id="pushover_fields" class="hidden notification-fields">
+		<div class="mb-6">
+			<label for="pushover_app_token" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">API Token/Key</label>
+			if data.NotificationService.PushoverAPIToken != "" {
+				<input type="text" id="pushover_app_token" name="pushover_app_token" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="azGDORePK8gMaC0QOYAMyEEuzJnyUi" value={ data.NotificationService.PushoverAPIToken }/>
+			} else {
+				<input type="text" id="pushover_app_token" name="pushover_app_token" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="azGDORePK8gMaC0QOYAMyEEuzJnyUi" value=""/>
+			}
+			<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Your application's API token/key from <a href="https://pushover.net/apps" target="_blank" class="text-blue-500 hover:underline">Pushover Dashboard</a></p>
+		</div>
+		<div class="mb-6">
+			<label for="pushover_user_key" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">User Key</label>
+			if data.NotificationService.PushoverUserKey != "" {
+				<input type="text" id="pushover_user_key" name="pushover_user_key" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="uQiRzpo4DXghDmr9QzzfQu27cmVRsG" value={ data.NotificationService.PushoverUserKey }/>
+			} else {
+				<input type="text" id="pushover_user_key" name="pushover_user_key" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="uQiRzpo4DXghDmr9QzzfQu27cmVRsG" value=""/>
+			}
+			<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Your user key from <a href="https://pushover.net/" target="_blank" class="text-blue-500 hover:underline">Pushover Dashboard</a></p>
+		</div>
+		<div class="mb-6">
+			<label for="pushover_device" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Device Name (Optional)</label>
+			if data.NotificationService.PushoverDevice != "" {
+				<input type="text" id="pushover_device" name="pushover_device" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Leave empty to send to all devices" value={ data.NotificationService.PushoverDevice }/>
+			} else {
+				<input type="text" id="pushover_device" name="pushover_device" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Leave empty to send to all devices" value=""/>
+			}
+		</div>
+		<div class="mb-6">
+			<label for="pushover_priority" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Default Priority</label>
+			<select id="pushover_priority" name="pushover_priority" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+				<option value="-2">Lowest (-2)</option>
+				<option value="-1">Low (-1)</option>
+				if data.NotificationService.PushoverPriority != "" && data.NotificationService.PushoverPriority == "0" {
+					<option value="0" selected="selected">Normal (0)</option>
+				} else {
+					<option value="0">Normal (0)</option>
+				}
+				<option value="1">High (1)</option>
+				<option value="2">Emergency (2)</option>
+			</select>
+		</div>
+		<div class="mb-6">
+			<label for="pushover_sound" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Sound</label>
+			<select id="pushover_sound" name="pushover_sound" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+				<option value="pushover">Pushover (default)</option>
+				<option value="bike">Bike</option>
+				<option value="bugle">Bugle</option>
+				<option value="cashregister">Cash Register</option>
+				<option value="classical">Classical</option>
+				<option value="cosmic">Cosmic</option>
+				<option value="falling">Falling</option>
+				<option value="gamelan">Gamelan</option>
+				<option value="incoming">Incoming</option>
+				<option value="intermission">Intermission</option>
+				<option value="magic">Magic</option>
+				<option value="mechanical">Mechanical</option>
+				<option value="pianobar">Piano Bar</option>
+				<option value="siren">Siren</option>
+				<option value="spacealarm">Space Alarm</option>
+				<option value="tugboat">Tug Boat</option>
+				<option value="alien">Alien Alarm (long)</option>
+				<option value="climb">Climb (long)</option>
+				<option value="persistent">Persistent (long)</option>
+				<option value="echo">Echo (long)</option>
+				<option value="updown">Up Down (long)</option>
+				<option value="vibrate">Vibrate Only</option>
+				<option value="none">None (silent)</option>
+			</select>
+		</div>
+		<div class="mb-6">
+			<label for="pushover_title_template" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Message Title Template</label>
+			if data.NotificationService.PushoverTitleTemplate != "" {
+				<input type="text" id="pushover_title_template" name="pushover_title_template" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" value={ data.NotificationService.PushoverTitleTemplate }/>
+			} else {
+				<input type="text" id="pushover_title_template" name="pushover_title_template" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="'{{job.name}}' {{job.status}}" value=""/>
+			}
+		</div>
+		<div class="mb-6">
+			<label for="pushover_message_template" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Message Body Template</label>
+			<textarea
+				id="pushover_message_template"
+				name="pushover_message_template"
+				rows="4"
+				class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+				placeholder="Job '{{job.name}}' {{job.status}} at {{job.completed_at}}. {{job.file_count}} files transferred ({{job.transfer_bytes}} bytes)."
+			>
+			if data.NotificationService.PushoverMessageTemplate != "" {
+				data.NotificationService.PushoverMessageTemplate
+			} </textarea>
+			<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Use placeholders for dynamic values. Available variables: job.*, instance.*, timestamp, notification.*</p>
+		</div>
+		<div class="mb-6">
+			<label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Event Triggers</label>
+			<div class="space-y-2">
+				<div class="flex items-center">
+					if data.NotificationService.EventTriggers != nil {
+						<input id="pushover_trigger_job_start" name="trigger_job_start" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800" checked={ utils.BoolToString(utils.Contains(data.NotificationService.EventTriggers, "job_start")) }/>
+					} else {
+						<input id="pushover_trigger_job_start" name="trigger_job_start" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800"/>
+					}
+					<label for="pushover_trigger_job_start" class="ml-2 text-sm font-medium text-gray-900 dark:text-white">Job Start</label>
+				</div>
+				<div class="flex items-center">
+					if data.NotificationService.EventTriggers != nil {
+						<input id="pushover_trigger_job_complete" name="trigger_job_complete" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800" checked={ utils.BoolToString(utils.Contains(data.NotificationService.EventTriggers, "job_complete")) }/>
+					} else {
+						<input id="pushover_trigger_job_complete" name="trigger_job_complete" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800"/>
+					}
+					<label for="pushover_trigger_job_complete" class="ml-2 text-sm font-medium text-gray-900 dark:text-white">Job Complete</label>
+				</div>
+				<div class="flex items-center">
+					if data.NotificationService.EventTriggers != nil {
+						<input id="pushover_trigger_job_error" name="trigger_job_error" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800" checked={ utils.BoolToString(utils.Contains(data.NotificationService.EventTriggers, "job_error")) }/>
+					} else {
+						<input id="pushover_trigger_job_error" name="trigger_job_error" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800"/>
+					}
+					<label for="pushover_trigger_job_error" class="ml-2 text-sm font-medium text-gray-900 dark:text-white">Job Error</label>
+				</div>
+			</div>
+		</div>
+		<!-- Test notification button for Pushover -->
+		<div class="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600">
+			<div class="flex items-center justify-between mb-2">
+				<h4 class="text-base font-medium text-gray-900 dark:text-white">Test Configuration</h4>
+				<button
+					type="button"
+					id="test-pushover-btn"
+					hx-post="/admin/settings/notifications/test"
+					hx-trigger="click"
+					hx-target="#test-notification-result"
+					hx-swap="outerHTML"
+					class="px-3 py-2 text-xs font-medium text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 rounded-lg dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
+				>
+					<i class="fas fa-paper-plane mr-1"></i>
+					Send Test Notification
+				</button>
+			</div>
+			<p class="text-sm text-gray-500 dark:text-gray-400">
+				Send a test notification to verify your Pushover configuration works correctly before saving.
+			</p>
+			<div id="test-notification-result" class="mt-3 hidden">
+				<!-- Result will be shown here -->
+			</div>
+		</div>
+	</div>
+}

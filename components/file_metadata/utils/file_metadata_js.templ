@@ -1,91 +1,114 @@
 package utils
 
-// fileMetadataJS provides common JavaScript functions for file metadata components
-templ fileMetadataJS() {
+// FileMetadataJS provides common JavaScript functions for file metadata components,
+// including HTMX event listeners for delete toasts.
+templ FileMetadataJS() {
 	<script>
-		// Show a modal by ID
-		function showModal(modalId) {
-			const modal = document.getElementById(modalId);
-			if (modal) {
-				modal.classList.remove('hidden');
-				modal.classList.add('flex');
-			}
-		}
-
-		// Close a modal by ID
-		function closeModal(modalId) {
-			const modal = document.getElementById(modalId);
-			if (modal) {
-				modal.classList.add('hidden');
-				modal.classList.remove('flex');
-			}
-		}
-
-		// Show a toast notification
+		// Function to create and show a toast (Defined locally for guaranteed availability)
 		function showToast(message, type = 'info') {
-			const container = document.getElementById('toast-container');
-			if (!container) return;
+			const toastContainer = document.getElementById('toast-container');
+			if (!toastContainer) {
+				console.error("Toast container not found!"); // Keep this error log
+				return;
+			}
 
+			// Create toast element
 			const toast = document.createElement('div');
-			toast.className = `p-4 rounded-lg shadow-lg ${
-				type === 'success' ? 'bg-green-500' :
-				type === 'error' ? 'bg-red-500' :
-				type === 'warning' ? 'bg-yellow-500' :
-				'bg-blue-500'
-			} text-white`;
-			toast.textContent = message;
+			toast.id = 'toast-' + type + '-' + Date.now();
+			// Use classes similar to the original file_metadata.templ for consistency
+			toast.className = 'flex items-center w-full max-w-xs p-4 mb-4 rounded-lg shadow text-gray-500 bg-white dark:text-gray-400 dark:bg-gray-800 transform translate-y-16 opacity-0 transition-all duration-300 ease-out';
+			toast.role = 'alert';
 
-			container.appendChild(toast);
+			// Set toast content based on type
+			let iconClass;
+			if (type === 'success') {
+				iconClass = 'text-green-500 bg-green-100 dark:bg-green-800 dark:text-green-200';
+			} else if (type === 'error') {
+				iconClass = 'text-red-500 bg-red-100 dark:bg-red-800 dark:text-red-200';
+			} else { // Default to info
+				iconClass = 'text-blue-500 bg-blue-100 dark:bg-blue-800 dark:text-blue-200';
+			}
 
-			// Remove the toast after 5 seconds
+			// Set inner HTML with appropriate icon and message
+			toast.innerHTML = `
+				<div class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg ${iconClass}">
+					${type === 'success'
+						? '<i class="fas fa-check"></i>'
+						: type === 'error'
+						? '<i class="fas fa-exclamation-circle"></i>'
+						: '<i class="fas fa-info-circle"></i>'}
+				</div>
+				<div class="ml-3 text-sm font-normal">${message}</div>
+				<button type="button" class="ml-auto -mx-1.5 -my-1.5 bg-white text-gray-400 hover:text-gray-900 rounded-lg focus:ring-2 focus:ring-gray-300 p-1.5 hover:bg-gray-100 inline-flex h-8 w-8 dark:text-gray-500 dark:hover:text-white dark:bg-gray-800 dark:hover:bg-gray-700" data-dismiss-target="#${toast.id}" aria-label="Close">
+					<span class="sr-only">Close</span>
+					<i class="fas fa-times"></i>
+				</button>
+			`;
+
+			// Add toast to container
+			toastContainer.appendChild(toast);
+
+			// Trigger animation after a small delay
 			setTimeout(() => {
-				toast.remove();
+				toast.classList.remove('translate-y-16', 'opacity-0');
+				toast.classList.add('translate-y-0', 'opacity-100');
+			}, 10);
+
+			// Add event listener to close button
+			const closeButton = toast.querySelector('button[data-dismiss-target]');
+			closeButton.addEventListener('click', function() {
+				toast.classList.add('opacity-0', 'translate-y-4');
+				setTimeout(() => { toast.remove(); }, 300);
+			});
+
+			// Auto-remove toast after 5 seconds
+			setTimeout(() => {
+				toast.classList.add('opacity-0', 'translate-y-4');
+				setTimeout(() => { toast.remove(); }, 300);
 			}, 5000);
 		}
 
-		// Close modal when clicking outside
-		document.addEventListener('click', function(event) {
-			if (event.target.classList.contains('fixed')) {
-				event.target.classList.add('hidden');
-				event.target.classList.remove('flex');
-			}
-		});
+		// --- HTMX Event Listener for Delete Toasts ---
 
-		// Handle delete confirmation
-		document.addEventListener('click', function(event) {
-			if (event.target.id === 'confirm-delete') {
-				const fileId = event.target.dataset.fileId;
-				if (!fileId) return;
+		// Ensure listener is attached only once using a flag
+		if (!window._gomft_fileMetadataListenerAttached) {
+			document.body.addEventListener('htmx:afterRequest', function(event) {
+				const triggerElement = event.detail.elt;
 
-				fetch(`/files/${fileId}`, {
-					method: 'DELETE',
-					headers: {
-						'Content-Type': 'application/json',
-					},
-				})
-				.then(response => {
-					if (response.ok) {
-						showToast('File deleted successfully', 'success');
-						// Reload the page after a short delay
-						setTimeout(() => {
-							window.location.reload();
-						}, 1000);
-					} else {
-						throw new Error('Failed to delete file');
+				// Check if the element that triggered this request was the file delete button from the dialog
+				if (triggerElement && triggerElement.id && triggerElement.id.startsWith('delete-file-btn-')) {
+					 // Get the path directly from the element's hx-delete attribute
+					 const path = triggerElement.getAttribute('hx-delete');
+					 // Ensure requestConfig exists before accessing verb (robustness)
+					 const method = event.detail.requestConfig ? event.detail.requestConfig.verb : null;
+
+					 // Check if the method was delete and the path from the attribute matches the expected pattern
+					 if (method === 'delete' && path && path.match(/^\/files\/\d+$/)) {
+						const fileName = triggerElement.getAttribute('data-file-name') || "Unknown"; // Get filename from the button
+
+						// Call the locally defined showToast function
+						if (event.detail.successful) {
+							showToast(`File "${fileName}" metadata deleted successfully`, 'success');
+						} else {
+							let errorMsg = `Failed to delete file "${fileName}" metadata`;
+							if (event.detail.xhr && event.detail.xhr.responseText) {
+								try {
+									const responseJson = JSON.parse(event.detail.xhr.responseText);
+									errorMsg = responseJson.error ? `Error: ${responseJson.error}` : `Error: ${event.detail.xhr.responseText}`;
+								} catch (e) {
+									errorMsg = `Error: ${event.detail.xhr.responseText}`;
+								}
+							}
+							showToast(errorMsg, 'error');
+						}
 					}
-				})
-				.catch(error => {
-					showToast(error.message, 'error');
-				})
-				.finally(() => {
-					closeModal('delete-dialog');
-				});
-			}
-		});
+				}
+			});
 
-		// Handle HTMX request errors
-		document.body.addEventListener('htmx:responseError', function(evt) {
-			showToast('An error occurred while processing your request', 'error');
-		});
+			// Set the flag to true after attaching the listener
+			window._gomft_fileMetadataListenerAttached = true;
+			console.log("[FileMetadataJS] HTMX afterRequest listener attached."); // Log attachment once
+		}
+
 	</script>
-} 
+}

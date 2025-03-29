@@ -6,75 +6,21 @@ import (
 	"github.com/starfleetcptn/gomft/components/file_metadata/list"
 )
 
-// FileMetadataSearchContent renders the search form and results
+// FileMetadataSearchContent renders only the search results table and pagination
 templ FileMetadataSearchContent(ctx context.Context, data file_metadata.FileMetadataSearchData) {
-	<!-- Search Form -->
-	<div class="p-4 mb-6 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 w-full">
-		<h5 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Search Files</h5>
-		<form 
-			hx-get="/files/search/partial" 
-			hx-target="#search-results" 
-			hx-swap="innerHTML"
-			hx-indicator="#search-loading"
-			hx-headers='{"X-HX-Request": "true"}'
-			class="grid grid-cols-1 md:grid-cols-3 gap-4">
-			<div>
-				<label for="job_id" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Job</label>
-				<input type="text" id="job_id" name="job_id" value={ data.Filter.JobID } placeholder="Job ID" 
-					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-			</div>
-			<div>
-				<label for="status" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Status</label>
-				<select id="status" name="status" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
-					<option value="">All Statuses</option>
-					<option value="processed" selected?={ data.Filter.Status == "processed" }>Processed</option>
-					<option value="archived" selected?={ data.Filter.Status == "archived" }>Archived</option>
-					<option value="deleted" selected?={ data.Filter.Status == "deleted" }>Deleted</option>
-					<option value="archived_and_deleted" selected?={ data.Filter.Status == "archived_and_deleted" }>Archived & Deleted</option>
-					<option value="error" selected?={ data.Filter.Status == "error" }>Error</option>
-				</select>
-			</div>
-			<div>
-				<label for="filename" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Filename</label>
-				<input type="text" id="filename" name="filename" value={ data.Filter.FileName } placeholder="Filename or partial match" 
-					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-			</div>
-			<div>
-				<label for="hash" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Hash</label>
-				<input type="text" id="hash" name="hash" value={ data.Filter.Hash } placeholder="File hash" 
-					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-			</div>
-			<div>
-				<label for="start_date" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Start Date</label>
-				<input type="datetime-local" id="start_date" name="start_date" value={ data.Filter.StartDate } 
-					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-			</div>
-			<div>
-				<label for="end_date" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">End Date</label>
-				<input type="datetime-local" id="end_date" name="end_date" value={ data.Filter.EndDate } 
-					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-			</div>
-			<div class="md:col-span-3 flex justify-end items-center">
-				<button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
-					<i class="fas fa-search mr-2"></i> Search
-				</button>
-				<div id="search-loading" class="htmx-indicator ml-2 flex items-center">
-					<i class="fas fa-circle-notch fa-spin text-blue-600"></i>
-				</div>
-			</div>
-		</form>
-	</div>
-
 	<!-- Search Results -->
 	<div id="search-results">
 		if len(data.Files) > 0 {
 			@list.FileMetadataListPartial(ctx, file_metadata.FileMetadataListData{
-				Files: data.Files,
-				Page: data.Page,
-				Limit: data.Limit,
+				Files:      data.Files,
+				Page:       data.Page,
+				Limit:      data.Limit,
 				TotalCount: data.TotalCount,
 				TotalPages: data.TotalPages,
-			})
+				Filter:     data.Filter, // Pass filter data for pagination links
+				SortBy:     data.SortBy,
+				SortDir:    data.SortDir,
+			}, "/files/search/partial", "#search-results-container") // Pass correct base path and target ID
 		} else {
 			<div class="p-6 text-center text-gray-500 dark:text-gray-400">
 				<svg class="mx-auto mb-4 w-12 h-12 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">

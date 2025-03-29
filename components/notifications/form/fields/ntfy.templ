@@ -1,0 +1,133 @@
+package fields
+
+import (
+	"github.com/starfleetcptn/gomft/components/notifications/types"
+	"github.com/starfleetcptn/gomft/components/notifications/form/utils"
+)
+
+templ NtfyFields(data types.NotificationFormData) {
+	<div id="ntfy_fields" class="hidden notification-fields">
+		<div class="mb-6">
+			<label for="ntfy_server" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Ntfy Server</label>
+			if data.NotificationService.NtfyServer != "" {
+				<input type="url" id="ntfy_server" name="ntfy_server" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="https://ntfy.sh" value={ data.NotificationService.NtfyServer }/>
+			} else {
+				<input type="url" id="ntfy_server" name="ntfy_server" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="https://ntfy.sh" value="https://ntfy.sh"/>
+			}
+			<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">The Ntfy server URL (default: ntfy.sh)</p>
+		</div>
+		<div class="mb-6">
+			<label for="ntfy_topic" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Topic</label>
+			if data.NotificationService.NtfyTopic != "" {
+				<input type="text" id="ntfy_topic" name="ntfy_topic" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="your-unique-topic" value={ data.NotificationService.NtfyTopic }/>
+			} else {
+				<input type="text" id="ntfy_topic" name="ntfy_topic" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="your-unique-topic" value="gomft"/>
+			}
+			<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Choose a unique, unguessable topic name</p>
+			</div>
+		<div class="mb-6">
+			<label for="ntfy_priority" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Default Priority</label>
+			<select id="ntfy_priority" name="ntfy_priority" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+				<option value="1">Low (1)</option>
+				if data.NotificationService.NtfyPriority == "3" {
+					<option value="3" selected="selected">Default (3)</option>
+				} else {
+					<option value="3">Default (3)</option>
+				}
+				<option value="4">High (4)</option>
+				<option value="5">Urgent (5)</option>
+			</select>
+		</div>
+		<div class="mb-6">
+			<label for="ntfy_username" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Username (Optional)</label>
+			if data.NotificationService.NtfyUsername != "" {
+				<input type="text" id="ntfy_username" name="ntfy_username" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Username for protected topics" value={ data.NotificationService.NtfyUsername }/>
+			} else {
+				<input type="text" id="ntfy_username" name="ntfy_username" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Username for protected topics" value=""/>
+			}
+		</div>
+		<div class="mb-6">
+			<label for="ntfy_password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Password (Optional)</label>
+			if data.NotificationService.NtfyPassword != "" {
+				<input type="password" id="ntfy_password" name="ntfy_password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Password for protected topics" value={ data.NotificationService.NtfyPassword }/>
+			} else {
+				<input type="password" id="ntfy_password" name="ntfy_password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Password for protected topics" value=""/>
+			}
+		</div>
+		<div class="mb-6">
+			<label for="ntfy_title_template" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Notification Title Template</label>
+			if data.NotificationService.NtfyTitleTemplate != "" {
+				<input type="text" id="ntfy_title_template" name="ntfy_title_template" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" value={ data.NotificationService.NtfyTitleTemplate }/>
+			} else {
+				<input type="text" id="ntfy_title_template" name="ntfy_title_template" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="{{job.name}} {{job.status}}" value=""/>
+			}
+		</div>
+		<div class="mb-6">
+			<label for="ntfy_message_template" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Message Body Template</label>
+			<textarea
+				id="ntfy_message_template"
+				name="ntfy_message_template"
+				rows="4"
+				class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+				placeholder="Job '{{job.name}}' {{job.status}} at {{job.completed_at}}. {{job.file_count}} files transferred ({{job.transfer_bytes}} bytes)."
+			>
+			if data.NotificationService.NtfyMessageTemplate != "" {
+				data.NotificationService.NtfyMessageTemplate
+			} </textarea>
+			<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Use placeholders for dynamic values. Available variables: job.*, instance.*, timestamp, notification.*</p>
+		</div>
+		<div class="mb-6">
+			<label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Event Triggers</label>
+			<div class="space-y-2">
+				<div class="flex items-center">
+					if data.NotificationService.EventTriggers != nil {
+						<input id="ntfy_trigger_job_start" name="trigger_job_start" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800" checked={ utils.BoolToString(utils.Contains(data.NotificationService.EventTriggers, "job_start")) }/>
+					} else {
+						<input id="ntfy_trigger_job_start" name="trigger_job_start" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800"/>
+					}
+					<label for="ntfy_trigger_job_start" class="ml-2 text-sm font-medium text-gray-900 dark:text-white">Job Start</label>
+				</div>
+				<div class="flex items-center">
+					if data.NotificationService.EventTriggers != nil {
+						<input id="ntfy_trigger_job_complete" name="trigger_job_complete" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800" checked={ utils.BoolToString(utils.Contains(data.NotificationService.EventTriggers, "job_complete")) }/>
+					} else {
+						<input id="ntfy_trigger_job_complete" name="trigger_job_complete" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800"/>
+					}
+					<label for="ntfy_trigger_job_complete" class="ml-2 text-sm font-medium text-gray-900 dark:text-white">Job Complete</label>
+				</div>
+				<div class="flex items-center">
+					if data.NotificationService.EventTriggers != nil {
+						<input id="ntfy_trigger_job_error" name="trigger_job_error" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800" checked={ utils.BoolToString(utils.Contains(data.NotificationService.EventTriggers, "job_error")) }/>
+					} else {
+						<input id="ntfy_trigger_job_error" name="trigger_job_error" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800"/>
+					}
+					<label for="ntfy_trigger_job_error" class="ml-2 text-sm font-medium text-gray-900 dark:text-white">Job Error</label>
+				</div>
+			</div>
+		</div>
+		<!-- Test notification button for Ntfy -->
+		<div class="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600">
+			<div class="flex items-center justify-between mb-2">
+				<h4 class="text-base font-medium text-gray-900 dark:text-white">Test Configuration</h4>
+				<button
+					type="button"
+					id="test-ntfy-btn"
+					hx-post="/admin/settings/notifications/test"
+					hx-trigger="click"
+					hx-target="#test-notification-result"
+					hx-swap="outerHTML"
+					class="px-3 py-2 text-xs font-medium text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 rounded-lg dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
+				>
+					<i class="fas fa-paper-plane mr-1"></i>
+					Send Test Notification
+				</button>
+			</div>
+			<p class="text-sm text-gray-500 dark:text-gray-400">
+				Send a test notification to verify your Ntfy configuration works correctly before saving.
+			</p>
+			<div id="test-notification-result" class="mt-3 hidden">
+				<!-- Result will be shown here -->
+			</div>
+		</div>
+	</div>
+}

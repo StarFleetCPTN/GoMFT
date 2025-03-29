@@ -21,6 +21,8 @@ type FileMetadataListData struct {
 	TotalPages int
 	Job        *db.Job // Optional: if viewing files for a specific job
 	Filter     FileMetadataFilter
+	SortBy     string // Added for sorting
+	SortDir    string // Added for sorting ("asc" or "desc")
 }
 
 // FileMetadataDetailsData contains data for the file metadata details template
@@ -36,4 +38,6 @@ type FileMetadataSearchData struct {
 	Limit      int
 	TotalPages int
 	Filter     FileMetadataFilter
+	SortBy     string // Added for sorting
+	SortDir    string // Added for sorting ("asc" or "desc")
 }

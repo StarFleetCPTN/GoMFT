@@ -35,7 +35,7 @@ func FileMetadataDialog(id string, title string, message string, confirmClass st
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = utils.fileMetadataJS().Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = utils.FileMetadataJS().Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -98,7 +98,7 @@ func FileMetadataDialog(id string, title string, message string, confirmClass st
 			return templ_7745c5c3_Err
 		}
 		if section == "list" {
-			templ_7745c5c3_Err = templ.RenderScriptItems(ctx, templ_7745c5c3_Buffer, triggerFileDelete(id, fileID, fileName))
+			templ_7745c5c3_Err = templ.RenderScriptItems(ctx, templ_7745c5c3_Buffer, templ.ComponentScript{Call: fmt.Sprintf("triggerFileDelete('%s', %d, '%s')", id, fileID, fileName)})
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -171,7 +171,7 @@ func FileMetadataDialog(id string, title string, message string, confirmClass st
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var10 templ.ComponentScript = triggerFileDelete(id, fileID, fileName)
+			var templ_7745c5c3_Var10 templ.ComponentScript = templ.ComponentScript{Call: fmt.Sprintf("triggerFileDelete('%s', %d, '%s')", id, fileID, fileName)}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10.Call)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -194,7 +194,7 @@ func FileMetadataDialog(id string, title string, message string, confirmClass st
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templ.RenderScriptItems(ctx, templ_7745c5c3_Buffer, triggerFileDelete(id, fileID, fileName))
+			templ_7745c5c3_Err = templ.RenderScriptItems(ctx, templ_7745c5c3_Buffer, templ.ComponentScript{Call: fmt.Sprintf("triggerFileDelete('%s', %d, '%s')", id, fileID, fileName)})
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -254,7 +254,7 @@ func FileMetadataDialog(id string, title string, message string, confirmClass st
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var16 templ.ComponentScript = triggerFileDelete(id, fileID, fileName)
+			var templ_7745c5c3_Var16 templ.ComponentScript = templ.ComponentScript{Call: fmt.Sprintf("triggerFileDelete('%s', %d, '%s')", id, fileID, fileName)}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var16.Call)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -277,7 +277,7 @@ func FileMetadataDialog(id string, title string, message string, confirmClass st
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templ.RenderScriptItems(ctx, templ_7745c5c3_Buffer, closeModal(id))
+		templ_7745c5c3_Err = templ.RenderScriptItems(ctx, templ_7745c5c3_Buffer, templ.ComponentScript{Call: fmt.Sprintf("closeModal('%s')", id)})
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -285,7 +285,7 @@ func FileMetadataDialog(id string, title string, message string, confirmClass st
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var18 templ.ComponentScript = closeModal(id)
+		var templ_7745c5c3_Var18 templ.ComponentScript = templ.ComponentScript{Call: fmt.Sprintf("closeModal('%s')", id)}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var18.Call)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -296,27 +296,6 @@ func FileMetadataDialog(id string, title string, message string, confirmClass st
 		}
 		return nil
 	})
-}
-
-func triggerFileDelete(dialogId string, fileID uint, fileName string) templ.ComponentScript {
-	return templ.ComponentScript{
-		Name: `__templ_triggerFileDelete_bdb5`,
-		Function: `function __templ_triggerFileDelete_bdb5(dialogId, fileID, fileName){// Hide the dialog
-	document.getElementById(dialogId).classList.add("hidden");
-	document.getElementById(dialogId).classList.remove("flex");
-		
-	// Store data in a way that's accessible to event handlers
-	window.lastDeletedFile = {
-		id: fileID,
-		name: fileName
-	};
-
-	// Add custom marker to track this deletion
-	window.currentlyDeletingFile = true;
-}`,
-		Call:       templ.SafeScript(`__templ_triggerFileDelete_bdb5`, dialogId, fileID, fileName),
-		CallInline: templ.SafeScriptInline(`__templ_triggerFileDelete_bdb5`, dialogId, fileID, fileName),
-	}
 }
 
 var _ = templruntime.GeneratedTemplate

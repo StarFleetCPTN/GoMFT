@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Initialize theme based on user preference
 function initializeTheme() {
   const storedTheme = getCookie('theme');
-  
+
   if (storedTheme === 'dark') {
     applyDarkTheme();
   } else if (storedTheme === 'system') {
@@ -16,11 +16,11 @@ function initializeTheme() {
     // Default to light theme
     applyLightTheme();
   }
-  
+
   // Listen for theme changes from system
   if (window.matchMedia) {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    
+
     // Add change listener
     try {
       // Chrome & Firefox
@@ -42,7 +42,7 @@ function initializeTheme() {
       }
     }
   }
-  
+
   // Listen for theme changes via HTMX
   document.body.addEventListener('htmx:afterRequest', function(event) {
     if (event.detail.requestConfig && event.detail.requestConfig.path === '/profile/theme') {
@@ -54,7 +54,8 @@ function initializeTheme() {
 }
 
 // Toggle between light and dark theme
-function toggleTheme() {
+// Make toggleTheme global for onclick
+window.toggleTheme = function() {
   const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
   if (currentTheme === 'dark') {
     applyLightTheme();
@@ -63,7 +64,7 @@ function toggleTheme() {
     applyDarkTheme();
     setCookie('theme', 'dark', 365);
   }
-  
+
   // Add a subtle animation effect
   document.body.classList.add('theme-transition');
   setTimeout(() => {
@@ -87,28 +88,28 @@ function applyDarkTheme() {
   document.documentElement.classList.add('dark');
   document.body.classList.add('dark');
   localStorage.theme = 'dark';
-  
+
   // Apply dark theme to specific containers
   const jobsContainer = document.getElementById('jobs-container');
   const configsContainer = document.getElementById('configs-container');
-  
+
   if (jobsContainer) {
     jobsContainer.classList.add('dark');
     jobsContainer.style.backgroundColor = '#111827';
   }
-  
+
   if (configsContainer) {
     configsContainer.classList.add('dark');
     configsContainer.style.backgroundColor = '#111827';
   }
-  
+
   // Override any white backgrounds in card elements
   document.querySelectorAll('.bg-white').forEach(function(element) {
     element.classList.add('dark-mode-override');
     element.classList.remove('bg-white');
     element.classList.add('bg-gray-800');
   });
-  
+
   updateThemeColors('dark');
 }
 
@@ -117,28 +118,28 @@ function applyLightTheme() {
   document.documentElement.classList.remove('dark');
   document.body.classList.remove('dark');
   localStorage.theme = 'light';
-  
+
   // Remove dark theme from specific containers
   const jobsContainer = document.getElementById('jobs-container');
   const configsContainer = document.getElementById('configs-container');
-  
+
   if (jobsContainer) {
     jobsContainer.classList.remove('dark');
     jobsContainer.style.backgroundColor = 'rgb(249, 250, 251)';
   }
-  
+
   if (configsContainer) {
     configsContainer.classList.remove('dark');
     configsContainer.style.backgroundColor = 'rgb(249, 250, 251)';
   }
-  
+
   // Restore white backgrounds
   document.querySelectorAll('.dark-mode-override').forEach(function(element) {
     element.classList.remove('dark-mode-override');
     element.classList.remove('bg-gray-800');
     element.classList.add('bg-white');
   });
-  
+
   updateThemeColors('light');
 }
 
@@ -149,7 +150,7 @@ function applySystemTheme() {
   } else {
     applyLightTheme(true);
   }
-  
+
   // Store user preference in localStorage as a backup
   localStorage.setItem('theme', 'system');
 }
@@ -158,22 +159,22 @@ function applySystemTheme() {
 function updateThemeColors(theme) {
   // This function can be expanded to update specific UI elements
   // that might need special handling beyond CSS classes
-  
+
   // For example, updating charts, custom components, etc.
   if (theme === 'dark') {
     // Apply dark theme specific changes
     // Ensure better contrast for text elements
     const textElements = document.querySelectorAll('.text-gray-700, .text-gray-800, .text-gray-900, .text-secondary-700, .text-secondary-800, .text-secondary-900');
     textElements.forEach(el => {
-      if (!el.classList.contains('dark:text-white') && 
-          !el.classList.contains('dark:text-gray-100') && 
+      if (!el.classList.contains('dark:text-white') &&
+          !el.classList.contains('dark:text-gray-100') &&
           !el.classList.contains('dark:text-gray-200') &&
-          !el.classList.contains('dark:text-secondary-100') && 
+          !el.classList.contains('dark:text-secondary-100') &&
           !el.classList.contains('dark:text-secondary-200')) {
         el.classList.add('dark:text-secondary-200');
       }
     });
-    
+
     // Ensure better contrast for background elements
     const bgElements = document.querySelectorAll('.bg-gray-800, .bg-gray-900, .bg-secondary-800, .bg-secondary-900');
     bgElements.forEach(el => {
@@ -182,7 +183,7 @@ function updateThemeColors(theme) {
         el.classList.add('dark:bg-secondary-700');
       }
     });
-    
+
     // Apply custom animations for dark mode
     document.body.classList.add('theme-dark-animation');
     setTimeout(() => {
@@ -190,7 +191,7 @@ function updateThemeColors(theme) {
     }, 500);
   } else {
     // Apply light theme specific changes
-    
+
     // Apply custom animations for light mode
     document.body.classList.add('theme-light-animation');
     setTimeout(() => {
@@ -203,10 +204,10 @@ function updateThemeColors(theme) {
 function updateThemeToggleIcon(theme) {
   const themeToggle = document.getElementById('theme-toggle');
   if (!themeToggle) return;
-  
+
   const sunIcon = themeToggle.querySelector('.fa-sun');
   const moonIcon = themeToggle.querySelector('.fa-moon');
-  
+
   if (theme === 'dark') {
     if (sunIcon) sunIcon.classList.remove('hidden');
     if (moonIcon) moonIcon.classList.add('hidden');
@@ -221,7 +222,7 @@ function getCookie(name) {
   const value = `; ${document.cookie}`;
   const parts = value.split(`; ${name}=`);
   if (parts.length === 2) return parts.pop().split(';').shift();
-  
+
   // Fallback to localStorage if cookie is not available
   return localStorage.getItem(name) || '';
 }
@@ -237,26 +238,117 @@ function setCookie(name, value, days) {
   document.cookie = name + '=' + (value || '') + expires + '; path=/; SameSite=Strict';
 }
 
+
+// Closes the Flowbite modal with the given ID.
+window.closeModal = function(modalId) {
+	// Get the modal element
+	const modalEl = document.getElementById(modalId);
+	if (!modalEl) {
+		console.error('Modal element not found:', modalId);
+		return;
+	}
+
+	// Assuming Flowbite's Modal class is available globally
+	// and initialized elsewhere (e.g., via data attributes or init script)
+	// Use try-catch in case FlowbiteInstances is not defined
+	try {
+		const modalInstance = FlowbiteInstances.getInstance('Modal', modalId);
+		if (modalInstance) {
+			modalInstance.hide();
+		} else {
+			console.warn('Flowbite Modal instance not found for ID:', modalId, '. Attempting manual hide or ensure Flowbite is initialized.');
+			// Basic fallback: Directly manipulate classes if Flowbite JS fails
+			modalEl.classList.add('hidden');
+			modalEl.classList.remove('flex'); // Assuming 'flex' is used to show
+		}
+	} catch (e) {
+		console.error('Error interacting with Flowbite:', e);
+		// Basic fallback: Directly manipulate classes if Flowbite JS fails
+		modalEl.classList.add('hidden');
+		modalEl.classList.remove('flex'); // Assuming 'flex' is used to show
+	}
+}
+
+// Function to show the modal (might be useful elsewhere)
+window.showModal = function(modalId) {
+	const modalEl = document.getElementById(modalId);
+	if (!modalEl) {
+		console.error('Modal element not found:', modalId);
+		return;
+	}
+	// Use try-catch in case FlowbiteInstances is not defined
+	try {
+		const modalInstance = FlowbiteInstances.getInstance('Modal', modalId);
+		if (modalInstance) {
+			modalInstance.show();
+		} else {
+			// If instance doesn't exist, try creating one (requires Flowbite JS loaded)
+			// This assumes the modal element has the necessary data-modal attributes
+			console.warn('Flowbite Modal instance not found for ID:', modalId, '. Attempting to create instance or ensure Flowbite is initialized.');
+			try {
+				// Requires Flowbite constructor to be available
+				const newModal = new Modal(modalEl);
+				newModal.show();
+			} catch (createError) {
+				console.error('Failed to create Flowbite modal instance:', createError);
+				// Basic fallback: Directly manipulate classes if Flowbite JS fails
+				modalEl.classList.remove('hidden');
+				modalEl.classList.add('flex'); // Assuming 'flex' is used to show
+			}
+		}
+	} catch (e) {
+		console.error('Error interacting with Flowbite:', e);
+		// Basic fallback: Directly manipulate classes if Flowbite JS fails
+		modalEl.classList.remove('hidden');
+		modalEl.classList.add('flex'); // Assuming 'flex' is used to show
+	}
+}
+
+// Called when the file metadata delete confirmation button is clicked.
+// Primarily closes the modal and sets flags; the actual delete is handled by hx-delete.
+window.triggerFileDelete = function(dialogId, fileID, fileName) {
+	console.log(`Confirmed delete for file: ${fileName} (ID: ${fileID}). Closing modal: ${dialogId}`);
+
+	// Close the modal using the global function
+	if (typeof window.closeModal === 'function') {
+		window.closeModal(dialogId);
+	} else {
+		console.error('Global closeModal function not found.');
+	}
+
+	// Store data in a way that might be accessible to other event handlers (e.g., HTMX)
+	window.lastDeletedFile = {
+		id: fileID,
+		name: fileName
+	};
+
+	// Add custom marker to track this deletion (if needed by other scripts)
+	window.currentlyDeletingFile = true;
+
+	// Optional: Show a "Deleting..." toast here if desired.
+	// The hx-delete attribute on the button will trigger the actual backend request.
+}
+
 // Add CSS for theme transition animations
 const style = document.createElement('style');
 style.textContent = `
   .theme-transition {
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
   }
-  
+
   .theme-dark-animation {
     animation: darkModeIn 0.5s ease forwards;
   }
-  
+
   .theme-light-animation {
     animation: lightModeIn 0.5s ease forwards;
   }
-  
+
   @keyframes darkModeIn {
     0% { opacity: 0.8; }
     100% { opacity: 1; }
   }
-  
+
   @keyframes lightModeIn {
     0% { opacity: 0.8; }
     100% { opacity: 1; }
@@ -268,7 +360,7 @@ document.head.appendChild(style);
 function initializeMobileSupport() {
   // Check if it's a mobile device
   const isMobile = window.matchMedia('(max-width: 768px)').matches;
-  
+
   if (isMobile) {
     // Add padding to main content to prevent overlap with bottom nav
     const bottomNav = document.querySelector('.mobile-nav-container');
@@ -278,17 +370,17 @@ function initializeMobileSupport() {
         main.style.paddingBottom = (bottomNav.offsetHeight + 16) + 'px';
       }
     }
-    
+
     // Add active class to current page in bottom nav
     highlightCurrentPageInBottomNav();
-    
+
     // Make tables scrollable on mobile
     makeTablesResponsive();
-    
+
     // Improve mobile form experience
     enhanceMobileForms();
   }
-  
+
   // Listen for orientation changes
   window.addEventListener('orientationchange', function() {
     // Wait for orientation change to complete
@@ -304,7 +396,7 @@ function initializeMobileSupport() {
 function highlightCurrentPageInBottomNav() {
   const currentPath = window.location.pathname;
   const bottomNavLinks = document.querySelectorAll('.mobile-nav-container a');
-  
+
   bottomNavLinks.forEach(link => {
     const href = link.getAttribute('href');
     if (currentPath === href || (href !== '/' && currentPath.startsWith(href))) {
@@ -334,7 +426,7 @@ function enhanceMobileForms() {
   if (metaViewport) {
     metaViewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0');
   }
-  
+
   // Add 'required' visual indicator to required fields
   const requiredInputs = document.querySelectorAll('input[required], select[required], textarea[required]');
   requiredInputs.forEach(input => {
@@ -345,7 +437,7 @@ function enhanceMobileForms() {
       }
     }
   });
-  
+
   // Improve date input on mobile
   const dateInputs = document.querySelectorAll('input[type="date"]');
   dateInputs.forEach(input => {

@@ -4,128 +4,228 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"github.com/starfleetcptn/gomft/components"
 	"github.com/starfleetcptn/gomft/components/file_metadata"
-	"github.com/starfleetcptn/gomft/components/file_metadata/utils"
-	"github.com/starfleetcptn/gomft/components/layout"
+	"github.com/starfleetcptn/gomft/components/file_metadata/dialog" // Import dialog package
+	"github.com/starfleetcptn/gomft/components/file_metadata/utils"  // Import utils package
 )
 
-// FileMetadataDetails renders the details view for a file metadata
+// FileMetadataDetails renders the details view for a file metadata, matching original structure
 templ FileMetadataDetails(ctx context.Context, data file_metadata.FileMetadataDetailsData) {
-	@layout.LayoutWithContext("File Details", ctx) {
+	@components.LayoutWithContext("File Details", ctx) {
 		<!-- Status and Error Messages -->
 		<div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2"></div>
-		
-		@utils.fileMetadataJS()
-		
-		<div id="details-container" style="min-height: 100vh;" class="bg-gray-50 dark:bg-gray-900">
+
+		@utils.FileMetadataJS() // Include JS for toasts, etc.
+
+		<div id="file-details-container" style="min-height: 100vh;" class="bg-gray-50 dark:bg-gray-900">
 			<div class="pb-8 w-full">
 				<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
 					<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
 						<i class="fas fa-file-alt w-6 h-6 mr-2 text-blue-500"></i>
-						File Details
+						File Details: { data.File.FileName }
 					</h1>
-					<div class="flex gap-3">
-						<a href="/files" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
-							<i class="fas fa-arrow-left mr-2"></i> Back to Files
-						</a>
-					</div>
+					<a href="/files" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+						<i class="fas fa-arrow-left mr-2"></i> Back to Files
+					</a>
 				</div>
-				
+
 				<div class="bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 w-full">
 					<!-- Card header -->
 					<div class="p-4 md:p-5 border-b border-gray-200 dark:border-gray-700">
 						<h5 class="text-xl font-bold leading-none text-gray-900 dark:text-white">
-							File Information
+							{ data.File.FileName }
 						</h5>
 						<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-							ID: { strconv.FormatInt(int64(data.File.ID), 10) }
+							File ID: { strconv.FormatUint(uint64(data.File.ID), 10) }
 						</p>
 					</div>
-					
+
 					<!-- Card content -->
 					<div class="p-4 md:p-5">
 						<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 							<!-- File Information -->
 							<div>
-								<h6 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">File Information</h6>
-								<dl class="grid grid-cols-1 gap-4">
-									<div>
-										<dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Filename</dt>
-										<dd class="mt-1 text-sm text-gray-900 dark:text-white">{ data.File.FileName }</dd>
-									</div>
-									<div>
-										<dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Size</dt>
-										<dd class="mt-1 text-sm text-gray-900 dark:text-white">{ strconv.FormatInt(data.File.FileSize, 10) } bytes</dd>
-									</div>
-									<div>
-										<dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Hash</dt>
-										<dd class="mt-1 text-sm text-gray-900 dark:text-white">{ data.File.FileHash }</dd>
-									</div>
-									<div>
-										<dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Status</dt>
-										<dd class="mt-1">
-											<span class={ fmt.Sprintf("px-2 py-1 text-xs font-medium rounded-full %s", getStatusClass(data.File.Status)) }>
-												{ data.File.Status }
-											</span>
-										</dd>
-									</div>
-								</dl>
+								<h6 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center">
+									<i class="fas fa-file-alt mr-2 text-gray-500 dark:text-gray-400"></i> File Information
+								</h6>
+								<div class="overflow-x-auto relative shadow-md sm:rounded-lg">
+									<table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+										<tbody>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Filename
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													{ data.File.FileName }
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Size
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													{ utils.FormatFileSize(data.File.FileSize) }
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Hash
+												</th>
+												<td class="py-3 px-4 break-all bg-white dark:bg-gray-800">
+													if data.File.FileHash != "" {
+														<span class="font-mono">{ data.File.FileHash }</span>
+													} else {
+														<span class="text-gray-400 dark:text-gray-500 italic">Not available</span>
+													}
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Status
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													<span class={ "text-xs font-medium px-2.5 py-0.5 rounded", utils.GetStatusBadgeClass(data.File.Status) }>
+														{ data.File.Status }
+													</span>
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Original Path
+												</th>
+												<td class="py-3 px-4 break-all bg-white dark:bg-gray-800">
+													<div class="flex items-center">
+														<i class="fas fa-folder mr-2 text-yellow-500"></i>
+														<span>{ data.File.OriginalPath }</span>
+													</div>
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Destination Path
+												</th>
+												<td class="py-3 px-4 break-all bg-white dark:bg-gray-800">
+													<div class="flex items-center">
+														<i class="fas fa-folder-open mr-2 text-blue-500"></i>
+														<span>{ data.File.DestinationPath }</span>
+													</div>
+												</td>
+											</tr>
+										</tbody>
+									</table>
+								</div>
 							</div>
-							
+
 							<!-- Processing Information -->
 							<div>
-								<h6 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Processing Information</h6>
-								<dl class="grid grid-cols-1 gap-4">
-									<div>
-										<dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Original Path</dt>
-										<dd class="mt-1 text-sm text-gray-900 dark:text-white">{ data.File.OriginalPath }</dd>
-									</div>
-									<div>
-										<dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Destination Path</dt>
-										<dd class="mt-1 text-sm text-gray-900 dark:text-white">{ data.File.DestinationPath }</dd>
-									</div>
-									<div>
-										<dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Processed At</dt>
-										<dd class="mt-1 text-sm text-gray-900 dark:text-white">{ data.File.ProcessedTime.Format("2006-01-02 15:04:05") }</dd>
-									</div>
-									if data.File.Status == "error" && data.File.ErrorMessage != "" {
-										<div>
-											<dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Error</dt>
-											<dd class="mt-1 text-sm text-red-600 dark:text-red-400">{ data.File.ErrorMessage }</dd>
-										</div>
-									}
-								</dl>
+								<h6 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center">
+									<i class="fas fa-cogs mr-2 text-gray-500 dark:text-gray-400"></i> Processing Information
+								</h6>
+								<div class="overflow-x-auto relative shadow-md sm:rounded-lg">
+									<table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+										<tbody>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Job
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													<a href={ templ.SafeURL(fmt.Sprintf("/files/job/%d", data.File.JobID)) } class="font-medium text-blue-600 dark:text-blue-500 hover:underline">
+														{ data.File.Job.Name }
+													</a>
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Processed Time
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													<div class="flex items-center">
+														<i class="far fa-clock mr-2 text-gray-500"></i>
+														<span>{ data.File.ProcessedTime.Format("2006-01-02 15:04:05") }</span>
+													</div>
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Creation Time
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													<div class="flex items-center">
+														<i class="fas fa-calendar-plus mr-2 text-green-500"></i>
+														<span>{ data.File.CreationTime.Format("2006-01-02 15:04:05") }</span>
+													</div>
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Modification Time
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													<div class="flex items-center">
+														<i class="fas fa-calendar-alt mr-2 text-purple-500"></i>
+														<span>{ data.File.ModTime.Format("2006-01-02 15:04:05") }</span>
+													</div>
+												</td>
+											</tr>
+											if data.File.Status == "error" && data.File.ErrorMessage != "" {
+												<tr class="border-b dark:border-gray-700">
+													<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+														Error
+													</th>
+													<td class="py-3 px-4 break-all bg-white dark:bg-gray-800">
+														<div class="flex items-start">
+															<i class="fas fa-exclamation-triangle mt-1 mr-2 text-red-500"></i>
+															<span class="text-red-600 dark:text-red-400">{ data.File.ErrorMessage }</span>
+														</div>
+													</td>
+												</tr>
+											}
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Record Created
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													{ data.File.CreatedAt.Format("2006-01-02 15:04:05") }
+												</td>
+											</tr>
+											<tr class="border-b dark:border-gray-700">
+												<th scope="row" class="py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800">
+													Record Updated
+												</th>
+												<td class="py-3 px-4 bg-white dark:bg-gray-800">
+													{ data.File.UpdatedAt.Format("2006-01-02 15:04:05") }
+												</td>
+											</tr>
+										</tbody>
+									</table>
+								</div>
 							</div>
 						</div>
-						
-						<!-- Actions -->
-						<div class="mt-6 flex justify-end space-x-3">
-							<button onclick="showModal('delete-dialog')" class="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800">
-								<i class="fas fa-trash mr-2"></i> Delete File
-							</button>
-						</div>
-					</div>
-				</div>
-			</div>
 
-			<!-- Delete Dialog -->
-			<div id="delete-dialog" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-				<div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800">
-					<div class="mt-3 text-center">
-						<h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white">Delete File</h3>
-						<div class="mt-2 px-7 py-3">
-							<p class="text-sm text-gray-500 dark:text-gray-400">
-								Are you sure you want to delete this file? This action cannot be undone.
-							</p>
-						</div>
-						<div class="items-center px-4 py-3">
-							<button id="confirm-delete" data-file-id={ strconv.FormatInt(int64(data.File.ID), 10) } class="px-4 py-2 bg-red-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
-								Delete
-							</button>
-						</div>
-						<div class="items-center px-4 py-3">
-							<button onclick="closeModal('delete-dialog')" class="px-4 py-2 bg-gray-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500">
-								Cancel
+						<!-- Delete dialog component call -->
+						@dialog.FileMetadataDialog(
+							fmt.Sprintf("delete-file-dialog-%d", data.File.ID),
+							"Delete File Metadata",
+							fmt.Sprintf("Are you sure you want to delete the metadata for '%s'? This cannot be undone.", data.File.FileName),
+							"text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800", // Use correct classes
+							"Delete",
+							"delete",
+							data.File.ID,
+							data.File.FileName,
+							"details", // Indicate this is from the details view
+						)
+
+						<!-- Action buttons -->
+						<div class="mt-6 flex flex-wrap justify-end gap-3">
+							<a href="/files" class="py-2.5 px-5 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">
+								<i class="fas fa-list mr-2"></i> Back to Files
+							</a>
+							<button
+								type="button"
+								onclick={ templ.ComponentScript{Call: fmt.Sprintf("showModal('delete-file-dialog-%d')", data.File.ID)} }
+								class="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800">
+								<i class="fas fa-trash mr-2"></i> Delete Record
 							</button>
 						</div>
 					</div>
@@ -135,9 +235,9 @@ templ FileMetadataDetails(ctx context.Context, data file_metadata.FileMetadataDe
 			<script>
 				// Set dark background color if in dark mode
 				if (document.documentElement.classList.contains('dark')) {
-					document.getElementById('details-container').style.backgroundColor = '#111827';
+					document.getElementById('file-details-container').style.backgroundColor = '#111827';
 				}
-				
+
 				// Add event listener for theme changes
 				document.addEventListener('DOMContentLoaded', function() {
 					const themeToggle = document.getElementById('theme-toggle');
@@ -145,7 +245,7 @@ templ FileMetadataDetails(ctx context.Context, data file_metadata.FileMetadataDe
 						themeToggle.addEventListener('click', function() {
 							setTimeout(function() {
 								const isDark = document.documentElement.classList.contains('dark');
-								document.getElementById('details-container').style.backgroundColor = isDark ? '#111827' : 'rgb(249, 250, 251)';
+								document.getElementById('file-details-container').style.backgroundColor = isDark ? '#111827' : 'rgb(249, 250, 251)';
 							}, 50);
 						});
 					}
@@ -154,21 +254,3 @@ templ FileMetadataDetails(ctx context.Context, data file_metadata.FileMetadataDe
 		</div>
 	}
 }
-
-// getStatusClass returns the appropriate Tailwind CSS class for the given status
-func getStatusClass(status string) string {
-	switch status {
-	case "processed":
-		return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-	case "archived":
-		return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-	case "deleted":
-		return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-	case "archived_and_deleted":
-		return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
-	case "error":
-		return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-	default:
-		return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
-	}
-} 

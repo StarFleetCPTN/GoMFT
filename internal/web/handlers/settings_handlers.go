@@ -17,6 +17,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/starfleetcptn/gomft/components"
+	"github.com/starfleetcptn/gomft/components/notifications/form"
+	"github.com/starfleetcptn/gomft/components/notifications/list"
+	"github.com/starfleetcptn/gomft/components/notifications/types"
 	"github.com/starfleetcptn/gomft/internal/db"
 )
 
@@ -1133,9 +1136,9 @@ func (h *Handlers) HandleNotificationsPage(c *gin.Context) {
 	}
 
 	// Convert to components.NotificationService
-	var componentServices []components.NotificationService
+	var componentServices []types.NotificationServiceData // Use types.NotificationServiceData
 	for _, service := range notificationServices {
-		componentServices = append(componentServices, components.NotificationService{
+		componentServices = append(componentServices, types.NotificationServiceData{ // Use types.NotificationServiceData
 			ID:              service.ID,
 			Name:            service.Name,
 			Type:            service.Type,
@@ -1151,12 +1154,12 @@ func (h *Handlers) HandleNotificationsPage(c *gin.Context) {
 		})
 	}
 
-	data := components.SettingsNotificationsData{
+	data := types.SettingsNotificationsData{ // Use types.SettingsNotificationsData
 		NotificationServices: componentServices,
 	}
 
 	ctx := h.CreateTemplateContext(c)
-	components.Notifications(ctx, data).Render(ctx, c.Writer)
+	list.List(ctx, data).Render(ctx, c.Writer) // Use list.List
 }
 
 // HandleNewNotificationPage handles GET /admin/settings/notifications/new
@@ -1167,7 +1170,7 @@ func (h *Handlers) HandleNewNotificationPage(c *gin.Context) {
 		return
 	}
 
-	data := components.NotificationFormData{
+	data := types.NotificationFormData{ // Use types.NotificationFormData
 		IsNew: true,
 		NotificationService: &struct {
 			ID                      uint
@@ -1209,7 +1212,7 @@ func (h *Handlers) HandleNewNotificationPage(c *gin.Context) {
 	}
 
 	ctx := h.CreateTemplateContext(c)
-	components.NotificationForm(ctx, data).Render(ctx, c.Writer)
+	form.NotificationForm(ctx, data).Render(ctx, c.Writer) // Use form.NotificationForm
 }
 
 // HandleEditNotificationPage handles GET /admin/settings/notifications/:id/edit
@@ -1235,7 +1238,7 @@ func (h *Handlers) HandleEditNotificationPage(c *gin.Context) {
 	}
 
 	// Convert to NotificationFormData
-	data := components.NotificationFormData{
+	data := types.NotificationFormData{ // Use types.NotificationFormData
 		IsNew: false,
 		NotificationService: &struct {
 			ID                      uint
@@ -1320,7 +1323,7 @@ func (h *Handlers) HandleEditNotificationPage(c *gin.Context) {
 	}
 
 	ctx := h.CreateTemplateContext(c)
-	components.NotificationForm(ctx, data).Render(ctx, c.Writer)
+	form.NotificationForm(ctx, data).Render(ctx, c.Writer) // Use form.NotificationForm
 }
 
 // HandleUpdateNotificationService handles PUT /admin/settings/notifications/:id
@@ -1515,9 +1518,9 @@ func (h *Handlers) handleNotificationsWithError(c *gin.Context, errorMessage str
 	}
 
 	// Convert to components.NotificationService
-	var componentServices []components.NotificationService
+	var componentServices []types.NotificationServiceData // Use types.NotificationServiceData
 	for _, service := range notificationServices {
-		componentServices = append(componentServices, components.NotificationService{
+		componentServices = append(componentServices, types.NotificationServiceData{ // Use types.NotificationServiceData
 			ID:              service.ID,
 			Name:            service.Name,
 			Type:            service.Type,
@@ -1533,13 +1536,13 @@ func (h *Handlers) handleNotificationsWithError(c *gin.Context, errorMessage str
 		})
 	}
 
-	data := components.SettingsNotificationsData{
+	data := types.SettingsNotificationsData{ // Use types.SettingsNotificationsData
 		NotificationServices: componentServices,
 		ErrorMessage:         errorMessage,
 	}
 
 	ctx := h.CreateTemplateContext(c)
-	components.Notifications(ctx, data).Render(ctx, c.Writer)
+	list.List(ctx, data).Render(ctx, c.Writer) // Use list.List
 }
 
 // handleNotificationsWithSuccess renders the notifications page with a success message
@@ -1550,9 +1553,9 @@ func (h *Handlers) handleNotificationsWithSuccess(c *gin.Context, successMessage
 	}
 
 	// Convert to components.NotificationService
-	var componentServices []components.NotificationService
+	var componentServices []types.NotificationServiceData // Use types.NotificationServiceData
 	for _, service := range notificationServices {
-		componentServices = append(componentServices, components.NotificationService{
+		componentServices = append(componentServices, types.NotificationServiceData{ // Use types.NotificationServiceData
 			ID:              service.ID,
 			Name:            service.Name,
 			Type:            service.Type,
@@ -1568,11 +1571,11 @@ func (h *Handlers) handleNotificationsWithSuccess(c *gin.Context, successMessage
 		})
 	}
 
-	data := components.SettingsNotificationsData{
+	data := types.SettingsNotificationsData{ // Use types.SettingsNotificationsData
 		NotificationServices: componentServices,
 		SuccessMessage:       successMessage,
 	}
 
 	ctx := h.CreateTemplateContext(c)
-	components.Notifications(ctx, data).Render(ctx, c.Writer)
+	list.List(ctx, data).Render(ctx, c.Writer) // Use list.List
 }

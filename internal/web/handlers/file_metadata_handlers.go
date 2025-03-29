@@ -7,6 +7,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/starfleetcptn/gomft/components"
+	"github.com/starfleetcptn/gomft/components/file_metadata"
+	"github.com/starfleetcptn/gomft/components/file_metadata/details"
+	"github.com/starfleetcptn/gomft/components/file_metadata/list"
+	"github.com/starfleetcptn/gomft/components/file_metadata/search"
 	"github.com/starfleetcptn/gomft/internal/db"
 )
 
@@ -37,6 +41,26 @@ func (h *FileMetadataHandler) ListFileMetadata(c *gin.Context) {
 	status := c.Query("status")
 	jobIDStr := c.Query("job_id")
 	fileName := c.Query("filename")
+	sortBy := c.DefaultQuery("sort_by", "processed_time")
+	sortDir := c.DefaultQuery("sort_dir", "desc")
+
+	// Validate sort parameters
+	allowedSortColumns := map[string]string{
+		"id":             "file_metadata.id",
+		"filename":       "file_metadata.file_name",
+		"size":           "file_metadata.file_size",
+		"processed_time": "file_metadata.processed_time",
+		"status":         "file_metadata.status",
+	}
+	dbColumn, ok := allowedSortColumns[sortBy]
+	if !ok {
+		sortBy = "processed_time" // Default sort column
+		dbColumn = allowedSortColumns[sortBy]
+	}
+	if sortDir != "asc" && sortDir != "desc" {
+		sortDir = "desc" // Default sort direction
+	}
+	orderClause := fmt.Sprintf("%s %s", dbColumn, sortDir)
 
 	// Base query
 	query := h.DB.DB.Model(&db.FileMetadata{}).Joins("JOIN jobs ON file_metadata.job_id = jobs.id")
@@ -66,7 +90,7 @@ func (h *FileMetadataHandler) ListFileMetadata(c *gin.Context) {
 	var fileMetadata []db.FileMetadata
 	offset := (page - 1) * limit
 	err := query.Preload("Job").Preload("Job.Config").
-		Order("file_metadata.processed_time DESC").
+		Order(orderClause). // Use dynamic order clause
 		Offset(offset).Limit(limit).
 		Find(&fileMetadata).Error
 
@@ -79,17 +103,19 @@ func (h *FileMetadataHandler) ListFileMetadata(c *gin.Context) {
 	ctx := components.CreateTemplateContext(c)
 
 	// Render the file metadata list template
-	data := components.FileMetadataListData{
+	data := file_metadata.FileMetadataListData{
 		Files:      fileMetadata,
 		TotalCount: totalCount,
 		Page:       page,
 		Limit:      limit,
 		TotalPages: int(totalCount) / limit,
-		Filter: components.FileMetadataFilter{
+		Filter: file_metadata.FileMetadataFilter{
 			Status:   status,
 			JobID:    jobIDStr,
 			FileName: fileName,
 		},
+		SortBy:  sortBy,  // Pass sorting info
+		SortDir: sortDir, // Pass sorting info
 	}
 
 	// If total count is not exactly divisible by limit, add one more page
@@ -104,10 +130,10 @@ func (h *FileMetadataHandler) ListFileMetadata(c *gin.Context) {
 
 	if isHtmxRequest {
 		// For HTMX requests, render just the partial template
-		components.FileMetadataListPartial(data).Render(ctx, c.Writer)
+		list.FileMetadataListPartial(ctx, data, "/files/partial", "#file-list-container").Render(ctx, c.Writer)
 	} else {
 		// For full page requests, render the complete template
-		components.FileMetadataList(ctx, data).Render(ctx, c.Writer)
+		list.FileMetadataList(ctx, data).Render(ctx, c.Writer)
 	}
 }
 
@@ -142,12 +168,12 @@ func (h *FileMetadataHandler) GetFileMetadataDetails(c *gin.Context) {
 	ctx := components.CreateTemplateContext(c)
 
 	// Render the file metadata details template
-	data := components.FileMetadataDetailsData{
+	data := file_metadata.FileMetadataDetailsData{
 		File: fileMetadata,
 	}
 
 	c.Header("Content-Type", "text/html")
-	components.FileMetadataDetails(ctx, data).Render(ctx, c.Writer)
+	details.FileMetadataDetails(ctx, data).Render(ctx, c.Writer)
 }
 
 // GetFileMetadataForJob displays file metadata for a specific job
@@ -187,6 +213,26 @@ func (h *FileMetadataHandler) GetFileMetadataForJob(c *gin.Context) {
 
 	status := c.Query("status")
 	fileName := c.Query("filename")
+	sortBy := c.DefaultQuery("sort_by", "processed_time")
+	sortDir := c.DefaultQuery("sort_dir", "desc")
+
+	// Validate sort parameters
+	allowedSortColumns := map[string]string{
+		"id":             "file_metadata.id",
+		"filename":       "file_metadata.file_name",
+		"size":           "file_metadata.file_size",
+		"processed_time": "file_metadata.processed_time",
+		"status":         "file_metadata.status",
+	}
+	dbColumn, ok := allowedSortColumns[sortBy]
+	if !ok {
+		sortBy = "processed_time" // Default sort column
+		dbColumn = allowedSortColumns[sortBy]
+	}
+	if sortDir != "asc" && sortDir != "desc" {
+		sortDir = "desc" // Default sort direction
+	}
+	orderClause := fmt.Sprintf("%s %s", dbColumn, sortDir)
 
 	// Base query
 	query := h.DB.DB.Model(&db.FileMetadata{}).Where("job_id = ?", jobID)
@@ -208,7 +254,7 @@ func (h *FileMetadataHandler) GetFileMetadataForJob(c *gin.Context) {
 	var fileMetadata []db.FileMetadata
 	offset := (page - 1) * limit
 	err = query.Preload("Job").Preload("Job.Config").
-		Order("processed_time DESC").
+		Order(orderClause). // Use dynamic order clause
 		Offset(offset).Limit(limit).
 		Find(&fileMetadata).Error
 
@@ -221,18 +267,20 @@ func (h *FileMetadataHandler) GetFileMetadataForJob(c *gin.Context) {
 	ctx := components.CreateTemplateContext(c)
 
 	// Render the file metadata list template
-	data := components.FileMetadataListData{
+	data := file_metadata.FileMetadataListData{
 		Files:      fileMetadata,
 		TotalCount: totalCount,
 		Page:       page,
 		Limit:      limit,
 		TotalPages: int(totalCount) / limit,
 		Job:        &job,
-		Filter: components.FileMetadataFilter{
+		Filter: file_metadata.FileMetadataFilter{
 			Status:   status,
 			JobID:    strconv.FormatUint(uint64(job.ID), 10),
 			FileName: fileName,
 		},
+		SortBy:  sortBy,  // Pass sorting info
+		SortDir: sortDir, // Pass sorting info
 	}
 
 	// If total count is not exactly divisible by limit, add one more page
@@ -247,10 +295,10 @@ func (h *FileMetadataHandler) GetFileMetadataForJob(c *gin.Context) {
 
 	if isHtmxRequest {
 		// For HTMX requests, render just the partial template
-		components.FileMetadataListPartial(data).Render(ctx, c.Writer)
+		list.FileMetadataListPartial(ctx, data, "/files/partial", "#file-list-container").Render(ctx, c.Writer)
 	} else {
 		// For full page requests, render the complete template
-		components.FileMetadataList(ctx, data).Render(ctx, c.Writer)
+		list.FileMetadataList(ctx, data).Render(ctx, c.Writer)
 	}
 }
 
@@ -275,6 +323,26 @@ func (h *FileMetadataHandler) SearchFileMetadata(c *gin.Context) {
 	hash := c.Query("hash")
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
+	sortBy := c.DefaultQuery("sort_by", "processed_time")
+	sortDir := c.DefaultQuery("sort_dir", "desc")
+
+	// Validate sort parameters
+	allowedSortColumns := map[string]string{
+		"id":             "file_metadata.id",
+		"filename":       "file_metadata.file_name",
+		"size":           "file_metadata.file_size",
+		"processed_time": "file_metadata.processed_time",
+		"status":         "file_metadata.status",
+	}
+	dbColumn, ok := allowedSortColumns[sortBy]
+	if !ok {
+		sortBy = "processed_time" // Default sort column
+		dbColumn = allowedSortColumns[sortBy]
+	}
+	if sortDir != "asc" && sortDir != "desc" {
+		sortDir = "desc" // Default sort direction
+	}
+	orderClause := fmt.Sprintf("%s %s", dbColumn, sortDir)
 
 	// Base query
 	query := h.DB.DB.Model(&db.FileMetadata{}).Joins("JOIN jobs ON file_metadata.job_id = jobs.id")
@@ -316,7 +384,7 @@ func (h *FileMetadataHandler) SearchFileMetadata(c *gin.Context) {
 	var fileMetadata []db.FileMetadata
 	offset := (page - 1) * limit
 	err := query.Preload("Job").Preload("Job.Config").
-		Order("file_metadata.processed_time DESC").
+		Order(orderClause). // Use dynamic order clause
 		Offset(offset).Limit(limit).
 		Find(&fileMetadata).Error
 
@@ -326,13 +394,13 @@ func (h *FileMetadataHandler) SearchFileMetadata(c *gin.Context) {
 	}
 
 	// Render the file metadata search template
-	data := components.FileMetadataSearchData{
+	data := file_metadata.FileMetadataSearchData{
 		Files:      fileMetadata,
 		TotalCount: totalCount,
 		Page:       page,
 		Limit:      limit,
 		TotalPages: int(totalCount) / limit,
-		Filter: components.FileMetadataFilter{
+		Filter: file_metadata.FileMetadataFilter{
 			Status:    status,
 			JobID:     jobIDStr,
 			FileName:  fileName,
@@ -340,6 +408,8 @@ func (h *FileMetadataHandler) SearchFileMetadata(c *gin.Context) {
 			StartDate: startDate,
 			EndDate:   endDate,
 		},
+		SortBy:  sortBy,  // Pass sorting info
+		SortDir: sortDir, // Pass sorting info
 	}
 
 	// If total count is not exactly divisible by limit, add one more page
@@ -357,10 +427,10 @@ func (h *FileMetadataHandler) SearchFileMetadata(c *gin.Context) {
 
 	if isHtmxRequest {
 		// For HTMX requests, render just the partial template
-		components.FileMetadataSearchContent(data).Render(ctx, c.Writer)
+		search.FileMetadataSearchContent(ctx, data).Render(ctx, c.Writer)
 	} else {
 		// For full page requests, render the complete template
-		components.FileMetadataSearch(ctx, data).Render(ctx, c.Writer)
+		search.FileMetadataSearch(ctx, data).Render(ctx, c.Writer)
 	}
 }
 
@@ -444,6 +514,26 @@ func (h *FileMetadataHandler) HandleFileMetadataPartial(c *gin.Context) {
 	status := c.Query("status")
 	jobIDStr := c.Query("job_id")
 	fileName := c.Query("filename")
+	sortBy := c.DefaultQuery("sort_by", "processed_time")
+	sortDir := c.DefaultQuery("sort_dir", "desc")
+
+	// Validate sort parameters
+	allowedSortColumns := map[string]string{
+		"id":             "file_metadata.id",
+		"filename":       "file_metadata.file_name",
+		"size":           "file_metadata.file_size",
+		"processed_time": "file_metadata.processed_time",
+		"status":         "file_metadata.status",
+	}
+	dbColumn, ok := allowedSortColumns[sortBy]
+	if !ok {
+		sortBy = "processed_time" // Default sort column
+		dbColumn = allowedSortColumns[sortBy]
+	}
+	if sortDir != "asc" && sortDir != "desc" {
+		sortDir = "desc" // Default sort direction
+	}
+	orderClause := fmt.Sprintf("%s %s", dbColumn, sortDir)
 
 	// Base query
 	query := h.DB.DB.Model(&db.FileMetadata{}).Joins("JOIN jobs ON file_metadata.job_id = jobs.id")
@@ -473,7 +563,7 @@ func (h *FileMetadataHandler) HandleFileMetadataPartial(c *gin.Context) {
 	var fileMetadata []db.FileMetadata
 	offset := (page - 1) * limit
 	err := query.Preload("Job").Preload("Job.Config").
-		Order("file_metadata.processed_time DESC").
+		Order(orderClause). // Use dynamic order clause
 		Offset(offset).Limit(limit).
 		Find(&fileMetadata).Error
 
@@ -496,18 +586,20 @@ func (h *FileMetadataHandler) HandleFileMetadataPartial(c *gin.Context) {
 	}
 
 	// Render the file metadata list template
-	data := components.FileMetadataListData{
+	data := file_metadata.FileMetadataListData{
 		Files:      fileMetadata,
 		TotalCount: totalCount,
 		Page:       page,
 		Limit:      limit,
 		TotalPages: int(totalCount) / limit,
 		Job:        job,
-		Filter: components.FileMetadataFilter{
+		Filter: file_metadata.FileMetadataFilter{
 			Status:   status,
 			JobID:    jobIDStr,
 			FileName: fileName,
 		},
+		SortBy:  sortBy,  // Pass sorting info
+		SortDir: sortDir, // Pass sorting info
 	}
 
 	// If total count is not exactly divisible by limit, add one more page
@@ -516,7 +608,7 @@ func (h *FileMetadataHandler) HandleFileMetadataPartial(c *gin.Context) {
 	}
 
 	c.Header("Content-Type", "text/html")
-	components.FileMetadataListPartial(data).Render(ctx, c.Writer)
+	list.FileMetadataListPartial(ctx, data, "/files/partial", "#file-list-container").Render(ctx, c.Writer)
 }
 
 // HandleFileMetadataSearchPartial handles partial updates for search results
@@ -553,6 +645,26 @@ func (h *FileMetadataHandler) HandleFileMetadataSearchPartial(c *gin.Context) {
 	hash := c.Query("hash")
 	startDate := c.Query("start_date")
 	endDate := c.Query("end_date")
+	sortBy := c.DefaultQuery("sort_by", "processed_time")
+	sortDir := c.DefaultQuery("sort_dir", "desc")
+
+	// Validate sort parameters
+	allowedSortColumns := map[string]string{
+		"id":             "file_metadata.id",
+		"filename":       "file_metadata.file_name",
+		"size":           "file_metadata.file_size",
+		"processed_time": "file_metadata.processed_time",
+		"status":         "file_metadata.status",
+	}
+	dbColumn, ok := allowedSortColumns[sortBy]
+	if !ok {
+		sortBy = "processed_time" // Default sort column
+		dbColumn = allowedSortColumns[sortBy]
+	}
+	if sortDir != "asc" && sortDir != "desc" {
+		sortDir = "desc" // Default sort direction
+	}
+	orderClause := fmt.Sprintf("%s %s", dbColumn, sortDir)
 
 	// Execute the search query
 	query := h.DB.DB.Model(&db.FileMetadata{}).Joins("JOIN jobs ON file_metadata.job_id = jobs.id")
@@ -597,7 +709,7 @@ func (h *FileMetadataHandler) HandleFileMetadataSearchPartial(c *gin.Context) {
 	var files []db.FileMetadata
 	if err := query.
 		Preload("Job").
-		Order("file_metadata.processed_time DESC").
+		Order(orderClause). // Use dynamic order clause
 		Limit(limit).
 		Offset((page - 1) * limit).
 		Find(&files).Error; err != nil {
@@ -606,13 +718,13 @@ func (h *FileMetadataHandler) HandleFileMetadataSearchPartial(c *gin.Context) {
 	}
 
 	// Build the template data
-	data := components.FileMetadataSearchData{
+	data := file_metadata.FileMetadataSearchData{
 		Files:      files,
 		TotalCount: totalCount,
 		Page:       page,
 		Limit:      limit,
 		TotalPages: int(totalCount) / limit,
-		Filter: components.FileMetadataFilter{
+		Filter: file_metadata.FileMetadataFilter{
 			Status:    status,
 			JobID:     jobIDStr,
 			FileName:  fileName,
@@ -620,6 +732,8 @@ func (h *FileMetadataHandler) HandleFileMetadataSearchPartial(c *gin.Context) {
 			StartDate: startDate,
 			EndDate:   endDate,
 		},
+		SortBy:  sortBy,  // Pass sorting info
+		SortDir: sortDir, // Pass sorting info
 	}
 
 	if int(totalCount)%limit > 0 {
@@ -630,5 +744,5 @@ func (h *FileMetadataHandler) HandleFileMetadataSearchPartial(c *gin.Context) {
 	ctx := components.CreateTemplateContext(c)
 
 	c.Header("Content-Type", "text/html")
-	components.FileMetadataSearchContent(data).Render(ctx, c.Writer)
+	search.FileMetadataSearchContent(ctx, data).Render(ctx, c.Writer)
 }

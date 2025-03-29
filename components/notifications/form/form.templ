@@ -1,0 +1,148 @@
+package form
+
+import (
+	"context"
+	"fmt"
+	"github.com/starfleetcptn/gomft/components" // For LayoutWithContext
+	"github.com/starfleetcptn/gomft/components/notifications/types"
+	"github.com/starfleetcptn/gomft/components/notifications/form/utils"
+	"github.com/starfleetcptn/gomft/components/notifications/form/fields" // Import fields
+)
+
+templ NotificationForm(ctx context.Context, data types.NotificationFormData) {
+	@FormScripts() // Include the form-specific scripts
+	@components.LayoutWithContext(utils.GetNotificationFormTitle(data.IsNew), ctx) {
+		<!-- Status and Error Messages (Handled by shared toast component in layout) -->
+
+		<div id="notification-form-container" class="notifications-page bg-gray-50 dark:bg-gray-900 min-h-screen">
+			<div class="pb-8 w-full max-w-4xl mx-auto">
+				<!-- Success Message (hidden, used for HTMX responses) -->
+				if data.SuccessMessage != "" {
+					<div class="hidden success-message">{ data.SuccessMessage }</div>
+				}
+				<!-- Error Message (hidden, used for HTMX responses) -->
+				if data.ErrorMessage != "" {
+					<div class="hidden error-message">{ data.ErrorMessage }</div>
+				}
+
+				<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+					<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+						<i class="fas fa-bell w-6 h-6 mr-2 text-blue-500 dark:text-blue-400"></i>
+						{ utils.GetNotificationFormTitle(data.IsNew) }
+					</h1>
+					<a href="/admin/settings/notifications" class="flex items-center justify-center text-gray-700 bg-gray-100 hover:bg-gray-200 focus:ring-4 focus:ring-gray-300 font-medium rounded-lg px-5 py-2.5 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 focus:outline-none dark:focus:ring-gray-700">
+						<i class="fas fa-arrow-left w-4 h-4 mr-2"></i>
+						Back to Notification Services
+					</a>
+				</div>
+
+				<!-- Add Notification Service Form -->
+				<div class="mb-6 p-6 bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800">
+					<form id="notification-form"
+						if data.IsNew {
+							hx-post="/admin/settings/notifications"
+						} else {
+							hx-put={ fmt.Sprintf("/admin/settings/notifications/%d", data.NotificationService.ID) }
+						}
+						hx-target="body">
+						<div class="mb-6">
+							<label for="notification_type" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Notification Type</label>
+							<select id="notification_type" name="type" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+								<option value="">Select a type</option>
+								if data.NotificationService != nil && data.NotificationService.Type == "webhook" {
+									<option value="webhook" selected="selected">Webhook</option>
+								} else {
+									<option value="webhook">Webhook</option>
+								}
+								if data.NotificationService != nil && data.NotificationService.Type == "pushbullet" {
+									<option value="pushbullet" selected="selected">Pushbullet</option>
+								} else {
+									<option value="pushbullet">Pushbullet</option>
+								}
+								if data.NotificationService != nil && data.NotificationService.Type == "ntfy" {
+									<option value="ntfy" selected="selected">Ntfy</option>
+								} else {
+									<option value="ntfy">Ntfy</option>
+								}
+								if data.NotificationService != nil && data.NotificationService.Type == "gotify" {
+									<option value="gotify" selected="selected">Gotify</option>
+								} else {
+									<option value="gotify">Gotify</option>
+								}
+								if data.NotificationService != nil && data.NotificationService.Type == "pushover" {
+									<option value="pushover" selected="selected">Pushover</option>
+								} else {
+									<option value="pushover">Pushover</option>
+								}
+								<option value="email" disabled>Email (Coming Soon)</option>
+							</select>
+						</div>
+						<div class="mb-6 hidden common-fields">
+							<label for="notification_name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Name</label>
+							if data.NotificationService.Name != "" {
+								<input type="text" id="notification_name" name="name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="My Notification Service" required value={ data.NotificationService.Name }/>
+							} else {
+								<input type="text" id="notification_name" name="name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="My Notification Service" required value=""/>
+							}
+						</div>
+						<div class="mb-6 hidden common-fields">
+							<label for="notification_description" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Description</label>
+							if data.NotificationService.Description != "" {
+								<textarea id="notification_description" name="description" rows="3" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Description for this notification service">{ data.NotificationService.Description }</textarea>
+							} else {
+								<textarea id="notification_description" name="description" rows="3" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Description for this notification service"></textarea>
+							}
+						</div>
+
+						<!-- Dynamic fields based on notification type -->
+						@fields.EmailFields(data)
+						@fields.WebhookFields(data)
+						@fields.PushbulletFields(data)
+						@fields.NtfyFields(data)
+						@fields.GotifyFields(data)
+						@fields.PushoverFields(data)
+
+						<div class="flex items-start mb-6 hidden common-fields">
+							<div class="flex items-center h-5">
+								if data.NotificationService.IsEnabled != false {
+									<input id="is_enabled" name="is_enabled" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800" checked={ utils.BoolToString(data.NotificationService.IsEnabled) }/>
+								} else {
+									// Default to checked=true if IsEnabled is explicitly false (or not set) when creating new
+									<input id="is_enabled" name="is_enabled" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800" checked="true"/>
+								}
+							</div>
+							<div class="ml-3 text-sm">
+								<label for="is_enabled" class="font-medium text-gray-900 dark:text-white">Enable this notification service</label>
+							</div>
+						</div>
+						<div class="hidden common-fields">
+							<button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+								if data.IsNew {
+									Add Service
+								} else {
+									Save Changes
+								}
+							</button>
+						</div>
+					</form>
+				</div>
+
+				<!-- Help Notice -->
+				<div class="mt-8 p-4 bg-gray-50 border border-gray-200 rounded-lg dark:bg-gray-800 dark:border-gray-700">
+					<div class="flex">
+						<div class="flex-shrink-0">
+							<i class="fas fa-info-circle text-blue-400 dark:text-blue-400"></i>
+						</div>
+						<div class="ml-3">
+							<p class="text-sm text-blue-700 dark:text-blue-400">
+								Configure your notification service to receive alerts for job events. Different notification types have different configuration options.
+							</p>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Theme-specific background handled by Tailwind classes -->
+	}
+}

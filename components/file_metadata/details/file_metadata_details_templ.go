@@ -11,13 +11,14 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"context"
 	"fmt"
+	"github.com/starfleetcptn/gomft/components"
 	"github.com/starfleetcptn/gomft/components/file_metadata"
-	"github.com/starfleetcptn/gomft/components/file_metadata/utils"
-	"github.com/starfleetcptn/gomft/components/layout"
+	"github.com/starfleetcptn/gomft/components/file_metadata/dialog" // Import dialog package
+	"github.com/starfleetcptn/gomft/components/file_metadata/utils"  // Import utils package
 	"strconv"
 )
 
-// FileMetadataDetails renders the details view for a file metadata
+// FileMetadataDetails renders the details view for a file metadata, matching original structure
 func FileMetadataDetails(ctx context.Context, data file_metadata.FileMetadataDetailsData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -55,202 +56,321 @@ func FileMetadataDetails(ctx context.Context, data file_metadata.FileMetadataDet
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = utils.fileMetadataJS().Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = utils.FileMetadataJS().Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " <div id=\"details-container\" style=\"min-height: 100vh;\" class=\"bg-gray-50 dark:bg-gray-900\"><div class=\"pb-8 w-full\"><div class=\"mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4\"><h1 class=\"text-2xl font-bold text-gray-900 dark:text-white flex items-center\"><i class=\"fas fa-file-alt w-6 h-6 mr-2 text-blue-500\"></i> File Details</h1><div class=\"flex gap-3\"><a href=\"/files\" class=\"text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800\"><i class=\"fas fa-arrow-left mr-2\"></i> Back to Files</a></div></div><div class=\"bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 w-full\"><!-- Card header --><div class=\"p-4 md:p-5 border-b border-gray-200 dark:border-gray-700\"><h5 class=\"text-xl font-bold leading-none text-gray-900 dark:text-white\">File Information</h5><p class=\"mt-1 text-sm text-gray-500 dark:text-gray-400\">ID: ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "  <div id=\"file-details-container\" style=\"min-height: 100vh;\" class=\"bg-gray-50 dark:bg-gray-900\"><div class=\"pb-8 w-full\"><div class=\"mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4\"><h1 class=\"text-2xl font-bold text-gray-900 dark:text-white flex items-center\"><i class=\"fas fa-file-alt w-6 h-6 mr-2 text-blue-500\"></i> File Details: ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var3 string
-			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.FormatInt(int64(data.File.ID), 10))
+			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(data.File.FileName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 41, Col: 55}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 26, Col: 40}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</p></div><!-- Card content --><div class=\"p-4 md:p-5\"><div class=\"grid grid-cols-1 md:grid-cols-2 gap-6\"><!-- File Information --><div><h6 class=\"text-lg font-semibold text-gray-900 dark:text-white mb-4\">File Information</h6><dl class=\"grid grid-cols-1 gap-4\"><div><dt class=\"text-sm font-medium text-gray-500 dark:text-gray-400\">Filename</dt><dd class=\"mt-1 text-sm text-gray-900 dark:text-white\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</h1><a href=\"/files\" class=\"text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800\"><i class=\"fas fa-arrow-left mr-2\"></i> Back to Files</a></div><div class=\"bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 w-full\"><!-- Card header --><div class=\"p-4 md:p-5 border-b border-gray-200 dark:border-gray-700\"><h5 class=\"text-xl font-bold leading-none text-gray-900 dark:text-white\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(data.File.FileName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 54, Col: 85}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 37, Col: 27}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</dd></div><div><dt class=\"text-sm font-medium text-gray-500 dark:text-gray-400\">Size</dt><dd class=\"mt-1 text-sm text-gray-900 dark:text-white\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</h5><p class=\"mt-1 text-sm text-gray-500 dark:text-gray-400\">File ID: ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var5 string
-			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.FormatInt(data.File.FileSize, 10))
+			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.FormatUint(uint64(data.File.ID), 10))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 58, Col: 108}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 40, Col: 62}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " bytes</dd></div><div><dt class=\"text-sm font-medium text-gray-500 dark:text-gray-400\">Hash</dt><dd class=\"mt-1 text-sm text-gray-900 dark:text-white\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</p></div><!-- Card content --><div class=\"p-4 md:p-5\"><div class=\"grid grid-cols-1 md:grid-cols-2 gap-6\"><!-- File Information --><div><h6 class=\"text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center\"><i class=\"fas fa-file-alt mr-2 text-gray-500 dark:text-gray-400\"></i> File Information</h6><div class=\"overflow-x-auto relative shadow-md sm:rounded-lg\"><table class=\"w-full text-sm text-left text-gray-500 dark:text-gray-400\"><tbody><tr class=\"border-b dark:border-gray-700\"><th scope=\"row\" class=\"py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800\">Filename</th><td class=\"py-3 px-4 bg-white dark:bg-gray-800\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var6 string
-			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(data.File.FileHash)
+			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(data.File.FileName)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 62, Col: 85}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 60, Col: 33}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</dd></div><div><dt class=\"text-sm font-medium text-gray-500 dark:text-gray-400\">Status</dt><dd class=\"mt-1\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</td></tr><tr class=\"border-b dark:border-gray-700\"><th scope=\"row\" class=\"py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800\">Size</th><td class=\"py-3 px-4 bg-white dark:bg-gray-800\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var7 = []any{fmt.Sprintf("px-2 py-1 text-xs font-medium rounded-full %s", getStatusClass(data.File.Status))}
-			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var7...)
+			var templ_7745c5c3_Var7 string
+			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(utils.FormatFileSize(data.File.FileSize))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 68, Col: 55}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<span class=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</td></tr><tr class=\"border-b dark:border-gray-700\"><th scope=\"row\" class=\"py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800\">Hash</th><td class=\"py-3 px-4 break-all bg-white dark:bg-gray-800\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var8 string
-			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var7).String())
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 1, Col: 0}
+			if data.File.FileHash != "" {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<span class=\"font-mono\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var8 string
+				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(data.File.FileHash)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 77, Col: 58}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</span>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			} else {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<span class=\"text-gray-400 dark:text-gray-500 italic\">Not available</span>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</td></tr><tr class=\"border-b dark:border-gray-700\"><th scope=\"row\" class=\"py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800\">Status</th><td class=\"py-3 px-4 bg-white dark:bg-gray-800\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\">")
+			var templ_7745c5c3_Var9 = []any{"text-xs font-medium px-2.5 py-0.5 rounded", utils.GetStatusBadgeClass(data.File.Status)}
+			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var9...)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var9 string
-			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(data.File.Status)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 68, Col: 30}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</span></dd></div></dl></div><!-- Processing Information --><div><h6 class=\"text-lg font-semibold text-gray-900 dark:text-white mb-4\">Processing Information</h6><dl class=\"grid grid-cols-1 gap-4\"><div><dt class=\"text-sm font-medium text-gray-500 dark:text-gray-400\">Original Path</dt><dd class=\"mt-1 text-sm text-gray-900 dark:text-white\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<span class=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var10 string
-			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(data.File.OriginalPath)
+			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var9).String())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 81, Col: 89}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 1, Col: 0}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</dd></div><div><dt class=\"text-sm font-medium text-gray-500 dark:text-gray-400\">Destination Path</dt><dd class=\"mt-1 text-sm text-gray-900 dark:text-white\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var11 string
-			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(data.File.DestinationPath)
+			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(data.File.Status)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 85, Col: 92}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 89, Col: 32}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</dd></div><div><dt class=\"text-sm font-medium text-gray-500 dark:text-gray-400\">Processed At</dt><dd class=\"mt-1 text-sm text-gray-900 dark:text-white\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</span></td></tr><tr class=\"border-b dark:border-gray-700\"><th scope=\"row\" class=\"py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800\">Original Path</th><td class=\"py-3 px-4 break-all bg-white dark:bg-gray-800\"><div class=\"flex items-center\"><i class=\"fas fa-folder mr-2 text-yellow-500\"></i> <span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var12 string
-			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(data.File.ProcessedTime.Format("2006-01-02 15:04:05"))
+			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(data.File.OriginalPath)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 89, Col: 120}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 100, Col: 44}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</dd></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</span></div></td></tr><tr class=\"border-b dark:border-gray-700\"><th scope=\"row\" class=\"py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800\">Destination Path</th><td class=\"py-3 px-4 break-all bg-white dark:bg-gray-800\"><div class=\"flex items-center\"><i class=\"fas fa-folder-open mr-2 text-blue-500\"></i> <span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var13 string
+			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(data.File.DestinationPath)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 111, Col: 47}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</span></div></td></tr></tbody></table></div></div><!-- Processing Information --><div><h6 class=\"text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center\"><i class=\"fas fa-cogs mr-2 text-gray-500 dark:text-gray-400\"></i> Processing Information</h6><div class=\"overflow-x-auto relative shadow-md sm:rounded-lg\"><table class=\"w-full text-sm text-left text-gray-500 dark:text-gray-400\"><tbody><tr class=\"border-b dark:border-gray-700\"><th scope=\"row\" class=\"py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800\">Job</th><td class=\"py-3 px-4 bg-white dark:bg-gray-800\"><a href=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var14 templ.SafeURL = templ.SafeURL(fmt.Sprintf("/files/job/%d", data.File.JobID))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(string(templ_7745c5c3_Var14)))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" class=\"font-medium text-blue-600 dark:text-blue-500 hover:underline\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var15 string
+			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(data.File.Job.Name)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 134, Col: 34}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</a></td></tr><tr class=\"border-b dark:border-gray-700\"><th scope=\"row\" class=\"py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800\">Processed Time</th><td class=\"py-3 px-4 bg-white dark:bg-gray-800\"><div class=\"flex items-center\"><i class=\"far fa-clock mr-2 text-gray-500\"></i> <span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var16 string
+			templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(data.File.ProcessedTime.Format("2006-01-02 15:04:05"))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 145, Col: 75}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</span></div></td></tr><tr class=\"border-b dark:border-gray-700\"><th scope=\"row\" class=\"py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800\">Creation Time</th><td class=\"py-3 px-4 bg-white dark:bg-gray-800\"><div class=\"flex items-center\"><i class=\"fas fa-calendar-plus mr-2 text-green-500\"></i> <span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var17 string
+			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(data.File.CreationTime.Format("2006-01-02 15:04:05"))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 156, Col: 74}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</span></div></td></tr><tr class=\"border-b dark:border-gray-700\"><th scope=\"row\" class=\"py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800\">Modification Time</th><td class=\"py-3 px-4 bg-white dark:bg-gray-800\"><div class=\"flex items-center\"><i class=\"fas fa-calendar-alt mr-2 text-purple-500\"></i> <span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var18 string
+			templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(data.File.ModTime.Format("2006-01-02 15:04:05"))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 167, Col: 69}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</span></div></td></tr>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if data.File.Status == "error" && data.File.ErrorMessage != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<div><dt class=\"text-sm font-medium text-gray-500 dark:text-gray-400\">Error</dt><dd class=\"mt-1 text-sm text-red-600 dark:text-red-400\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<tr class=\"border-b dark:border-gray-700\"><th scope=\"row\" class=\"py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800\">Error</th><td class=\"py-3 px-4 break-all bg-white dark:bg-gray-800\"><div class=\"flex items-start\"><i class=\"fas fa-exclamation-triangle mt-1 mr-2 text-red-500\"></i> <span class=\"text-red-600 dark:text-red-400\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var13 string
-				templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(data.File.ErrorMessage)
+				var templ_7745c5c3_Var19 string
+				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(data.File.ErrorMessage)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 94, Col: 91}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 179, Col: 84}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</dd></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</span></div></td></tr>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</dl></div></div><!-- Actions --><div class=\"mt-6 flex justify-end space-x-3\"><button onclick=\"showModal(&#39;delete-dialog&#39;)\" class=\"text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800\"><i class=\"fas fa-trash mr-2\"></i> Delete File</button></div></div></div></div><!-- Delete Dialog --><div id=\"delete-dialog\" class=\"hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50\"><div class=\"relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800\"><div class=\"mt-3 text-center\"><h3 class=\"text-lg leading-6 font-medium text-gray-900 dark:text-white\">Delete File</h3><div class=\"mt-2 px-7 py-3\"><p class=\"text-sm text-gray-500 dark:text-gray-400\">Are you sure you want to delete this file? This action cannot be undone.</p></div><div class=\"items-center px-4 py-3\"><button id=\"confirm-delete\" data-file-id=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<tr class=\"border-b dark:border-gray-700\"><th scope=\"row\" class=\"py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800\">Record Created</th><td class=\"py-3 px-4 bg-white dark:bg-gray-800\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var14 string
-			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.FormatInt(int64(data.File.ID), 10))
+			var templ_7745c5c3_Var20 string
+			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(data.File.CreatedAt.Format("2006-01-02 15:04:05"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 122, Col: 92}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 189, Col: 64}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\" class=\"px-4 py-2 bg-red-600 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500\">Delete</button></div><div class=\"items-center px-4 py-3\"><button onclick=\"closeModal(&#39;delete-dialog&#39;)\" class=\"px-4 py-2 bg-gray-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500\">Cancel</button></div></div></div></div><script>\n\t\t\t\t// Set dark background color if in dark mode\n\t\t\t\tif (document.documentElement.classList.contains('dark')) {\n\t\t\t\t\tdocument.getElementById('details-container').style.backgroundColor = '#111827';\n\t\t\t\t}\n\t\t\t\t\n\t\t\t\t// Add event listener for theme changes\n\t\t\t\tdocument.addEventListener('DOMContentLoaded', function() {\n\t\t\t\t\tconst themeToggle = document.getElementById('theme-toggle');\n\t\t\t\t\tif (themeToggle) {\n\t\t\t\t\t\tthemeToggle.addEventListener('click', function() {\n\t\t\t\t\t\t\tsetTimeout(function() {\n\t\t\t\t\t\t\t\tconst isDark = document.documentElement.classList.contains('dark');\n\t\t\t\t\t\t\t\tdocument.getElementById('details-container').style.backgroundColor = isDark ? '#111827' : 'rgb(249, 250, 251)';\n\t\t\t\t\t\t\t}, 50);\n\t\t\t\t\t\t});\n\t\t\t\t\t}\n\t\t\t\t});\n\t\t\t</script></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</td></tr><tr class=\"border-b dark:border-gray-700\"><th scope=\"row\" class=\"py-3 px-4 font-medium text-gray-900 whitespace-nowrap dark:text-white bg-gray-50 dark:bg-gray-800\">Record Updated</th><td class=\"py-3 px-4 bg-white dark:bg-gray-800\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var21 string
+			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(data.File.UpdatedAt.Format("2006-01-02 15:04:05"))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/file_metadata/details/file_metadata_details.templ`, Line: 197, Col: 64}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</td></tr></tbody></table></div></div></div><!-- Delete dialog component call -->")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = dialog.FileMetadataDialog(
+				fmt.Sprintf("delete-file-dialog-%d", data.File.ID),
+				"Delete File Metadata",
+				fmt.Sprintf("Are you sure you want to delete the metadata for '%s'? This cannot be undone.", data.File.FileName),
+				"text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800", // Use correct classes
+				"Delete",
+				"delete",
+				data.File.ID,
+				data.File.FileName,
+				"details", // Indicate this is from the details view
+			).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<!-- Action buttons --><div class=\"mt-6 flex flex-wrap justify-end gap-3\"><a href=\"/files\" class=\"py-2.5 px-5 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700\"><i class=\"fas fa-list mr-2\"></i> Back to Files</a> ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templ.RenderScriptItems(ctx, templ_7745c5c3_Buffer, templ.ComponentScript{Call: fmt.Sprintf("showModal('delete-file-dialog-%d')", data.File.ID)})
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<button type=\"button\" onclick=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var22 templ.ComponentScript = templ.ComponentScript{Call: fmt.Sprintf("showModal('delete-file-dialog-%d')", data.File.ID)}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var22.Call)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\" class=\"text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800\"><i class=\"fas fa-trash mr-2\"></i> Delete Record</button></div></div></div></div><script>\n\t\t\t\t// Set dark background color if in dark mode\n\t\t\t\tif (document.documentElement.classList.contains('dark')) {\n\t\t\t\t\tdocument.getElementById('file-details-container').style.backgroundColor = '#111827';\n\t\t\t\t}\n\n\t\t\t\t// Add event listener for theme changes\n\t\t\t\tdocument.addEventListener('DOMContentLoaded', function() {\n\t\t\t\t\tconst themeToggle = document.getElementById('theme-toggle');\n\t\t\t\t\tif (themeToggle) {\n\t\t\t\t\t\tthemeToggle.addEventListener('click', function() {\n\t\t\t\t\t\t\tsetTimeout(function() {\n\t\t\t\t\t\t\t\tconst isDark = document.documentElement.classList.contains('dark');\n\t\t\t\t\t\t\t\tdocument.getElementById('file-details-container').style.backgroundColor = isDark ? '#111827' : 'rgb(249, 250, 251)';\n\t\t\t\t\t\t\t}, 50);\n\t\t\t\t\t\t});\n\t\t\t\t\t}\n\t\t\t\t});\n\t\t\t</script></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout.LayoutWithContext("File Details", ctx).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.LayoutWithContext("File Details", ctx).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		return nil
 	})
-}
-
-// getStatusClass returns the appropriate Tailwind CSS class for the given status
-func getStatusClass(status string) string {
-	switch status {
-	case "processed":
-		return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-	case "archived":
-		return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-	case "deleted":
-		return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-	case "archived_and_deleted":
-		return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300"
-	case "error":
-		return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-	default:
-		return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
-	}
 }
 
 var _ = templruntime.GeneratedTemplate
