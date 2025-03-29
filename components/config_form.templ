@@ -12,6 +12,10 @@ import (
 type ConfigFormData struct {
 	Config *db.TransferConfig
 	IsNew  bool
+	// Fields for pre-rendering flags on edit
+	InitialCommand     *db.RcloneCommand
+	SelectedFlagsMap   map[uint]bool
+	SelectedFlagValues map[uint]string
 }
 
 func getConfigFormTitle(isNew bool) string {
@@ -455,8 +459,17 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 								<i class="fas fa-terminal mr-2 text-blue-500 dark:text-blue-400"></i>Command Configuration
 							</h3>
 							
-							<!-- Use the RcloneFlags component from common package -->
-							@common.RcloneFlags()
+							<!-- Container for flags, pre-rendered on edit, loaded via HTMX on new/change -->
+							<div id="command-flags-container" class="mt-4">
+								if !data.IsNew && data.InitialCommand != nil {
+									// Pre-render flags if editing and command data is available
+									@common.RcloneCommandFlagsContent(data.InitialCommand, data.SelectedFlagsMap, data.SelectedFlagValues)
+								}
+							</div>
+
+							<!-- Additonal Rclone Flags -->
+							@common.RcloneFlags(data.Config.CommandID) // Pass current command ID
+
 						</div>
 						
 						<!-- Source Configuration Section -->

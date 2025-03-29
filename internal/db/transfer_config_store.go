@@ -141,6 +141,10 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--config", configPath,
 			"--log-level", "ERROR",
 		}
+		// Add region if specified
+		if config.SourceRegion != "" {
+			args = append(args, "region", config.SourceRegion)
+		}
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create source config (minio): %v\nOutput: %s", err, output)
@@ -211,6 +215,10 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"--non-interactive",
 			"--config", configPath,
 			"--log-level", "ERROR",
+		}
+		// Add region if specified
+		if config.DestRegion != "" {
+			args = append(args, "region", config.DestRegion)
 		}
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {

@@ -65,9 +65,43 @@ func (h *Handlers) HandleEditConfig(c *gin.Context) {
 		}
 	}
 
+	// Fetch the initial command details for pre-rendering flags
+	initialCommand, err := h.DB.GetRcloneCommandWithFlags(config.CommandID)
+	if err != nil {
+		// Log the error but proceed, the form might still be usable without pre-rendered flags
+		log.Printf("Warning: Failed to get initial command flags for config %d: %v", config.ID, err)
+		initialCommand = nil // Ensure it's nil if fetching failed
+	}
+
+	// Parse the selected flags and values from the config
+	selectedFlagsMap := make(map[uint]bool)
+	if config.CommandFlags != "" {
+		var selectedFlagIDs []uint
+		// Use json.Unmarshal directly as CommandFlags should be a JSON array string
+		if err := json.Unmarshal([]byte(config.CommandFlags), &selectedFlagIDs); err == nil {
+			for _, id := range selectedFlagIDs {
+				selectedFlagsMap[id] = true
+			}
+		} else {
+			log.Printf("Warning: Failed to unmarshal CommandFlags for config %d: %v. JSON: %s", config.ID, err, config.CommandFlags)
+		}
+	}
+
+	selectedFlagValues := make(map[uint]string)
+	if config.CommandFlagValues != "" {
+		// Use json.Unmarshal directly as CommandFlagValues should be a JSON object string
+		if err := json.Unmarshal([]byte(config.CommandFlagValues), &selectedFlagValues); err != nil {
+			log.Printf("Warning: Failed to unmarshal CommandFlagValues for config %d: %v. JSON: %s", config.ID, err, config.CommandFlagValues)
+			selectedFlagValues = make(map[uint]string) // Reset on error
+		}
+	}
+
 	data := components.ConfigFormData{
-		Config: &config,
-		IsNew:  false,
+		Config:             &config,
+		IsNew:              false,
+		InitialCommand:     initialCommand,
+		SelectedFlagsMap:   selectedFlagsMap,
+		SelectedFlagValues: selectedFlagValues,
 	}
 	components.ConfigForm(c.Request.Context(), data).Render(c, c.Writer)
 }
