@@ -57,6 +57,7 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 		authorized.POST("/configs/:id", h.HandleUpdateConfig)
 		authorized.DELETE("/configs/:id", h.HandleDeleteConfig)
 		authorized.POST("/configs/:id/duplicate", h.HandleDuplicateConfig)
+		authorized.POST("/configs/test-connection", h.HandleTestProviderConnection)
 
 		// Path validation endpoint
 		authorized.GET("/check-path", h.HandleCheckPath)

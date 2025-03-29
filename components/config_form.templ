@@ -459,6 +459,9 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 								<i class="fas fa-terminal mr-2 text-blue-500 dark:text-blue-400"></i>Command Configuration
 							</h3>
 							
+							<!-- Additonal Rclone Flags -->
+							@common.RcloneFlags(data.Config.CommandID) // Pass current command ID
+
 							<!-- Container for flags, pre-rendered on edit, loaded via HTMX on new/change -->
 							<div id="command-flags-container" class="mt-4">
 								if !data.IsNew && data.InitialCommand != nil {
@@ -467,9 +470,7 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 								}
 							</div>
 
-							<!-- Additonal Rclone Flags -->
-							@common.RcloneFlags(data.Config.CommandID) // Pass current command ID
-
+							
 						</div>
 						
 						<!-- Source Configuration Section -->
@@ -481,6 +482,20 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 							<!-- Source selection -->
 							@common.SourceSelection()
 							
+              <div class="mt-4">
+                <button type="button"
+                  class="text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-4 py-2 text-center dark:bg-green-500 dark:hover:bg-green-600 dark:focus:ring-green-800"
+                  hx-post="/configs/test-connection"
+                  hx-include="closest form"
+                  hx-vals='{"providerType": "source"}'
+                  hx-swap="none"
+                  hx-indicator="#source-test-spinner">
+                  <i class="fas fa-plug mr-1"></i> Test Source
+                  <span id="source-test-spinner" class="htmx-indicator ml-2"><i class="fas fa-spinner fa-spin"></i></span>
+                </button>
+                <!-- Removed target div, result shown via toast -->
+              </div>
+
 							<!-- Source type specific forms -->
 							<template x-if="sourceType === 'local'">
 								@source.LocalSourceForm()
@@ -542,6 +557,20 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 							<!-- Destination selection -->
 							@common.DestinationSelection()
 							
+              <div class="mt-4">
+                <button type="button"
+                  class="text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-4 py-2 text-center dark:bg-green-500 dark:hover:bg-green-600 dark:focus:ring-green-800"
+                  hx-post="/configs/test-connection"
+                  hx-include="closest form"
+                  hx-vals='{"providerType": "destination"}'
+                  hx-swap="none"
+                  hx-indicator="#dest-test-spinner">
+                  <i class="fas fa-plug mr-1"></i> Test Destination
+                  <span id="dest-test-spinner" class="htmx-indicator ml-2"><i class="fas fa-spinner fa-spin"></i></span>
+                </button>
+                <!-- Removed target div, result shown via toast -->
+              </div>
+
 							<!-- Destination type specific forms -->
 							<template x-if="destinationType === 'local'">
 								@destination.LocalDestinationForm()

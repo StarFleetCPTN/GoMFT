@@ -446,3 +446,20 @@ function enhanceMobileForms() {
     });
   });
 }
+
+
+// Listen for custom 'showToast' event triggered by HX-Trigger
+document.body.addEventListener('showToast', function(event) {
+  // Debug logs removed
+  if (event.detail && event.detail.message && event.detail.type) {
+    // Call the globally defined showToast function from toast_js.templ
+    if (typeof showToast === 'function') {
+      showToast(event.detail.message, event.detail.type);
+    } else {
+      console.error('showToast function not found. Ensure toast_js.templ is loaded.');
+    }
+  } else {
+    console.warn('Received showToast event without expected detail:', event.detail);
+  }
+});
+

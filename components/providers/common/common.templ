@@ -235,7 +235,7 @@ templ RcloneCommandOptionsContent(categoryMap map[string][]db.RcloneCommand, cat
 	<select id="command_id" name="command_id" x-model="commandId"
 		hx-get="/api/rclone/command-flags"
 		hx-target="#command-flags-container"
-		hx-trigger="load, change"
+		hx-trigger="change"
 		hx-include="[name='command_id']"
 		hx-vals={ fmt.Sprintf(`{"commandFlags": %s, "commandFlagValues": %s}`, commandFlagsJSON, commandFlagValuesJSON) }
 		@change="updateCommandRequirements()"
