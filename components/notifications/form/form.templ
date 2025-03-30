@@ -127,6 +127,7 @@ templ NotificationForm(ctx context.Context, data types.NotificationFormData) {
 
 						<div class="flex items-start mb-6 hidden common-fields">
 							<div class="flex items-center h-5">
+        						<input type="hidden" name="is_enabled" value="false">
 								<input
 									id="is_enabled"
 									name="is_enabled"

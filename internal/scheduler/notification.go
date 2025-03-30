@@ -117,6 +117,8 @@ func (n *Notifier) sendJobWebhookNotification(job *db.Job, history *db.JobHistor
 		return
 	}
 
+	fmt.Println(job.WebhookURL)
+
 	// Set headers
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "GoMFT-Webhook/1.0")

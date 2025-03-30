@@ -122,11 +122,12 @@ func Load() (*Config, error) {
 			cfg.Email.RequireAuth = strings.ToLower(emailRequireAuth) == "true"
 		}
 
-		// SSL Verification configuration
-		if sslVerify := os.Getenv("SSL_VERIFY"); sslVerify != "" {
-			// Default is true (verify), only set SkipSSLVerify to true if env var is explicitly "false"
-			cfg.SkipSSLVerify = strings.ToLower(sslVerify) == "false"
+		// Skip SSL Verification configuration
+		if skipSSLVerify := os.Getenv("SKIP_SSL_VERIFY"); skipSSLVerify != "" {
+			// If SKIP_SSL_VERIFY is set, parse its boolean value
+			cfg.SkipSSLVerify = strings.ToLower(skipSSLVerify) == "true"
 		}
+		// Otherwise, the default from line 44 (false) is used.
 	} else if !os.IsNotExist(err) {
 		return nil, err
 	} else {
@@ -157,9 +158,10 @@ func Load() (*Config, error) {
 			"EMAIL_USERNAME=" + cfg.Email.Username,
 			"EMAIL_PASSWORD=" + cfg.Email.Password,
 			"",
-			"# SSL Verification for outgoing notifications (webhooks, etc.)",
-			"# Set to false to disable SSL certificate verification (USE WITH CAUTION)",
-			"SSL_VERIFY=" + strconv.FormatBool(!cfg.SkipSSLVerify), // Default is true (verify)
+			"# Skip SSL Verification for outgoing notifications (webhooks, etc.)",
+			"# Set to true to disable SSL certificate verification (USE WITH CAUTION)",
+			"# Defaults to false (verification enabled) if not set.",
+			"SKIP_SSL_VERIFY=" + strconv.FormatBool(cfg.SkipSSLVerify), // Default is false
 		}
 
 		if err := os.WriteFile(envPath, []byte(strings.Join(envContent, "\n")), 0644); err != nil {

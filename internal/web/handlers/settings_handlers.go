@@ -1307,11 +1307,44 @@ func (h *Handlers) HandleUpdateNotificationService(c *gin.Context) {
 		return
 	}
 
+	// --- DEBUG: Print received form data ---
+	log.Println("--- Received POST Form Data (Update Notification) ---")
+	if err := c.Request.ParseForm(); err == nil {
+		postData := c.Request.PostForm
+		if len(postData) > 0 {
+			for key, values := range postData {
+				log.Printf("  %s: %v\n", key, values)
+			}
+		} else {
+			log.Println("  (No POST form data found or parsed)")
+		}
+	} else {
+		log.Printf("  Error parsing form: %v\n", err)
+	}
+	log.Println("-------------------------------------------------")
+	// --- END DEBUG ---
+
 	// Parse form data
 	name := c.PostForm("name")
 	serviceType := c.PostForm("type")
 	description := c.PostForm("description")
-	isEnabled := c.PostForm("is_enabled") == "on"
+
+	// Correctly handle boolean checkbox with hidden input
+	isEnabled := false                            // Default to false
+	if err := c.Request.ParseForm(); err == nil { // Ensure form is parsed
+		isEnabledValues := c.Request.PostForm["is_enabled"] // Get slice of values
+		for _, v := range isEnabledValues {
+			if v == "true" {
+				isEnabled = true // Checkbox was checked if "true" is present
+				break
+			}
+		}
+	} else {
+		log.Printf("Error parsing form during update: %v", err)
+		// Decide if this is a fatal error or if we can proceed assuming false
+		// For now, we proceed with isEnabled = false
+	}
+
 	eventTriggers := c.PostFormArray("event_triggers[]")
 
 	// Validate required fields
@@ -1325,7 +1358,7 @@ func (h *Handlers) HandleUpdateNotificationService(c *gin.Context) {
 	service.Type = serviceType
 	service.Description = description
 	service.EventTriggers = eventTriggers
-	service.SetIsEnabled(isEnabled) // Use setter
+	service.SetIsEnabled(isEnabled) // Use the correctly determined boolean
 
 	// Update type-specific fields based on service type
 	switch serviceType {

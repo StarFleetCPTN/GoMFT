@@ -786,6 +786,26 @@ func (te *TransferExecutor) executeSimpleCommand(cmdName string, cmdType string,
 		args = append(args, sourcePath)
 	}
 
+	// Create a temporary file for rclone logs
+	tempLogFile, err := os.CreateTemp("", "rclone-log-*.txt")
+	if err != nil {
+		te.logger.LogError("Error creating temporary log file for job %d, config %d: %v", job.ID, config.ID, err)
+		// Update history and return if log file creation fails
+		history.Status = "failed"
+		history.ErrorMessage = fmt.Sprintf("Log File Creation Error: %v", err)
+		endTime := time.Now()
+		history.EndTime = &endTime
+		if updateErr := te.db.UpdateJobHistory(history); updateErr != nil {
+			te.logger.LogError("Error updating job history after log file error for job %d, config %d: %v", job.ID, config.ID, updateErr)
+		}
+		te.notifier.SendNotifications(&job, history, &config)
+		return
+	}
+	defer os.Remove(tempLogFile.Name()) // Ensure cleanup
+
+	// Add logging flags to arguments
+	args = append(args, "--log-file", tempLogFile.Name(), "--log-level", "DEBUG")
+
 	// Execute the command
 	rclonePath := os.Getenv("RCLONE_PATH")
 	if rclonePath == "" {
@@ -805,10 +825,108 @@ func (te *TransferExecutor) executeSimpleCommand(cmdName string, cmdType string,
 	startTime := time.Now()
 
 	// Run the command
-	err := cmd.Run() // This will use the mocked command if execCommandContext is replaced
+	err = cmd.Run() // This will use the mocked command if execCommandContext is replaced
 
 	// Calculate duration
 	duration := time.Since(startTime)
+
+	var filesProcessedFromLog int = 0 // Declare counter for files processed based on log
+
+	// Read the rclone log file content
+	logContent, logReadErr := os.ReadFile(tempLogFile.Name())
+	if logReadErr != nil {
+		te.logger.LogError("Error reading rclone log file %s for job %d, config %d: %v", tempLogFile.Name(), job.ID, config.ID, logReadErr)
+		// Proceed without log content, but log the error
+	} else {
+		te.logger.LogDebug("Rclone log content for job %d, config %d:\n%s", job.ID, config.ID, string(logContent))
+
+		// --- Start Log Parsing for FileMetadata ---
+		if cmdType == "transfer" && logReadErr == nil { // Only parse for transfer commands if log was read
+			logLines := strings.Split(string(logContent), "\n")
+
+			// --- First Pass: Extract Hashes ---
+			// Regex to find lines like: "DEBUG : filename.txt: md5 = hashvalue OK"
+			// Captures filename (group 1) and hash value (group 2)
+			hashLogRegex := regexp.MustCompile(`DEBUG\s*:\s*(.*?):\s*(?:md5|sha1)\s*=\s*([a-f0-9]+)\s*OK`)
+			fileHashMap := make(map[string]string)
+			for _, line := range logLines {
+				matches := hashLogRegex.FindStringSubmatch(line)
+				if len(matches) >= 3 {
+					fileName := strings.TrimSpace(matches[1])
+					hashValue := strings.TrimSpace(matches[2])
+					if fileName != "" && hashValue != "" {
+						fileHashMap[fileName] = hashValue
+						te.logger.LogDebug("Extracted hash for %s: %s", fileName, hashValue)
+					}
+				}
+			}
+			// --- End Hash Extraction ---
+
+			// --- Second Pass: Process Copied Files and Create Metadata ---
+			// Regex to find lines like: "INFO : path/to/file.txt: Copied (new)" or "INFO : path/to/file.txt: Copied (replaced existing)"
+			// It captures the filename (group 1)
+			copyLogRegex := regexp.MustCompile(`INFO\s*:\s*(.*?):\s*Copied`)
+			processedFilesInLog := make(map[string]bool) // Track files found in log to avoid duplicates
+
+			for _, line := range logLines {
+				matches := copyLogRegex.FindStringSubmatch(line)
+				if len(matches) >= 2 {
+					fileName := strings.TrimSpace(matches[1])
+					if fileName == "" || processedFilesInLog[fileName] {
+						continue // Skip empty or duplicate filenames within the log
+					}
+					processedFilesInLog[fileName] = true // Mark as processed in this log
+
+					// Construct destination path for metadata
+					var destPathForDB string
+					destFile := fileName // Assume filename is the same unless output pattern is used (not handled here)
+					if config.DestinationType == "local" {
+						destPathForDB = filepath.Join(config.DestinationPath, destFile)
+					} else if config.DestinationType == "s3" || config.DestinationType == "minio" || config.DestinationType == "b2" {
+						if config.DestinationPath != "" && config.DestinationPath != "/" {
+							destPathForDB = fmt.Sprintf("%s/%s/%s", config.DestBucket, config.DestinationPath, destFile)
+						} else {
+							destPathForDB = fmt.Sprintf("%s/%s", config.DestBucket, destFile)
+						}
+					} else {
+						destPathForDB = fmt.Sprintf("%s/%s", config.DestinationPath, destFile)
+					}
+
+					// Get hash from the map
+					fileHash := fileHashMap[fileName] // Will be empty string if not found
+
+					// Create FileMetadata record
+					now := time.Now()
+					metadata := &db.FileMetadata{
+						JobID:           job.ID,
+						ConfigID:        config.ID,
+						FileName:        fileName,
+						OriginalPath:    config.SourcePath, // Base source path
+						FileSize:        0,                 // Unknown from log
+						FileHash:        fileHash,          // Use extracted hash
+						CreationTime:    now,               // Approximation
+						ModTime:         now,               // Approximation
+						ProcessedTime:   now,
+						DestinationPath: destPathForDB,
+						Status:          "processed", // Assumed success based on log line
+						ErrorMessage:    "",
+					}
+
+					if err := te.db.CreateFileMetadata(metadata); err != nil {
+						te.logger.LogError("Error creating file metadata from log for %s: %v", fileName, err)
+						// Don't stop processing other files
+					} else {
+						filesProcessedFromLog++
+						te.logger.LogDebug("Created file metadata from log for %s (ID: %d, Hash: %s)", fileName, metadata.ID, fileHash)
+					}
+				}
+			}
+			te.logger.LogInfo("Processed %d files based on rclone log for job %d, config %d", filesProcessedFromLog, job.ID, config.ID)
+			// --- End Metadata Creation ---
+		}
+		// --- End Log Parsing ---
+
+	}
 
 	// Update history with basic info
 	history.EndTime = &time.Time{}
@@ -839,7 +957,7 @@ func (te *TransferExecutor) executeSimpleCommand(cmdName string, cmdType string,
 			history.FilesTransferred = lines
 			history.Status = "completed"
 		} else if cmdType == "transfer" {
-			// Try to extract transfer statistics from command output
+			// Try to extract transfer statistics from command output (stderr)
 			history.Status = "completed"
 
 			// Look for metrics in stderr which is where rclone puts stats
@@ -858,6 +976,17 @@ func (te *TransferExecutor) executeSimpleCommand(cmdName string, cmdType string,
 					history.FilesTransferred = filesTransferred
 				}
 			}
+
+			// If stats weren't found in stderr OR the log parsing yielded a count, use the log count
+			// This prioritizes the count derived from actual file processing logs.
+			if filesProcessedFromLog > 0 {
+				history.FilesTransferred = filesProcessedFromLog
+				te.logger.LogDebug("Updated FilesTransferred count to %d based on log parsing", filesProcessedFromLog)
+			} else if history.FilesTransferred == 0 && logReadErr == nil {
+				// Fallback message if stats were 0 and log parsing also yielded 0 (or wasn't applicable)
+				te.logger.LogDebug("Could not determine FilesTransferred from stderr stats or log parsing.")
+			}
+
 		} else {
 			// For other commands, we don't have file counts, but the command completed
 			history.Status = "completed"
