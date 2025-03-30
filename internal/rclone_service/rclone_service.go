@@ -238,8 +238,6 @@ func TestRcloneConnection(config db.TransferConfig, providerType string, dbInsta
 	}
 	log.Printf("Successfully created temp config section for %s", remoteName)
 
-	// Declarations moved before the switch statement
-
 RunLsd: // Label to jump to for local type
 
 	// --- Execute `rclone lsd` using the temporary config ---
