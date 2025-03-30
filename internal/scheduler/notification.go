@@ -16,16 +16,26 @@ import (
 	"time"
 
 	"github.com/starfleetcptn/gomft/internal/db"
+	"gorm.io/gorm" // Needed for the Create method signature in the interface
 )
+
+// NotificationDB defines the database methods needed by Notifier.
+type NotificationDB interface {
+	GetNotificationServices(enabledOnly bool) ([]db.NotificationService, error)
+	UpdateNotificationService(service *db.NotificationService) error
+	GetJob(jobID uint) (*db.Job, error)
+	CreateJobNotification(userID uint, jobID uint, historyID uint, notificationType db.NotificationType, title string, message string) error
+	Create(value interface{}) *gorm.DB // Used by createJobHistoryAndNotify
+}
 
 // Notifier handles sending notifications via various services.
 type Notifier struct {
-	db     *db.DB
+	db     NotificationDB // Use the interface type
 	logger *Logger
 }
 
 // NewNotifier creates a new Notifier.
-func NewNotifier(database *db.DB, logger *Logger) *Notifier {
+func NewNotifier(database NotificationDB, logger *Logger) *Notifier { // Accept the interface type
 	return &Notifier{
 		db:     database,
 		logger: logger,
@@ -154,7 +164,7 @@ func (n *Notifier) sendJobWebhookNotification(job *db.Job, history *db.JobHistor
 // sendGlobalNotifications sends notifications through all configured notification services.
 func (n *Notifier) sendGlobalNotifications(job *db.Job, history *db.JobHistory, config *db.TransferConfig) {
 	// Fetch all enabled notification services
-	services, err := n.db.GetNotificationServices(true)
+	services, err := n.db.GetNotificationServices(true) // Calls interface method
 	if err != nil {
 		n.logger.LogError("Error fetching notification services: %v", err)
 		return
@@ -200,6 +210,7 @@ func (n *Notifier) sendGlobalNotifications(job *db.Job, history *db.JobHistory, 
 			continue
 		}
 
+		// --- Moved Update Logic Inside this block ---
 		n.logger.LogInfo("Sending notification via service %s (%s) for job %d",
 			service.Name, service.Type, job.ID)
 
@@ -220,6 +231,7 @@ func (n *Notifier) sendGlobalNotifications(job *db.Job, history *db.JobHistory, 
 			notifyErr = n.sendPushoverNotification(service, job, history, config, eventType)
 		default:
 			n.logger.LogError("Unsupported notification service type: %s", service.Type)
+			// Skip update logic below if type is unsupported
 			continue
 		}
 
@@ -234,10 +246,12 @@ func (n *Notifier) sendGlobalNotifications(job *db.Job, history *db.JobHistory, 
 		}
 
 		// Update notification service stats in the database
-		if err := n.db.UpdateNotificationService(service); err != nil {
-			n.logger.LogError("Error updating notification service stats: %v", err)
+		if err := n.db.UpdateNotificationService(service); err != nil { // Calls interface method
+			n.logger.LogError("Error updating notification service stats for service %s: %v", service.Name, err)
 		}
-	}
+		// --- End of Moved Update Logic ---
+
+	} // End of loop through services
 }
 
 // sendEmailNotification sends an email notification using the configured email service.
@@ -614,10 +628,10 @@ func (n *Notifier) updateJobStatus(jobID uint, status string, startTime, endTime
 	}
 
 	// Get job details to find the creator for notification targeting
-	job, err := n.db.GetJob(jobID)
+	job, err := n.db.GetJob(jobID) // Calls interface method
 	if err != nil {
 		// Log error but don't necessarily fail the whole operation if job fetch fails
-		n.logger.LogError("Failed to get job details for notification", "jobID", jobID, "error", err)
+		n.logger.LogError("Failed to get job details for notification: jobID=%d, error=%v", jobID, err)
 		// Return the temporary history object and nil error, as notification is best-effort
 		return history, nil
 	}
@@ -659,7 +673,7 @@ func (n *Notifier) updateJobStatus(jobID uint, status string, startTime, endTime
 
 	// Create the notification in the database
 	// Assuming history.ID is set elsewhere if needed, or pass 0 if not applicable here
-	err = n.db.CreateJobNotification(
+	err = n.db.CreateJobNotification( // Calls interface method
 		userID,
 		jobID,
 		0, // History ID might not be available/relevant here, pass 0 or adjust DB function
@@ -669,7 +683,7 @@ func (n *Notifier) updateJobStatus(jobID uint, status string, startTime, endTime
 	)
 
 	if err != nil {
-		n.logger.LogError("Failed to create job notification", "jobID", job.ID, "error", err)
+		n.logger.LogError("Failed to create job notification: jobID=%d, error=%v", job.ID, err)
 		// Continue anyway, not critical
 	}
 
@@ -693,15 +707,15 @@ func (n *Notifier) createJobHistoryAndNotify(job *db.Job, status string, startTi
 	}
 
 	// Save to database - TODO: Move this responsibility?
-	if err := n.db.Create(&history).Error; err != nil {
-		n.logger.LogError("Failed to create job history", "jobID", job.ID, "error", err)
+	if err := n.db.Create(&history).Error; err != nil { // Calls interface method
+		n.logger.LogError("Failed to create job history: jobID=%d, error=%v", job.ID, err)
 		return err // Return error if history creation fails
 	}
 
 	// Create notification based on the *saved* history record (which now has an ID)
 	err := n.createJobNotification(job, &history) // Call the dedicated notification creation method
 	if err != nil {
-		n.logger.LogError("Failed to create job notification", "jobID", job.ID, "error", err)
+		n.logger.LogError("Failed to create job notification: jobID=%d, error=%v", job.ID, err)
 		// Continue anyway - notification is not critical
 	}
 
@@ -748,7 +762,7 @@ func (n *Notifier) createJobNotification(job *db.Job, history *db.JobHistory) er
 	}
 
 	// Create the notification record in the database
-	return n.db.CreateJobNotification(
+	return n.db.CreateJobNotification( // Calls interface method
 		userID,
 		job.ID,
 		history.ID, // Use the actual history ID

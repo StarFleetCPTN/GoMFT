@@ -9,9 +9,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/robfig/cron/v3"
 	// "github.com/starfleetcptn/gomft/internal/api"
 	"github.com/starfleetcptn/gomft/components"
 	"github.com/starfleetcptn/gomft/internal/config"
@@ -125,8 +127,38 @@ func main() {
 		log.Printf("Admin role assigned to admin user successfully")
 	}
 
-	// Initialize scheduler
-	scheduler := scheduler.New(database)
+	// Initialize scheduler components
+	log.Printf("Initializing scheduler components...")
+	schedLogger := scheduler.NewLogger()                                    // Create the scheduler's logger
+	schedCron := cron.New(cron.WithChain(cron.Recover(cron.DefaultLogger))) // Create cron instance
+	schedCron.Start()
+	jobsMap := make(map[uint]cron.EntryID)
+	var jobMutex sync.Mutex
+
+	// Ensure *db.DB implements the required interfaces.
+	// If not, this will cause a compile error later.
+	// We assume for now that *db.DB has the necessary methods.
+	var dbNotifier scheduler.NotificationDB = database
+	var dbMetadata scheduler.MetadataDB = database
+	var dbTransfer scheduler.TransferDB = database
+	var dbJobExecutor scheduler.JobExecutorDB = database
+	var dbScheduler scheduler.SchedulerDB = database
+
+	notifier := scheduler.NewNotifier(dbNotifier, schedLogger)
+	metadataHandler := scheduler.NewMetadataHandler(dbMetadata, schedLogger)
+	transferExecutor := scheduler.NewTransferExecutor(dbTransfer, schedLogger, metadataHandler, notifier)
+	jobExecutor := scheduler.NewJobExecutor(dbJobExecutor, schedLogger, schedCron, jobsMap, &jobMutex, transferExecutor, notifier)
+
+	// Initialize scheduler with injected components
+	scheduler := scheduler.New(
+		dbScheduler,
+		schedCron,
+		schedLogger,
+		jobExecutor,
+		jobsMap,
+		&jobMutex,
+	)
+	// Defer Stop using the created scheduler instance
 	defer scheduler.Stop()
 	log.Printf("Scheduler initialized successfully")
 

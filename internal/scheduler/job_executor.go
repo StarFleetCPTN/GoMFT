@@ -6,30 +6,58 @@ import (
 
 	"github.com/robfig/cron/v3"
 	"github.com/starfleetcptn/gomft/internal/db"
+	"gorm.io/gorm" // Needed for DB interface method signature
 )
+
+// --- Interfaces for Dependencies ---
+
+// JobExecutorDB defines the database methods needed by JobExecutor.
+type JobExecutorDB interface {
+	First(dest interface{}, conds ...interface{}) *gorm.DB // Used to load job details
+	GetConfigsForJob(jobID uint) ([]db.TransferConfig, error)
+	UpdateJobStatus(job *db.Job) error
+	CreateJobHistory(history *db.JobHistory) error
+}
+
+// JobExecutorCron defines the cron methods needed by JobExecutor.
+type JobExecutorCron interface {
+	Entry(id cron.EntryID) cron.Entry
+}
+
+// JobExecutorTransferExecutor defines the transfer executor methods needed by JobExecutor.
+type JobExecutorTransferExecutor interface {
+	executeConfigTransfer(job db.Job, config db.TransferConfig, history *db.JobHistory)
+}
+
+// JobExecutorNotifier defines the notification methods needed by JobExecutor.
+type JobExecutorNotifier interface {
+	// SendNotifications is called within processConfiguration, which indirectly uses the Notifier interface
+	// defined in transfer_executor.go. We need the same method here.
+	SendNotifications(job *db.Job, history *db.JobHistory, config *db.TransferConfig)
+}
+
+// --- JobExecutor Implementation ---
 
 // JobExecutor handles the execution logic for a single job run.
 type JobExecutor struct {
-	db               *db.DB
-	logger           *Logger
-	cron             *cron.Cron
-	jobs             map[uint]cron.EntryID // Shared map from Scheduler
-	jobMutex         *sync.Mutex           // Shared mutex from Scheduler
-	transferExecutor *TransferExecutor     // TransferExecutor component
-	notifier         *Notifier             // Notifier component
-	// metadataHandler *MetadataHandler // Placeholder if needed directly
+	db               JobExecutorDB               // Use interface
+	logger           *Logger                     // Logger remains concrete
+	cron             JobExecutorCron             // Use interface
+	jobs             map[uint]cron.EntryID       // Shared map from Scheduler
+	jobMutex         *sync.Mutex                 // Shared mutex from Scheduler
+	transferExecutor JobExecutorTransferExecutor // Use interface
+	notifier         JobExecutorNotifier         // Use interface
 }
 
 // NewJobExecutor creates a new JobExecutor.
 func NewJobExecutor(
-	database *db.DB,
+	database JobExecutorDB, // Accept interface
 	logger *Logger,
-	cron *cron.Cron,
+	cron JobExecutorCron, // Accept interface
 	jobsMap map[uint]cron.EntryID,
 	jobMutex *sync.Mutex,
-	transferExec *TransferExecutor,
-	notify *Notifier,
-	// metadata *MetadataHandler,
+	transferExec JobExecutorTransferExecutor, // Accept interface
+	notify JobExecutorNotifier, // Accept interface
 ) *JobExecutor {
 	return &JobExecutor{
 		db:               database,
@@ -39,7 +67,6 @@ func NewJobExecutor(
 		jobMutex:         jobMutex,
 		transferExecutor: transferExec,
 		notifier:         notify,
-		// metadataHandler: metadata,
 	}
 }
 
@@ -52,6 +79,7 @@ func (je *JobExecutor) executeJob(jobID uint) {
 
 	// Get job details
 	var job db.Job
+	// Calls interface method - need to handle the *gorm.DB return value
 	if err := je.db.First(&job, jobID).Error; err != nil {
 		je.logger.LogError("Error loading job %d: %v", jobID, err)
 		return
@@ -60,7 +88,7 @@ func (je *JobExecutor) executeJob(jobID uint) {
 	je.logger.LogDebug("Loaded job details: %+v", job)
 
 	// Get all configurations associated with this job
-	configs, err := je.db.GetConfigsForJob(jobID)
+	configs, err := je.db.GetConfigsForJob(jobID) // Calls interface method
 	if err != nil {
 		je.logger.LogError("Error loading configurations for job %d: %v", jobID, err)
 		return
@@ -109,7 +137,7 @@ func (je *JobExecutor) executeJob(jobID uint) {
 	// Update job last run time
 	startTime := time.Now()
 	job.LastRun = &startTime
-	if err := je.db.UpdateJobStatus(&job); err != nil {
+	if err := je.db.UpdateJobStatus(&job); err != nil { // Calls interface method
 		je.logger.LogError("Error updating job last run time for job %d: %v", jobID, err)
 	}
 
@@ -125,11 +153,11 @@ func (je *JobExecutor) executeJob(jobID uint) {
 	je.jobMutex.Unlock()
 
 	if exists {
-		entry := je.cron.Entry(entryID)
+		entry := je.cron.Entry(entryID) // Calls interface method
 		nextRun := entry.Next
 		job.NextRun = &nextRun
 		je.logger.LogInfo("Next run time for job %d: %v", jobID, nextRun)
-		if err := je.db.UpdateJobStatus(&job); err != nil {
+		if err := je.db.UpdateJobStatus(&job); err != nil { // Calls interface method
 			je.logger.LogError("Error updating job next run time for job %d: %v", jobID, err)
 		}
 	}
@@ -160,7 +188,7 @@ func (je *JobExecutor) processConfiguration(job *db.Job, config *db.TransferConf
 		BytesTransferred: 0,
 		ErrorMessage:     "",
 	}
-	if err := je.db.CreateJobHistory(history); err != nil {
+	if err := je.db.CreateJobHistory(history); err != nil { // Calls interface method
 		je.logger.LogError("Error creating job history for job %d, config %d: %v", job.ID, config.ID, err)
 		return
 	}
@@ -168,10 +196,11 @@ func (je *JobExecutor) processConfiguration(job *db.Job, config *db.TransferConf
 	je.logger.LogDebug("Creating job history record: %+v", history)
 
 	// Send webhook notification for job start
-	// TODO: Ensure Notifier struct and its methods are correctly defined and initialized
-	je.notifier.SendNotifications(job, history, config) // Assuming sendWebhookNotification is a method on Notifier
+	// Notifier interface is used by TransferExecutor, which is called below.
+	// We also added SendNotifications to the JobExecutorNotifier interface for completeness,
+	// though it's primarily used within transferExecutor.
+	je.notifier.SendNotifications(job, history, config) // Calls interface method
 
 	// Execute the configuration transfer
-	// TODO: Ensure TransferExecutor struct and its methods are correctly defined and initialized
-	je.transferExecutor.executeConfigTransfer(*job, *config, history) // Assuming executeConfigTransfer is a method on TransferExecutor
+	je.transferExecutor.executeConfigTransfer(*job, *config, history) // Calls interface method
 }

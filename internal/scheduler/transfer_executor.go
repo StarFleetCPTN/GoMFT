@@ -2,10 +2,11 @@ package scheduler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
+	"os/exec" // Keep this for the variable type definition
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -16,20 +17,51 @@ import (
 	"github.com/starfleetcptn/gomft/internal/db"
 )
 
+// --- Interfaces for Dependencies ---
+
+// TransferDB defines the database methods needed by TransferExecutor.
+type TransferDB interface {
+	GetConfigRclonePath(config *db.TransferConfig) string
+	GetRcloneCommand(id uint) (*db.RcloneCommand, error)
+	UpdateJobHistory(history *db.JobHistory) error
+	CreateFileMetadata(metadata *db.FileMetadata) error
+	GetRcloneCommandFlagsMap(commandID uint) (map[uint]db.RcloneCommandFlag, error)
+}
+
+// TransferNotifier defines the notification methods needed by TransferExecutor.
+type TransferNotifier interface {
+	SendNotifications(job *db.Job, history *db.JobHistory, config *db.TransferConfig)
+	createJobNotification(job *db.Job, history *db.JobHistory) error
+}
+
+// TransferMetadataHandler defines the metadata methods needed by TransferExecutor.
+type TransferMetadataHandler interface {
+	hasFileBeenProcessed(jobID uint, fileHash string) (bool, *db.FileMetadata, error)
+	checkFileProcessingHistory(jobID uint, fileName string) (*db.FileMetadata, error)
+}
+
+// --- Mockable exec Command ---
+
+// execCommandContext allows mocking exec.CommandContext during tests.
+// It's initialized to the real exec.CommandContext function.
+var execCommandContext = exec.CommandContext
+
+// --- TransferExecutor Implementation ---
+
 // TransferExecutor handles the rclone command execution and transfer logic.
 type TransferExecutor struct {
-	db              *db.DB
-	logger          *Logger
-	metadataHandler *MetadataHandler // Placeholder
-	notifier        *Notifier        // Placeholder
+	db              TransferDB              // Use interface
+	logger          *Logger                 // Logger remains concrete
+	metadataHandler TransferMetadataHandler // Use interface
+	notifier        TransferNotifier        // Use interface
 }
 
 // NewTransferExecutor creates a new TransferExecutor.
 func NewTransferExecutor(
-	database *db.DB,
+	database TransferDB, // Accept interface
 	logger *Logger,
-	metadata *MetadataHandler,
-	notify *Notifier,
+	metadata TransferMetadataHandler, // Accept interface
+	notify TransferNotifier, // Accept interface
 ) *TransferExecutor {
 	return &TransferExecutor{
 		db:              database,
@@ -47,13 +79,13 @@ func (te *TransferExecutor) executeConfigTransfer(job db.Job, config db.Transfer
 	processedFiles := make(map[string]bool)
 
 	// Get rclone config path
-	configPath := te.db.GetConfigRclonePath(&config)
+	configPath := te.db.GetConfigRclonePath(&config) // Calls interface method
 
 	// Get the command to use for the transfer
 	var rcloneCommand string = "copyto" // Default command
 	if config.CommandID > 0 {
 		// Get the command by ID
-		command, err := te.db.GetRcloneCommand(config.CommandID)
+		command, err := te.db.GetRcloneCommand(config.CommandID) // Calls interface method
 		if err == nil && command != nil {
 			rcloneCommand = command.Name
 			te.logger.LogDebug("Using rclone command %s for job %d, config %d", rcloneCommand, job.ID, config.ID)
@@ -91,11 +123,11 @@ func (te *TransferExecutor) executeConfigTransfer(job db.Job, config db.Transfer
 			history.ErrorMessage = fmt.Sprintf("Filter Creation Error: %v", err)
 			endTime := time.Now()
 			history.EndTime = &endTime
-			if err := te.db.UpdateJobHistory(history); err != nil {
+			if err := te.db.UpdateJobHistory(history); err != nil { // Calls interface method
 				te.logger.LogError("Error updating job history for job %d, config %d: %v", job.ID, config.ID, err)
 			}
 			// Send notification for failure
-			te.notifier.SendNotifications(&job, history, &config) // Call via notifier
+			te.notifier.SendNotifications(&job, history, &config) // Calls interface method
 
 			return
 		}
@@ -122,7 +154,8 @@ func (te *TransferExecutor) executeConfigTransfer(job db.Job, config db.Transfer
 	if rclonePath == "" {
 		rclonePath = "rclone"
 	}
-	listCmd := exec.Command(rclonePath, listArgs...)
+	// Use the mockable execCommandContext
+	listCmd := execCommandContext(context.Background(), rclonePath, listArgs...)
 	listOutput, listErr := listCmd.CombinedOutput()
 
 	// Add debug logging of raw output
@@ -144,11 +177,11 @@ func (te *TransferExecutor) executeConfigTransfer(job db.Job, config db.Transfer
 		history.ErrorMessage = fmt.Sprintf("File Listing Error: %v\nOutput: %s", listErr, string(listOutput))
 		endTime := time.Now()
 		history.EndTime = &endTime
-		if err := te.db.UpdateJobHistory(history); err != nil {
+		if err := te.db.UpdateJobHistory(history); err != nil { // Calls interface method
 			te.logger.LogError("Error updating job history for job %d, config %d: %v", job.ID, config.ID, err)
 		}
 		// Send notification for failure
-		te.notifier.SendNotifications(&job, history, &config) // Call via notifier
+		te.notifier.SendNotifications(&job, history, &config) // Calls interface method
 		return
 	}
 
@@ -160,11 +193,11 @@ func (te *TransferExecutor) executeConfigTransfer(job db.Job, config db.Transfer
 		history.ErrorMessage = fmt.Sprintf("JSON Parsing Error: %v", err)
 		endTime := time.Now()
 		history.EndTime = &endTime
-		if err := te.db.UpdateJobHistory(history); err != nil {
+		if err := te.db.UpdateJobHistory(history); err != nil { // Calls interface method
 			te.logger.LogError("Error updating job history for job %d, config %d: %v", job.ID, config.ID, err)
 		}
 		// Send notification for failure
-		te.notifier.SendNotifications(&job, history, &config) // Call via notifier
+		te.notifier.SendNotifications(&job, history, &config) // Calls interface method
 		return
 	}
 
@@ -198,11 +231,11 @@ func (te *TransferExecutor) executeConfigTransfer(job db.Job, config db.Transfer
 		history.FilesTransferred = 0
 		endTime := time.Now()
 		history.EndTime = &endTime
-		if err := te.db.UpdateJobHistory(history); err != nil {
+		if err := te.db.UpdateJobHistory(history); err != nil { // Calls interface method
 			te.logger.LogError("Error updating job history for job %d, config %d: %v", job.ID, config.ID, err)
 		}
 		// Send notification for empty completion
-		te.notifier.SendNotifications(&job, history, &config) // Call via notifier
+		te.notifier.SendNotifications(&job, history, &config) // Calls interface method
 		return
 	}
 
@@ -274,7 +307,7 @@ func (te *TransferExecutor) executeConfigTransfer(job db.Job, config db.Transfer
 		skipFiles := config.GetSkipProcessedFiles()
 
 		if skipFiles && fileHash != "" {
-			// Call via metadataHandler
+			// Call via metadataHandler interface
 			alreadyProcessed, prevMetadata, err := te.metadataHandler.hasFileBeenProcessed(job.ID, fileHash)
 			if err == nil && alreadyProcessed {
 				te.logger.LogDebug("File %s with hash %s was previously processed on %s with status: %s",
@@ -299,7 +332,7 @@ func (te *TransferExecutor) executeConfigTransfer(job db.Job, config db.Transfer
 		}
 
 		// Also check the processing history for this specific file name
-		// Call via metadataHandler
+		// Call via metadataHandler interface
 		prevMetadata, histErr := te.metadataHandler.checkFileProcessingHistory(job.ID, fileName)
 		if histErr == nil {
 			te.logger.LogDebug("File %s was previously processed on %s with status: %s",
@@ -415,7 +448,8 @@ func (te *TransferExecutor) executeConfigTransfer(job db.Job, config db.Transfer
 			// Execute transfer for this file
 			te.logger.LogDebug("Full transfer command: %s %v", rclonePath, transferArgs)
 			te.logger.LogDebug("Environment: RCLONE_PATH=%s", os.Getenv("RCLONE_PATH"))
-			cmd := exec.Command(rclonePath, transferArgs...)
+			// Use the mockable execCommandContext
+			cmd := execCommandContext(context.Background(), rclonePath, transferArgs...)
 			fileOutput, fileErr := cmd.CombinedOutput()
 
 			// Print the output
@@ -484,7 +518,8 @@ func (te *TransferExecutor) executeConfigTransfer(job db.Job, config db.Transfer
 					if rclonePath == "" {
 						rclonePath = "rclone"
 					}
-					archiveCmd := exec.Command(rclonePath, archiveArgs...)
+					// Use the mockable execCommandContext
+					archiveCmd := execCommandContext(context.Background(), rclonePath, archiveArgs...)
 					archiveOutput, archiveErr := archiveCmd.CombinedOutput()
 
 					// Print the output
@@ -508,7 +543,8 @@ func (te *TransferExecutor) executeConfigTransfer(job db.Job, config db.Transfer
 						"--config", configPath,
 						"deletefile",
 						sourcePath}
-					deleteCmd := exec.Command(rclonePath, deleteArgs...)
+					// Use the mockable execCommandContext
+					deleteCmd := execCommandContext(context.Background(), rclonePath, deleteArgs...)
 					deleteOutput, deleteErr := deleteCmd.CombinedOutput()
 					te.logger.LogDebug("Output for file %s: %s", currentFileName, string(deleteOutput))
 					if deleteErr != nil {
@@ -543,7 +579,7 @@ func (te *TransferExecutor) executeConfigTransfer(job db.Job, config db.Transfer
 				ErrorMessage:    fileErrorMsg,
 			}
 
-			if err := te.db.CreateFileMetadata(metadata); err != nil {
+			if err := te.db.CreateFileMetadata(metadata); err != nil { // Calls interface method
 				te.logger.LogError("Error creating file metadata for %s: %v", currentFileName, err)
 			} else {
 				te.logger.LogDebug("Created file metadata record for %s (ID: %d) with hash: %s", currentFileName, metadata.ID, currentFileHash)
@@ -572,17 +608,17 @@ func (te *TransferExecutor) executeConfigTransfer(job db.Job, config db.Transfer
 	endTime := time.Now()
 	history.EndTime = &endTime
 
-	if err := te.db.UpdateJobHistory(history); err != nil {
+	if err := te.db.UpdateJobHistory(history); err != nil { // Calls interface method
 		te.logger.LogError("Error updating job history for job %d, config %d: %v", job.ID, config.ID, err)
 	}
 
 	// Create job notification
-	if err := te.notifier.createJobNotification(&job, history); err != nil {
-		te.logger.LogError("Failed to create job notification", "jobID", job.ID, "error", err)
+	if err := te.notifier.createJobNotification(&job, history); err != nil { // Calls interface method
+		te.logger.LogError("Failed to create job notification: jobID=%d, error=%v", job.ID, err)
 	}
 
 	// Send notification for success or with errors
-	te.notifier.SendNotifications(&job, history, &config)
+	te.notifier.SendNotifications(&job, history, &config) // Calls interface method
 }
 
 // isDirectoryBasedTransfer checks if a transfer command operates on directories rather than individual files
@@ -757,7 +793,8 @@ func (te *TransferExecutor) executeSimpleCommand(cmdName string, cmdType string,
 	}
 
 	te.logger.LogDebug("Full command: %s %v", rclonePath, args)
-	cmd := exec.Command(rclonePath, args...)
+	// Use the mockable execCommandContext
+	cmd := execCommandContext(context.Background(), rclonePath, args...)
 
 	// Capture output
 	var stdout, stderr bytes.Buffer
@@ -768,7 +805,7 @@ func (te *TransferExecutor) executeSimpleCommand(cmdName string, cmdType string,
 	startTime := time.Now()
 
 	// Run the command
-	err := cmd.Run()
+	err := cmd.Run() // This will use the mocked command if execCommandContext is replaced
 
 	// Calculate duration
 	duration := time.Since(startTime)
@@ -789,6 +826,7 @@ func (te *TransferExecutor) executeSimpleCommand(cmdName string, cmdType string,
 		te.logger.LogError("Command stderr: %s", stderr.String())
 
 		history.Status = "failed"
+		// Use stderr directly from the buffer as the error from Run() might not contain it
 		history.ErrorMessage = fmt.Sprintf("Command Error: %v\nStderr: %s", err, stderr.String())
 	} else {
 		te.logger.LogInfo("Successfully executed command '%s' for job %d, config %d (duration: %v)",
@@ -838,12 +876,12 @@ func (te *TransferExecutor) executeSimpleCommand(cmdName string, cmdType string,
 	}
 
 	// Update job history in the database
-	if err := te.db.UpdateJobHistory(history); err != nil {
+	if err := te.db.UpdateJobHistory(history); err != nil { // Calls interface method
 		te.logger.LogError("Error updating job history for job %d, config %d: %v", job.ID, config.ID, err)
 	}
 
 	// Send notification
-	te.notifier.SendNotifications(&job, history, &config)
+	te.notifier.SendNotifications(&job, history, &config) // Calls interface method
 }
 
 // prepareBaseArguments prepares the base arguments for a command
@@ -854,12 +892,12 @@ func (te *TransferExecutor) prepareBaseArguments(command string, config *db.Tran
 	if config.CommandFlags != "" {
 		var flagIDs []uint
 		if err := json.Unmarshal([]byte(config.CommandFlags), &flagIDs); err != nil {
-			te.logger.LogError("Error parsing command flags: %v", err)
+			te.logger.LogError("Error parsing command flags JSON: %v", err) // Corrected format
 		} else {
 			// Get all available flags for this command and their values
-			flagsMap, err := te.db.GetRcloneCommandFlagsMap(config.CommandID)
+			flagsMap, err := te.db.GetRcloneCommandFlagsMap(config.CommandID) // Calls interface method
 			if err != nil {
-				te.logger.LogError("Error getting flags map: %v", err)
+				te.logger.LogError("Error getting flags map for command %d: %v", config.CommandID, err) // Added context
 			} else {
 				// Parse flag values if available
 				var flagValues map[uint]string
@@ -908,7 +946,7 @@ func (te *TransferExecutor) prepareBaseArguments(command string, config *db.Tran
 	args = append(args, "--stats", "1s")
 
 	// Add config file location
-	configPath := te.db.GetConfigRclonePath(config)
+	configPath := te.db.GetConfigRclonePath(config) // Calls interface method
 	args = append(args, "--config", configPath)
 
 	// Add progress callback related flags if needed (progressCallback is currently nil)

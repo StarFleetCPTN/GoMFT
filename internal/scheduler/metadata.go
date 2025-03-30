@@ -1,19 +1,28 @@
 package scheduler
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/starfleetcptn/gomft/internal/db"
+	"gorm.io/gorm"
 )
+
+// MetadataDB defines the database methods needed by MetadataHandler.
+// This allows for easier mocking during testing.
+type MetadataDB interface {
+	GetFileMetadataByHash(hash string) (*db.FileMetadata, error)
+	GetFileMetadataByJobAndName(jobID uint, fileName string) (*db.FileMetadata, error)
+}
 
 // MetadataHandler handles checking file processing history.
 type MetadataHandler struct {
-	db     *db.DB
-	logger *Logger // Added logger dependency
+	db     MetadataDB // Use the interface type
+	logger *Logger    // Added logger dependency
 }
 
 // NewMetadataHandler creates a new MetadataHandler.
-func NewMetadataHandler(database *db.DB, logger *Logger) *MetadataHandler {
+func NewMetadataHandler(database MetadataDB, logger *Logger) *MetadataHandler { // Accept the interface type
 	return &MetadataHandler{
 		db:     database,
 		logger: logger,
@@ -27,23 +36,31 @@ func (mh *MetadataHandler) hasFileBeenProcessed(jobID uint, fileHash string) (bo
 	}
 
 	// First try to find by hash (most reliable)
-	metadata, err := mh.db.GetFileMetadataByHash(fileHash)
+	metadata, err := mh.db.GetFileMetadataByHash(fileHash) // Calls the interface method
 	if err == nil && metadata != nil {
 		// Optional: Add logging here if needed
 		mh.logger.LogDebug("Found existing metadata by hash for job %d, hash %s", jobID, fileHash)
 		return true, metadata, nil
 	}
+	// Handle DB errors
 	if err != nil {
+		// If the error is specifically "record not found", it means not processed, which is not an error for this function.
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil, nil // Not found, no error to return
+		}
+		// For any other DB error, log it and return it.
 		mh.logger.LogError("Error checking metadata by hash for job %d, hash %s: %v", jobID, fileHash, err)
+		return false, nil, err // Return the actual DB error
 	}
 
-	return false, nil, err // Return the error if one occurred during DB lookup
+	// Should not be reached if err is nil and metadata is nil, but return false just in case.
+	return false, nil, nil
 }
 
 // checkFileProcessingHistory checks processing history for a given file name within a specific job.
 func (mh *MetadataHandler) checkFileProcessingHistory(jobID uint, fileName string) (*db.FileMetadata, error) {
 	// Try to find by job and filename
-	metadata, err := mh.db.GetFileMetadataByJobAndName(jobID, fileName)
+	metadata, err := mh.db.GetFileMetadataByJobAndName(jobID, fileName) // Calls the interface method
 	if err == nil && metadata != nil {
 		mh.logger.LogDebug("Found existing metadata by name for job %d, file %s", jobID, fileName)
 		return metadata, nil

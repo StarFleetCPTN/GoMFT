@@ -25,7 +25,8 @@ func ProcessOutputPattern(pattern string, originalFilename string) string {
 
 	// Replace filename and extension variables
 	processedPattern = strings.ReplaceAll(processedPattern, "${filename}", filename)
-	processedPattern = strings.ReplaceAll(processedPattern, "${ext}", ext)
+	// Remove leading dot from ext before replacing
+	processedPattern = strings.ReplaceAll(processedPattern, "${ext}", strings.TrimPrefix(ext, "."))
 
 	return processedPattern
 }
@@ -56,15 +57,16 @@ func createRcloneFilterFile(pattern string) (string, error) {
 
 	// Extract extension (with the dot)
 	processedPattern = strings.ReplaceAll(processedPattern, "${ext}", "{2}")
-
 	// Create a rename rule for rclone using the correct syntax:
 	// - The format for rename filters is: "-- SourceRegexp ReplacementPattern"
 	// - For files with extension: capture the name and extension separately
-	rule := fmt.Sprintf("-- (.*)(\\..+)$ %s\n", processedPattern)
+	rule := fmt.Sprintf("-- (.*)(\\..+)$ %s\n", processedPattern) // Correct escaping for dot
 
 	// Add a fallback rule for files without extension
+	// Keep [^.] as it correctly excludes literal dot in character class
 	fallbackRule := fmt.Sprintf("-- ([^.]+)$ %s\n",
 		strings.ReplaceAll(processedPattern, "{2}", ""))
+	// Removed duplicate declaration below
 
 	// Write the rules to the file
 	if _, err := tmpFile.WriteString(rule + fallbackRule); err != nil {
