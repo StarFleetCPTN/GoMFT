@@ -138,21 +138,20 @@ templ ArchiveOptions() {
 </div>
 }
 
-templ RcloneFlags() {
+templ RcloneFlags(currentCommandID uint) {
 <div class="mb-6">
 	<label for="command_id" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Rclone Command</label>
 	<div class="relative">
 		<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 			<i class="fas fa-terminal text-gray-400 dark:text-gray-500"></i>
 		</div>
-		@RcloneCommandOptions()
+		@RcloneCommandOptions(currentCommandID) // Pass it down
 	</div>
 	<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
 		Select the rclone command to use for this configuration.
 	</p>
 
-	<!-- Command flags container - will be populated via HTMX -->
-	<div id="command-flags-container" class="mt-4"></div>
+	<!-- Flag container is now rendered directly in ConfigForm -->
 
 	<label for="rclone_flags" class="block mb-2 mt-6 text-sm font-medium text-gray-900 dark:text-white">Additional Rclone Flags</label>
 	<div class="relative">
@@ -171,12 +170,13 @@ templ RcloneFlags() {
 }
 
 // New placeholder templ for rclone command options
-templ RcloneCommandOptions() {
-	<div 
-		hx-get="/api/rclone/commands" 
+templ RcloneCommandOptions(currentCommandID uint) { // Accept currentCommandID
+	<div
+		hx-get="/api/rclone/commands"
 		hx-trigger="load"
 		hx-target="this"
-		hx-swap="outerHTML">
+		hx-swap="outerHTML"
+		hx-vals={ fmt.Sprintf(`{"commandId": %d}`, currentCommandID) }>
 		<!-- Loading placeholder -->
 		<option value="">Loading commands...</option>
 	</div>
@@ -231,12 +231,13 @@ templ DestinationSelection() {
 }
 
 // RcloneCommandOptionsContent renders the command options organized by category
-templ RcloneCommandOptionsContent(categoryMap map[string][]db.RcloneCommand, categories []string) {
+templ RcloneCommandOptionsContent(categoryMap map[string][]db.RcloneCommand, categories []string, currentCommandID uint, commandFlagsJSON string, commandFlagValuesJSON string) { // Add flag JSON strings
 	<select id="command_id" name="command_id" x-model="commandId"
 		hx-get="/api/rclone/command-flags"
 		hx-target="#command-flags-container"
 		hx-trigger="change"
 		hx-include="[name='command_id']"
+		hx-vals={ fmt.Sprintf(`{"commandFlags": %s, "commandFlagValues": %s}`, commandFlagsJSON, commandFlagValuesJSON) }
 		@change="updateCommandRequirements()"
 		class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
 		<option value="">Select command...</option>
@@ -244,7 +245,11 @@ templ RcloneCommandOptionsContent(categoryMap map[string][]db.RcloneCommand, cat
 			if commands, ok := categoryMap[category]; ok && len(commands) > 0 {
 				<optgroup label={ category }>
 					for _, cmd := range commands {
-						<option value={ fmt.Sprintf("%d", cmd.ID) }>{ cmd.Name } - { cmd.Description }</option>
+						if cmd.ID == currentCommandID {
+							<option value={ fmt.Sprintf("%d", cmd.ID) } selected>{ cmd.Name } - { cmd.Description }</option>
+						} else {
+							<option value={ fmt.Sprintf("%d", cmd.ID) }>{ cmd.Name } - { cmd.Description }</option>
+						}
 					}
 				</optgroup>
 			}
@@ -253,7 +258,7 @@ templ RcloneCommandOptionsContent(categoryMap map[string][]db.RcloneCommand, cat
 }
 
 // RcloneCommandFlagsContent renders the command flags for a selected command
-templ RcloneCommandFlagsContent(command *db.RcloneCommand) {
+templ RcloneCommandFlagsContent(command *db.RcloneCommand, selectedFlagsMap map[uint]bool, selectedFlagValues map[uint]string) {
 	if command == nil {
 		<div class="p-4 text-red-500">Command not found</div>
 		return
@@ -277,7 +282,9 @@ templ RcloneCommandFlagsContent(command *db.RcloneCommand) {
 									name="command_flags"
 									value={ fmt.Sprintf("%d", flag.ID) }
 									class="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-blue-600"
-								/>
+									if selectedFlagsMap[flag.ID] {
+										checked
+									} />
 								<div class="ml-3">
 									<label for={ fmt.Sprintf("flag_%d", flag.ID) } class="font-medium text-gray-900 dark:text-white">
 										{ flag.Name } - { flag.Description }
@@ -299,14 +306,16 @@ templ RcloneCommandFlagsContent(command *db.RcloneCommand) {
 											class="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-blue-600"
 											data-input-id={ fmt.Sprintf("flag_value_%d", flag.ID) }
 											onclick="toggleFlagValue(this)"
-										/>
+											if selectedFlagsMap[flag.ID] {
+												checked
+											} />
 										<label for={ fmt.Sprintf("flag_enable_%d", flag.ID) } class="font-medium text-gray-900 dark:text-white">
 											{ flag.Name } - { flag.Description }
 										</label>
 									</div>
 									
 									<div class="w-full mt-2">
-										@renderFlagInput(flag)
+										@renderFlagInput(flag, selectedFlagValues[flag.ID], selectedFlagsMap[flag.ID]) // Pass value and enabled status
 										if flag.DefaultValue != "" {
 											<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Default: { flag.DefaultValue }</p>
 										}
@@ -345,23 +354,7 @@ templ RcloneCommandFlagsContent(command *db.RcloneCommand) {
 				}
 				
 				// Initialize all flag inputs on page load
-				document.addEventListener('DOMContentLoaded', function() {
-					const checkboxes = document.querySelectorAll('input[id^="flag_enable_"]');
-					checkboxes.forEach(function(checkbox) {
-						const inputId = checkbox.getAttribute('data-input-id');
-						const input = document.getElementById(inputId);
-						if (input) {
-							input.disabled = !checkbox.checked;
-							
-							// Also initialize the hidden input
-							const hiddenId = inputId.replace('flag_value_', 'flag_hidden_');
-							const hiddenInput = document.getElementById(hiddenId);
-							if (hiddenInput) {
-								hiddenInput.disabled = !checkbox.checked;
-							}
-						}
-					});
-				});
+				// Initialization is now handled by server-side rendering
 			</script>
 			
 			<div class="mt-4 p-3 bg-blue-50 text-blue-800 rounded-lg border border-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-900 text-sm">
@@ -402,7 +395,7 @@ templ RcloneCommandFlagsContent(command *db.RcloneCommand) {
 }
 
 // Helper function to render appropriate input based on flag data type
-templ renderFlagInput(flag db.RcloneCommandFlag) {
+templ renderFlagInput(flag db.RcloneCommandFlag, value string, enabled bool) {
 	if flag.DataType == "int" {
 		<input
 			type="number"
@@ -410,14 +403,18 @@ templ renderFlagInput(flag db.RcloneCommandFlag) {
 			name={ fmt.Sprintf("flag_value_%d", flag.ID) }
 			class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 			placeholder={ flag.DefaultValue }
-			disabled
-		/>
+			value={ value }
+			if !enabled {
+				disabled
+			} />
 		<!-- Hidden input to include this flag ID when checked -->
-		<input 
-			type="hidden" 
-			name="command_flags" 
+		<input
+			type="hidden"
+			name="command_flags"
 			value={ fmt.Sprintf("%d", flag.ID) }
-			disabled
+			if !enabled {
+				disabled
+			}
 			id={ fmt.Sprintf("flag_hidden_%d", flag.ID) }
 			data-enable-with={ fmt.Sprintf("flag_enable_%d", flag.ID) }
 		/>
@@ -429,14 +426,18 @@ templ renderFlagInput(flag db.RcloneCommandFlag) {
 			step="0.01"
 			class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 			placeholder={ flag.DefaultValue }
-			disabled
-		/>
+			value={ value }
+			if !enabled {
+				disabled
+			} />
 		<!-- Hidden input to include this flag ID when checked -->
-		<input 
-			type="hidden" 
-			name="command_flags" 
+		<input
+			type="hidden"
+			name="command_flags"
 			value={ fmt.Sprintf("%d", flag.ID) }
-			disabled
+			if !enabled {
+				disabled
+			}
 			id={ fmt.Sprintf("flag_hidden_%d", flag.ID) }
 			data-enable-with={ fmt.Sprintf("flag_enable_%d", flag.ID) }
 		/>
@@ -448,14 +449,18 @@ templ renderFlagInput(flag db.RcloneCommandFlag) {
 			name={ fmt.Sprintf("flag_value_%d", flag.ID) }
 			class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 			placeholder={ flag.DefaultValue }
-			disabled
-		/>
+			value={ value }
+			if !enabled {
+				disabled
+			} />
 		<!-- Hidden input to include this flag ID when checked -->
-		<input 
-			type="hidden" 
-			name="command_flags" 
+		<input
+			type="hidden"
+			name="command_flags"
 			value={ fmt.Sprintf("%d", flag.ID) }
-			disabled
+			if !enabled {
+				disabled
+			}
 			id={ fmt.Sprintf("flag_hidden_%d", flag.ID) }
 			data-enable-with={ fmt.Sprintf("flag_enable_%d", flag.ID) }
 		/>

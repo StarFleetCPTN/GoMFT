@@ -1,0 +1,269 @@
+package list
+
+import (
+	"context"
+	"fmt"
+	"net/url"
+	"strconv"
+	"github.com/starfleetcptn/gomft/components/file_metadata"
+	"github.com/starfleetcptn/gomft/components/file_metadata/dialog"
+	"github.com/starfleetcptn/gomft/components/file_metadata/utils"
+)
+
+// Helper function to generate sorting links
+func sortLink(currentSortBy, currentSortDir, targetSortBy, basePath string, filter file_metadata.FileMetadataFilter, limit int) string {
+	nextSortDir := "asc"
+	if currentSortBy == targetSortBy && currentSortDir == "asc" {
+		nextSortDir = "desc"
+	}
+
+	q := url.Values{}
+	q.Set("page", "1")
+	q.Set("limit", strconv.Itoa(limit))
+	q.Set("sort_by", targetSortBy)
+	q.Set("sort_dir", nextSortDir)
+	if filter.Status != "" {
+		q.Set("status", filter.Status)
+	}
+	if filter.FileName != "" {
+		q.Set("filename", filter.FileName)
+	}
+	if filter.JobID != "" {
+		q.Set("job_id", filter.JobID)
+	}
+	if filter.Hash != "" {
+		q.Set("hash", filter.Hash)
+	}
+	if filter.StartDate != "" {
+		q.Set("start_date", filter.StartDate)
+	}
+	if filter.EndDate != "" {
+		q.Set("end_date", filter.EndDate)
+	}
+
+	return fmt.Sprintf("%s?%s", basePath, q.Encode())
+}
+
+// Helper function to get sort icon class
+func sortIconClass(currentSortBy, currentSortDir, targetSortBy string) string {
+	if currentSortBy == targetSortBy {
+		if currentSortDir == "asc" {
+			return "fas fa-sort-up ml-1"
+		}
+		return "fas fa-sort-down ml-1"
+	}
+	return "fas fa-sort text-gray-400 ml-1"
+}
+
+// FileMetadataListPartial renders the list of file metadata in a table format
+// Added basePath and targetContainerID parameters
+templ FileMetadataListPartial(ctx context.Context, data file_metadata.FileMetadataListData, basePath string, targetContainerID string) {
+
+	<!-- Container for dynamically generated dialogs -->
+	<div id="dialog-container">
+		for _, file := range data.Files {
+			@dialog.FileMetadataDialog(
+				fmt.Sprintf("delete-file-dialog-%d", file.ID),
+				"Delete File Metadata",
+				fmt.Sprintf("Are you sure you want to delete the metadata for '%s'? This cannot be undone.", file.FileName),
+				"text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:ring-red-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800",
+				"Delete",
+				"delete",
+				file.ID,
+				file.FileName,
+				"list",
+			)
+		}
+	</div>
+
+	<!-- File List Table -->
+	<div class="relative overflow-x-auto shadow-md sm:rounded-lg">
+		<table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+			<thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+				<tr>
+					<th scope="col" class="px-6 py-3">
+						<a
+							href="#"
+							hx-get={ sortLink(data.SortBy, data.SortDir, "id", basePath, data.Filter, data.Limit) }
+							hx-target={ targetContainerID }
+							hx-swap="innerHTML"
+							class="flex items-center hover:text-blue-600 dark:hover:text-blue-400"
+						>
+							ID <i class={ sortIconClass(data.SortBy, data.SortDir, "id") }></i>
+						</a>
+					</th>
+					<th scope="col" class="px-6 py-3">
+						<a
+							href="#"
+							hx-get={ sortLink(data.SortBy, data.SortDir, "filename", basePath, data.Filter, data.Limit) }
+							hx-target={ targetContainerID }
+							hx-swap="innerHTML"
+							class="flex items-center hover:text-blue-600 dark:hover:text-blue-400"
+						>
+							Filename <i class={ sortIconClass(data.SortBy, data.SortDir, "filename") }></i>
+						</a>
+					</th>
+					<th scope="col" class="px-6 py-3">
+						<a
+							href="#"
+							hx-get={ sortLink(data.SortBy, data.SortDir, "size", basePath, data.Filter, data.Limit) }
+							hx-target={ targetContainerID }
+							hx-swap="innerHTML"
+							class="flex items-center hover:text-blue-600 dark:hover:text-blue-400"
+						>
+							Size <i class={ sortIconClass(data.SortBy, data.SortDir, "size") }></i>
+						</a>
+					</th>
+					<th scope="col" class="px-6 py-3">
+						<a
+							href="#"
+							hx-get={ sortLink(data.SortBy, data.SortDir, "processed_time", basePath, data.Filter, data.Limit) }
+							hx-target={ targetContainerID }
+							hx-swap="innerHTML"
+							class="flex items-center hover:text-blue-600 dark:hover:text-blue-400"
+						>
+							Processed time <i class={ sortIconClass(data.SortBy, data.SortDir, "processed_time") }></i>
+						</a>
+					</th>
+					<th scope="col" class="px-6 py-3">
+						<a
+							href="#"
+							hx-get={ sortLink(data.SortBy, data.SortDir, "status", basePath, data.Filter, data.Limit) }
+							hx-target={ targetContainerID }
+							hx-swap="innerHTML"
+							class="flex items-center hover:text-blue-600 dark:hover:text-blue-400"
+						>
+							Status <i class={ sortIconClass(data.SortBy, data.SortDir, "status") }></i>
+						</a>
+					</th>
+					if data.Job == nil {
+						<th scope="col" class="px-6 py-3">Job</th>
+					}
+					<th scope="col" class="px-6 py-3">Actions</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, file := range data.Files {
+					<tr id={ fmt.Sprintf("file-row-%d", file.ID) } class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+						<td class="px-6 py-4 font-medium text-gray-900 dark:text-white">
+							{ strconv.FormatUint(uint64(file.ID), 10) }
+						</td>
+						<td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
+							<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="hover:underline">
+								{ file.FileName }
+							</a>
+						</td>
+						<td class="px-6 py-4">
+							{ utils.FormatFileSize(file.FileSize) }
+						</td>
+						<td class="px-6 py-4">
+							{ file.ProcessedTime.Format("2006-01-02 15:04:05") }
+						</td>
+						<td class="px-6 py-4">
+							<span class={ "text-xs font-medium px-2.5 py-0.5 rounded", utils.GetStatusBadgeClass(file.Status) }>
+								{ file.Status }
+							</span>
+						</td>
+						if data.Job == nil {
+							<td class="px-6 py-4">
+								if file.Job.ID > 0 {
+									<a href={ templ.SafeURL(fmt.Sprintf("/files/job/%d", file.Job.ID)) } class="font-medium text-blue-600 dark:text-blue-500 hover:underline">
+										{ file.Job.Name }
+									</a>
+								} else {
+									<span class="text-gray-400 dark:text-gray-500 italic">N/A</span>
+								}
+							</td>
+						}
+						<td class="px-6 py-4">
+							<div class="flex space-x-3">
+								<a href={ templ.SafeURL(fmt.Sprintf("/files/%d", file.ID)) } class="font-medium text-blue-600 dark:text-blue-500 hover:underline">
+									<i class="fas fa-eye"></i>
+								</a>
+								<button
+									type="button"
+									onclick={ templ.ComponentScript{Call: fmt.Sprintf("showModal('delete-file-dialog-%d')", file.ID)} }
+									data-file-id={ strconv.FormatUint(uint64(file.ID), 10) }
+									data-file-name={ file.FileName }
+									class="font-medium text-red-600 dark:text-red-500 hover:underline">
+									<i class="fas fa-trash"></i>
+								</button>
+							</div>
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+
+	<!-- Pagination with HTMX (Update links to include sorting and targetContainerID) -->
+	if data.TotalPages > 1 {
+		<nav class="flex items-center flex-column flex-wrap md:flex-row justify-between p-4" aria-label="Table navigation">
+			<span class="text-sm font-normal text-gray-500 dark:text-gray-400 mb-4 md:mb-0">
+				Showing <span class="font-semibold text-gray-900 dark:text-white">{ strconv.Itoa((data.Page-1)*data.Limit+1) }-{ strconv.Itoa(func() int {
+					end := data.Page*data.Limit
+					if int64(end) > data.TotalCount {
+						return int(data.TotalCount)
+					}
+					return end
+				}()) }</span> of <span class="font-semibold text-gray-900 dark:text-white">{ strconv.FormatInt(data.TotalCount, 10) }</span>
+			</span>
+			<ul class="inline-flex -space-x-px rtl:space-x-reverse text-sm h-8">
+				<li>
+					if data.Page == 1 {
+						<span class="flex items-center justify-center px-3 h-8 ms-0 leading-tight text-gray-500 bg-white border border-gray-300 rounded-s-lg cursor-not-allowed dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400">
+							Previous
+						</span>
+					} else {
+						<a hx-get={ fmt.Sprintf("%s?page=%d&limit=%d&status=%s&filename=%s&job_id=%s&sort_by=%s&sort_dir=%s", basePath, data.Page - 1, data.Limit, data.Filter.Status, data.Filter.FileName, data.Filter.JobID, data.SortBy, data.SortDir) }
+						   hx-target={ targetContainerID }
+						   hx-swap="innerHTML"
+						   class="flex items-center justify-center px-3 h-8 ms-0 leading-tight text-gray-500 bg-white border border-gray-300 rounded-s-lg hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">
+							Previous
+						</a>
+					}
+				</li>
+
+				for i := 1; i <= data.TotalPages; i++ {
+					if i == 1 || i == data.TotalPages || (i >= data.Page-2 && i <= data.Page+2) {
+						<li>
+							if i == data.Page {
+								<span aria-current="page" class="flex items-center justify-center px-3 h-8 text-blue-600 border border-gray-300 bg-blue-50 hover:bg-blue-100 hover:text-blue-700 dark:border-gray-700 dark:bg-gray-700 dark:text-white">
+									{ strconv.Itoa(i) }
+								</span>
+							} else {
+								<a hx-get={ fmt.Sprintf("%s?page=%d&limit=%d&status=%s&filename=%s&job_id=%s&sort_by=%s&sort_dir=%s", basePath, i, data.Limit, data.Filter.Status, data.Filter.FileName, data.Filter.JobID, data.SortBy, data.SortDir) }
+								   hx-target={ targetContainerID }
+								   hx-swap="innerHTML"
+								   class="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">
+									{ strconv.Itoa(i) }
+								</a>
+							}
+						</li>
+					} else if (i == 2 && data.Page > 4) || (i == data.TotalPages-1 && data.Page < data.TotalPages-3) {
+						<li>
+							<span class="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400">
+								...
+							</span>
+						</li>
+					}
+				}
+
+				<li>
+					if data.Page == data.TotalPages {
+						<span class="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 rounded-e-lg cursor-not-allowed dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400">
+							Next
+						</span>
+					} else {
+						<a hx-get={ fmt.Sprintf("%s?page=%d&limit=%d&status=%s&filename=%s&job_id=%s&sort_by=%s&sort_dir=%s", basePath, data.Page + 1, data.Limit, data.Filter.Status, data.Filter.FileName, data.Filter.JobID, data.SortBy, data.SortDir) }
+						   hx-target={ targetContainerID }
+						   hx-swap="innerHTML"
+						   class="flex items-center justify-center px-3 h-8 leading-tight text-gray-500 bg-white border border-gray-300 rounded-e-lg hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">
+							Next
+						</a>
+					}
+				</li>
+			</ul>
+		</nav>
+	}
+}

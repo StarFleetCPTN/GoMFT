@@ -1,0 +1,20 @@
+package dialog
+
+// DialogScripts provides the JavaScript function specific to the notification delete confirmation dialog.
+templ DialogScripts() {
+	<script type="text/javascript">
+		// Called when the delete confirmation button is clicked.
+		// Primarily closes the modal; the actual delete is handled by hx-delete.
+		function triggerServiceDelete(dialogId, serviceId, serviceName) {
+			console.log(`Confirmed delete for service: ${serviceName} (ID: ${serviceId}). Closing modal: ${dialogId}`);
+			// Call the global closeModal function defined elsewhere (e.g., app.js)
+			if (typeof closeModal === 'function') {
+				closeModal(dialogId);
+			} else {
+				console.error('Global closeModal function not found.');
+			}
+			// Optional: Show a "Deleting..." toast here if desired.
+			// The hx-delete attribute on the button will trigger the actual backend request.
+		}
+	</script>
+}

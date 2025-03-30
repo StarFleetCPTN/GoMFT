@@ -43,20 +43,7 @@ node_modules/
 Thumbs.db
 
 # Ignore all Go files in the components directory
-components/*.go
-!components/components.go
-
-components/providers/*.go
-!components/providers/providers.go
-
-components/providers/source/*.go
-!components/providers/source/source.go
-
-components/providers/destination/*.go
-!components/providers/destination/destination.go
-
-components/providers/common/*.go
-!components/providers/common/common.go
+*_templ.go
 
 # Ignore the data directory
 data/

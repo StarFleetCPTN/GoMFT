@@ -16,6 +16,7 @@ type Config struct {
 	Email          EmailConfig `json:"email"`
 	BaseURL        string      `json:"base_url"`         // Base URL for generating links in emails
 	TOTPEncryptKey string      `json:"totp_encrypt_key"` // Encryption key for TOTP secrets
+	SkipSSLVerify  bool        `json:"skip_ssl_verify"`  // Skip SSL verification for outgoing webhooks/notifications
 }
 
 type EmailConfig struct {
@@ -40,6 +41,7 @@ func Load() (*Config, error) {
 		JWTSecret:      "change_this_to_a_secure_random_string",
 		BaseURL:        "http://localhost:8080",
 		TOTPEncryptKey: "this-is-a-dev-key-not-for-production!", // Default development key
+		SkipSSLVerify:  false,                                   // Default to verifying SSL
 		Email: EmailConfig{
 			Enabled:     false,
 			Host:        "smtp.example.com",
@@ -119,6 +121,13 @@ func Load() (*Config, error) {
 		if emailRequireAuth := os.Getenv("EMAIL_REQUIRE_AUTH"); emailRequireAuth != "" {
 			cfg.Email.RequireAuth = strings.ToLower(emailRequireAuth) == "true"
 		}
+
+		// Skip SSL Verification configuration
+		if skipSSLVerify := os.Getenv("SKIP_SSL_VERIFY"); skipSSLVerify != "" {
+			// If SKIP_SSL_VERIFY is set, parse its boolean value
+			cfg.SkipSSLVerify = strings.ToLower(skipSSLVerify) == "true"
+		}
+		// Otherwise, the default from line 44 (false) is used.
 	} else if !os.IsNotExist(err) {
 		return nil, err
 	} else {
@@ -148,6 +157,11 @@ func Load() (*Config, error) {
 			"EMAIL_REQUIRE_AUTH=" + strconv.FormatBool(cfg.Email.RequireAuth),
 			"EMAIL_USERNAME=" + cfg.Email.Username,
 			"EMAIL_PASSWORD=" + cfg.Email.Password,
+			"",
+			"# Skip SSL Verification for outgoing notifications (webhooks, etc.)",
+			"# Set to true to disable SSL certificate verification (USE WITH CAUTION)",
+			"# Defaults to false (verification enabled) if not set.",
+			"SKIP_SSL_VERIFY=" + strconv.FormatBool(cfg.SkipSSLVerify), // Default is false
 		}
 
 		if err := os.WriteFile(envPath, []byte(strings.Join(envContent, "\n")), 0644); err != nil {

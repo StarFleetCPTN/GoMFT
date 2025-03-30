@@ -99,8 +99,9 @@ func (h *Handlers) HandleCreateAuthProvider(c *gin.Context) {
 		Scopes:       c.PostForm("scopes"),
 		Description:  c.PostForm("description"),
 		IconURL:      c.PostForm("icon_url"),
-		Enabled:      c.PostForm("enabled") == "on",
+		// Enabled will be set using the helper method below
 	}
+	provider.SetEnabled(c.PostForm("enabled") == "on") // Use helper method
 
 	// Process config values based on provider type
 	config := make(map[string]interface{})
@@ -211,7 +212,7 @@ func (h *Handlers) HandleUpdateAuthProvider(c *gin.Context) {
 	existingProvider.RedirectURL = c.PostForm("redirect_url")
 	existingProvider.Scopes = c.PostForm("scopes")
 	existingProvider.Description = c.PostForm("description")
-	existingProvider.Enabled = c.PostForm("enabled") == "on"
+	existingProvider.SetEnabled(c.PostForm("enabled") == "on") // Use setter
 
 	// Update the type if changed
 	if providerType := c.PostForm("type"); providerType != "" {

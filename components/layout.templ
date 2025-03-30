@@ -6,6 +6,7 @@ import (
 	"strings"
 	"github.com/gin-gonic/gin"
 	"time"
+	"github.com/starfleetcptn/gomft/components/shared/toast"
 )
 
 // AppVersion will be set at build time using ldflags
@@ -141,7 +142,7 @@ templ LayoutWithContext(title string, ctx context.Context) {
 				}
 			</style>
 		</head>
-		<body class="min-h-full bg-gray-50 dark:bg-gray-900" style="min-height: 100vh; display: flex; flex-direction: column;">
+		<body class="min-h-full bg-gray-50 dark:bg-gray-900" style="min-height: 100vh; display: flex; flex-direction: column;" hx-on::after-swap="initFlowbite()">
 			if isLoggedIn(ctx) {
 				<!-- Application Shell -->
 				<div class="flex min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -444,6 +445,8 @@ templ LayoutWithContext(title string, ctx context.Context) {
 								</div>
 							</div>
 						</header>
+						<!-- Toast Container -->
+						@toast.Container()
 						<!-- Page Content -->
 						<main class="flex-1 bg-gray-50 dark:bg-gray-900">
 							<div class="py-6 bg-gray-50 dark:bg-gray-900">
@@ -498,6 +501,8 @@ templ LayoutWithContext(title string, ctx context.Context) {
 			<!-- Scripts -->
 			<!-- Alpine.js and dependencies -->
 			<script defer src="/static/dist/vendor.js"></script>
+			<!-- Shared Scripts -->
+			@toast.ShowToastJS()
 			<!-- Application scripts -->
 			<script defer src="/static/dist/app.js"></script>
 			<script defer src="/static/dist/init.js"></script>

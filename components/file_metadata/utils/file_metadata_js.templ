@@ -1,0 +1,114 @@
+package utils
+
+// FileMetadataJS provides common JavaScript functions for file metadata components,
+// including HTMX event listeners for delete toasts.
+templ FileMetadataJS() {
+	<script>
+		// Function to create and show a toast (Defined locally for guaranteed availability)
+		function showToast(message, type = 'info') {
+			const toastContainer = document.getElementById('toast-container');
+			if (!toastContainer) {
+				console.error("Toast container not found!"); // Keep this error log
+				return;
+			}
+
+			// Create toast element
+			const toast = document.createElement('div');
+			toast.id = 'toast-' + type + '-' + Date.now();
+			// Use classes similar to the original file_metadata.templ for consistency
+			toast.className = 'flex items-center w-full max-w-xs p-4 mb-4 rounded-lg shadow text-gray-500 bg-white dark:text-gray-400 dark:bg-gray-800 transform translate-y-16 opacity-0 transition-all duration-300 ease-out';
+			toast.role = 'alert';
+
+			// Set toast content based on type
+			let iconClass;
+			if (type === 'success') {
+				iconClass = 'text-green-500 bg-green-100 dark:bg-green-800 dark:text-green-200';
+			} else if (type === 'error') {
+				iconClass = 'text-red-500 bg-red-100 dark:bg-red-800 dark:text-red-200';
+			} else { // Default to info
+				iconClass = 'text-blue-500 bg-blue-100 dark:bg-blue-800 dark:text-blue-200';
+			}
+
+			// Set inner HTML with appropriate icon and message
+			toast.innerHTML = `
+				<div class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg ${iconClass}">
+					${type === 'success'
+						? '<i class="fas fa-check"></i>'
+						: type === 'error'
+						? '<i class="fas fa-exclamation-circle"></i>'
+						: '<i class="fas fa-info-circle"></i>'}
+				</div>
+				<div class="ml-3 text-sm font-normal">${message}</div>
+				<button type="button" class="ml-auto -mx-1.5 -my-1.5 bg-white text-gray-400 hover:text-gray-900 rounded-lg focus:ring-2 focus:ring-gray-300 p-1.5 hover:bg-gray-100 inline-flex h-8 w-8 dark:text-gray-500 dark:hover:text-white dark:bg-gray-800 dark:hover:bg-gray-700" data-dismiss-target="#${toast.id}" aria-label="Close">
+					<span class="sr-only">Close</span>
+					<i class="fas fa-times"></i>
+				</button>
+			`;
+
+			// Add toast to container
+			toastContainer.appendChild(toast);
+
+			// Trigger animation after a small delay
+			setTimeout(() => {
+				toast.classList.remove('translate-y-16', 'opacity-0');
+				toast.classList.add('translate-y-0', 'opacity-100');
+			}, 10);
+
+			// Add event listener to close button
+			const closeButton = toast.querySelector('button[data-dismiss-target]');
+			closeButton.addEventListener('click', function() {
+				toast.classList.add('opacity-0', 'translate-y-4');
+				setTimeout(() => { toast.remove(); }, 300);
+			});
+
+			// Auto-remove toast after 5 seconds
+			setTimeout(() => {
+				toast.classList.add('opacity-0', 'translate-y-4');
+				setTimeout(() => { toast.remove(); }, 300);
+			}, 5000);
+		}
+
+		// --- HTMX Event Listener for Delete Toasts ---
+
+		// Ensure listener is attached only once using a flag
+		if (!window._gomft_fileMetadataListenerAttached) {
+			document.body.addEventListener('htmx:afterRequest', function(event) {
+				const triggerElement = event.detail.elt;
+
+				// Check if the element that triggered this request was the file delete button from the dialog
+				if (triggerElement && triggerElement.id && triggerElement.id.startsWith('delete-file-btn-')) {
+					 // Get the path directly from the element's hx-delete attribute
+					 const path = triggerElement.getAttribute('hx-delete');
+					 // Ensure requestConfig exists before accessing verb (robustness)
+					 const method = event.detail.requestConfig ? event.detail.requestConfig.verb : null;
+
+					 // Check if the method was delete and the path from the attribute matches the expected pattern
+					 if (method === 'delete' && path && path.match(/^\/files\/\d+$/)) {
+						const fileName = triggerElement.getAttribute('data-file-name') || "Unknown"; // Get filename from the button
+
+						// Call the locally defined showToast function
+						if (event.detail.successful) {
+							showToast(`File "${fileName}" metadata deleted successfully`, 'success');
+						} else {
+							let errorMsg = `Failed to delete file "${fileName}" metadata`;
+							if (event.detail.xhr && event.detail.xhr.responseText) {
+								try {
+									const responseJson = JSON.parse(event.detail.xhr.responseText);
+									errorMsg = responseJson.error ? `Error: ${responseJson.error}` : `Error: ${event.detail.xhr.responseText}`;
+								} catch (e) {
+									errorMsg = `Error: ${event.detail.xhr.responseText}`;
+								}
+							}
+							showToast(errorMsg, 'error');
+						}
+					}
+				}
+			});
+
+			// Set the flag to true after attaching the listener
+			window._gomft_fileMetadataListenerAttached = true;
+			console.log("[FileMetadataJS] HTMX afterRequest listener attached."); // Log attachment once
+		}
+
+	</script>
+}

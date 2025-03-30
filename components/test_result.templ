@@ -1,0 +1,15 @@
+package components
+
+templ TestResult(success bool, message string) {
+	if success {
+		<div class="text-green-600 dark:text-green-400 flex items-center">
+			<i class="fas fa-check-circle mr-2"></i>
+			<span>{ message }</span>
+		</div>
+	} else {
+		<div class="text-red-600 dark:text-red-400 flex items-center">
+			<i class="fas fa-exclamation-triangle mr-2"></i>
+			<span>{ message }</span>
+		</div>
+	}
+}

@@ -1,0 +1,57 @@
+package dialog
+
+import (
+	"fmt"
+	"github.com/starfleetcptn/gomft/components/file_metadata/utils"
+)
+
+// FileMetadataDialog renders a confirmation dialog for file metadata actions
+templ FileMetadataDialog(id string, title string, message string, confirmClass string, confirmText string, action string, fileID uint, fileName string, section string) {
+	@utils.FileMetadataJS()
+	<div id={ id } tabindex="-1" aria-hidden="true" class="hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+		<!-- Backdrop -->
+		<div id={ fmt.Sprintf("%s-backdrop", id) } class="fixed inset-0 bg-gray-900/50 dark:bg-gray-900/80 backdrop-blur-sm"></div>
+		<!-- Modal content -->
+		<div class="relative p-4 w-full max-w-md max-h-full mx-auto">
+			<div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
+				<div class="p-6 text-center">
+					if action == "delete" {
+						<i class="fas fa-trash-alt text-red-400 text-3xl mb-4"></i>
+					} else {
+						<i class="fas fa-exclamation-triangle text-yellow-400 text-3xl mb-4"></i>
+					}
+					<h3 class="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">{ message }</h3>
+					if section == "list" {
+						<button 
+							type="button" 
+							class="text-white font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 bg-red-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300 dark:bg-red-500 dark:hover:bg-red-600 dark:focus:ring-red-800"
+							hx-delete={ fmt.Sprintf("/files/%d", fileID) }
+							hx-target={ fmt.Sprintf("#file-row-%d", fileID) }
+							hx-swap="delete"
+							data-file-name={ fileName }
+							data-file-id={ fmt.Sprint(fileID) }
+							id={ fmt.Sprintf("delete-file-btn-%d", fileID) }
+							onclick={ templ.ComponentScript{Call: fmt.Sprintf("triggerFileDelete('%s', %d, '%s')", id, fileID, fileName)} }>
+							{ confirmText }
+						</button>
+					} else {
+						<button 
+							type="button" 
+							class="text-white font-medium rounded-lg text-sm px-5 py-2.5 text-center me-2 bg-red-600 hover:bg-red-700 focus:ring-4 focus:outline-none focus:ring-red-300 dark:bg-red-500 dark:hover:bg-red-600 dark:focus:ring-red-800"
+							hx-delete={ fmt.Sprintf("/files/%d", fileID) }
+							hx-redirect="/files"
+							data-file-name={ fileName }
+							data-file-id={ fmt.Sprint(fileID) }
+							id={ fmt.Sprintf("delete-file-btn-%d", fileID) }
+							onclick={ templ.ComponentScript{Call: fmt.Sprintf("triggerFileDelete('%s', %d, '%s')", id, fileID, fileName)} }>
+							{ confirmText }
+						</button>
+					}
+					<button type="button" onclick={ templ.ComponentScript{Call: fmt.Sprintf("closeModal('%s')", id)} } class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600">
+						Cancel
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+}

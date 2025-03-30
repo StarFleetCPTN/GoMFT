@@ -1,0 +1,32 @@
+package fields
+
+import (
+	"github.com/starfleetcptn/gomft/components/notifications/types"
+	// No utils needed for this specific template yet
+)
+
+templ EmailFields(data types.NotificationFormData) {
+	<!-- TODO: Populate value attributes if editing an email service -->
+	<div id="email_fields" class="hidden notification-fields">
+		<div class="mb-6">
+			<label for="smtp_host" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">SMTP Host</label>
+			<input type="text" id="smtp_host" name="smtp_host" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="smtp.example.com"/>
+		</div>
+		<div class="mb-6">
+			<label for="smtp_port" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">SMTP Port</label>
+			<input type="number" id="smtp_port" name="smtp_port" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="587"/>
+		</div>
+		<div class="mb-6">
+			<label for="smtp_username" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">SMTP Username</label>
+			<input type="text" id="smtp_username" name="smtp_username" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="user@example.com"/>
+		</div>
+		<div class="mb-6">
+			<label for="smtp_password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">SMTP Password</label>
+			<input type="password" id="smtp_password" name="smtp_password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"/>
+		</div>
+		<div class="mb-6">
+			<label for="from_email" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">From Email</label>
+			<input type="email" id="from_email" name="from_email" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="notifications@example.com"/>
+		</div>
+	</div>
+}

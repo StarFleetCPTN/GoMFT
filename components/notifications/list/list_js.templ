@@ -1,0 +1,221 @@
+package list
+
+// ListScripts contains JavaScript specific to the notification list page.
+templ ListScripts() {
+	<script>
+		// Notification system (showToast function is now in shared/toast/toast_js.templ)
+
+		// Track all HTMX events for debugging
+		document.addEventListener('htmx:beforeRequest', function(event) {
+			// Check if this is a DELETE request for a notification service
+			const path = event.detail.path;
+			const method = event.detail.verb;
+
+			console.log(`Request path: ${path}, method: ${method}`);
+
+			// Pattern match for notification service deletions (e.g., /admin/settings/notifications/123)
+			if (path && method === 'DELETE' && path.match(/^\/admin\/settings\/notifications\/\d+$/)) {
+				console.log("Detected notification service deletion request via URL pattern");
+
+				// This is definitely a delete request - store this information
+				window.isServiceDeleteRequest = true;
+			}
+		});
+
+		document.addEventListener('htmx:afterRequest', function(event) {
+			// Check for notification service deletion multiple ways
+			const isDeleteRequest =
+				// Check global flag from the triggerServiceDelete function
+				window.currentlyDeletingService ||
+				// Check flag from beforeRequest handler
+				window.isServiceDeleteRequest ||
+				// Check URL pattern directly from this event
+				(event.detail.pathInfo &&
+					event.detail.pathInfo.requestPath &&
+					event.detail.pathInfo.requestPath.match(/^\/admin\/settings\/notifications\/\d+$/) &&
+					event.detail.verb === 'DELETE');
+
+			console.log(`Is delete request: ${isDeleteRequest}`);
+
+			// If this is a successful delete request, show notification
+			if (isDeleteRequest && event.detail.successful) {
+				console.log("Delete request was successful");
+
+				let serviceName = "Unknown";
+
+				// Try multiple sources for service name
+				if (event.detail.elt && event.detail.elt.getAttribute) {
+					serviceName = event.detail.elt.getAttribute('data-service-name') || serviceName;
+				}
+
+				if (serviceName === "Unknown" && window.lastDeletedService) {
+					// Fallback to our stored service info
+					serviceName = window.lastDeletedService.name;
+				}
+
+				console.log(`Showing success notification for deleted service: ${serviceName}`);
+				// Ensure showToast is globally available
+				if (typeof showToast === 'function') {
+					showToast(`Notification service "${serviceName}" deleted successfully`, 'success');
+				} else {
+					console.error("showToast function not found!");
+				}
+
+
+				// Clear flags
+				window.currentlyDeletingService = false;
+				window.isServiceDeleteRequest = false;
+				window.lastDeletedService = null;
+			}
+		});
+
+		document.addEventListener('htmx:responseError', function(event) {
+			console.log("HTMX response error:", event.detail);
+
+			// Similar logic as success but for errors
+			const isDeleteRequest =
+				window.currentlyDeletingService ||
+				window.isServiceDeleteRequest ||
+				(event.detail.pathInfo &&
+					event.detail.pathInfo.requestPath &&
+					event.detail.pathInfo.requestPath.match(/^\/admin\/settings\/notifications\/\d+$/) &&
+					event.detail.verb === 'DELETE');
+
+			let errorMsg = 'An error occurred';
+			if (event.detail.xhr && event.detail.xhr.responseText) {
+				errorMsg = event.detail.xhr.responseText;
+			}
+
+			if (isDeleteRequest) {
+				console.log("Delete request failed");
+
+				let serviceName = "Unknown";
+
+				// Try multiple sources for service name
+				if (event.detail.elt && event.detail.elt.getAttribute) {
+					serviceName = event.detail.elt.getAttribute('data-service-name') || serviceName;
+				}
+
+				if (serviceName === "Unknown" && window.lastDeletedService) {
+					// Fallback to our stored service info
+					serviceName = window.lastDeletedService.name;
+				}
+
+				let specificErrorMsg = `Failed to delete notification service "${serviceName}"`;
+
+				if (event.detail.xhr && event.detail.xhr.responseText) {
+					// Try to provide a more specific error from the response
+					specificErrorMsg = `Error deleting "${serviceName}": ${event.detail.xhr.responseText}`;
+				}
+
+				console.log(`Showing error notification: ${specificErrorMsg}`);
+				if (typeof showToast === 'function') {
+					showToast(specificErrorMsg, 'error');
+				} else {
+					console.error("showToast function not found!");
+				}
+
+
+				// Clear flags
+				window.currentlyDeletingService = false;
+				window.isServiceDeleteRequest = false;
+				window.lastDeletedService = null;
+			} else {
+				// General error toast
+				if (typeof showToast === 'function') {
+					showToast(errorMsg, 'error');
+				} else {
+					console.error("showToast function not found!");
+				}
+			}
+		});
+
+		// Handle modal hide buttons (This might be better placed globally or in layout if modals are used elsewhere)
+		document.addEventListener('DOMContentLoaded', function() {
+			// This listener handles closing modals via data-modal-hide attribute
+			// It might conflict or be redundant if Flowbite's JS handles this already.
+			// Consider removing if Flowbite is initialized globally.
+			const hideButtons = document.querySelectorAll('[data-modal-hide]');
+			hideButtons.forEach(button => {
+				button.addEventListener('click', function() {
+					const modalId = this.getAttribute('data-modal-hide');
+					const modal = document.getElementById(modalId);
+					if (modal) {
+						modal.classList.add('hidden');
+						modal.classList.remove('flex');
+					}
+					const backdrop = document.getElementById(modalId + "-backdrop");
+					if (backdrop) {
+						backdrop.classList.add("hidden");
+					}
+				});
+			});
+
+			// Show any success or error messages passed via data struct as toasts
+			const successDiv = document.querySelector('.success-message');
+			if (successDiv) {
+				const successMsg = successDiv.textContent.trim();
+				if (successMsg && typeof showToast === 'function') {
+					showToast(successMsg, 'success');
+				} else if (successMsg) {
+					console.error("showToast function not found, cannot display success message:", successMsg);
+				}
+			}
+
+			const errorDiv = document.querySelector('.error-message');
+			if (errorDiv) {
+				const errorMsg = errorDiv.textContent.trim();
+				if (errorMsg && typeof showToast === 'function') {
+					showToast(errorMsg, 'error');
+				} else if (errorMsg) {
+					console.error("showToast function not found, cannot display error message:", errorMsg);
+				}
+			}
+		});
+
+		// Script for handling the service deletion trigger
+		function triggerServiceDelete(dialogId, serviceID, serviceName) {
+			// Hide the dialog first
+			closeModal(dialogId); // Reuse closeModal logic
+
+			// Add debugging info
+			console.log(`Notification service deletion triggered for: ${serviceName} (ID: ${serviceID})`);
+
+			// Store data in a way that's accessible to event handlers
+			window.lastDeletedService = {
+				id: serviceID,
+				name: serviceName
+			};
+
+			// Add custom marker to track this deletion
+			window.currentlyDeletingService = true;
+		}
+
+		// Script for closing the modal
+		function closeModal(id) {
+			const dialog = document.getElementById(id);
+			if (dialog) {
+				dialog.classList.add("hidden");
+				dialog.classList.remove("flex");
+			}
+			const backdrop = document.getElementById(id + "-backdrop");
+			if (backdrop) {
+				// Instead of removing, hide it to potentially reuse
+				backdrop.classList.add("hidden");
+			}
+		}
+
+		// Script for showing the modal
+		function showModal(id) {
+			const dialog = document.getElementById(id);
+			if (dialog) {
+				dialog.classList.remove("hidden");
+				dialog.classList.add("flex"); // Use flex to center content
+			}
+			const backdrop = document.getElementById(id + "-backdrop");
+			if (backdrop) {
+				backdrop.classList.remove("hidden");
+			}
+		}
+	</script>
+}

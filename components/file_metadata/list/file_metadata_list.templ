@@ -1,0 +1,116 @@
+package list
+
+import (
+	"context"
+	"strconv"
+	"github.com/starfleetcptn/gomft/components/file_metadata"
+	"github.com/starfleetcptn/gomft/components/file_metadata/utils"
+	"github.com/starfleetcptn/gomft/components" // Import the main components package
+)
+
+// FileMetadataList renders the list of file metadata
+templ FileMetadataList(ctx context.Context, data file_metadata.FileMetadataListData) {
+	@components.LayoutWithContext("Files", ctx) { // Call using components package
+		<!-- Status and Error Messages -->
+		<div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2"></div>
+		
+		@utils.FileMetadataJS() // Use capitalized function name
+		
+		<div id="list-container" style="min-height: 100vh;" class="bg-gray-50 dark:bg-gray-900">
+			<div class="pb-8 w-full">
+				<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+					<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+						<i class="fas fa-file-alt w-6 h-6 mr-2 text-blue-500"></i>
+						Files
+					</h1>
+					<div class="flex gap-3">
+						<a href="/files/search" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+							<i class="fas fa-search mr-2"></i> Advanced Search
+						</a>
+					</div>
+				</div>
+
+				<!-- Filter Form -->
+				<div class="p-4 mb-6 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 w-full">
+					<h5 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Filter Files</h5>
+					<form 
+						hx-get="/files/partial" 
+						hx-target="#file-list-container"
+						hx-swap="innerHTML"
+						hx-indicator="#filter-loading"
+						hx-headers='{"X-HX-Request": "true"}'
+						class="grid grid-cols-1 md:grid-cols-3 gap-4">
+						if data.Job == nil {
+							<div>
+								<label for="job_id" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Job</label>
+								<input type="text" id="job_id" name="job_id" value={ data.Filter.JobID } placeholder="Job ID" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"/>
+							</div>
+						}
+						<div>
+							<label for="status" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Status</label>
+							<select id="status" name="status" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+								<option value="">All Statuses</option>
+								<option value="processed" selected?={ data.Filter.Status == "processed" }>Processed</option>
+								<option value="archived" selected?={ data.Filter.Status == "archived" }>Archived</option>
+								<option value="deleted" selected?={ data.Filter.Status == "deleted" }>Deleted</option>
+								<option value="archived_and_deleted" selected?={ data.Filter.Status == "archived_and_deleted" }>Archived & Deleted</option>
+								<option value="error" selected?={ data.Filter.Status == "error" }>Error</option>
+							</select>
+						</div>
+						<div>
+							<label for="filename" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Filename</label>
+							<input type="text" id="filename" name="filename" value={ data.Filter.FileName } placeholder="Filename or partial match" 
+								class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
+						</div>
+						<div class="md:col-span-3 flex justify-end items-center">
+							<button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+								<i class="fas fa-filter mr-2"></i> Apply Filters
+							</button>
+							<div id="filter-loading" class="htmx-indicator ml-2 flex items-center">
+								<i class="fas fa-circle-notch fa-spin text-blue-600"></i>
+							</div>
+						</div>
+					</form>
+				</div>
+
+				
+				<div class="bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700 w-full">
+					<!-- Card header -->
+					<div class="p-4 md:p-5 border-b border-gray-200 dark:border-gray-700">
+						<h5 class="text-xl font-bold leading-none text-gray-900 dark:text-white">
+							File List
+						</h5>
+						<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+							Showing { strconv.FormatInt(int64((data.Page - 1) * data.Limit + 1), 10) } to { strconv.FormatInt(int64(min(data.Page * data.Limit, int(data.TotalCount))), 10) } of { strconv.FormatInt(data.TotalCount, 10) } files
+						</p>
+					</div>
+					
+					<!-- Card content -->
+					<div id="file-list-container" class="p-4 md:p-5">
+						@FileMetadataListPartial(ctx, data, "/files/partial", "#file-list-container")
+					</div>
+				</div>
+			</div>
+
+			<script>
+				// Set dark background color if in dark mode
+				if (document.documentElement.classList.contains('dark')) {
+					document.getElementById('list-container').style.backgroundColor = '#111827';
+				}
+				
+				// Add event listener for theme changes
+				document.addEventListener('DOMContentLoaded', function() {
+					const themeToggle = document.getElementById('theme-toggle');
+					if (themeToggle) {
+						themeToggle.addEventListener('click', function() {
+							setTimeout(function() {
+								const isDark = document.documentElement.classList.contains('dark');
+								document.getElementById('list-container').style.backgroundColor = isDark ? '#111827' : 'rgb(249, 250, 251)';
+							}, 50);
+						});
+					}
+				});
+			</script>
+		</div>
+	}
+} 

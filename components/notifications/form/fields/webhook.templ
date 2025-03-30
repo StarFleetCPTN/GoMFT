@@ -1,0 +1,142 @@
+package fields
+
+import (
+	"github.com/starfleetcptn/gomft/components/notifications/types"
+	// "github.com/starfleetcptn/gomft/components/notifications/form/utils" // Removed as unused
+)
+
+templ WebhookFields(data types.NotificationFormData) {
+	<div id="webhook_fields" class="hidden notification-fields">
+		<div class="mb-6">
+			<label for="webhook_url" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Webhook URL</label>
+			if data.NotificationService.WebhookURL != "" {
+				<input type="url" id="webhook_url" name="webhook_url" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="https://api.example.com/webhook" value={ data.NotificationService.WebhookURL }/>
+			} else {
+				<input type="url" id="webhook_url" name="webhook_url" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="https://api.example.com/webhook" value=""/>
+			}
+		</div>
+		<div class="mb-6">
+			<label for="method" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">HTTP Method</label>
+			<select id="method" name="method" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+				if data.NotificationService.Method != "" {
+					if data.NotificationService.Method == "POST" {
+						<option value="POST" selected="selected">POST</option>
+					} else {
+						<option value="POST">POST</option>
+					}
+					if data.NotificationService.Method == "PUT" {
+						<option value="PUT" selected="selected">PUT</option>
+					} else {
+						<option value="PUT">PUT</option>
+					}
+				} else {
+					<option value="POST">POST</option>
+					<option value="PUT">PUT</option>
+				}
+			</select>
+		</div>
+		<div class="mb-6">
+			<label for="headers" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Headers (JSON)</label>
+			if data.NotificationService.Headers != "" {
+				<textarea id="headers" name="headers" rows="3" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder='{"Content-Type": "application/json", "Authorization": "Bearer token"}'>{ data.NotificationService.Headers }</textarea>
+			} else {
+				<textarea id="headers" name="headers" rows="3" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder='{"Content-Type": "application/json", "Authorization": "Bearer token"}'></textarea>
+			}
+		</div>
+		<div class="mb-6">
+			<label for="payload_template" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Payload Template (JSON)</label>
+			<textarea
+				id="payload_template"
+				name="payload_template"
+				rows="5"
+				class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+				placeholder='{
+	"event": "{{job.event}}",
+	"job": {
+			"id": "{{job.id}}",
+			"name": "{{job.name}}",
+			"status": "{{job.status}}",
+			"message": "{{job.message}}",
+			"started_at": "{{job.started_at}}",
+			"completed_at": "{{job.completed_at}}",
+			"duration_seconds": {{job.duration_seconds}},
+			"config_id": "{{job.config_id}}",
+			"config_name": "{{job.config_name}}",
+			"transfer_bytes": {{job.transfer_bytes}},
+			"file_count": {{job.file_count}}
+	},
+	"instance": {
+			"id": "{{instance.id}}",
+			"name": "{{instance.name}}",
+			"version": "{{instance.version}}",
+			"environment": "{{instance.environment}}"
+	},
+	"timestamp": "{{timestamp}}",
+	"notification_id": "{{notification.id}}"
+}'
+			>
+			if data.NotificationService.PayloadTemplate != "" {
+				data.NotificationService.PayloadTemplate
+			} </textarea>
+			<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Use placeholders for dynamic values. Available variables: job.*, instance.*, timestamp, notification.*</p>
+		</div>
+		// Removed duplicate Event Triggers section - now handled in form.templ
+		<div class="mb-6">
+			<label for="secret_key" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Secret Key (for signature verification)</label>
+			if data.NotificationService.SecretKey != "" {
+				<input type="text" id="secret_key" name="secret_key" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Optional signature verification key" value={ data.NotificationService.SecretKey }/>
+			}
+			<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">If provided, all webhooks will include an X-GoMFT-Signature header</p>
+		</div>
+		<div class="mb-6">
+			<label for="retry_policy" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Retry Policy</label>
+			<select id="retry_policy" name="retry_policy" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+					if data.NotificationService.RetryPolicy != "" {
+					if data.NotificationService.RetryPolicy == "none" {
+						<option value="none" selected="selected">No retries</option>
+					} else {
+						<option value="none">No retries</option>
+					}
+					if data.NotificationService.RetryPolicy == "simple" {
+						<option value="simple" selected="selected">Simple (3 retries)</option>
+					} else {
+						<option value="simple">Simple (3 retries)</option>
+					}
+					if data.NotificationService.RetryPolicy == "exponential" {
+						<option value="exponential" selected="selected">Exponential backoff</option>
+					} else {
+						<option value="exponential">Exponential backoff</option>
+					}
+				} else {
+					<option value="none">No retries</option>
+					<option value="simple">Simple (3 retries)</option>
+					<option value="exponential">Exponential backoff</option>
+				}
+			</select>
+		</div>
+		<!-- Test notification button -->
+		<div class="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600">
+			<div class="flex items-center justify-between mb-2">
+				<h4 class="text-base font-medium text-gray-900 dark:text-white">Test Configuration</h4>
+				<button
+					type="button"
+					id="test-webhook-btn"
+					hx-post="/admin/settings/notifications/test"
+					hx-trigger="click"
+					hx-target="#test-notification-result"
+					hx-swap="outerHTML"
+					class="px-3 py-2 text-xs font-medium text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 rounded-lg dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800"
+				>
+					<i class="fas fa-paper-plane mr-1"></i>
+					Send Test Notification
+				</button>
+			</div>
+			<p class="text-sm text-gray-500 dark:text-gray-400">
+				Send a test notification to verify your configuration works correctly before saving.
+			</p>
+			<div id="test-notification-result" class="mt-3 hidden">
+				<!-- Result will be shown here -->
+			</div>
+		</div>
+	</div>
+}

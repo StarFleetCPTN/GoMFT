@@ -1,0 +1,45 @@
+package form
+
+// FormScripts contains JavaScript specific to the notification form page.
+templ FormScripts() {
+	<script>
+		// Toggle notification fields based on selection
+		document.addEventListener('DOMContentLoaded', function() {
+			const typeSelector = document.getElementById('notification_type');
+			// Ensure typeSelector exists before adding listener
+			if (!typeSelector) {
+				console.warn("Notification type selector not found.");
+				return; 
+			}
+
+			const allFields = document.querySelectorAll('.notification-fields');
+			const commonFields = document.querySelectorAll('.common-fields');
+
+			function toggleFields() {
+				// Hide all specific fields first
+				allFields.forEach(field => field.classList.add('hidden'));
+
+				// Show/hide common fields based on selection
+				const selectedType = typeSelector.value;
+				if (selectedType) {
+					// Show common fields (name, description, is_enabled, submit)
+					commonFields.forEach(field => field.classList.remove('hidden'));
+
+					// Show the selected type's specific fields
+					const fieldsToShow = document.getElementById(`${selectedType}_fields`);
+					if (fieldsToShow) {
+						fieldsToShow.classList.remove('hidden');
+					}
+				} else {
+					// Hide common fields if no type selected
+					commonFields.forEach(field => field.classList.add('hidden'));
+				}
+			}
+
+			typeSelector.addEventListener('change', toggleFields);
+
+			// Initialize form state on load (if editing or if a type is pre-selected)
+			toggleFields(); 
+		});
+	</script>
+}

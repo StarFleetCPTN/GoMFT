@@ -11,7 +11,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/starfleetcptn/gomft/components"
+
 	"github.com/starfleetcptn/gomft/internal/db"
+	"github.com/starfleetcptn/gomft/internal/rclone_service" // Assuming we create this package
 )
 
 // HandleConfigs handles the GET /configs route
@@ -65,9 +67,43 @@ func (h *Handlers) HandleEditConfig(c *gin.Context) {
 		}
 	}
 
+	// Fetch the initial command details for pre-rendering flags
+	initialCommand, err := h.DB.GetRcloneCommandWithFlags(config.CommandID)
+	if err != nil {
+		// Log the error but proceed, the form might still be usable without pre-rendered flags
+		log.Printf("Warning: Failed to get initial command flags for config %d: %v", config.ID, err)
+		initialCommand = nil // Ensure it's nil if fetching failed
+	}
+
+	// Parse the selected flags and values from the config
+	selectedFlagsMap := make(map[uint]bool)
+	if config.CommandFlags != "" {
+		var selectedFlagIDs []uint
+		// Use json.Unmarshal directly as CommandFlags should be a JSON array string
+		if err := json.Unmarshal([]byte(config.CommandFlags), &selectedFlagIDs); err == nil {
+			for _, id := range selectedFlagIDs {
+				selectedFlagsMap[id] = true
+			}
+		} else {
+			log.Printf("Warning: Failed to unmarshal CommandFlags for config %d: %v. JSON: %s", config.ID, err, config.CommandFlags)
+		}
+	}
+
+	selectedFlagValues := make(map[uint]string)
+	if config.CommandFlagValues != "" {
+		// Use json.Unmarshal directly as CommandFlagValues should be a JSON object string
+		if err := json.Unmarshal([]byte(config.CommandFlagValues), &selectedFlagValues); err != nil {
+			log.Printf("Warning: Failed to unmarshal CommandFlagValues for config %d: %v. JSON: %s", config.ID, err, config.CommandFlagValues)
+			selectedFlagValues = make(map[uint]string) // Reset on error
+		}
+	}
+
 	data := components.ConfigFormData{
-		Config: &config,
-		IsNew:  false,
+		Config:             &config,
+		IsNew:              false,
+		InitialCommand:     initialCommand,
+		SelectedFlagsMap:   selectedFlagsMap,
+		SelectedFlagValues: selectedFlagValues,
 	}
 	components.ConfigForm(c.Request.Context(), data).Render(c, c.Writer)
 }
@@ -651,4 +687,90 @@ func (h *Handlers) HandleDuplicateConfig(c *gin.Context) {
 	// Return with full page reload to show the new config
 	c.Header("HX-Refresh", "true")
 	c.JSON(http.StatusOK, gin.H{"message": "Config duplicated successfully"})
+}
+
+// HandleTestProviderConnection handles the POST /configs/test-connection route
+func (h *Handlers) HandleTestProviderConnection(c *gin.Context) {
+	var config db.TransferConfig
+	providerType := c.PostForm("providerType") // "source" or "destination"
+
+	// Bind all form data into a temporary config struct
+	// We don't save this, just use it to gather the necessary fields
+	if err := c.ShouldBind(&config); err != nil {
+		log.Printf("Error binding test connection form: %v", err)
+		// Render error using the TestResult component
+		components.TestResult(false, fmt.Sprintf("Invalid form data: %v", err)).Render(c, c.Writer)
+		return
+	}
+
+	// Process boolean fields manually as ShouldBind might not handle 'on' correctly for pointers
+	if providerType == "source" {
+		sourcePassiveModeVal := c.Request.FormValue("source_passive_mode")
+		sourcePassiveModeValue := sourcePassiveModeVal == "on" || sourcePassiveModeVal == "true"
+		config.SourcePassiveMode = &sourcePassiveModeValue
+
+		sourceReadOnlyVal := c.Request.FormValue("source_read_only")
+		sourceReadOnlyValue := sourceReadOnlyVal == "on" || sourceReadOnlyVal == "true"
+		config.SourceReadOnly = &sourceReadOnlyValue
+
+		sourceIncludeArchivedVal := c.Request.FormValue("source_include_archived")
+		sourceIncludeArchivedValue := sourceIncludeArchivedVal == "on" || sourceIncludeArchivedVal == "true"
+		config.SourceIncludeArchived = &sourceIncludeArchivedValue
+
+		useBuiltinAuthSourceVal := c.Request.FormValue("use_builtin_auth_source")
+		useBuiltinAuthSourceValue := useBuiltinAuthSourceVal == "on" || useBuiltinAuthSourceVal == "true"
+		config.UseBuiltinAuthSource = &useBuiltinAuthSourceValue
+	} else if providerType == "destination" {
+		destPassiveModeVal := c.Request.FormValue("dest_passive_mode")
+		destPassiveModeValue := destPassiveModeVal == "on" || destPassiveModeVal == "true"
+		config.DestPassiveMode = &destPassiveModeValue
+
+		destReadOnlyVal := c.Request.FormValue("dest_read_only")
+		destReadOnlyValue := destReadOnlyVal == "on" || destReadOnlyVal == "true"
+		config.DestReadOnly = &destReadOnlyValue
+
+		destIncludeArchivedVal := c.Request.FormValue("dest_include_archived")
+		destIncludeArchivedValue := destIncludeArchivedVal == "on" || destIncludeArchivedVal == "true"
+		config.DestIncludeArchived = &destIncludeArchivedValue
+
+		useBuiltinAuthDestVal := c.Request.FormValue("use_builtin_auth_dest")
+		useBuiltinAuthDestValue := useBuiltinAuthDestVal == "on" || useBuiltinAuthDestVal == "true"
+		config.UseBuiltinAuthDest = &useBuiltinAuthDestValue
+	}
+
+	// Call the rclone test function (to be implemented)
+	success, message, err := rclone_service.TestRcloneConnection(config, providerType, h.DB) // Pass DB if needed for built-in auth
+	toastType := "info"                                                                      // Default type
+	if err != nil {
+		log.Printf("Error testing rclone connection: %v. Message: %s", err, message) // Log both err and message
+		toastType = "error"
+		// Use the message from TestRcloneConnection for the toast
+	} else if success {
+		toastType = "success"
+	} else {
+		// If no error but not success, treat as error/warning
+		toastType = "error"
+	}
+
+	// Prepare data for HX-Trigger
+	toastData := map[string]interface{}{
+		"showToast": map[string]string{
+			"message": message,
+			"type":    toastType,
+		},
+	}
+
+	// Marshal data to JSON for the header
+	jsonData, err := json.Marshal(toastData)
+	if err != nil {
+		// Log the error, but maybe still try to send a basic trigger? Or just fail?
+		log.Printf("Error marshaling toast data for HX-Trigger: %v", err)
+		// Fallback or error handling - for now, just proceed without trigger maybe?
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+
+	// Trigger toast notification on the frontend via HX-Trigger header
+	c.Header("HX-Trigger", string(jsonData))
+	c.Status(http.StatusOK) // Return 200 OK, but with no body swap intended
 }
