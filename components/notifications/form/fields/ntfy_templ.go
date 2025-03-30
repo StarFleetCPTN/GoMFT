@@ -9,8 +9,8 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"github.com/starfleetcptn/gomft/components/notifications/form/utils"
 	"github.com/starfleetcptn/gomft/components/notifications/types"
+	// "github.com/starfleetcptn/gomft/components/notifications/form/utils" // Removed as unused
 )
 
 func NtfyFields(data types.NotificationFormData) templ.Component {
@@ -199,91 +199,7 @@ func NtfyFields(data types.NotificationFormData) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</textarea><p class=\"mt-1 text-sm text-gray-500 dark:text-gray-400\">Use placeholders for dynamic values. Available variables: job.*, instance.*, timestamp, notification.*</p></div><div class=\"mb-6\"><label class=\"block mb-2 text-sm font-medium text-gray-900 dark:text-white\">Event Triggers</label><div class=\"space-y-2\"><div class=\"flex items-center\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if data.NotificationService.EventTriggers != nil {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<input id=\"ntfy_trigger_job_start\" name=\"trigger_job_start\" type=\"checkbox\" class=\"w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800\" checked=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var7 string
-			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(utils.BoolToString(utils.Contains(data.NotificationService.EventTriggers, "job_start")))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/notifications/form/fields/ntfy.templ`, Line: 84, Col: 359}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\"> ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<input id=\"ntfy_trigger_job_start\" name=\"trigger_job_start\" type=\"checkbox\" class=\"w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800\"> ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<label for=\"ntfy_trigger_job_start\" class=\"ml-2 text-sm font-medium text-gray-900 dark:text-white\">Job Start</label></div><div class=\"flex items-center\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if data.NotificationService.EventTriggers != nil {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<input id=\"ntfy_trigger_job_complete\" name=\"trigger_job_complete\" type=\"checkbox\" class=\"w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800\" checked=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var8 string
-			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(utils.BoolToString(utils.Contains(data.NotificationService.EventTriggers, "job_complete")))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/notifications/form/fields/ntfy.templ`, Line: 92, Col: 368}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\"> ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<input id=\"ntfy_trigger_job_complete\" name=\"trigger_job_complete\" type=\"checkbox\" class=\"w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800\"> ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<label for=\"ntfy_trigger_job_complete\" class=\"ml-2 text-sm font-medium text-gray-900 dark:text-white\">Job Complete</label></div><div class=\"flex items-center\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		if data.NotificationService.EventTriggers != nil {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<input id=\"ntfy_trigger_job_error\" name=\"trigger_job_error\" type=\"checkbox\" class=\"w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800\" checked=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var9 string
-			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(utils.BoolToString(utils.Contains(data.NotificationService.EventTriggers, "job_error")))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/notifications/form/fields/ntfy.templ`, Line: 100, Col: 359}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "\"> ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "<input id=\"ntfy_trigger_job_error\" name=\"trigger_job_error\" type=\"checkbox\" class=\"w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800\"> ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<label for=\"ntfy_trigger_job_error\" class=\"ml-2 text-sm font-medium text-gray-900 dark:text-white\">Job Error</label></div></div></div><!-- Test notification button for Ntfy --><div class=\"mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600\"><div class=\"flex items-center justify-between mb-2\"><h4 class=\"text-base font-medium text-gray-900 dark:text-white\">Test Configuration</h4><button type=\"button\" id=\"test-ntfy-btn\" hx-post=\"/admin/settings/notifications/test\" hx-trigger=\"click\" hx-target=\"#test-notification-result\" hx-swap=\"outerHTML\" class=\"px-3 py-2 text-xs font-medium text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 rounded-lg dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800\"><i class=\"fas fa-paper-plane mr-1\"></i> Send Test Notification</button></div><p class=\"text-sm text-gray-500 dark:text-gray-400\">Send a test notification to verify your Ntfy configuration works correctly before saving.</p><div id=\"test-notification-result\" class=\"mt-3 hidden\"><!-- Result will be shown here --></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</textarea><p class=\"mt-1 text-sm text-gray-500 dark:text-gray-400\">Use placeholders for dynamic values. Available variables: job.*, instance.*, timestamp, notification.*</p></div><!-- Test notification button for Ntfy --><div class=\"mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600\"><div class=\"flex items-center justify-between mb-2\"><h4 class=\"text-base font-medium text-gray-900 dark:text-white\">Test Configuration</h4><button type=\"button\" id=\"test-ntfy-btn\" hx-post=\"/admin/settings/notifications/test\" hx-trigger=\"click\" hx-target=\"#test-notification-result\" hx-swap=\"outerHTML\" class=\"px-3 py-2 text-xs font-medium text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 rounded-lg dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800\"><i class=\"fas fa-paper-plane mr-1\"></i> Send Test Notification</button></div><p class=\"text-sm text-gray-500 dark:text-gray-400\">Send a test notification to verify your Ntfy configuration works correctly before saving.</p><div id=\"test-notification-result\" class=\"mt-3 hidden\"><!-- Result will be shown here --></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

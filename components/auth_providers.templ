@@ -80,7 +80,7 @@ templ AuthProviders(ctx context.Context, providers []db.AuthProvider) {
 													{ string(provider.Type) }
 												</td>
 												<td class="px-6 py-4">
-													if provider.Enabled {
+													if provider.GetEnabled() {
 														<span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
 															Active
 														</span>

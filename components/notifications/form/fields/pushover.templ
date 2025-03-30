@@ -2,7 +2,7 @@ package fields
 
 import (
 	"github.com/starfleetcptn/gomft/components/notifications/types"
-	"github.com/starfleetcptn/gomft/components/notifications/form/utils"
+	// "github.com/starfleetcptn/gomft/components/notifications/form/utils" // Removed as unused
 )
 
 templ PushoverFields(data types.NotificationFormData) {
@@ -97,35 +97,7 @@ templ PushoverFields(data types.NotificationFormData) {
 			} </textarea>
 			<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Use placeholders for dynamic values. Available variables: job.*, instance.*, timestamp, notification.*</p>
 		</div>
-		<div class="mb-6">
-			<label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Event Triggers</label>
-			<div class="space-y-2">
-				<div class="flex items-center">
-					if data.NotificationService.EventTriggers != nil {
-						<input id="pushover_trigger_job_start" name="trigger_job_start" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800" checked={ utils.BoolToString(utils.Contains(data.NotificationService.EventTriggers, "job_start")) }/>
-					} else {
-						<input id="pushover_trigger_job_start" name="trigger_job_start" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800"/>
-					}
-					<label for="pushover_trigger_job_start" class="ml-2 text-sm font-medium text-gray-900 dark:text-white">Job Start</label>
-				</div>
-				<div class="flex items-center">
-					if data.NotificationService.EventTriggers != nil {
-						<input id="pushover_trigger_job_complete" name="trigger_job_complete" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800" checked={ utils.BoolToString(utils.Contains(data.NotificationService.EventTriggers, "job_complete")) }/>
-					} else {
-						<input id="pushover_trigger_job_complete" name="trigger_job_complete" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800"/>
-					}
-					<label for="pushover_trigger_job_complete" class="ml-2 text-sm font-medium text-gray-900 dark:text-white">Job Complete</label>
-				</div>
-				<div class="flex items-center">
-					if data.NotificationService.EventTriggers != nil {
-						<input id="pushover_trigger_job_error" name="trigger_job_error" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800" checked={ utils.BoolToString(utils.Contains(data.NotificationService.EventTriggers, "job_error")) }/>
-					} else {
-						<input id="pushover_trigger_job_error" name="trigger_job_error" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800"/>
-					}
-					<label for="pushover_trigger_job_error" class="ml-2 text-sm font-medium text-gray-900 dark:text-white">Job Error</label>
-				</div>
-			</div>
-		</div>
+		// Removed duplicate Event Triggers section - now handled in form.templ
 		<!-- Test notification button for Pushover -->
 		<div class="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg dark:bg-gray-700 dark:border-gray-600">
 			<div class="flex items-center justify-between mb-2">

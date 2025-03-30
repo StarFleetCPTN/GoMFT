@@ -43,7 +43,7 @@ func (h *Handlers) HandleSettings(c *gin.Context) {
 			ID:              service.ID,
 			Name:            service.Name,
 			Type:            service.Type,
-			IsEnabled:       service.IsEnabled,
+			IsEnabled:       service.GetIsEnabled(), // Use getter
 			Config:          service.Config,
 			Description:     service.Description,
 			EventTriggers:   service.EventTriggers,
@@ -76,6 +76,8 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 	serviceType := c.PostForm("type")
 	description := c.PostForm("description")
 	isEnabled := c.PostForm("is_enabled") == "on"
+	// Read event triggers directly from the form array
+	eventTriggers := c.PostFormArray("event_triggers[]")
 
 	// Validate required fields
 	if name == "" || serviceType == "" {
@@ -86,7 +88,7 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 
 	// Create config map based on service type
 	config := make(map[string]string)
-	eventTriggers := make([]string, 0)
+	// eventTriggers slice is now populated above
 	fmt.Println("serviceType", serviceType)
 	switch serviceType {
 	case "email":
@@ -102,16 +104,7 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 		config["title_template"] = c.PostForm("pushbullet_title_template")
 		config["body_template"] = c.PostForm("pushbullet_body_template")
 
-		// Build event triggers
-		if c.PostForm("trigger_job_start") == "on" {
-			eventTriggers = append(eventTriggers, "job_start")
-		}
-		if c.PostForm("trigger_job_complete") == "on" {
-			eventTriggers = append(eventTriggers, "job_complete")
-		}
-		if c.PostForm("trigger_job_error") == "on" {
-			eventTriggers = append(eventTriggers, "job_error")
-		}
+		// Event triggers are handled above
 
 		// Validate required fields
 		if config["api_key"] == "" {
@@ -121,14 +114,15 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 
 		// Create new notification service
 		service := db.NotificationService{
-			Name:          name,
-			Type:          serviceType,
-			IsEnabled:     isEnabled,
+			Name: name,
+			Type: serviceType,
+			// IsEnabled will be set using the helper method below
 			Config:        config,
 			Description:   description,
 			EventTriggers: eventTriggers,
 			CreatedBy:     c.GetUint("userID"),
 		}
+		service.SetIsEnabled(isEnabled) // Use helper method
 
 		// Save to database
 		if err := h.DB.Create(&service).Error; err != nil {
@@ -141,7 +135,7 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 		auditDetails := map[string]interface{}{
 			"name":           service.Name,
 			"type":           service.Type,
-			"is_enabled":     service.IsEnabled,
+			"is_enabled":     service.GetIsEnabled(), // Use getter
 			"description":    service.Description,
 			"event_triggers": eventTriggers,
 		}
@@ -171,16 +165,7 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 		config["title_template"] = c.PostForm("ntfy_title_template")
 		config["message_template"] = c.PostForm("ntfy_message_template")
 
-		// Build event triggers
-		if c.PostForm("trigger_job_start") == "on" {
-			eventTriggers = append(eventTriggers, "job_start")
-		}
-		if c.PostForm("trigger_job_complete") == "on" {
-			eventTriggers = append(eventTriggers, "job_complete")
-		}
-		if c.PostForm("trigger_job_error") == "on" {
-			eventTriggers = append(eventTriggers, "job_error")
-		}
+		// Event triggers are handled above
 
 		// Validate required fields
 		if config["server"] == "" || config["topic"] == "" {
@@ -190,14 +175,15 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 
 		// Create new notification service
 		service := db.NotificationService{
-			Name:          name,
-			Type:          serviceType,
-			IsEnabled:     isEnabled,
+			Name: name,
+			Type: serviceType,
+			// IsEnabled will be set using the helper method below
 			Config:        config,
 			Description:   description,
 			EventTriggers: eventTriggers,
 			CreatedBy:     c.GetUint("userID"),
 		}
+		service.SetIsEnabled(isEnabled) // Use helper method
 
 		// Save to database
 		if err := h.DB.Create(&service).Error; err != nil {
@@ -210,7 +196,7 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 		auditDetails := map[string]interface{}{
 			"name":           service.Name,
 			"type":           service.Type,
-			"is_enabled":     service.IsEnabled,
+			"is_enabled":     service.GetIsEnabled(), // Use getter
 			"description":    service.Description,
 			"event_triggers": eventTriggers,
 		}
@@ -238,16 +224,7 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 		config["title_template"] = c.PostForm("gotify_title_template")
 		config["message_template"] = c.PostForm("gotify_message_template")
 
-		// Build event triggers
-		if c.PostForm("trigger_job_start") == "on" {
-			eventTriggers = append(eventTriggers, "job_start")
-		}
-		if c.PostForm("trigger_job_complete") == "on" {
-			eventTriggers = append(eventTriggers, "job_complete")
-		}
-		if c.PostForm("trigger_job_error") == "on" {
-			eventTriggers = append(eventTriggers, "job_error")
-		}
+		// Event triggers are handled above
 
 		// Validate required fields
 		if config["url"] == "" || config["token"] == "" {
@@ -257,14 +234,15 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 
 		// Create new notification service
 		service := db.NotificationService{
-			Name:          name,
-			Type:          serviceType,
-			IsEnabled:     isEnabled,
+			Name: name,
+			Type: serviceType,
+			// IsEnabled will be set using the helper method below
 			Config:        config,
 			Description:   description,
 			EventTriggers: eventTriggers,
 			CreatedBy:     c.GetUint("userID"),
 		}
+		service.SetIsEnabled(isEnabled) // Use helper method
 
 		// Save to database
 		if err := h.DB.Create(&service).Error; err != nil {
@@ -277,7 +255,7 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 		auditDetails := map[string]interface{}{
 			"name":           service.Name,
 			"type":           service.Type,
-			"is_enabled":     service.IsEnabled,
+			"is_enabled":     service.GetIsEnabled(), // Use getter
 			"description":    service.Description,
 			"event_triggers": eventTriggers,
 		}
@@ -307,16 +285,7 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 		config["title_template"] = c.PostForm("pushover_title_template")
 		config["message_template"] = c.PostForm("pushover_message_template")
 
-		// Build event triggers
-		if c.PostForm("trigger_job_start") == "on" {
-			eventTriggers = append(eventTriggers, "job_start")
-		}
-		if c.PostForm("trigger_job_complete") == "on" {
-			eventTriggers = append(eventTriggers, "job_complete")
-		}
-		if c.PostForm("trigger_job_error") == "on" {
-			eventTriggers = append(eventTriggers, "job_error")
-		}
+		// Event triggers are handled above
 
 		// Validate required fields
 		if config["app_token"] == "" || config["user_key"] == "" {
@@ -326,14 +295,15 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 
 		// Create new notification service
 		service := db.NotificationService{
-			Name:          name,
-			Type:          serviceType,
-			IsEnabled:     isEnabled,
+			Name: name,
+			Type: serviceType,
+			// IsEnabled will be set using the helper method below
 			Config:        config,
 			Description:   description,
 			EventTriggers: eventTriggers,
 			CreatedBy:     c.GetUint("userID"),
 		}
+		service.SetIsEnabled(isEnabled) // Use helper method
 
 		// Save to database
 		if err := h.DB.Create(&service).Error; err != nil {
@@ -346,7 +316,7 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 		auditDetails := map[string]interface{}{
 			"name":           service.Name,
 			"type":           service.Type,
-			"is_enabled":     service.IsEnabled,
+			"is_enabled":     service.GetIsEnabled(), // Use getter
 			"description":    service.Description,
 			"event_triggers": eventTriggers,
 		}
@@ -373,26 +343,13 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 		config["headers"] = c.PostForm("headers")
 
 		// Add the new webhook fields
-		// Create event triggers array
-		// print all event triggers
-		log.Printf("Event triggers: %v", c.PostForm("trigger_job_start"))
-		log.Printf("Event triggers: %v", c.PostForm("trigger_job_complete"))
-		log.Printf("Event triggers: %v", c.PostForm("trigger_job_error"))
-		if c.PostForm("trigger_job_start") == "on" {
-			eventTriggers = append(eventTriggers, "job_start")
-		}
-		if c.PostForm("trigger_job_complete") == "on" {
-			eventTriggers = append(eventTriggers, "job_complete")
-		}
-		if c.PostForm("trigger_job_error") == "on" {
-			eventTriggers = append(eventTriggers, "job_error")
-		}
+		// Event triggers are handled above
 
 		// Create new notification service with additional fields
 		service := db.NotificationService{
-			Name:            name,
-			Type:            serviceType,
-			IsEnabled:       isEnabled,
+			Name: name,
+			Type: serviceType,
+			// IsEnabled will be set using the helper method below
 			Config:          config,
 			Description:     description,
 			EventTriggers:   eventTriggers,
@@ -401,6 +358,7 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 			RetryPolicy:     c.PostForm("retry_policy"),
 			CreatedBy:       c.GetUint("userID"),
 		}
+		service.SetIsEnabled(isEnabled) // Use helper method
 
 		// Save to database
 		if err := h.DB.Create(&service).Error; err != nil {
@@ -413,7 +371,7 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 		auditDetails := map[string]interface{}{
 			"name":           service.Name,
 			"type":           service.Type,
-			"is_enabled":     service.IsEnabled,
+			"is_enabled":     service.GetIsEnabled(), // Use getter
 			"description":    service.Description,
 			"event_triggers": eventTriggers,
 			"retry_policy":   service.RetryPolicy,
@@ -442,13 +400,14 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 
 	// Create new notification service
 	service := db.NotificationService{
-		Name:        name,
-		Type:        serviceType,
-		IsEnabled:   isEnabled,
+		Name: name,
+		Type: serviceType,
+		// IsEnabled will be set using the helper method below
 		Config:      config,
 		Description: description,
 		CreatedBy:   c.GetUint("userID"),
 	}
+	service.SetIsEnabled(isEnabled) // Use helper method
 
 	// Save to database
 	if err := h.DB.Create(&service).Error; err != nil {
@@ -461,7 +420,7 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 	auditDetails := map[string]interface{}{
 		"name":        service.Name,
 		"type":        service.Type,
-		"is_enabled":  service.IsEnabled,
+		"is_enabled":  service.GetIsEnabled(), // Use getter
 		"description": service.Description,
 	}
 
@@ -1142,7 +1101,7 @@ func (h *Handlers) HandleNotificationsPage(c *gin.Context) {
 			ID:              service.ID,
 			Name:            service.Name,
 			Type:            service.Type,
-			IsEnabled:       service.IsEnabled,
+			IsEnabled:       service.GetIsEnabled(), // Use getter
 			Config:          service.Config,
 			Description:     service.Description,
 			EventTriggers:   service.EventTriggers,
@@ -1281,7 +1240,7 @@ func (h *Handlers) HandleEditNotificationPage(c *gin.Context) {
 			Name:                    service.Name,
 			Description:             service.Description,
 			Type:                    service.Type,
-			IsEnabled:               service.IsEnabled,
+			IsEnabled:               service.GetIsEnabled(), // Use getter
 			EventTriggers:           service.EventTriggers,
 			RetryPolicy:             service.RetryPolicy,
 			PayloadTemplate:         service.PayloadTemplate,
@@ -1353,6 +1312,7 @@ func (h *Handlers) HandleUpdateNotificationService(c *gin.Context) {
 	serviceType := c.PostForm("type")
 	description := c.PostForm("description")
 	isEnabled := c.PostForm("is_enabled") == "on"
+	eventTriggers := c.PostFormArray("event_triggers[]")
 
 	// Validate required fields
 	if name == "" || serviceType == "" {
@@ -1364,7 +1324,8 @@ func (h *Handlers) HandleUpdateNotificationService(c *gin.Context) {
 	service.Name = name
 	service.Type = serviceType
 	service.Description = description
-	service.IsEnabled = isEnabled
+	service.EventTriggers = eventTriggers
+	service.SetIsEnabled(isEnabled) // Use setter
 
 	// Update type-specific fields based on service type
 	switch serviceType {
@@ -1377,18 +1338,7 @@ func (h *Handlers) HandleUpdateNotificationService(c *gin.Context) {
 		service.SecretKey = c.PostForm("secret_key")
 		service.RetryPolicy = c.PostForm("retry_policy")
 
-		// Update event triggers
-		eventTriggers := make([]string, 0)
-		if c.PostForm("trigger_job_start") == "on" {
-			eventTriggers = append(eventTriggers, "job_start")
-		}
-		if c.PostForm("trigger_job_complete") == "on" {
-			eventTriggers = append(eventTriggers, "job_complete")
-		}
-		if c.PostForm("trigger_job_error") == "on" {
-			eventTriggers = append(eventTriggers, "job_error")
-		}
-		service.EventTriggers = eventTriggers
+		// Event triggers are handled above
 
 	case "pushbullet":
 		// Update Pushbullet-specific fields
@@ -1397,18 +1347,7 @@ func (h *Handlers) HandleUpdateNotificationService(c *gin.Context) {
 		service.Config["title_template"] = c.PostForm("pushbullet_title_template")
 		service.Config["body_template"] = c.PostForm("pushbullet_body_template")
 
-		// Update event triggers
-		eventTriggers := make([]string, 0)
-		if c.PostForm("trigger_job_start") == "on" {
-			eventTriggers = append(eventTriggers, "job_start")
-		}
-		if c.PostForm("trigger_job_complete") == "on" {
-			eventTriggers = append(eventTriggers, "job_complete")
-		}
-		if c.PostForm("trigger_job_error") == "on" {
-			eventTriggers = append(eventTriggers, "job_error")
-		}
-		service.EventTriggers = eventTriggers
+		// Event triggers are handled above
 
 	case "ntfy":
 		// Update Ntfy-specific fields
@@ -1420,18 +1359,7 @@ func (h *Handlers) HandleUpdateNotificationService(c *gin.Context) {
 		service.Config["title_template"] = c.PostForm("ntfy_title_template")
 		service.Config["message_template"] = c.PostForm("ntfy_message_template")
 
-		// Update event triggers
-		eventTriggers := make([]string, 0)
-		if c.PostForm("trigger_job_start") == "on" {
-			eventTriggers = append(eventTriggers, "job_start")
-		}
-		if c.PostForm("trigger_job_complete") == "on" {
-			eventTriggers = append(eventTriggers, "job_complete")
-		}
-		if c.PostForm("trigger_job_error") == "on" {
-			eventTriggers = append(eventTriggers, "job_error")
-		}
-		service.EventTriggers = eventTriggers
+		// Event triggers are handled above
 
 	case "gotify":
 		// Update Gotify-specific fields
@@ -1441,18 +1369,7 @@ func (h *Handlers) HandleUpdateNotificationService(c *gin.Context) {
 		service.Config["title_template"] = c.PostForm("gotify_title_template")
 		service.Config["message_template"] = c.PostForm("gotify_message_template")
 
-		// Update event triggers
-		eventTriggers := make([]string, 0)
-		if c.PostForm("trigger_job_start") == "on" {
-			eventTriggers = append(eventTriggers, "job_start")
-		}
-		if c.PostForm("trigger_job_complete") == "on" {
-			eventTriggers = append(eventTriggers, "job_complete")
-		}
-		if c.PostForm("trigger_job_error") == "on" {
-			eventTriggers = append(eventTriggers, "job_error")
-		}
-		service.EventTriggers = eventTriggers
+		// Event triggers are handled above
 
 	case "pushover":
 		// Update Pushover-specific fields
@@ -1464,18 +1381,7 @@ func (h *Handlers) HandleUpdateNotificationService(c *gin.Context) {
 		service.Config["title_template"] = c.PostForm("pushover_title_template")
 		service.Config["message_template"] = c.PostForm("pushover_message_template")
 
-		// Update event triggers
-		eventTriggers := make([]string, 0)
-		if c.PostForm("trigger_job_start") == "on" {
-			eventTriggers = append(eventTriggers, "job_start")
-		}
-		if c.PostForm("trigger_job_complete") == "on" {
-			eventTriggers = append(eventTriggers, "job_complete")
-		}
-		if c.PostForm("trigger_job_error") == "on" {
-			eventTriggers = append(eventTriggers, "job_error")
-		}
-		service.EventTriggers = eventTriggers
+		// Event triggers are handled above
 	}
 
 	// Save to database
@@ -1489,7 +1395,7 @@ func (h *Handlers) HandleUpdateNotificationService(c *gin.Context) {
 	auditDetails := map[string]interface{}{
 		"name":           service.Name,
 		"type":           service.Type,
-		"is_enabled":     service.IsEnabled,
+		"is_enabled":     service.GetIsEnabled(), // Use getter
 		"description":    service.Description,
 		"event_triggers": service.EventTriggers,
 	}
@@ -1524,7 +1430,7 @@ func (h *Handlers) handleNotificationsWithError(c *gin.Context, errorMessage str
 			ID:              service.ID,
 			Name:            service.Name,
 			Type:            service.Type,
-			IsEnabled:       service.IsEnabled,
+			IsEnabled:       service.GetIsEnabled(), // Use getter
 			Config:          service.Config,
 			Description:     service.Description,
 			EventTriggers:   service.EventTriggers,
@@ -1559,7 +1465,7 @@ func (h *Handlers) handleNotificationsWithSuccess(c *gin.Context, successMessage
 			ID:              service.ID,
 			Name:            service.Name,
 			Type:            service.Type,
-			IsEnabled:       service.IsEnabled,
+			IsEnabled:       service.GetIsEnabled(), // Use getter
 			Config:          service.Config,
 			Description:     service.Description,
 			EventTriggers:   service.EventTriggers,

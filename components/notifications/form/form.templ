@@ -102,17 +102,45 @@ templ NotificationForm(ctx context.Context, data types.NotificationFormData) {
 						@fields.GotifyFields(data)
 						@fields.PushoverFields(data)
 
+
+						<div class="mb-6 hidden common-fields">
+							<label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Event Triggers</label>
+							<p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Select the job events that should trigger this notification.</p>
+							<div class="flex flex-wrap gap-4">
+								for _, event := range []string{"job_start", "job_complete", "job_error"} {
+									<div class="flex items-center">
+										<input
+											id={ "trigger_" + event }
+											name="event_triggers[]"
+											type="checkbox"
+											value={ event }
+											class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+											if utils.IsEventTriggerSelected(data.NotificationService, event, data.IsNew) {
+												checked
+											}
+										/>
+										<label for={ "trigger_" + event } class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">{ utils.FormatEventTriggerName(event) }</label>
+									</div>
+								}
+							</div>
+						</div>
+
 						<div class="flex items-start mb-6 hidden common-fields">
 							<div class="flex items-center h-5">
-								if data.NotificationService.IsEnabled != false {
-									<input id="is_enabled" name="is_enabled" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800" checked={ utils.BoolToString(data.NotificationService.IsEnabled) }/>
-								} else {
-									// Default to checked=true if IsEnabled is explicitly false (or not set) when creating new
-									<input id="is_enabled" name="is_enabled" type="checkbox" class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800" checked="true"/>
-								}
+								<input
+									id="is_enabled"
+									name="is_enabled"
+									type="checkbox"
+									value="true"
+									class="w-4 h-4 border border-gray-300 rounded bg-gray-50 focus:ring-3 focus:ring-blue-300 dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800"
+									if data.NotificationService != nil && data.NotificationService.IsEnabled {
+										checked
+									}
+								/>
 							</div>
 							<div class="ml-3 text-sm">
 								<label for="is_enabled" class="font-medium text-gray-900 dark:text-white">Enable this notification service</label>
+								<p class="text-xs text-gray-500 dark:text-gray-400">Check this box to make the service active.</p>
 							</div>
 						</div>
 						<div class="hidden common-fields">

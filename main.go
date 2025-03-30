@@ -14,6 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/robfig/cron/v3"
+
 	// "github.com/starfleetcptn/gomft/internal/api"
 	"github.com/starfleetcptn/gomft/components"
 	"github.com/starfleetcptn/gomft/internal/config"
@@ -144,7 +145,7 @@ func main() {
 	var dbJobExecutor scheduler.JobExecutorDB = database
 	var dbScheduler scheduler.SchedulerDB = database
 
-	notifier := scheduler.NewNotifier(dbNotifier, schedLogger)
+	notifier := scheduler.NewNotifier(dbNotifier, schedLogger, cfg.SkipSSLVerify)
 	metadataHandler := scheduler.NewMetadataHandler(dbMetadata, schedLogger)
 	transferExecutor := scheduler.NewTransferExecutor(dbTransfer, schedLogger, metadataHandler, notifier)
 	jobExecutor := scheduler.NewJobExecutor(dbJobExecutor, schedLogger, schedCron, jobsMap, &jobMutex, transferExecutor, notifier)

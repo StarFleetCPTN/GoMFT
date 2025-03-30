@@ -698,7 +698,7 @@ func (h *Handlers) HandleAuthProviderInit(c *gin.Context) {
 
 	// Get the auth provider
 	provider, err := h.DB.GetAuthProviderByID(c.Request.Context(), uint(providerID))
-	if err != nil || !provider.Enabled {
+	if err != nil || !provider.GetEnabled() { // Use getter
 		h.HandleBadRequest(c, "Provider Not Available", "The authentication provider is not available")
 		return
 	}
@@ -862,7 +862,7 @@ func (h *Handlers) HandleAuthProviderCallback(c *gin.Context) {
 
 	// Get the auth provider
 	provider, err := h.DB.GetAuthProviderByID(c.Request.Context(), uint(providerID))
-	if err != nil || !provider.Enabled {
+	if err != nil || !provider.GetEnabled() { // Use getter
 		h.HandleBadRequest(c, "Provider Not Available", "The authentication provider is not available")
 		return
 	}

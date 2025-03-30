@@ -28,7 +28,7 @@ type AuthProvider struct {
 	ID               uint         `gorm:"primarykey" json:"id"`
 	Name             string       `gorm:"not null" json:"name"`
 	Type             ProviderType `gorm:"not null" json:"type"`
-	Enabled          bool         `gorm:"default:true" json:"enabled"`
+	Enabled          *bool        `gorm:"default:true" json:"enabled"`
 	Description      string       `json:"description"`
 	ProviderURL      string       `json:"provider_url"`
 	ClientID         string       `json:"client_id"`
@@ -73,6 +73,21 @@ func (p *AuthProvider) SetConfig(data map[string]interface{}) error {
 	p.Config = string(jsonData)
 	p.configData = data
 	return nil
+}
+
+// --- AuthProvider Helper Methods ---
+
+// GetEnabled returns the value of Enabled with a default if nil
+func (p *AuthProvider) GetEnabled() bool {
+	if p.Enabled == nil {
+		return true // Default to true if not set
+	}
+	return *p.Enabled
+}
+
+// SetEnabled sets the Enabled field
+func (p *AuthProvider) SetEnabled(value bool) {
+	p.Enabled = &value
 }
 
 // ExternalUserIdentity represents a user identity from an external authentication provider

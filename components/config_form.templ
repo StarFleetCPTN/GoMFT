@@ -290,33 +290,34 @@ func getInitialData(config *db.TransferConfig) string {
 			// This will need coordination with your backend to ensure the IDs match the commands
 			let commandName = '';
 			switch(parseInt(this.commandId)) {
-				// Map command IDs to command names - adjust these based on your actual command IDs
+				// Correct mapping based on internal/db/migrations/009_add_rclone_tables.go
 				case 1: commandName = 'copy'; break;
-				case 2: commandName = 'move'; break;
-				case 3: commandName = 'sync'; break;
-				case 4: commandName = 'ls'; break;
-				case 5: commandName = 'lsd'; break;
-				case 6: commandName = 'lsl'; break;
-				case 7: commandName = 'lsf'; break;
-				case 8: commandName = 'lsjson'; break;
-				case 9: commandName = 'md5sum'; break;
-				case 10: commandName = 'sha1sum'; break;
-				case 11: commandName = 'size'; break;
-				case 12: commandName = 'delete'; break;
-				case 13: commandName = 'purge'; break;
-				case 14: commandName = 'mkdir'; break;
-				case 15: commandName = 'rmdir'; break;
-				case 16: commandName = 'rmdirs'; break;
-				case 17: commandName = 'check'; break;
-				case 18: commandName = 'cleanup'; break;
-				case 19: commandName = 'dedupe'; break;
-				case 20: commandName = 'version'; break;
-				case 21: commandName = 'listremotes'; break;
-				case 22: commandName = 'cryptcheck'; break;
-				case 23: commandName = 'bisync'; break;
-				case 24: commandName = 'copyto'; break;
-				case 25: commandName = 'moveto'; break;
-				default: commandName = 'copy'; // Default to copy
+				case 2: commandName = 'sync'; break;
+				case 3: commandName = 'bisync'; break;
+				case 4: commandName = 'move'; break;
+				case 5: commandName = 'delete'; break;
+				case 6: commandName = 'purge'; break;
+				case 7: commandName = 'mkdir'; break;
+				case 8: commandName = 'rmdir'; break;
+				case 9: commandName = 'rmdirs'; break;
+				case 10: commandName = 'check'; break;
+				case 11: commandName = 'ls'; break;
+				case 12: commandName = 'lsd'; break;
+				case 13: commandName = 'lsl'; break;
+				case 14: commandName = 'lsf'; break;
+				case 15: commandName = 'lsjson'; break;
+				case 16: commandName = 'md5sum'; break;
+				case 17: commandName = 'sha1sum'; break;
+				case 18: commandName = 'size'; break;
+				case 19: commandName = 'version'; break;
+				case 20: commandName = 'cleanup'; break;
+				case 21: commandName = 'dedupe'; break;
+				case 22: commandName = 'copyto'; break;
+				case 23: commandName = 'moveto'; break;
+				case 24: commandName = 'listremotes'; break;
+				case 25: commandName = 'obscure'; break;
+				case 26: commandName = 'cryptcheck'; break;
+				default: commandName = 'copy'; // Default to copy if ID is unknown
 			}
 			
 			console.log('Command ID:', this.commandId, 'Command Name:', commandName);

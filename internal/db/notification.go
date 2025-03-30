@@ -12,7 +12,7 @@ type NotificationService struct {
 	ID                uint              `json:"id" gorm:"primaryKey"`
 	Name              string            `json:"name" gorm:"not null"`
 	Type              string            `json:"type" gorm:"not null"` // email, webhook
-	IsEnabled         bool              `json:"is_enabled" gorm:"default:true"`
+	IsEnabled         *bool             `json:"is_enabled" gorm:"default:true"`
 	Config            map[string]string `json:"config" gorm:"-"`
 	ConfigJSON        string            `json:"-" gorm:"column:config"`
 	Description       string            `json:"description"`
@@ -69,6 +69,8 @@ func (db *DB) GetNotificationServices(onlyEnabled bool) ([]NotificationService, 
 	query := db.DB
 
 	if onlyEnabled {
+		// When using a pointer, we need to explicitly check for true
+		// GORM handles the underlying SQL correctly for different dialects
 		query = query.Where("is_enabled = ?", true)
 	}
 
@@ -101,4 +103,22 @@ func (db *DB) UpdateNotificationService(service *NotificationService) error {
 // DeleteNotificationService deletes a notification service by ID
 func (db *DB) DeleteNotificationService(id uint) error {
 	return db.Delete(&NotificationService{}, id).Error
+}
+
+// --- NotificationService Helper Methods ---
+
+// GetIsEnabled returns the value of IsEnabled with a default if nil
+func (n *NotificationService) GetIsEnabled() bool {
+	if n.IsEnabled == nil {
+		// If the pointer is nil, GORM might not have set it,
+		// or it was explicitly set to nil. We assume the DB default (true)
+		// if it's nil, aligning with the original gorm tag default.
+		return true
+	}
+	return *n.IsEnabled
+}
+
+// SetIsEnabled sets the IsEnabled field
+func (n *NotificationService) SetIsEnabled(value bool) {
+	n.IsEnabled = &value
 }

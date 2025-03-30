@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -30,15 +31,17 @@ type NotificationDB interface {
 
 // Notifier handles sending notifications via various services.
 type Notifier struct {
-	db     NotificationDB // Use the interface type
-	logger *Logger
+	db            NotificationDB // Use the interface type
+	logger        *Logger
+	skipSSLVerify bool
 }
 
 // NewNotifier creates a new Notifier.
-func NewNotifier(database NotificationDB, logger *Logger) *Notifier { // Accept the interface type
+func NewNotifier(database NotificationDB, logger *Logger, skipSSLVerify bool) *Notifier { // Accept the interface type and skip flag
 	return &Notifier{
-		db:     database,
-		logger: logger,
+		db:            database,
+		logger:        logger,
+		skipSSLVerify: skipSSLVerify, // Store the flag
 	}
 }
 
@@ -138,10 +141,8 @@ func (n *Notifier) sendJobWebhookNotification(job *db.Job, history *db.JobHistor
 
 	n.logger.LogDebug("Webhook headers: %+v", req.Header)
 
-	// Send the request with a timeout
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
+	// Send the request with a timeout and configured TLS settings
+	client := createHTTPClient(10*time.Second, n.skipSSLVerify)
 	resp, err := client.Do(req)
 	if err != nil {
 		n.logger.LogError("Error sending webhook for job %d: %v", job.ID, err)
@@ -328,6 +329,26 @@ func generateEmailBody(job *db.Job, history *db.JobHistory, config *db.TransferC
 	return b.String()
 }
 
+// createHTTPClient creates an HTTP client with appropriate TLS settings and timeout.
+func createHTTPClient(timeout time.Duration, skipSSLVerify bool) *http.Client {
+	// Clone the default transport to avoid modifying global state
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+
+	if skipSSLVerify {
+		// Ensure TLSClientConfig exists before modifying it
+		if transport.TLSClientConfig == nil {
+			transport.TLSClientConfig = &tls.Config{}
+		}
+		transport.TLSClientConfig.InsecureSkipVerify = true
+		// TODO: Consider adding a log warning here when skipping verification
+	}
+
+	return &http.Client{
+		Timeout:   timeout,
+		Transport: transport,
+	}
+}
+
 // sendServiceWebhookNotification sends a webhook notification using a configured notification service.
 func (n *Notifier) sendServiceWebhookNotification(service *db.NotificationService, job *db.Job, history *db.JobHistory, config *db.TransferConfig, eventType string) error {
 	n.logger.LogDebug("Preparing webhook notification via service %s for job %d", service.Name, job.ID)
@@ -413,10 +434,8 @@ func (n *Notifier) sendServiceWebhookNotification(service *db.NotificationServic
 		timeout = 15 * time.Second
 	}
 
-	// Prepare client with timeout
-	client := &http.Client{
-		Timeout: timeout,
-	}
+	// Prepare client with timeout and configured TLS settings
+	client := createHTTPClient(timeout, n.skipSSLVerify)
 
 	// Attempt to send with retries
 	var resp *http.Response
@@ -834,7 +853,7 @@ func (n *Notifier) sendPushbulletNotification(service *db.NotificationService, j
 	req.Header.Set("Access-Token", apiKey)
 
 	// Send the request
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := createHTTPClient(10*time.Second, n.skipSSLVerify)
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send Pushbullet notification: %v", err)
@@ -930,7 +949,7 @@ func (n *Notifier) sendNtfyNotification(service *db.NotificationService, job *db
 	}
 
 	// Send the request
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := createHTTPClient(10*time.Second, n.skipSSLVerify)
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send ntfy notification: %v", err)
@@ -1016,7 +1035,7 @@ func (n *Notifier) sendGotifyNotification(service *db.NotificationService, job *
 	req.Header.Set("X-Gotify-Key", token)
 
 	// Send the request
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := createHTTPClient(10*time.Second, n.skipSSLVerify)
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send Gotify notification: %v", err)
@@ -1111,7 +1130,7 @@ func (n *Notifier) sendPushoverNotification(service *db.NotificationService, job
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	// Send the request
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := createHTTPClient(10*time.Second, n.skipSSLVerify)
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send Pushover notification: %v", err)

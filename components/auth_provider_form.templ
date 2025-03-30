@@ -275,7 +275,7 @@ templ formContent(provider *db.AuthProvider, isNew bool) {
 		<!-- Enabled -->
 		<div>
 			<div class="flex items-center">
-				if provider == nil || provider.Enabled {
+				if provider == nil || provider.GetEnabled() {
 					<input
 						type="checkbox"
 						id="enabled"

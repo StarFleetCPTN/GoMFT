@@ -25,7 +25,7 @@ type TransferConfig struct {
 	SourceShare  string `form:"source_share"`
 	SourceDomain string `form:"source_domain"`
 	// FTP source fields
-	SourcePassiveMode *bool `gorm:"default:true" form:"source_passive_mode"`
+	SourcePassiveMode *bool `gorm:"default:true" form:"source_passive_mode"` // Already a pointer, no change needed here
 	// OneDrive and Google Drive source fields
 	SourceClientID     string `form:"source_client_id"`
 	SourceClientSecret string `form:"source_client_secret" gorm:"-"` // Not stored in DB, only used for form

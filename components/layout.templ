@@ -142,7 +142,7 @@ templ LayoutWithContext(title string, ctx context.Context) {
 				}
 			</style>
 		</head>
-		<body class="min-h-full bg-gray-50 dark:bg-gray-900" style="min-height: 100vh; display: flex; flex-direction: column;">
+		<body class="min-h-full bg-gray-50 dark:bg-gray-900" style="min-height: 100vh; display: flex; flex-direction: column;" hx-on::after-swap="initFlowbite()">
 			if isLoggedIn(ctx) {
 				<!-- Application Shell -->
 				<div class="flex min-h-screen bg-gray-50 dark:bg-gray-900">
