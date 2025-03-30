@@ -311,6 +311,10 @@ PGID=1000
     - If longer than 32 bytes, it will be truncated to 32 bytes
     - Example: `TOTP_ENCRYPTION_KEY=abcdefghijklmnopqrstuvwxyz123456`
 
+
+- SSL/TLS Verification Control:
+  - `SKIP_SSL_VERIFY`: Set to `true` to disable SSL/TLS certificate verification for outgoing connections (e.g., webhooks, email). Use with caution, as this can expose connections to man-in-the-middle attacks. Defaults to `false` (verification enabled).
+    - Example: `SKIP_SSL_VERIFY=true`
 ### Logging Configuration
 
 GoMFT provides configurable logging with rotation support through the following environment variables:
