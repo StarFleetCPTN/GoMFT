@@ -10,12 +10,12 @@ templ NextCloudDestinationForm() {
 		</div>
 		
 		<div class="mb-6">
-			<label for="dest_endpoint" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">NextCloud URL</label>
+			<label for="dest_host" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">NextCloud URL</label>
 			<div class="relative">
 				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
 					<i class="fas fa-cloud text-gray-400 dark:text-gray-500"></i>
 				</div>
-				<input type="text" id="dest_endpoint" name="dest_endpoint" x-model="destEndpoint" x-bind:required="requiresDestination"
+				<input type="text" id="dest_host" name="dest_host" x-model="destHost" x-bind:required="requiresDestination"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
 					placeholder="https://nextcloud.example.com" />
 			</div>
@@ -32,7 +32,7 @@ templ NextCloudDestinationForm() {
 				</div>
 				<input type="text" id="dest_user" name="dest_user" x-model="destUser" x-bind:required="requiresDestination"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-					placeholder="nextcloud_username" />
+					placeholder="username" />
 			</div>
 			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
 				Your NextCloud username
@@ -47,7 +47,7 @@ templ NextCloudDestinationForm() {
 				</div>
 				<input type="password" id="dest_password" name="dest_password" x-model="destPassword" x-bind:required="requiresDestination"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-					placeholder="NextCloud password" />
+					placeholder="password" />
 			</div>
 			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
 				Your NextCloud account password
@@ -62,10 +62,10 @@ templ NextCloudDestinationForm() {
 				</div>
 				<input type="text" id="destination_path" name="destination_path" x-model="destinationPath" x-bind:required="requiresDestination"
 					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-					placeholder="remote.php/dav/files/username/path/to/files" />
+					placeholder="/path/to/files" />
 			</div>
 			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-				Path to your files in NextCloud. Usually starts with "remote.php/dav/files/username/"
+				Path to your files in NextCloud
 			</p>
 		</div>
 		

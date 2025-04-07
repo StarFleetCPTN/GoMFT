@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -149,7 +150,49 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create source config (minio): %v\nOutput: %s", err, output)
 		}
-	// ... (Add cases for other source types: b2, smb, ftp, webdav, nextcloud, onedrive, gdrive, gphotos) ...
+	case "webdav", "nextcloud": // Handle both webdav and nextcloud similarly
+		// Construct the WebDAV URL
+		// Parse the provided source URL, assuming it includes the scheme
+		inputURL := config.SourceHost
+		parsedURL, err := url.Parse(inputURL)
+		if err != nil {
+			return fmt.Errorf("failed to parse source URL '%s': %v", inputURL, err)
+		}
+		// Validate that both scheme and host are present
+		if parsedURL.Scheme == "" || parsedURL.Host == "" {
+			return fmt.Errorf("invalid source URL '%s': must include scheme (http/https) and host", inputURL)
+		}
+		// Use the scheme and host from the parsed URL
+		webdavURL := fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host)
+
+		// Determine vendor based on type
+		vendor := "other" // Default vendor
+		if config.SourceType == "nextcloud" {
+			vendor = "nextcloud"
+
+			// Construct the full Nextcloud path using the parsed base URL
+			webdavURL = fmt.Sprintf("%s/remote.php/dav/files/%s/", webdavURL, config.SourceUser)
+		}
+
+		args := []string{
+			"config", "create", sourceName, "webdav",
+			"url", webdavURL,
+			"vendor", vendor,
+			"user", config.SourceUser,
+			"pass", config.SourcePassword, // rclone obscures this
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+		cmd := exec.Command(rclonePath, args...)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			errorMsg := fmt.Sprintf("failed to create source config (%s): %v", config.SourceType, err)
+			// Check if output contains useful info, especially for auth errors
+			if len(output) > 0 {
+				errorMsg += fmt.Sprintf("\nOutput: %s", output)
+			}
+			return fmt.Errorf(errorMsg)
+		}
 	case "local":
 		// For local source, ensure the section exists but might not need specific rclone config create
 		content := fmt.Sprintf("[%s]\ntype = local\n\n", sourceName)
@@ -224,7 +267,47 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create destination config (minio): %v\nOutput: %s", err, output)
 		}
-	// ... (Add cases for other destination types: b2, smb, ftp, webdav, nextcloud, onedrive, gdrive, gphotos) ...
+	case "webdav", "nextcloud": // Combined case for WebDAV and Nextcloud
+		// Parse and reconstruct the WebDAV URL robustly
+		// Parse the provided destination URL, assuming it includes the scheme
+		inputURL := config.DestHost
+		parsedURL, err := url.Parse(inputURL)
+		if err != nil {
+			return fmt.Errorf("failed to parse destination URL '%s': %v", inputURL, err)
+		}
+		// Validate that both scheme and host are present
+		if parsedURL.Scheme == "" || parsedURL.Host == "" {
+			return fmt.Errorf("invalid destination URL '%s': must include scheme (http/https) and host", inputURL)
+		}
+		// Use the scheme and host from the parsed URL
+		webdavURL := fmt.Sprintf("%s://%s", parsedURL.Scheme, parsedURL.Host)
+
+		// Determine vendor based on type
+		vendor := "other" // Default vendor
+		if config.DestinationType == "nextcloud" {
+			vendor = "nextcloud"
+
+			webdavURL = fmt.Sprintf("%s/remote.php/dav/files/%s/", webdavURL, config.DestUser) // Corrected variable
+		}
+
+		args := []string{
+			"config", "create", destName, "webdav",
+			"url", webdavURL, // Use the parsed and reconstructed URL
+			"vendor", vendor,
+			"user", config.DestUser,
+			"pass", config.DestPassword, // rclone obscures this
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+		cmd := exec.Command(rclonePath, args...)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			errorMsg := fmt.Sprintf("failed to create destination config (%s): %v", config.DestinationType, err)
+			if len(output) > 0 {
+				errorMsg += fmt.Sprintf("\nOutput: %s", output)
+			}
+			return fmt.Errorf(errorMsg)
+		}
 	case "local":
 		// Append local config section
 		content := fmt.Sprintf("\n[%s]\ntype = local\n", destName)

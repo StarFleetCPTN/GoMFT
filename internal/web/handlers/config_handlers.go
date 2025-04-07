@@ -286,6 +286,7 @@ func (h *Handlers) HandleCreateConfig(c *gin.Context) {
 	}
 
 	// Generate rclone config file
+
 	if err := h.DB.GenerateRcloneConfig(&config); err != nil {
 		log.Printf("Warning: Failed to generate rclone config: %v", err)
 		// Continue anyway, as the config was created in the database
