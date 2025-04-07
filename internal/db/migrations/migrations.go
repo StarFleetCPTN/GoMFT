@@ -23,6 +23,7 @@ func GetMigrations(db *gorm.DB) *gormigrate.Gormigrate {
 		AddRcloneCommandToConfig(),    // 010
 		AddAuthProviders(),            // 011
 		AlterBooleanDefaults(),        // 012
+		CleanupInvalidBooleans(),      // 013
 	)
 
 	return gormigrate.New(db, gormigrate.DefaultOptions, migrations)
