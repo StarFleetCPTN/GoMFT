@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-templ Login(ctx context.Context, errorMessage string) {
+templ Login(ctx context.Context, errorMessage string, hasExternalProviders bool) {
 	@LayoutWithContext("Login", ctx) {
 		<div class="min-h-[calc(100vh-4rem)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50 dark:bg-gray-900">
 			<div class="max-w-md w-full space-y-8">
@@ -116,15 +116,17 @@ templ Login(ctx context.Context, errorMessage string) {
 							Contact an administrator to create an account
 						</p>
 						
-						<!-- External Authentication Providers -->
-						<div id="external-auth-providers" class="mt-4">
-							<p class="text-sm text-gray-600 dark:text-gray-300 mb-3">Or sign in with:</p>
-							<div id="provider-buttons" class="flex flex-col gap-2" hx-get="/auth/providers" hx-trigger="load" hx-target="#provider-buttons">
-								<div class="animate-pulse flex justify-center">
-									<div class="h-10 bg-gray-200 rounded w-full max-w-[200px] dark:bg-gray-700"></div>
+						if hasExternalProviders {
+							<!-- External Authentication Providers -->
+							<div id="external-auth-providers" class="mt-4">
+								<p class="text-sm text-gray-600 dark:text-gray-300 mb-3">Or sign in with:</p>
+								<div id="provider-buttons" class="flex flex-col gap-2" hx-get="/auth/providers" hx-trigger="load" hx-target="#provider-buttons">
+									<div class="animate-pulse flex justify-center">
+										<div class="h-10 bg-gray-200 rounded w-full max-w-[200px] dark:bg-gray-700"></div>
+									</div>
 								</div>
 							</div>
-						</div>
+						}
 					</div>
 				</div>
 				
