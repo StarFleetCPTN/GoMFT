@@ -449,7 +449,7 @@ function enhanceMobileForms() {
 
 
 // Listen for custom 'showToast' event triggered by HX-Trigger
-document.body.addEventListener('showToast', function(event) {
+document.addEventListener('showToast', function(event) { // Changed from document.body
   // Debug logs removed
   if (event.detail && event.detail.message && event.detail.type) {
     // Call the globally defined showToast function from toast_js.templ

@@ -33,21 +33,35 @@ templ ShowToastJS() {
 				textColorClass = 'text-blue-500 dark:text-blue-200';
 			}
 
-			// Set inner HTML with appropriate icon and message
-			toast.innerHTML = `
-				<div class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg ${iconClass}">
-					${type === 'success'
-						? '<i class="fas fa-check"></i>'
-						: type === 'error'
-						? '<i class="fas fa-exclamation-circle"></i>'
-						: '<i class="fas fa-info-circle"></i>'}
-				</div>
-				<div class="ml-3 text-sm font-normal">${message}</div>
-				<button type="button" class="ml-auto -mx-1.5 -my-1.5 bg-white text-gray-400 hover:text-gray-900 rounded-lg focus:ring-2 focus:ring-gray-300 p-1.5 hover:bg-gray-100 inline-flex h-8 w-8 dark:text-gray-500 dark:hover:text-white dark:bg-gray-800 dark:hover:bg-gray-700" data-dismiss-target="#${toast.id}" aria-label="Close">
-					<span class="sr-only">Close</span>
-					<i class="fas fa-times"></i>
-				</button>
+			// Create icon div
+			const iconDiv = document.createElement('div');
+			iconDiv.className = `inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg ${iconClass}`;
+			iconDiv.innerHTML = type === 'success'
+				? '<i class="fas fa-check"></i>'
+				: type === 'error'
+				? '<i class="fas fa-exclamation-circle"></i>'
+				: '<i class="fas fa-info-circle"></i>';
+
+			// Create message div and set text content safely
+			const messageDiv = document.createElement('div');
+			messageDiv.className = 'ml-3 text-sm font-normal';
+			messageDiv.textContent = message; // Use textContent for safety
+
+			// Create close button
+			const closeButton = document.createElement('button'); // Keep this declaration
+			closeButton.type = 'button';
+			closeButton.className = 'ml-auto -mx-1.5 -my-1.5 bg-white text-gray-400 hover:text-gray-900 rounded-lg focus:ring-2 focus:ring-gray-300 p-1.5 hover:bg-gray-100 inline-flex h-8 w-8 dark:text-gray-500 dark:hover:text-white dark:bg-gray-800 dark:hover:bg-gray-700';
+			closeButton.setAttribute('data-dismiss-target', `#${toast.id}`);
+			closeButton.setAttribute('aria-label', 'Close');
+			closeButton.innerHTML = `
+				<span class="sr-only">Close</span>
+				<i class="fas fa-times"></i>
 			`;
+
+			// Append elements to the toast
+			toast.appendChild(iconDiv);
+			toast.appendChild(messageDiv);
+			toast.appendChild(closeButton);
 
 			// Add toast to container
 			toastContainer.appendChild(toast);
@@ -58,9 +72,8 @@ templ ShowToastJS() {
 				toast.classList.add('translate-y-0', 'opacity-100');
 			}, 10);
 
-			// Add event listener to close button
-			const closeButton = toast.querySelector('button[data-dismiss-target]');
-			closeButton.addEventListener('click', function() {
+			// Add event listener to the close button we created earlier
+			closeButton.addEventListener('click', function() { // Use the existing closeButton variable
 				// Animate out before removing
 				toast.classList.add('opacity-0', 'translate-y-4');
 				setTimeout(() => {
