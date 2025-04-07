@@ -16,15 +16,49 @@ if [ -n "${PUID}" ] && [ -n "${PGID}" ]; then
         echo "Detected Alpine Linux, using busybox usermod/groupmod..."
         
         # Update group ID first
-        if [ "$(getent group ${USERNAME} | cut -d: -f3)" != "${PGID}" ]; then
-            echo "Updating GID to ${PGID}..."
-            groupmod -g ${PGID} ${USERNAME} || echo "⚠️ Failed to change GID"
-        fi
-        
-        # Update user ID
-        if [ "$(id -u ${USERNAME})" != "${PUID}" ]; then
-            echo "Updating UID to ${PUID}..."
-            usermod -u ${PUID} ${USERNAME} || echo "⚠️ Failed to change UID"
+        CURRENT_GID=$(getent group ${USERNAME} | cut -d: -f3)
+        CURRENT_UID=$(id -u ${USERNAME})
+
+        if [ "${CURRENT_GID}" != "${PGID}" ] || [ "${CURRENT_UID}" != "${PUID}" ]; then
+            echo "Attempting to update UID/GID to ${PUID}:${PGID} using delete/recreate..."
+            
+            # Delete existing user and group, ignoring errors
+            deluser ${USERNAME} > /dev/null 2>&1 || true
+            delgroup ${USERNAME} > /dev/null 2>&1 || true
+            
+            # Add group with the specified GID
+            echo "Adding group ${USERNAME} with GID ${PGID}"
+            if ! addgroup -g ${PGID} ${USERNAME}; then
+                echo "⚠️ Failed to add group ${USERNAME} with GID ${PGID}."
+                # Exiting because user creation will likely fail
+                exit 1
+            fi
+            
+            # Add user with the specified UID and GID
+            # Use -G for primary group with adduser in BusyBox
+            # Use -h /app for home directory (consistent with expectations)
+            # Use -s /bin/sh for shell
+            # Use -D for no password (system user)
+            echo "Adding user ${USERNAME} with UID ${PUID}"
+            if ! adduser -u ${PUID} -G ${USERNAME} -h /app -s /bin/sh -D ${USERNAME}; then
+                 echo "⚠️ Failed to add user ${USERNAME} with UID ${PUID} and group ${USERNAME}."
+                 # Exiting because the application cannot run as the correct user
+                 exit 1
+            fi
+            
+            # Verify the change
+            FINAL_UID=$(id -u ${USERNAME} 2>/dev/null || echo "error")
+            FINAL_GID=$(getent group ${USERNAME} | cut -d: -f3 2>/dev/null || echo "error")
+            
+            if [ "${FINAL_UID}" = "${PUID}" ] && [ "${FINAL_GID}" = "${PGID}" ]; then
+                echo "✅ Successfully updated UID/GID to ${PUID}:${PGID}"
+            else
+                echo "⚠️ Verification failed after update. Target: ${PUID}:${PGID}, Actual: ${FINAL_UID}:${FINAL_GID}"
+                # Exiting because the UID/GID is not correct
+                exit 1
+            fi
+        else
+            echo "UID/GID ${PUID}:${PGID} already set."
         fi
     else
         echo "Non-Alpine system, using standard user management..."
