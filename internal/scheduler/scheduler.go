@@ -3,7 +3,6 @@ package scheduler
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 
 	// Needed for Job.NextRun update
@@ -162,38 +161,18 @@ func (s *Scheduler) ScheduleJob(job *db.Job) error {
 		return nil
 	}
 
-	// Use a 6-field parser for validation and determine the schedule string to use.
-	scheduleToUse := job.Schedule
-	parser := cron.NewParser(cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
-	_, err := parser.Parse(scheduleToUse)
-
-	// If initial parse fails AND it was a 5-field schedule, try prepending seconds
-	if err != nil && len(strings.Fields(job.Schedule)) == 5 {
-		scheduleWithSeconds := "0 " + job.Schedule
-		_, errSeconds := parser.Parse(scheduleWithSeconds)
-		if errSeconds == nil {
-			scheduleToUse = scheduleWithSeconds // Use the 6-field version
-			err = nil                           // Clear the original error
-			s.logger.LogDebug("Converted 5-field schedule '%s' to 6-field '%s'", job.Schedule, scheduleToUse)
-		}
-	}
-
-	// If error still exists after trying conversion, return it
-	if err != nil {
-		return fmt.Errorf("invalid cron expression '%s': %w", job.Schedule, err)
-	}
-
-	s.logger.LogDebug("Validated cron expression '%s' for job %d", scheduleToUse, jobID)
-
-	// Schedule the job using the validated scheduleToUse
+	// Rely on the cron instance's AddFunc for validation based on its configuration (5 or 6 fields)
+	scheduleToUse := job.Schedule // Use the original schedule string
+	s.logger.LogDebug("Using schedule '%s' for job %d", scheduleToUse, jobID)
+	// Schedule the job using the original schedule string. AddFunc will validate it.
 	entryID, err := s.cron.AddFunc(scheduleToUse, func() { // Calls interface method
 		s.executor.executeJob(jobID) // Calls interface method
 	})
-
 	if err != nil {
-		s.logger.LogError("Error scheduling job %d: %v", jobID, err)
-		return err
-	} // <-- Added missing closing brace
+		// Log and return a more informative error if AddFunc fails validation
+		s.logger.LogError("Error scheduling job %d with schedule '%s': %v", jobID, scheduleToUse, err)
+		return fmt.Errorf("invalid cron expression '%s' for the configured scheduler: %w", scheduleToUse, err)
+	}
 	s.logger.LogDebug("Scheduled job %d with cron entry ID %d", jobID, entryID)
 
 	// Store mapping of job ID to cron entry ID
