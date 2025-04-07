@@ -178,6 +178,12 @@ func AlterBooleanDefaults() *gormigrate.Migration {
 				fmt.Printf("Recreating table %s...\n", tableName)
 				oldTableName := fmt.Sprintf("_%s_old", tableName)
 
+				// Drop the old temp table if it exists from a previous failed run
+				if err := tx.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", oldTableName)).Error; err != nil {
+					// Log the error but proceed, as the rename might still work or fail for the intended reason
+					fmt.Printf("Warning: failed to drop potential leftover table %s: %v\n", oldTableName, err)
+				}
+
 				// Rename old table
 				if err := tx.Exec(fmt.Sprintf("ALTER TABLE %s RENAME TO %s", tableName, oldTableName)).Error; err == nil {
 					fmt.Printf("Renamed %s to %s.\n", tableName, oldTableName)

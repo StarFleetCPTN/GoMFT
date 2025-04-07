@@ -11,18 +11,20 @@ var migrations []*gormigrate.Migration
 func GetMigrations(db *gorm.DB) *gormigrate.Gormigrate {
 	// Add all migrations in order
 	migrations = append(migrations,
-		InitialSchema(),               // 001
-		UpdateGDriveType(),            // 002
-		Add2FA(),                      // 003
-		AddAuditLogs(),                // 004
-		AddDefaultRoles(),             // 005
-		AddTimestampsToJobHistories(), // 006
-		AddNotificationServices(),     // 007
-		AddUserNotifications(),        // 008
-		AddRcloneTables(),             // 009
-		AddRcloneCommandToConfig(),    // 010
-		AddAuthProviders(),            // 011
-		AlterBooleanDefaults(),        // 012
+		InitialSchema(),                // 001
+		UpdateGDriveType(),             // 002
+		Add2FA(),                       // 003
+		AddAuditLogs(),                 // 004
+		AddDefaultRoles(),              // 005
+		AddTimestampsToJobHistories(),  // 006
+		AddNotificationServices(),      // 007
+		AddUserNotifications(),         // 008
+		AddRcloneTables(),              // 009
+		AddRcloneCommandToConfig(),     // 010
+		AddAuthProviders(),             // 011
+		RecoverTransferConfigsRename(), // 011a
+		AlterBooleanDefaults(),         // 012
+		CleanupInvalidBooleans(),       // 013
 	)
 
 	return gormigrate.New(db, gormigrate.DefaultOptions, migrations)

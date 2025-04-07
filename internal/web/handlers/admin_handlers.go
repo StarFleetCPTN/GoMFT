@@ -1181,15 +1181,18 @@ func (h *Handlers) HandleDeleteUser(c *gin.Context) {
 
 	// Check if this is an admin user
 	if user.GetIsAdmin() {
-		// Count how many admins there are
-		var adminCount int64
-		if err := h.DB.Model(&db.User{}).Where("metadata->>'is_admin' = 'true'").Count(&adminCount).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check admin count"})
+		// Check if other administrators exist
+		var otherAdminCount int64
+		// Use the actual 'is_admin' column, comparing against true
+		if err := h.DB.Model(&db.User{}).
+			Where("is_admin = ? AND id != ?", true, user.ID).
+			Count(&otherAdminCount).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check for other administrators"})
 			return
 		}
 
-		// If this is the last admin, prevent deletion
-		if adminCount <= 1 {
+		// If no other administrators exist, prevent deletion
+		if otherAdminCount == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot delete the last administrator"})
 			return
 		}
