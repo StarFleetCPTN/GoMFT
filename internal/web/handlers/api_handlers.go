@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -140,6 +141,12 @@ func (h *Handlers) HandleAPIUpdateConfig(c *gin.Context) {
 	if err := h.DB.Save(&config).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to update config: %v", err)})
 		return
+	}
+
+	// Regenerate the rclone config file
+	if err := h.DB.GenerateRcloneConfig(&config); err != nil {
+		log.Printf("Warning: Failed to regenerate rclone config after API update: %v", err)
+		// Continue anyway, as the config was updated in the database
 	}
 
 	c.JSON(http.StatusOK, gin.H{"config": config})

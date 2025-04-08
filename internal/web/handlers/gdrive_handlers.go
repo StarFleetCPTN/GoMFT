@@ -101,16 +101,14 @@ func (h *Handlers) HandleGDriveAuth(c *gin.Context) {
 	}
 
 	if config.DestClientID != "" && config.DestClientSecret == "" {
-		// If user provided just client ID but no secret, try to find the secret in the config
-		_, existingClientSecret := h.DB.GetGDriveCredentialsFromConfig(config)
-
-		if existingClientSecret != "" {
-			// Use the secret from the existing config with the provided client ID
-			clientSecret = existingClientSecret
+		// If user provided just client ID but no secret, use environment variable or default
+		envSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
+		if envSecret != "" {
+			// Use the secret from environment variable
+			clientSecret = envSecret
 		} else {
-			// If we still can't find a matching secret, show an error
-			RenderErrorPage(c, "Missing client secret", "You provided a custom client ID but no client secret. Both are required for Google authentication.")
-			return
+			// Use default rclone client secret
+			clientSecret = "X4Z3ca8xfWDb1Voo-F9a7ZxJ"
 		}
 	}
 
@@ -239,16 +237,14 @@ func (h *Handlers) HandleGDriveAuthCallback(c *gin.Context) {
 	}
 
 	if config.DestClientID != "" && config.DestClientSecret == "" {
-		// If user provided just client ID but no secret, try to find the secret in the config
-		_, existingClientSecret := h.DB.GetGDriveCredentialsFromConfig(config)
-
-		if existingClientSecret != "" {
-			// Use the secret from the existing config with the provided client ID
-			clientSecret = existingClientSecret
+		// If user provided just client ID but no secret, use environment variable or default
+		envSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
+		if envSecret != "" {
+			// Use the secret from environment variable
+			clientSecret = envSecret
 		} else {
-			// If we still can't find a matching secret, show an error
-			RenderErrorPage(c, "Missing client secret", "You provided a custom client ID but no client secret. Both are required for Google authentication.")
-			return
+			// Use default rclone client secret
+			clientSecret = "X4Z3ca8xfWDb1Voo-F9a7ZxJ"
 		}
 	}
 

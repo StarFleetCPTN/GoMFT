@@ -463,6 +463,14 @@ func (h *Handlers) HandleUpdateConfig(c *gin.Context) {
 		return
 	}
 
+	// Regenerate the rclone config file
+	if err := h.DB.GenerateRcloneConfig(&config); err != nil {
+		log.Printf("Warning: Failed to regenerate rclone config after update: %v", err)
+		// Continue anyway, as the config was updated in the database
+	} else {
+		log.Printf("Regenerated rclone config for config ID %d after update", config.ID)
+	}
+
 	// Redirect to the configs page
 	c.Redirect(http.StatusSeeOther, "/configs")
 }

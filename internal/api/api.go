@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -292,6 +293,12 @@ func handleUpdateConfig(database *db.DB) gin.HandlerFunc {
 		if err := database.UpdateTransferConfig(&updatedConfig); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update config"})
 			return
+		}
+
+		// Regenerate the rclone config file
+		if err := database.GenerateRcloneConfig(&updatedConfig); err != nil {
+			// Log the error but continue anyway as the config was updated in the database
+			log.Printf("Warning: Failed to regenerate rclone config after API update: %v", err)
 		}
 
 		c.JSON(http.StatusOK, updatedConfig)
