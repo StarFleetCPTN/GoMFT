@@ -278,11 +278,20 @@ func (h *Handlers) HandleLoginPage(c *gin.Context) {
 	// Check for message query param (used for password expired, etc.)
 	message := c.Query("message")
 
+	// Check if external providers exist
+	var providerCount int64
+	if err := h.DB.Model(&db.AuthProvider{}).Where("enabled = ?", true).Count(&providerCount).Error; err != nil {
+		log.Printf("Error counting auth providers: %v", err)
+		// Assume no providers if there's an error, or handle differently
+		providerCount = 0
+	}
+	hasExternalProviders := providerCount > 0
+
 	// User is not logged in, show login page
 	if message != "" {
-		components.Login(ctx, message).Render(c.Request.Context(), c.Writer)
+		components.Login(ctx, message, hasExternalProviders).Render(c.Request.Context(), c.Writer)
 	} else {
-		components.Login(ctx, "").Render(c.Request.Context(), c.Writer)
+		components.Login(ctx, "", hasExternalProviders).Render(c.Request.Context(), c.Writer)
 	}
 }
 
@@ -291,10 +300,18 @@ func (h *Handlers) HandleLogin(c *gin.Context) {
 	email := c.PostForm("email")
 	password := c.PostForm("password")
 
+	// Check if external providers exist
+	var providerCount int64
+	if err := h.DB.Model(&db.AuthProvider{}).Where("enabled = ?", true).Count(&providerCount).Error; err != nil {
+		log.Printf("Error counting auth providers: %v", err)
+		providerCount = 0
+	}
+	hasExternalProviders := providerCount > 0
+
 	// Get user by email
 	var user db.User
 	if err := h.DB.Where("email = ?", email).First(&user).Error; err != nil {
-		components.Login(components.CreateTemplateContext(c), "Invalid credentials").Render(c, c.Writer)
+		components.Login(components.CreateTemplateContext(c), "Invalid credentials", hasExternalProviders).Render(c, c.Writer)
 		return
 	}
 
@@ -308,7 +325,7 @@ func (h *Handlers) HandleLogin(c *gin.Context) {
 			h.DB.Save(&user)
 		} else {
 			// Account is still locked
-			components.Login(components.CreateTemplateContext(c), "Account is locked due to too many failed login attempts. Please try again later.").Render(c, c.Writer)
+			components.Login(components.CreateTemplateContext(c), "Account is locked due to too many failed login attempts. Please try again later.", hasExternalProviders).Render(c, c.Writer)
 			return
 		}
 	}
@@ -325,12 +342,12 @@ func (h *Handlers) HandleLogin(c *gin.Context) {
 			lockoutTime := time.Now().Add(policy.LockoutDuration)
 			user.LockoutUntil = &lockoutTime
 			h.DB.Save(&user)
-			components.Login(components.CreateTemplateContext(c), "Account is locked due to too many failed login attempts. Please try again later.").Render(c, c.Writer)
+			components.Login(components.CreateTemplateContext(c), "Account is locked due to too many failed login attempts. Please try again later.", hasExternalProviders).Render(c, c.Writer)
 			return
 		}
 
 		h.DB.Save(&user)
-		components.Login(components.CreateTemplateContext(c), "Invalid credentials").Render(c, c.Writer)
+		components.Login(components.CreateTemplateContext(c), "Invalid credentials", hasExternalProviders).Render(c, c.Writer)
 		return
 	}
 
@@ -368,7 +385,7 @@ func (h *Handlers) HandleLogin(c *gin.Context) {
 	}
 	token, err := h.GenerateJWT(user.ID, user.Email, isAdmin)
 	if err != nil {
-		components.Login(components.CreateTemplateContext(c), "Authentication error").Render(c, c.Writer)
+		components.Login(components.CreateTemplateContext(c), "Authentication error", hasExternalProviders).Render(c, c.Writer)
 		return
 	}
 

@@ -286,6 +286,7 @@ func (h *Handlers) HandleCreateConfig(c *gin.Context) {
 	}
 
 	// Generate rclone config file
+
 	if err := h.DB.GenerateRcloneConfig(&config); err != nil {
 		log.Printf("Warning: Failed to generate rclone config: %v", err)
 		// Continue anyway, as the config was created in the database
@@ -460,6 +461,14 @@ func (h *Handlers) HandleUpdateConfig(c *gin.Context) {
 	if err := h.DB.UpdateTransferConfig(&config); err != nil {
 		c.String(http.StatusInternalServerError, fmt.Sprintf("Error updating configuration: %v", err))
 		return
+	}
+
+	// Regenerate the rclone config file
+	if err := h.DB.GenerateRcloneConfig(&config); err != nil {
+		log.Printf("Warning: Failed to regenerate rclone config after update: %v", err)
+		// Continue anyway, as the config was updated in the database
+	} else {
+		log.Printf("Regenerated rclone config for config ID %d after update", config.ID)
 	}
 
 	// Redirect to the configs page
