@@ -398,6 +398,8 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 									sourcePort = 22;
 								} else if (sourceType === 'ftp') {
 									sourcePort = 21;
+								} else if (sourceType === 'hetzner') {
+									sourcePort = 23;
 								}
 							}
 							
@@ -406,25 +408,32 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 									destPort = 22;
 								} else if (destinationType === 'ftp') {
 									destPort = 21;
+								} else if (destinationType === 'hetzner') {
+									destPort = 23;
 								}
 							}
 
 							// Initialize command requirements
 							updateCommandRequirements();
 						})"
-						x-effect="if (sourceType === 'sftp' && (sourcePort === 0 || sourcePort === 21)) {
+						x-effect="if (sourceType === 'sftp' && (sourcePort === 0 || sourcePort === 21 || sourcePort === 23)) {
 							sourcePort = 22;
 							console.log('Updating source port to 22 for SFTP');
-						} else if (sourceType === 'ftp' && (sourcePort === 0 || sourcePort === 22)) {
+						} else if (sourceType === 'ftp' && (sourcePort === 0 || sourcePort === 22 || sourcePort === 23)) {
 							sourcePort = 21;
 							console.log('Updating source port to 21 for FTP');
-						}"
-						x-effect="if (destinationType === 'sftp' && (destPort === 0 || destPort === 21)) {
+						} else if (sourceType === 'hetzner' && (sourcePort === 0 || sourcePort === 22 || sourcePort === 21)) {
+							sourcePort = 23;
+							console.log('Updating source port to 23 for Hetzner');
+						} else if (destinationType === 'sftp' && (destPort === 0 || destPort === 21 || destPort === 23)) {
 							destPort = 22;
 							console.log('Updating destination port to 22 for SFTP');
-						} else if (destinationType === 'ftp' && (destPort === 0 || destPort === 22)) {
+						} else if (destinationType === 'ftp' && (destPort === 0 || destPort === 22 || destPort === 23)) {
 							destPort = 21;
 							console.log('Updating destination port to 21 for FTP');
+						} else if (destinationType === 'hetzner' && (destPort === 0 || destPort === 22 || destPort === 21)) {
+							destPort = 23;
+							console.log('Updating destination port to 23 for Hetzner');
 						}"
 						>
 						
@@ -545,6 +554,10 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 							<template x-if="sourceType === 'gphotos'">
 								@source.GooglePhotosSourceForm()
 							</template>
+
+							<template x-if="sourceType === 'hetzner'">
+								@source.HetznerSourceForm()
+							</template>
 						</div>
 						
 						<!-- File Pattern Section -->
@@ -628,6 +641,10 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 							<template x-if="destinationType === 'gphotos'">
 								@destination.GooglePhotosDestinationForm()
 							</template>
+
+							<template x-if="destinationType === 'hetzner'">
+								@destination.HetznerDestinationForm()
+							</template>
 						</div>
 						
 						<!-- Advanced Options Section -->
@@ -642,30 +659,7 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 								@common.ArchiveOptions()
 							</div>
 							
-							<div class="mb-6">
-								<label for="destination_path" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-									<span>Destination Path</span> 
-									<span x-show="destinationType === 's3' || destinationType === 'b2' || destinationType === 'wasabi' || destinationType === 'minio'" class="text-xs text-gray-500">(Optional)</span>
-								</label>
-								<div class="relative">
-									<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
-										<i class="fas fa-folder text-gray-400 dark:text-gray-500"></i>
-									</div>
-									<input type="text" id="destination_path" name="destination_path" x-model="destinationPath"
-										class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-										:placeholder="getDestinationPathPlaceholder()"
-										x-bind:required="requiresDestination && (destinationType !== 's3' && destinationType !== 'b2' && destinationType !== 'wasabi' && destinationType !== 'minio')" />
-								</div>
-								<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-									<span x-show="destinationType === 'local'">Directory where files will be saved</span>
-									<span x-show="destinationType === 'sftp' || destinationType === 'ftp'">Remote path on the server</span>
-									<span x-show="destinationType === 's3' || destinationType === 'b2' || destinationType === 'wasabi' || destinationType === 'minio'">Path within bucket. Leave empty for bucket root.</span>
-									<span x-show="destinationType === 'smb'">Share directory path</span>
-									<span x-show="destinationType === 'nextcloud' || destinationType === 'webdav'">Path on remote server</span>
-									<span x-show="destinationType === 'gdrive'">Folder in Google Drive</span>
-									<span x-show="destinationType === 'gphotos'">Album name in Google Photos</span>
-								</p>
-							</div>
+
 							
 
 						</div>

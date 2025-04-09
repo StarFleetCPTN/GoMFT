@@ -91,7 +91,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 	sourceName := fmt.Sprintf("source_%d", config.ID)
 	// Generate rclone config using rclone CLI for source
 	switch config.SourceType {
-	case "sftp":
+	case "sftp", "hetzner":
 		args := []string{
 			"config", "create", sourceName, "sftp",
 			"host", config.SourceHost,
@@ -245,7 +245,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 	destName := fmt.Sprintf("dest_%d", config.ID)
 	// Generate rclone config using rclone CLI for destination
 	switch config.DestinationType {
-	case "sftp":
+	case "sftp", "hetzner":
 		args := []string{
 			"config", "create", destName, "sftp",
 			"host", config.DestHost,
