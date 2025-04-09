@@ -1,0 +1,112 @@
+package source
+
+templ WasabiSourceForm() {
+	<div class="space-y-6 mt-4">
+		<div class="p-4 mb-4 text-sm text-blue-800 rounded-lg bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300" role="alert">
+			<div class="flex items-center">
+				<i class="fas fa-info-circle mr-2"></i>
+				<span>Configure your Wasabi Cloud Storage details below. You'll need your access key, secret key, region, and bucket information.</span>
+			</div>
+		</div>
+		
+		<div class="mb-6">
+			<label for="source_region" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Wasabi Region</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-globe text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<input type="text" id="source_region" name="source_region" x-model="sourceRegion" required
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="us-east-1" />
+			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Wasabi region where your bucket is located (e.g., us-east-1, us-west-1, eu-central-1)
+			</p>
+		</div>
+
+		<div class="mb-6">
+			<label for="source_bucket" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Bucket Name</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-archive text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<input type="text" id="source_bucket" name="source_bucket" x-model="sourceBucket" required
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="my-wasabi-bucket" />
+			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Name of your Wasabi bucket (case-sensitive)
+			</p>
+		</div>
+
+		<div class="mb-6">
+			<label for="source_access_key" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Access Key</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-key text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<input type="text" id="source_access_key" name="source_access_key" x-model="sourceAccessKey" required
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="ABCDEFGHIJKLMNOPQRST" />
+			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Your Wasabi Access Key
+			</p>
+		</div>
+
+		<div class="mb-6">
+			<label for="source_secret_key" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Secret Key</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-lock text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<input type="password" id="source_secret_key" name="source_secret_key" x-model="sourceSecretKey" required
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="abcdefghijklmnopqrstuvwxyz1234567890ABCD" />
+			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Your Wasabi Secret Key
+			</p>
+		</div>
+
+		<div class="mb-6">
+			<label for="source_endpoint" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Endpoint (Optional)</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-server text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<input type="text" id="source_endpoint" name="source_endpoint" x-model="sourceEndpoint"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="s3.wasabisys.com" />
+			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Wasabi endpoint URL (usually s3.wasabisys.com or region-specific endpoints)
+			</p>
+		</div>
+		
+		<div class="mb-6">
+			<label for="source_path" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Path in Bucket</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-folder-open text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<input type="text" id="source_path" name="source_path" x-model="sourcePath"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="path/to/files/" />
+			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Path prefix within the bucket (e.g., "backups/"). Leave empty to access the entire bucket.
+			</p>
+		</div>
+		
+		<div class="p-4 mb-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300" role="alert">
+			<div class="flex">
+				<i class="fas fa-shield-alt mr-2 flex-shrink-0"></i>
+				<div>
+					<h3 class="font-medium">Security Note</h3>
+					<p class="mt-1">It's recommended to use an IAM user with restricted permissions for this configuration. The IAM user should only have access to the specific Wasabi bucket and operations needed.</p>
+				</div>
+			</div>
+		</div>
+	</div>
+} 

@@ -398,6 +398,8 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 									sourcePort = 22;
 								} else if (sourceType === 'ftp') {
 									sourcePort = 21;
+								} else if (sourceType === 'hetzner') {
+									sourcePort = 23;
 								}
 							}
 							
@@ -406,25 +408,32 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 									destPort = 22;
 								} else if (destinationType === 'ftp') {
 									destPort = 21;
+								} else if (destinationType === 'hetzner') {
+									destPort = 23;
 								}
 							}
 
 							// Initialize command requirements
 							updateCommandRequirements();
 						})"
-						x-effect="if (sourceType === 'sftp' && (sourcePort === 0 || sourcePort === 21)) {
+						x-effect="if (sourceType === 'sftp' && (sourcePort === 0 || sourcePort === 21 || sourcePort === 23)) {
 							sourcePort = 22;
 							console.log('Updating source port to 22 for SFTP');
-						} else if (sourceType === 'ftp' && (sourcePort === 0 || sourcePort === 22)) {
+						} else if (sourceType === 'ftp' && (sourcePort === 0 || sourcePort === 22 || sourcePort === 23)) {
 							sourcePort = 21;
 							console.log('Updating source port to 21 for FTP');
-						}"
-						x-effect="if (destinationType === 'sftp' && (destPort === 0 || destPort === 21)) {
+						} else if (sourceType === 'hetzner' && (sourcePort === 0 || sourcePort === 22 || sourcePort === 21)) {
+							sourcePort = 23;
+							console.log('Updating source port to 23 for Hetzner');
+						} else if (destinationType === 'sftp' && (destPort === 0 || destPort === 21 || destPort === 23)) {
 							destPort = 22;
 							console.log('Updating destination port to 22 for SFTP');
-						} else if (destinationType === 'ftp' && (destPort === 0 || destPort === 22)) {
+						} else if (destinationType === 'ftp' && (destPort === 0 || destPort === 22 || destPort === 23)) {
 							destPort = 21;
 							console.log('Updating destination port to 21 for FTP');
+						} else if (destinationType === 'hetzner' && (destPort === 0 || destPort === 22 || destPort === 21)) {
+							destPort = 23;
+							console.log('Updating destination port to 23 for Hetzner');
 						}"
 						>
 						
@@ -509,15 +518,23 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 							<template x-if="sourceType === 'ftp'">
 								@source.FTPSourceForm()
 							</template>
-							
+
 							<template x-if="sourceType === 's3'">
 								@source.S3SourceForm()
+							</template>
+
+							<template x-if="sourceType === 'b2'">
+								@source.B2SourceForm()
+							</template>
+							
+							<template x-if="sourceType === 'wasabi'">
+								@source.WasabiSourceForm()
 							</template>
 							
 							<template x-if="sourceType === 'minio'">
 								@source.MinIOSourceForm()
 							</template>
-
+							
 							<template x-if="sourceType === 'smb'">
 								@source.SMBSourceForm()
 							</template>
@@ -525,7 +542,7 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 							<template x-if="sourceType === 'webdav'">
 								@source.WebDAVSourceForm()
 							</template>
-							
+
 							<template x-if="sourceType === 'nextcloud'">
 								@source.NextCloudSourceForm()
 							</template>
@@ -533,9 +550,13 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 							<template x-if="sourceType === 'gdrive'">
 								@source.GoogleDriveSourceForm()
 							</template>
-							
+
 							<template x-if="sourceType === 'gphotos'">
 								@source.GooglePhotosSourceForm()
+							</template>
+
+							<template x-if="sourceType === 'hetzner'">
+								@source.HetznerSourceForm()
 							</template>
 						</div>
 						
@@ -589,6 +610,14 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 								@destination.S3DestinationForm()
 							</template>
 							
+							<template x-if="destinationType === 'b2'">
+								@destination.B2DestinationForm()
+							</template>
+							
+							<template x-if="destinationType === 'wasabi'">
+								@destination.WasabiDestinationForm()
+							</template>
+							
 							<template x-if="destinationType === 'minio'">
 								@destination.MinIODestinationForm()
 							</template>
@@ -612,6 +641,10 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 							<template x-if="destinationType === 'gphotos'">
 								@destination.GooglePhotosDestinationForm()
 							</template>
+
+							<template x-if="destinationType === 'hetzner'">
+								@destination.HetznerDestinationForm()
+							</template>
 						</div>
 						
 						<!-- Advanced Options Section -->
@@ -625,6 +658,8 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 								<h4 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Archive Settings</h4>
 								@common.ArchiveOptions()
 							</div>
+							
+
 							
 
 						</div>

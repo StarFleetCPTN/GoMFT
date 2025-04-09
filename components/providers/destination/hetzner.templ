@@ -1,0 +1,128 @@
+package destination
+
+templ HetznerDestinationForm() {
+	<div class="space-y-6 mt-4">
+		<div class="p-4 mb-4 text-sm text-blue-800 rounded-lg bg-blue-50 dark:bg-blue-900/30 dark:text-blue-300" role="alert">
+			<div class="flex items-center">
+				<i class="fas fa-info-circle mr-2"></i>
+				<span>Configure your Hetzner Storage Box details below. You'll need your server details, username, and password.</span>
+			</div>
+		</div>
+		
+		<div class="mb-6">
+			<label for="dest_host" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Storage Box Host</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-server text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<input type="text" id="dest_host" name="dest_host" x-model="destHost" x-bind:required="requiresDestination"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="uXXXXXX.your-storagebox.de" />
+			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Your Hetzner Storage Box hostname (e.g., uXXXXXX.your-storagebox.de)
+			</p>
+		</div>
+
+		<div class="mb-6">
+			<label for="dest_port" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Port</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-plug text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<input type="number" id="dest_port" name="dest_port" x-model="destPort" x-bind:required="requiresDestination"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="23" min="1" max="65535" value="23" />
+			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Connection port (default: 23)
+			</p>
+		</div>
+
+		<div class="mb-6">
+			<label for="dest_auth_type" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Authentication Type</label>
+			<div class="flex">
+				<div class="flex items-center me-4">
+					<input id="dest_auth_password" type="radio" value="password" name="dest_auth_type" x-model="destAuthType" 
+						class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+					<label for="dest_auth_password" class="ms-2 text-sm font-medium text-gray-900 dark:text-white">Password</label>
+				</div>
+				<div class="flex items-center me-4">
+					<input id="dest_auth_key" type="radio" value="key" name="dest_auth_type" x-model="destAuthType"
+						class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+					<label for="dest_auth_key" class="ms-2 text-sm font-medium text-gray-900 dark:text-white">SSH Key</label>
+				</div>
+			</div>
+		</div>
+
+		<div class="mb-6">
+			<label for="dest_user" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Username</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-user text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<input type="text" id="dest_user" name="dest_user" x-model="destUser" x-bind:required="requiresDestination"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="uXXXXXX" />
+			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Your Hetzner Storage Box username (typically matches your Storage Box number)
+			</p>
+		</div>
+
+		<div x-show="destAuthType === 'password'" class="mb-6">
+			<label for="dest_password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Password</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-lock text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<input type="password" id="dest_password" name="dest_password" x-model="destPassword" x-bind:required="requiresDestination && destAuthType === 'password'"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="Your password" />
+			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Your Hetzner Storage Box password
+			</p>
+		</div>
+
+		<div x-show="destAuthType === 'key'" class="mb-6">
+			<label for="dest_key_file" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">SSH Key File</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-key text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<input type="text" id="dest_key_file" name="dest_key_file" x-model="destKeyFile" x-bind:required="requiresDestination && destAuthType === 'key'"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="/path/to/id_rsa" />
+			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Path to your SSH private key file (must be readable by the application)
+			</p>
+		</div>
+		
+		<div class="mb-6">
+			<label for="destination_path" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Remote Path</label>
+			<div class="relative">
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-folder-open text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<input type="text" id="destination_path" name="destination_path" x-model="destinationPath" x-bind:required="requiresDestination"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+					placeholder="/backups" />
+			</div>
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Path on your Storage Box (e.g., /backups, /path/to/files)
+			</p>
+		</div>
+		
+		<div class="p-4 mb-4 text-sm text-yellow-800 rounded-lg bg-yellow-50 dark:bg-yellow-900/30 dark:text-yellow-300" role="alert">
+			<div class="flex">
+				<i class="fas fa-shield-alt mr-2 flex-shrink-0"></i>
+				<div>
+					<h3 class="font-medium">Security Note</h3>
+					<p class="mt-1">For increased security, consider using SSH key authentication instead of password authentication when possible.</p>
+				</div>
+			</div>
+		</div>
+	</div>
+} 

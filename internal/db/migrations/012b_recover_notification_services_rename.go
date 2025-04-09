@@ -12,9 +12,9 @@ import (
 // table might have been left renamed as _notification_services_old.
 func RecoverNotificationServicesRename() *gormigrate.Migration {
 	return &gormigrate.Migration{
-		ID: "011b_recover_notification_services_rename",
+		ID: "012b_recover_notification_services_rename",
 		Migrate: func(tx *gorm.DB) error {
-			fmt.Println("Running migration 011b: Checking for notification_services rename recovery...")
+			fmt.Println("Running migration 012b: Checking for notification_services rename recovery...")
 
 			var oldTableExists int
 			tx.Raw("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='_notification_services_old'").Scan(&oldTableExists)
@@ -38,7 +38,7 @@ func RecoverNotificationServicesRename() *gormigrate.Migration {
 		},
 		Rollback: func(tx *gorm.DB) error {
 			// Rollback doesn't make sense for a recovery step.
-			fmt.Println("Rollback for migration 011b_recover_notification_services_rename is not applicable.")
+			fmt.Println("Rollback for migration 012b_recover_notification_services_rename is not applicable.")
 			return nil
 		},
 	}

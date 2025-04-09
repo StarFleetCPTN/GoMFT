@@ -22,10 +22,10 @@ func GetMigrations(db *gorm.DB) *gormigrate.Gormigrate {
 		AddRcloneTables(),                   // 009
 		AddRcloneCommandToConfig(),          // 010
 		AddAuthProviders(),                  // 011
-		RecoverTransferConfigsRename(),      // 011a
-		RecoverNotificationServicesRename(), // 011b
-		RecoverAuthProvidersRename(),        // 011c
 		AlterBooleanDefaults(),              // 012
+		RecoverTransferConfigsRename(),      // 012a
+		RecoverNotificationServicesRename(), // 012b
+		RecoverAuthProvidersRename(),        // 012c
 		CleanupInvalidBooleans(),            // 013
 	)
 

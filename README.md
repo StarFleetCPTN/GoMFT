@@ -44,6 +44,9 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
   - SFTP
   - FTP
   - SMB/CIFS shares
+  - Hetzner Storage Box
+  - Backblaze B2
+  - Wasabi
   - Local filesystem
   - And more via rclone
 - **Webhook Notifications**: Receive real-time notifications of job events:
@@ -525,6 +528,10 @@ The following fields have been added to the `users` table:
    - Local filesystem
    - Amazon S3
    - MinIO (S3-compatible storage)
+   - NextCloud
+   - Backblaze B2
+   - Wasabi
+   - Hetzner Storage Box
    - SFTP
    - FTP
    - SMB/CIFS shares

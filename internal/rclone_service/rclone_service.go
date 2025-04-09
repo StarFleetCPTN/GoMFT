@@ -90,8 +90,20 @@ func TestRcloneConnection(config db.TransferConfig, providerType string, dbInsta
 		rclonePath = "rclone"
 	}
 
+	primaryProvider := provider
+
+	// Convert hetzner to sftp
+	if provider == "hetzner" {
+		primaryProvider = "sftp"
+	}
+
+	// S3 compatible providers
+	if provider == "minio" || provider == "wasabi" {
+		primaryProvider = "s3"
+	}
+
 	createArgs := []string{
-		"config", "create", remoteName, provider,
+		"config", "create", remoteName, primaryProvider,
 		"--config", tempConfigPath,
 		"--non-interactive",
 		"--log-level", "DEBUG",
@@ -105,7 +117,7 @@ func TestRcloneConnection(config db.TransferConfig, providerType string, dbInsta
 	var createCmd *exec.Cmd
 
 	switch provider {
-	case "sftp":
+	case "sftp", "hetzner":
 		createArgs = append(createArgs, "host", host, "user", user)
 		if port != 0 {
 			createArgs = append(createArgs, "port", fmt.Sprintf("%d", port))
@@ -130,6 +142,20 @@ func TestRcloneConnection(config db.TransferConfig, providerType string, dbInsta
 		if endpoint != "" {
 			createArgs = append(createArgs, "endpoint", endpoint)
 		}
+	case "wasabi":
+		createArgs = append(createArgs, "provider", "Wasabi", "env_auth", "false")
+		if accessKey != "" {
+			createArgs = append(createArgs, "access_key_id", accessKey)
+		}
+		if secretKey != "" {
+			createArgs = append(createArgs, "secret_access_key", secretKey)
+		}
+		if region != "" {
+			createArgs = append(createArgs, "region", region)
+		}
+		if endpoint != "" {
+			createArgs = append(createArgs, "endpoint", endpoint)
+		}
 	case "minio":
 		createArgs = append(createArgs, "provider", "Minio", "env_auth", "false")
 		if accessKey != "" {
@@ -137,6 +163,20 @@ func TestRcloneConnection(config db.TransferConfig, providerType string, dbInsta
 		}
 		if secretKey != "" {
 			createArgs = append(createArgs, "secret_access_key", secretKey)
+		}
+		if region != "" {
+			createArgs = append(createArgs, "region", region)
+		}
+		if endpoint != "" {
+			createArgs = append(createArgs, "endpoint", endpoint)
+		}
+	case "b2":
+		createArgs = append(createArgs, "provider", "B2", "env_auth", "false")
+		if accessKey != "" {
+			createArgs = append(createArgs, "account", accessKey)
+		}
+		if secretKey != "" {
+			createArgs = append(createArgs, "key", secretKey)
 		}
 		if endpoint != "" {
 			createArgs = append(createArgs, "endpoint", endpoint)

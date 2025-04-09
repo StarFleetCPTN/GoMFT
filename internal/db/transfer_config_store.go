@@ -91,7 +91,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 	sourceName := fmt.Sprintf("source_%d", config.ID)
 	// Generate rclone config using rclone CLI for source
 	switch config.SourceType {
-	case "sftp":
+	case "sftp", "hetzner":
 		args := []string{
 			"config", "create", sourceName, "sftp",
 			"host", config.SourceHost,
@@ -129,6 +129,43 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create source config (s3): %v\nOutput: %s", err, output)
+		}
+	case "wasabi":
+		args := []string{
+			"config", "create", sourceName, "s3",
+			"provider", "Wasabi",
+			"env_auth", "false",
+			"access_key_id", config.SourceAccessKey,
+			"secret_access_key", config.SourceSecretKey,
+			"region", config.SourceRegion,
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+		endpoint := config.SourceEndpoint
+		if endpoint == "" {
+			endpoint = "s3.wasabisys.com"
+		}
+		args = append(args, "endpoint", endpoint)
+		cmd := exec.Command(rclonePath, args...)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to create source config (wasabi): %v\nOutput: %s", err, output)
+		}
+	case "b2":
+		args := []string{
+			"config", "create", sourceName, "b2",
+			"account", config.SourceAccessKey, // B2 Account ID
+			"key", config.SourceSecretKey, // B2 Application Key
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+		if config.SourceEndpoint != "" {
+			args = append(args, "endpoint", config.SourceEndpoint)
+		}
+		cmd := exec.Command(rclonePath, args...)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to create source config (b2): %v\nOutput: %s", err, output)
 		}
 	case "minio":
 		args := []string{
@@ -208,7 +245,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 	destName := fmt.Sprintf("dest_%d", config.ID)
 	// Generate rclone config using rclone CLI for destination
 	switch config.DestinationType {
-	case "sftp":
+	case "sftp", "hetzner":
 		args := []string{
 			"config", "create", destName, "sftp",
 			"host", config.DestHost,
@@ -246,6 +283,43 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create destination config (s3): %v\nOutput: %s", err, output)
+		}
+	case "wasabi":
+		args := []string{
+			"config", "create", destName, "s3",
+			"provider", "Wasabi",
+			"env_auth", "false",
+			"access_key_id", config.DestAccessKey,
+			"secret_access_key", config.DestSecretKey,
+			"region", config.DestRegion,
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+		endpoint := config.DestEndpoint
+		if endpoint == "" {
+			endpoint = "s3.wasabisys.com"
+		}
+		args = append(args, "endpoint", endpoint)
+		cmd := exec.Command(rclonePath, args...)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to create destination config (wasabi): %v\nOutput: %s", err, output)
+		}
+	case "b2":
+		args := []string{
+			"config", "create", destName, "b2",
+			"account", config.DestAccessKey, // B2 Account ID
+			"key", config.DestSecretKey, // B2 Application Key
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+		if config.DestEndpoint != "" {
+			args = append(args, "endpoint", config.DestEndpoint)
+		}
+		cmd := exec.Command(rclonePath, args...)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to create destination config (b2): %v\nOutput: %s", err, output)
 		}
 	case "minio":
 		args := []string{
