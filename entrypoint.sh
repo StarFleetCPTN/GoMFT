@@ -26,12 +26,22 @@ if [ -n "${PUID}" ] && [ -n "${PGID}" ]; then
             deluser ${USERNAME} > /dev/null 2>&1 || true
             delgroup ${USERNAME} > /dev/null 2>&1 || true
             
-            # Add group with the specified GID
-            echo "Adding group ${USERNAME} with GID ${PGID}"
-            if ! addgroup -g ${PGID} ${USERNAME}; then
-                echo "⚠️ Failed to add group ${USERNAME} with GID ${PGID}."
-                # Exiting because user creation will likely fail
-                exit 1
+            # Check if a group with the target GID already exists
+            EXISTING_GROUP=$(getent group ${PGID} | cut -d: -f1 || echo "")
+            
+            if [ -n "${EXISTING_GROUP}" ]; then
+                echo "Group with GID ${PGID} already exists as '${EXISTING_GROUP}', will use this group"
+                # Set USERNAME_GROUP to the existing group name
+                USERNAME_GROUP="${EXISTING_GROUP}"
+            else
+                # Add group with the specified GID
+                echo "Adding group ${USERNAME} with GID ${PGID}"
+                if ! addgroup -g ${PGID} ${USERNAME}; then
+                    echo "⚠️ Failed to add group ${USERNAME} with GID ${PGID}."
+                    # Exiting because user creation will likely fail
+                    exit 1
+                fi
+                USERNAME_GROUP="${USERNAME}"
             fi
             
             # Add user with the specified UID and GID
@@ -39,16 +49,16 @@ if [ -n "${PUID}" ] && [ -n "${PGID}" ]; then
             # Use -h /app for home directory (consistent with expectations)
             # Use -s /bin/sh for shell
             # Use -D for no password (system user)
-            echo "Adding user ${USERNAME} with UID ${PUID}"
-            if ! adduser -u ${PUID} -G ${USERNAME} -h /app -s /bin/sh -D ${USERNAME}; then
-                 echo "⚠️ Failed to add user ${USERNAME} with UID ${PUID} and group ${USERNAME}."
+            echo "Adding user ${USERNAME} with UID ${PUID} and group ${USERNAME_GROUP}"
+            if ! adduser -u ${PUID} -G ${USERNAME_GROUP} -h /app -s /bin/sh -D ${USERNAME}; then
+                 echo "⚠️ Failed to add user ${USERNAME} with UID ${PUID} and group ${USERNAME_GROUP}."
                  # Exiting because the application cannot run as the correct user
                  exit 1
             fi
             
             # Verify the change
             FINAL_UID=$(id -u ${USERNAME} 2>/dev/null || echo "error")
-            FINAL_GID=$(getent group ${USERNAME} | cut -d: -f3 2>/dev/null || echo "error")
+            FINAL_GID=$(id -g ${USERNAME} 2>/dev/null || echo "error")
             
             if [ "${FINAL_UID}" = "${PUID}" ] && [ "${FINAL_GID}" = "${PGID}" ]; then
                 echo "✅ Successfully updated UID/GID to ${PUID}:${PGID}"
@@ -79,13 +89,40 @@ if [ -n "${PUID}" ] && [ -n "${PGID}" ]; then
                 groupdel ${USERNAME} 2>/dev/null || true
             fi
             
-            # Recreate group and user in the correct order
-            echo "Creating group ${USERNAME} with GID ${PGID}"
-            groupadd -g ${PGID} ${USERNAME} 2>/dev/null || groupadd ${USERNAME} 2>/dev/null || true
+            # Check if a group with the target GID already exists
+            EXISTING_GROUP=$(getent group ${PGID} | cut -d: -f1 || echo "")
             
-            echo "Creating user ${USERNAME} with UID ${PUID}"
-            useradd -u ${PUID} -g ${USERNAME} -s /bin/sh ${USERNAME} 2>/dev/null || 
-            useradd -g ${USERNAME} -s /bin/sh ${USERNAME} 2>/dev/null || true
+            if [ -n "${EXISTING_GROUP}" ]; then
+                echo "Group with GID ${PGID} already exists as '${EXISTING_GROUP}', will use this group"
+                # Set USERNAME_GROUP to the existing group name
+                USERNAME_GROUP="${EXISTING_GROUP}"
+            else
+                # Recreate group with the specified GID
+                echo "Creating group ${USERNAME} with GID ${PGID}"
+                groupadd -g ${PGID} ${USERNAME} 2>/dev/null || groupadd ${USERNAME} 2>/dev/null || true
+                USERNAME_GROUP="${USERNAME}"
+            fi
+            
+            # Check if a user with the target UID already exists
+            EXISTING_USER=$(getent passwd ${PUID} | cut -d: -f1 || echo "")
+            
+            if [ -n "${EXISTING_USER}" ] && [ "${EXISTING_USER}" != "${USERNAME}" ]; then
+                echo "⚠️ Warning: User with UID ${PUID} already exists as '${EXISTING_USER}'. Using a different username may cause issues."
+            fi
+            
+            echo "Creating user ${USERNAME} with UID ${PUID} and group ${USERNAME_GROUP}"
+            useradd -u ${PUID} -g ${USERNAME_GROUP} -s /bin/sh ${USERNAME} 2>/dev/null || 
+            useradd -g ${USERNAME_GROUP} -s /bin/sh ${USERNAME} 2>/dev/null || true
+            
+            # Verify the change
+            FINAL_UID=$(id -u ${USERNAME} 2>/dev/null || echo "error")
+            FINAL_GID=$(id -g ${USERNAME} 2>/dev/null || echo "error")
+            
+            if [ "${FINAL_UID}" = "${PUID}" ] && [ "${FINAL_GID}" = "${PGID}" ]; then
+                echo "✅ Successfully updated UID/GID to ${PUID}:${PGID}"
+            else
+                echo "⚠️ Warning: Verification failed. Target: ${PUID}:${PGID}, Actual: ${FINAL_UID}:${FINAL_GID}"
+            fi
         } || {
             echo "⚠️ Warning: Failed to update UID/GID, continuing with built-in user"
         }
@@ -93,17 +130,17 @@ if [ -n "${PUID}" ] && [ -n "${PGID}" ]; then
     
     # Fix ownership of app directories
     echo "Setting ownership of app directories"
-    chown -R ${USERNAME}:${USERNAME} /app/data /app/backups || echo "⚠️ Warning: Failed to change ownership"
+    chown -R ${USERNAME}:${USERNAME_GROUP:-${USERNAME}} /app/data /app/backups || echo "⚠️ Warning: Failed to change ownership"
     
     # Ensure .env file exists and has correct permissions
     if [ -f /app/.env ]; then
         echo "Found .env file, setting permissions..."
-        chown ${USERNAME}:${USERNAME} /app/.env || echo "⚠️ Warning: Failed to change .env ownership"
+        chown ${USERNAME}:${USERNAME_GROUP:-${USERNAME}} /app/.env || echo "⚠️ Warning: Failed to change .env ownership"
         chmod 644 /app/.env || echo "⚠️ Warning: Failed to change .env permissions"
     else
         echo "No .env file found, creating empty one..."
         touch /app/.env
-        chown ${USERNAME}:${USERNAME} /app/.env || echo "⚠️ Warning: Failed to change .env ownership"
+        chown ${USERNAME}:${USERNAME_GROUP:-${USERNAME}} /app/.env || echo "⚠️ Warning: Failed to change .env ownership"
         chmod 644 /app/.env || echo "⚠️ Warning: Failed to change .env permissions"
     fi
     
