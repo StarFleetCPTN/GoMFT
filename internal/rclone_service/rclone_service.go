@@ -90,6 +90,10 @@ func TestRcloneConnection(config db.TransferConfig, providerType string, dbInsta
 		rclonePath = "rclone"
 	}
 
+	if provider == "hetzner" {
+		provider = "sftp"
+	}
+
 	createArgs := []string{
 		"config", "create", remoteName, provider,
 		"--config", tempConfigPath,
@@ -105,19 +109,8 @@ func TestRcloneConnection(config db.TransferConfig, providerType string, dbInsta
 	var createCmd *exec.Cmd
 
 	switch provider {
-	case "sftp":
+	case "sftp", "hetzner":
 		createArgs = append(createArgs, "host", host, "user", user)
-		if port != 0 {
-			createArgs = append(createArgs, "port", fmt.Sprintf("%d", port))
-		}
-		if pass != "" {
-			createArgs = append(createArgs, "pass", pass)
-		}
-		if keyFile != "" {
-			createArgs = append(createArgs, "key_file", keyFile)
-		}
-	case "hetzner":
-		createArgs = append(createArgs, "host", host, "user", user, "pass", pass, "key_file", keyFile)
 		if port != 0 {
 			createArgs = append(createArgs, "port", fmt.Sprintf("%d", port))
 		}
