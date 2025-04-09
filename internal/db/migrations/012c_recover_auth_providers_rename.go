@@ -12,9 +12,9 @@ import (
 // table might have been left renamed as _auth_providers_old.
 func RecoverAuthProvidersRename() *gormigrate.Migration {
 	return &gormigrate.Migration{
-		ID: "011c_recover_auth_providers_rename",
+		ID: "012c_recover_auth_providers_rename",
 		Migrate: func(tx *gorm.DB) error {
-			fmt.Println("Running migration 011c: Checking for auth_providers rename recovery...")
+			fmt.Println("Running migration 012c: Checking for auth_providers rename recovery...")
 
 			var oldTableExists int
 			tx.Raw("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='_auth_providers_old'").Scan(&oldTableExists)
@@ -38,7 +38,7 @@ func RecoverAuthProvidersRename() *gormigrate.Migration {
 		},
 		Rollback: func(tx *gorm.DB) error {
 			// Rollback doesn't make sense for a recovery step.
-			fmt.Println("Rollback for migration 011c_recover_auth_providers_rename is not applicable.")
+			fmt.Println("Rollback for migration 012c_recover_auth_providers_rename is not applicable.")
 			return nil
 		},
 	}

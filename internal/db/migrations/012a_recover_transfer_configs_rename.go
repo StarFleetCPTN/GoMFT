@@ -12,9 +12,9 @@ import (
 // table might have been left renamed as _transfer_configs_old.
 func RecoverTransferConfigsRename() *gormigrate.Migration {
 	return &gormigrate.Migration{
-		ID: "011a_recover_transfer_configs_rename",
+		ID: "012a_recover_transfer_configs_rename",
 		Migrate: func(tx *gorm.DB) error {
-			fmt.Println("Running migration 011a: Checking for transfer_configs rename recovery...")
+			fmt.Println("Running migration 012a: Checking for transfer_configs rename recovery...")
 
 			var oldTableExists int
 			tx.Raw("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='_transfer_configs_old'").Scan(&oldTableExists)
@@ -40,7 +40,7 @@ func RecoverTransferConfigsRename() *gormigrate.Migration {
 		},
 		Rollback: func(tx *gorm.DB) error {
 			// Rollback doesn't make sense for a recovery step.
-			fmt.Println("Rollback for migration 011a_recover_transfer_configs_rename is not applicable.")
+			fmt.Println("Rollback for migration 012a_recover_transfer_configs_rename is not applicable.")
 			return nil
 		},
 	}
