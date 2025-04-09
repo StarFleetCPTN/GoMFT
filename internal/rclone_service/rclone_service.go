@@ -130,6 +130,36 @@ func TestRcloneConnection(config db.TransferConfig, providerType string, dbInsta
 		if endpoint != "" {
 			createArgs = append(createArgs, "endpoint", endpoint)
 		}
+	case "wasabi":
+		createArgs = append(createArgs, "provider", "Wasabi", "env_auth", "false")
+		if accessKey != "" {
+			createArgs = append(createArgs, "access_key_id", accessKey)
+		}
+		if secretKey != "" {
+			createArgs = append(createArgs, "secret_access_key", secretKey)
+		}
+		if region != "" {
+			createArgs = append(createArgs, "region", region)
+		}
+		endpointValue := endpoint
+		if endpointValue == "" {
+			endpointValue = "s3.wasabisys.com"
+		}
+		createArgs = append(createArgs, "endpoint", endpointValue)
+	case "b2":
+		createArgs = append(createArgs, "provider", "B2", "env_auth", "false")
+		if accessKey != "" {
+			createArgs = append(createArgs, "account", accessKey)
+		}
+		if secretKey != "" {
+			createArgs = append(createArgs, "key", secretKey)
+		}
+		if endpoint != "" {
+			createArgs = append(createArgs, "endpoint", endpoint)
+		}
+		if region != "" {
+			createArgs = append(createArgs, "region", region)
+		}
 	case "minio":
 		createArgs = append(createArgs, "provider", "Minio", "env_auth", "false")
 		if accessKey != "" {

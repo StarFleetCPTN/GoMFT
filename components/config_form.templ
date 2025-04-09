@@ -509,15 +509,23 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 							<template x-if="sourceType === 'ftp'">
 								@source.FTPSourceForm()
 							</template>
-							
+
 							<template x-if="sourceType === 's3'">
 								@source.S3SourceForm()
+							</template>
+
+							<template x-if="sourceType === 'b2'">
+								@source.B2SourceForm()
+							</template>
+							
+							<template x-if="sourceType === 'wasabi'">
+								@source.WasabiSourceForm()
 							</template>
 							
 							<template x-if="sourceType === 'minio'">
 								@source.MinIOSourceForm()
 							</template>
-
+							
 							<template x-if="sourceType === 'smb'">
 								@source.SMBSourceForm()
 							</template>
@@ -525,7 +533,7 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 							<template x-if="sourceType === 'webdav'">
 								@source.WebDAVSourceForm()
 							</template>
-							
+
 							<template x-if="sourceType === 'nextcloud'">
 								@source.NextCloudSourceForm()
 							</template>
@@ -533,7 +541,7 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 							<template x-if="sourceType === 'gdrive'">
 								@source.GoogleDriveSourceForm()
 							</template>
-							
+
 							<template x-if="sourceType === 'gphotos'">
 								@source.GooglePhotosSourceForm()
 							</template>
@@ -589,6 +597,14 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 								@destination.S3DestinationForm()
 							</template>
 							
+							<template x-if="destinationType === 'b2'">
+								@destination.B2DestinationForm()
+							</template>
+							
+							<template x-if="destinationType === 'wasabi'">
+								@destination.WasabiDestinationForm()
+							</template>
+							
 							<template x-if="destinationType === 'minio'">
 								@destination.MinIODestinationForm()
 							</template>
@@ -624,6 +640,31 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 							<div class="mb-6">
 								<h4 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Archive Settings</h4>
 								@common.ArchiveOptions()
+							</div>
+							
+							<div class="mb-6">
+								<label for="destination_path" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+									<span>Destination Path</span> 
+									<span x-show="destinationType === 's3' || destinationType === 'b2' || destinationType === 'wasabi' || destinationType === 'minio'" class="text-xs text-gray-500">(Optional)</span>
+								</label>
+								<div class="relative">
+									<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+										<i class="fas fa-folder text-gray-400 dark:text-gray-500"></i>
+									</div>
+									<input type="text" id="destination_path" name="destination_path" x-model="destinationPath"
+										class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+										:placeholder="getDestinationPathPlaceholder()"
+										x-bind:required="requiresDestination && (destinationType !== 's3' && destinationType !== 'b2' && destinationType !== 'wasabi' && destinationType !== 'minio')" />
+								</div>
+								<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+									<span x-show="destinationType === 'local'">Directory where files will be saved</span>
+									<span x-show="destinationType === 'sftp' || destinationType === 'ftp'">Remote path on the server</span>
+									<span x-show="destinationType === 's3' || destinationType === 'b2' || destinationType === 'wasabi' || destinationType === 'minio'">Path within bucket. Leave empty for bucket root.</span>
+									<span x-show="destinationType === 'smb'">Share directory path</span>
+									<span x-show="destinationType === 'nextcloud' || destinationType === 'webdav'">Path on remote server</span>
+									<span x-show="destinationType === 'gdrive'">Folder in Google Drive</span>
+									<span x-show="destinationType === 'gphotos'">Album name in Google Photos</span>
+								</p>
 							</div>
 							
 
