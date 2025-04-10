@@ -210,12 +210,12 @@ func TestRcloneConnection(config db.TransferConfig, providerType string, dbInsta
 			createArgs = append(createArgs, "domain", domain)
 		}
 	case "webdav":
-		createArgs = append(createArgs, "url", endpoint, "vendor", "other", "user", user)
+		createArgs = append(createArgs, "url", host, "vendor", "other", "user", user)
 		if pass != "" {
 			createArgs = append(createArgs, "pass", pass)
 		}
 	case "nextcloud":
-		createArgs = append(createArgs, "url", endpoint, "vendor", "nextcloud", "user", user)
+		createArgs = append(createArgs, "url", host, "vendor", "nextcloud", "user", user)
 		if pass != "" {
 			createArgs = append(createArgs, "pass", pass)
 		}
