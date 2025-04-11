@@ -132,9 +132,11 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 		{
 			adminRoles.GET("", h.HandleRoles)
 			adminRoles.GET("/new", h.HandleNewRole)
+			adminRoles.GET("/:id", h.HandleEditRole)
 			adminRoles.GET("/:id/edit", h.HandleRoles)
 			adminRoles.POST("", h.HandleCreateRole)
-			adminRoles.PUT("/:id", h.HandleEditRole)
+			adminRoles.POST("/:id", h.HandleUpdateRole)
+			adminRoles.PUT("/:id", h.HandleUpdateRole)
 			adminRoles.DELETE("/:id", h.HandleDeleteRole)
 		}
 
@@ -144,6 +146,14 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 		{
 			auditGroup.GET("", h.HandleAuditLogs)
 			auditGroup.GET("/export", h.PermissionMiddleware("audit.export"), h.HandleExportAuditLogs)
+		}
+
+		// Log viewer routes
+		logsGroup := admin.Group("/logs")
+		logsGroup.Use(h.PermissionMiddleware("logs.view"))
+		{
+			logsGroup.GET("", h.HandleLogViewer)
+			logsGroup.GET("/ws", h.HandleLogStream)
 		}
 
 		// System settings routes

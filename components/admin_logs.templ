@@ -1,0 +1,536 @@
+package components
+
+import (
+    "context"
+    "time"
+)
+
+// LogEntry represents a log entry for display
+type LogEntry struct {
+    Timestamp time.Time
+    Level     string
+    Message   string
+    Source    string
+    Details   map[string]interface{}
+}
+
+// LogViewerData represents the data for the log viewer component
+type LogViewerData struct {
+    Logs          []LogEntry
+    CurrentFilter string
+    LogFilePath   string
+}
+
+// AdminLogs renders the log viewer page
+templ AdminLogs(ctx context.Context, data LogViewerData) {
+    @LayoutWithContext("Log Viewer", ctx) {
+        <div class="log-viewer-page">
+            <!-- Page Header -->
+            <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                    <i class="fas fa-stream w-6 h-6 mr-2 text-blue-500 dark:text-blue-400"></i> Log Viewer
+                </h1>
+                <div class="flex gap-2">
+                    <button id="pause-logs" class="flex items-center justify-center text-white bg-yellow-500 hover:bg-yellow-600 focus:ring-4 focus:ring-yellow-300 font-medium rounded-lg px-4 py-2 dark:bg-yellow-600 dark:hover:bg-yellow-700 focus:outline-none dark:focus:ring-yellow-800">
+                        <i class="fas fa-pause w-4 h-4 mr-2"></i> Pause
+                    </button>
+                    <button id="resume-logs" class="hidden flex items-center justify-center text-white bg-green-500 hover:bg-green-600 focus:ring-4 focus:ring-green-300 font-medium rounded-lg px-4 py-2 dark:bg-green-600 dark:hover:bg-green-700 focus:outline-none dark:focus:ring-green-800">
+                        <i class="fas fa-play w-4 h-4 mr-2"></i> Resume
+                    </button>
+                    <button id="clear-logs" class="flex items-center justify-center text-white bg-red-500 hover:bg-red-600 focus:ring-4 focus:ring-red-300 font-medium rounded-lg px-4 py-2 dark:bg-red-600 dark:hover:bg-red-700 focus:outline-none dark:focus:ring-red-800">
+                        <i class="fas fa-trash w-4 h-4 mr-2"></i> Clear
+                    </button>
+                    <button id="download-logs" class="flex items-center justify-center text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+                        <i class="fas fa-download w-4 h-4 mr-2"></i> Download
+                    </button>
+                </div>
+            </div>
+
+            <!-- Log Information -->
+            <div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 mb-4 p-4">
+                <div class="text-sm text-gray-600 dark:text-gray-300">
+                    <p><i class="fas fa-info-circle mr-2 text-blue-500 dark:text-blue-400"></i> Viewing logs from: <span class="font-mono">{ data.LogFilePath }</span></p>
+                    <p><i class="fas fa-circle text-green-500 dark:text-green-400 mr-2"></i> Real-time log streaming is active, logs are automatically captured and displayed</p>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 mb-6">
+                <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Filter Logs</h3>
+                </div>
+                <div class="p-4">
+                    <div class="flex flex-wrap gap-4">
+                        <!-- Log Level Filter -->
+                        <div class="flex-1 min-w-[200px]">
+                            <label for="filter-level" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Log Level</label>
+                            <select id="filter-level" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                                <option value="">All Levels</option>
+                                <option value="debug">Debug</option>
+                                <option value="info">Info</option>
+                                <option value="warn">Warning</option>
+                                <option value="error">Error</option>
+                                <option value="fatal">Fatal</option>
+                            </select>
+                        </div>
+
+                        <!-- Source Filter -->
+                        <div class="flex-1 min-w-[200px]">
+                            <label for="filter-source" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Source</label>
+                            <select id="filter-source" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                                <option value="">All Sources</option>
+                                <option value="api">API</option>
+                                <option value="web">Web</option>
+                                <option value="scheduler">Scheduler</option>
+                                <option value="auth">Authentication</option>
+                                <option value="database">Database</option>
+                            </select>
+                        </div>
+
+                        <!-- Search Filter -->
+                        <div class="flex-1 min-w-[200px]">
+                            <label for="filter-search" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Search</label>
+                            <input type="text" id="filter-search" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Search logs...">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Log Table -->
+            <div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 overflow-hidden">
+                <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Live Logs</h3>
+                    <div class="flex items-center">
+                        <span id="connection-status" class="flex items-center text-sm text-green-500 dark:text-green-400">
+                            <span class="inline-block w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full mr-2"></span>
+                            Connected
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto" style="max-height: 60vh; overflow-y: auto;">
+                    <table class="w-full">
+                        <thead class="bg-gray-50 dark:bg-gray-700 sticky top-0 z-10">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Timestamp</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase w-[100px]">Level</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase w-[120px]">Source</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Message</th>
+                            </tr>
+                        </thead>
+                        <tbody id="log-entries" class="divide-y divide-gray-200 dark:divide-gray-700">
+                            <!-- Log entries will be inserted here dynamically -->
+                            if len(data.Logs) == 0 {
+                                <tr>
+                                    <td colspan="4" class="px-4 py-6 text-center text-gray-500 dark:text-gray-400">Waiting for logs...</td>
+                                </tr>
+                            } else {
+                                for _, log := range data.Logs {
+                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                        <td class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{ log.Timestamp.Format("2006-01-02 15:04:05.000") }</td>
+                                        <td class={ getLogLevelClass(log.Level) }>{ log.Level }</td>
+                                        <td class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">{ log.Source }</td>
+                                        <td class="px-4 py-2 text-sm text-gray-900 dark:text-white font-mono">{ log.Message }</td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const logEntries = document.getElementById('log-entries');
+                const pauseButton = document.getElementById('pause-logs');
+                const resumeButton = document.getElementById('resume-logs');
+                const clearButton = document.getElementById('clear-logs');
+                const downloadButton = document.getElementById('download-logs');
+                const connectionStatus = document.getElementById('connection-status');
+                const filterLevel = document.getElementById('filter-level');
+                const filterSource = document.getElementById('filter-source');
+                const filterSearch = document.getElementById('filter-search');
+                
+                let isPaused = false;
+                let logs = [];
+                let filteredLogs = [];
+                let ws;
+                let knownSources = new Set();
+                let reconnectTimer = null;
+                let pingInterval = null;
+                
+                // Connect to WebSocket
+                function connectWebSocket() {
+                    // Clear any existing reconnect timer
+                    if (reconnectTimer) {
+                        clearTimeout(reconnectTimer);
+                        reconnectTimer = null;
+                    }
+                    
+                    // Clear any existing ping interval
+                    if (pingInterval) {
+                        clearInterval(pingInterval);
+                        pingInterval = null;
+                    }
+                    
+                    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                    const wsUrl = `${protocol}//${window.location.host}/admin/logs/ws`;
+                    
+                    console.log("Connecting to WebSocket:", wsUrl);
+                    connectionStatus.innerHTML = '<span class="inline-block w-2 h-2 bg-yellow-500 dark:bg-yellow-400 rounded-full mr-2"></span>Connecting...';
+                    connectionStatus.className = 'flex items-center text-sm text-yellow-500 dark:text-yellow-400';
+                    
+                    try {
+                        ws = new WebSocket(wsUrl);
+                        
+                        ws.onopen = function() {
+                            console.log("WebSocket connection established");
+                            connectionStatus.innerHTML = '<span class="inline-block w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full mr-2"></span>Connected';
+                            connectionStatus.className = 'flex items-center text-sm text-green-500 dark:text-green-400';
+                            
+                            // Set up ping interval to keep connection alive
+                            pingInterval = setInterval(function() {
+                                if (ws && ws.readyState === WebSocket.OPEN) {
+                                    console.debug("Sending ping to server");
+                                    // Send a simple ping message
+                                    ws.send(JSON.stringify({type: "ping"}));
+                                }
+                            }, 30000); // 30 seconds
+                        };
+                        
+                        ws.onclose = function(event) {
+                            console.log("WebSocket connection closed", event);
+                            connectionStatus.innerHTML = '<span class="inline-block w-2 h-2 bg-red-500 dark:bg-red-400 rounded-full mr-2"></span>Disconnected';
+                            connectionStatus.className = 'flex items-center text-sm text-red-500 dark:text-red-400';
+                            
+                            // Clear the ping interval
+                            if (pingInterval) {
+                                clearInterval(pingInterval);
+                                pingInterval = null;
+                            }
+                            
+                            // Attempt to reconnect after 5 seconds
+                            console.log("Scheduling reconnect in 5 seconds...");
+                            reconnectTimer = setTimeout(connectWebSocket, 5000);
+                        };
+                        
+                        ws.onerror = function(error) {
+                            console.error("WebSocket error:", error);
+                            connectionStatus.innerHTML = '<span class="inline-block w-2 h-2 bg-red-500 dark:bg-red-400 rounded-full mr-2"></span>Error';
+                            connectionStatus.className = 'flex items-center text-sm text-red-500 dark:text-red-400';
+                            
+                            // Don't set up reconnect here, let onclose handle it
+                        };
+                        
+                        ws.onmessage = function(event) {
+                            // Debug log the received data
+                            console.debug("Raw log entry received:", event.data);
+                            
+                            try {
+                                const logEntry = JSON.parse(event.data);
+                                
+                                // Debug log the parsed entry
+                                console.debug("Parsed log entry:", logEntry);
+                                
+                                // Extract source and add to known sources for filtering
+                                const source = logEntry.Source || logEntry.source || '';
+                                if (source && !knownSources.has(source)) {
+                                    knownSources.add(source);
+                                    updateSourceFilter();
+                                }
+                                
+                                // Handle potential log prefixes in the message
+                                const message = logEntry.Message || logEntry.message || '';
+                                if (message.startsWith("DEBUG:")) {
+                                    logEntry.Level = "debug";
+                                    logEntry.Message = message.substring(7).trim();
+                                } else if (message.startsWith("INFO:")) {
+                                    logEntry.Level = "info";
+                                    logEntry.Message = message.substring(6).trim();
+                                } else if (message.startsWith("ERROR:")) {
+                                    logEntry.Level = "error";
+                                    logEntry.Message = message.substring(7).trim();
+                                } else if (message.startsWith("WARN:")) {
+                                    logEntry.Level = "warn";
+                                    logEntry.Message = message.substring(6).trim();
+                                } else if (message.startsWith("WARNING:")) {
+                                    logEntry.Level = "warn";
+                                    logEntry.Message = message.substring(9).trim();
+                                } else if (message.startsWith("FATAL:")) {
+                                    logEntry.Level = "fatal";
+                                    logEntry.Message = message.substring(7).trim();
+                                }
+                                
+                                // Add to logs array
+                                logs.push(logEntry);
+                                
+                                // Apply filters and update display if not paused
+                                if (!isPaused) {
+                                    applyFilters();
+                                }
+                            } catch (error) {
+                                console.error("Error processing log entry:", error);
+                            }
+                        };
+                    } catch (error) {
+                        console.error("Error creating WebSocket:", error);
+                        connectionStatus.innerHTML = '<span class="inline-block w-2 h-2 bg-red-500 dark:bg-red-400 rounded-full mr-2"></span>Connection Failed';
+                        connectionStatus.className = 'flex items-center text-sm text-red-500 dark:text-red-400';
+                        
+                        // Retry connection after 5 seconds
+                        reconnectTimer = setTimeout(connectWebSocket, 5000);
+                    }
+                }
+                
+                // Update the source filter dropdown with dynamically discovered sources
+                function updateSourceFilter() {
+                    // Remember the current selection
+                    const currentValue = filterSource.value;
+                    
+                    // Clear existing options except the first "All Sources" option
+                    while (filterSource.options.length > 1) {
+                        filterSource.remove(1);
+                    }
+                    
+                    // Add sorted sources to dropdown
+                    Array.from(knownSources).sort().forEach(source => {
+                        const option = document.createElement('option');
+                        option.value = source.toLowerCase();
+                        option.textContent = source;
+                        filterSource.appendChild(option);
+                    });
+                    
+                    // Restore previous selection if it still exists
+                    if (currentValue) {
+                        for (let i = 0; i < filterSource.options.length; i++) {
+                            if (filterSource.options[i].value === currentValue) {
+                                filterSource.selectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                // Apply filters to logs
+                function applyFilters() {
+                    const levelFilter = filterLevel.value.toLowerCase();
+                    const sourceFilter = filterSource.value.toLowerCase();
+                    const searchFilter = filterSearch.value.toLowerCase();
+                    
+                    filteredLogs = logs.filter(log => {
+                        // Handle capitalized properties from the server
+                        const level = (log.Level || log.level || '').toLowerCase();
+                        const source = (log.Source || log.source || '').toLowerCase();
+                        const message = (log.Message || log.message || '').toLowerCase();
+                        
+                        return (levelFilter === '' || level === levelFilter) &&
+                               (sourceFilter === '' || source === sourceFilter) &&
+                               (searchFilter === '' || message.includes(searchFilter));
+                    });
+                    
+                    renderLogs();
+                }
+                
+                // Render logs to the table
+                function renderLogs() {
+                    // Clear existing logs
+                    logEntries.innerHTML = '';
+                    
+                    if (filteredLogs.length === 0) {
+                        const emptyRow = document.createElement('tr');
+                        emptyRow.innerHTML = `<td colspan="4" class="px-4 py-6 text-center text-gray-500 dark:text-gray-400">No logs found</td>`;
+                        logEntries.appendChild(emptyRow);
+                        return;
+                    }
+                    
+                    // Add filtered logs
+                    filteredLogs.forEach(log => {
+                        // Handle capitalized property names from the server
+                        const timestamp = log.Timestamp || log.timestamp;
+                        const level = log.Level || log.level || 'unknown';
+                        const source = log.Source || log.source || 'unknown';
+                        const message = log.Message || log.message || '';
+                        
+                        let formattedTime;
+                        try {
+                            // Convert to date object
+                            const date = new Date(timestamp);
+                            
+                            // Format in local time with milliseconds
+                            const options = {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: false
+                            };
+                            
+                            // Format main part of the timestamp
+                            formattedTime = date.toLocaleString(undefined, options);
+                            
+                            // Add milliseconds
+                            const ms = String(date.getMilliseconds()).padStart(3, '0');
+                            formattedTime += `.${ms}`;
+                        } catch (e) {
+                            console.error("Error formatting timestamp:", e);
+                            formattedTime = String(timestamp);
+                        }
+                        
+                        const row = document.createElement('tr');
+                        row.className = 'hover:bg-gray-50 dark:hover:bg-gray-700';
+                        
+                        let levelClass = 'px-4 py-2 text-sm font-medium whitespace-nowrap ';
+                        
+                        switch(level.toLowerCase()) {
+                            case 'debug':
+                                levelClass += 'text-purple-500 dark:text-purple-400';
+                                break;
+                            case 'info':
+                                levelClass += 'text-blue-500 dark:text-blue-400';
+                                break;
+                            case 'warn':
+                                levelClass += 'text-yellow-500 dark:text-yellow-400';
+                                break;
+                            case 'error':
+                                levelClass += 'text-red-500 dark:text-red-400';
+                                break;
+                            case 'fatal':
+                                levelClass += 'text-red-700 dark:text-red-600 font-bold';
+                                break;
+                            default:
+                                levelClass += 'text-gray-500 dark:text-gray-400';
+                        }
+                        
+                        row.innerHTML = `
+                            <td class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">${formattedTime}</td>
+                            <td class="${levelClass}">${level}</td>
+                            <td class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">${source}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900 dark:text-white font-mono">${message}</td>
+                        `;
+                        
+                        logEntries.appendChild(row);
+                    });
+                    
+                    // Auto-scroll to bottom unless user has scrolled up
+                    const container = logEntries.parentElement;
+                    if (container.scrollTop + container.clientHeight >= container.scrollHeight - 100) {
+                        container.scrollTop = container.scrollHeight;
+                    }
+                }
+                
+                // Pause button click
+                pauseButton.addEventListener('click', function() {
+                    isPaused = true;
+                    pauseButton.classList.add('hidden');
+                    resumeButton.classList.remove('hidden');
+                });
+                
+                // Resume button click
+                resumeButton.addEventListener('click', function() {
+                    isPaused = false;
+                    resumeButton.classList.add('hidden');
+                    pauseButton.classList.remove('hidden');
+                    applyFilters(); // Re-apply filters and update
+                });
+                
+                // Clear button click
+                clearButton.addEventListener('click', function() {
+                    logs = [];
+                    applyFilters();
+                });
+                
+                // Download button click
+                downloadButton.addEventListener('click', function() {
+                    // Create CSV from logs
+                    let csv = 'Timestamp,Level,Source,Message\n';
+                    
+                    logs.forEach(log => {
+                        // Handle capitalized property names from the server
+                        const timestamp = log.Timestamp || log.timestamp;
+                        const level = log.Level || log.level || 'unknown';
+                        const source = log.Source || log.source || 'unknown';
+                        const message = log.Message || log.message || '';
+                        
+                        let formattedTime;
+                        try {
+                            // Convert to date object
+                            const date = new Date(timestamp);
+                            
+                            // Format in local time with milliseconds
+                            const options = {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: false
+                            };
+                            
+                            // Format main part of the timestamp
+                            formattedTime = date.toLocaleString(undefined, options);
+                            
+                            // Add milliseconds
+                            const ms = String(date.getMilliseconds()).padStart(3, '0');
+                            formattedTime += `.${ms}`;
+                        } catch (e) {
+                            formattedTime = String(timestamp);
+                        }
+                        
+                        // Properly escape CSV fields
+                        const escapedMessage = message.replace(/"/g, '""');
+                        
+                        csv += `"${formattedTime}","${level}","${source}","${escapedMessage}"\n`;
+                    });
+                    
+                    // Create and trigger download
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    const date = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+                    
+                    a.setAttribute('href', url);
+                    a.setAttribute('download', `gomft-logs-${date}.csv`);
+                    a.click();
+                });
+                
+                // Filter change handlers
+                filterLevel.addEventListener('change', applyFilters);
+                filterSource.addEventListener('change', applyFilters);
+                
+                // Debounce search input
+                let searchTimeout;
+                filterSearch.addEventListener('input', function() {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(applyFilters, 300);
+                });
+                
+                // Initial connection
+                connectWebSocket();
+            });
+        </script>
+    }
+}
+
+// Helper function to get the appropriate CSS class for log levels
+func getLogLevelClass(level string) string {
+    baseClass := "px-4 py-2 text-sm font-medium whitespace-nowrap "
+    
+    switch level {
+    case "debug":
+        return baseClass + "text-purple-500 dark:text-purple-400"
+    case "info":
+        return baseClass + "text-blue-500 dark:text-blue-400"
+    case "warn":
+        return baseClass + "text-yellow-500 dark:text-yellow-400"
+    case "error":
+        return baseClass + "text-red-500 dark:text-red-400"
+    case "fatal":
+        return baseClass + "text-red-700 dark:text-red-600 font-bold"
+    default:
+        return baseClass + "text-gray-500 dark:text-gray-400"
+    }
+} 

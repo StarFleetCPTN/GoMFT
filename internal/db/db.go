@@ -33,6 +33,21 @@ func Initialize(dbPath string) (*DB, error) {
 		return nil, fmt.Errorf("failed to run migrations: %v", err)
 	}
 
+	// Close the database connection after migrations
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get underlying database: %v", err)
+	}
+	if err := sqlDB.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close database after migrations: %v", err)
+	}
+
+	// Reopen the database connection for a clean state
+	db, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to reconnect to database after migrations: %v", err)
+	}
+
 	return &DB{DB: db}, nil
 }
 
@@ -55,10 +70,3 @@ func (db *DB) Close() error {
 	}
 	return sqlDB.Close()
 }
-
-// GetEnabledAuthProviders returns all enabled authentication providers
-// func (db *DB) GetEnabledAuthProviders(ctx context.Context) ([]AuthProvider, error) {
-// 	var providers []AuthProvider
-// 	result := db.WithContext(ctx).Where("enabled = ?", true).Find(&providers)
-// 	return providers, result.Error
-// }

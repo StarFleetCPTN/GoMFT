@@ -19,6 +19,7 @@ import (
 	"github.com/starfleetcptn/gomft/components"
 	"github.com/starfleetcptn/gomft/internal/config"
 	"github.com/starfleetcptn/gomft/internal/db"
+	"github.com/starfleetcptn/gomft/internal/logging"
 	"github.com/starfleetcptn/gomft/internal/scheduler"
 	"github.com/starfleetcptn/gomft/internal/web"
 	"golang.org/x/crypto/bcrypt"
@@ -65,14 +66,27 @@ func main() {
 	// Set Gin to release mode
 	gin.SetMode(gin.ReleaseMode)
 
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	log.Printf("Starting GoMFT server version %s...", components.AppVersion)
-
 	// Initialize configuration
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+		fmt.Printf("Failed to load configuration: %v\n", err)
+		os.Exit(1)
 	}
+
+	// Ensure logs directory exists
+	logsDir := filepath.Join(cfg.DataDir, "logs")
+	if err := os.MkdirAll(logsDir, 0755); err != nil {
+		fmt.Printf("Failed to create logs directory: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Initialize logger with file output and WebSocket broadcasting
+	if err := logging.Setup(logsDir, true); err != nil {
+		fmt.Printf("Failed to initialize logger: %v\n", err)
+		os.Exit(1)
+	}
+
+	log.Printf("Starting GoMFT server version %s...", components.AppVersion)
 	log.Printf("Configuration loaded successfully")
 
 	// Ensure required directories exist
@@ -205,6 +219,14 @@ func main() {
 	}
 	webHandler.InitializeRoutes(router)
 	log.Printf("Web handlers initialized successfully")
+
+	// Connect scheduler logger to WebSocket broadcast system
+	if handlers, ok := web.GetHandlersInstance(); ok && handlers != nil {
+		schedLogger.SetBroadcastFunc(handlers.BroadcastLog)
+		log.Printf("Scheduler logger connected to WebSocket broadcast system")
+	} else {
+		log.Printf("Warning: Could not connect scheduler logger to WebSocket broadcast system - handlers not ready")
+	}
 
 	// Initialize API routes
 	// Commenting out the API routes initialization to avoid route conflicts
