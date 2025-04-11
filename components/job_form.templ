@@ -295,9 +295,11 @@ templ scheduleBuilderScript() {
 				const updateCronExpression = () => {
 					const scheduleType = scheduleTypeSelect.value;
 					let cronExpression = '';
+					let hasError = false;
 					
 					switch (scheduleType) {
 						case 'interval':
+							const intervalValueEl = document.getElementById(`${prefixId}interval-value`);
 							const intervalValue = document.getElementById(`${prefixId}interval-value`).value || '15';
 							const intervalUnit = document.getElementById(`${prefixId}interval-unit`).value || 'minutes';
 							
@@ -457,13 +459,25 @@ templ scheduleBuilderScript() {
 					if (scheduleTypeSelect.value !== 'custom') {
 						updateCronExpression();
 					}
+					
+					// Also validate the schedule builder when type changes
+					if (window.validateScheduleFields) {
+						window.validateScheduleFields(prefixId);
+					}
 				});
 				
 				// Add listeners to all schedule builder inputs
 				const attachListeners = (selector) => {
 					const elements = document.querySelectorAll(selector);
 					elements.forEach(el => {
-						el.addEventListener('change', updateCronExpression);
+						el.addEventListener('change', () => {
+							updateCronExpression();
+							
+							// Also validate this field when value changes
+							if (window.validateScheduleFields) {
+								window.validateScheduleFields(prefixId);
+							}
+						});
 						el.addEventListener('input', updateCronExpression);
 					});
 				};
@@ -482,10 +496,480 @@ templ scheduleBuilderScript() {
 	</script>
 }
 
+templ formValidationScript() {
+	<script>
+		document.addEventListener('DOMContentLoaded', () => {
+			// Global function to validate schedule fields that can be called from the schedule builder script
+			window.validateScheduleFields = (prefixId) => {
+				const prefix = prefixId || '';
+				const formId = prefix ? 'edit-job-form' : 'new-job-form';
+				const form = document.getElementById(formId);
+				
+				if (!form) return;
+				
+				// Find if we have a validation function on the form
+				const validationFunction = form._validateScheduleBuilder;
+				if (typeof validationFunction === 'function') {
+					validationFunction();
+				}
+			};
+			
+			// Form validation functions
+			const initFormValidation = (formId, submitBtnId) => {
+				const form = document.getElementById(formId);
+				const submitBtn = document.getElementById(submitBtnId);
+				
+				if (!form || !submitBtn) return;
+				
+				// Keep track of form errors
+				const formErrors = {};
+				const errorContainer = document.getElementById(formId === 'new-job-form' ? 'form-errors' : 'edit-form-errors');
+				const errorList = document.getElementById(formId === 'new-job-form' ? 'error-list' : 'edit-error-list');
+				
+				// Update the form level error container
+				const updateFormErrors = () => {
+					if (!errorContainer || !errorList) return;
+					
+					// Clear the current list
+					errorList.innerHTML = '';
+					
+					// Get all errors
+					const errors = Object.values(formErrors);
+					
+					if (errors.length > 0) {
+						// Show the error container
+						errorContainer.classList.remove('hidden');
+						
+						// Add each error to the list
+						errors.forEach(error => {
+							const li = document.createElement('li');
+							li.textContent = error;
+							errorList.appendChild(li);
+						});
+					} else {
+						// Hide the error container if no errors
+						errorContainer.classList.add('hidden');
+					}
+				};
+				
+				// Add error message element below a field
+				const addErrorMessage = (input, message) => {
+					// Remove any existing error message
+					removeErrorMessage(input);
+					
+					// Store the error for form level display
+					formErrors[input.id] = message;
+					updateFormErrors();
+					
+					// Add error class to input
+					input.classList.add('border-red-500', 'dark:border-red-500');
+					input.classList.add('focus:ring-red-500', 'focus:border-red-500', 'dark:focus:ring-red-600', 'dark:focus:border-red-600');
+					
+					// Create error message
+					const errorDiv = document.createElement('p');
+					errorDiv.className = 'mt-2 text-sm text-red-600 dark:text-red-500';
+					errorDiv.innerHTML = `<span class="font-medium"><i class="fas fa-exclamation-circle mr-1"></i>${message}</span>`;
+					errorDiv.setAttribute('data-error-for', input.id);
+					errorDiv.id = `error-${input.id}`;
+					
+					// Add aria attributes for accessibility
+					input.setAttribute('aria-invalid', 'true');
+					input.setAttribute('aria-describedby', `error-${input.id}`);
+					
+					// Insert after input or its parent container as appropriate
+					const container = input.closest('.relative') || input;
+					container.parentNode.insertBefore(errorDiv, container.nextSibling);
+					
+					return errorDiv;
+				};
+				
+				// Remove error message element
+				const removeErrorMessage = (input) => {
+					// Remove from form errors
+					if (formErrors[input.id]) {
+						delete formErrors[input.id];
+						updateFormErrors();
+					}
+					
+					input.classList.remove('border-red-500', 'dark:border-red-500');
+					input.classList.remove('focus:ring-red-500', 'focus:border-red-500', 'dark:focus:ring-red-600', 'dark:focus:border-red-600');
+					input.removeAttribute('aria-invalid');
+					input.removeAttribute('aria-describedby');
+					
+					const errorDiv = document.querySelector(`[data-error-for="${input.id}"]`);
+					if (errorDiv) {
+						errorDiv.remove();
+					}
+				};
+				
+				// Validate job name field (optional but has max length constraints)
+				const validateJobName = (input) => {
+					const value = input.value.trim();
+					
+					if (value && value.length > 100) {
+						addErrorMessage(input, 'Job name must be less than 100 characters');
+						return false;
+					}
+					
+					removeErrorMessage(input);
+					return true;
+				};
+				
+				// Validate schedule field
+				const validateSchedule = (input) => {
+					// Cron format: minute hour day-of-month month day-of-week
+					// Basic validation for cron expression format
+					const value = input.value.trim();
+					
+					if (!value) {
+						addErrorMessage(input, 'Schedule is required');
+						return false;
+					}
+					
+					const cronParts = value.split(/\s+/);
+					if (cronParts.length !== 5) {
+						addErrorMessage(input, 'Invalid cron expression format');
+						return false;
+					}
+					
+					removeErrorMessage(input);
+					return true;
+				};
+				
+				// Validate config selection
+				const validateConfigSelection = (formEl) => {
+					const checkedConfigs = formEl.querySelectorAll('input[name="config_ids[]"]:checked');
+					const container = formEl.querySelector('#selected-configs') || formEl.querySelector('#selected-configs-edit');
+					
+					if (checkedConfigs.length === 0) {
+						const errorDiv = document.createElement('p');
+						errorDiv.className = 'mt-2 text-sm text-red-600 dark:text-red-500';
+						errorDiv.innerHTML = '<span class="font-medium"><i class="fas fa-exclamation-circle mr-1"></i>At least one configuration must be selected</span>';
+						errorDiv.id = 'config-selection-error';
+						
+						// Add to form errors
+						formErrors['config_selection'] = 'At least one configuration must be selected';
+						updateFormErrors();
+						
+						// Remove any existing error message
+						const existingError = document.getElementById('config-selection-error');
+						if (existingError) {
+							existingError.remove();
+						}
+						
+						if (container) {
+							container.classList.add('border-red-500', 'dark:border-red-500');
+							container.parentNode.insertBefore(errorDiv, container.nextSibling);
+						}
+						
+						return false;
+					} else {
+						// Remove from form errors
+						if (formErrors['config_selection']) {
+							delete formErrors['config_selection'];
+							updateFormErrors();
+						}
+						
+						const existingError = document.getElementById('config-selection-error');
+						if (existingError) {
+							existingError.remove();
+						}
+						
+						if (container) {
+							container.classList.remove('border-red-500', 'dark:border-red-500');
+						}
+						
+						return true;
+					}
+				};
+				
+				// Validate schedule builder fields based on selected type
+				const validateScheduleBuilder = () => {
+					const scheduleTypeSelect = document.getElementById(`${prefix}schedule-type`);
+					
+					if (!scheduleTypeSelect) return true;
+					
+					const scheduleType = scheduleTypeSelect.value;
+					let isValid = true;
+					
+					// Clear existing schedule builder errors
+					form.querySelectorAll('.schedule-builder-error').forEach(el => el.remove());
+					
+					// Helper to add error message
+					const addBuilderError = (element, message) => {
+						// Add error style
+						element.classList.add('border-red-500', 'dark:border-red-500');
+						
+						// Add to form errors list
+						formErrors[`${prefix}schedule-builder-${element.id}`] = message;
+						
+						// Create error message
+						const errorDiv = document.createElement('p');
+						errorDiv.className = 'mt-1 text-sm text-red-600 dark:text-red-500 schedule-builder-error';
+						errorDiv.innerHTML = `<span class="font-medium"><i class="fas fa-exclamation-circle mr-1"></i>${message}</span>`;
+						
+						// Add after element
+						element.parentNode.insertBefore(errorDiv, element.nextSibling);
+						
+						isValid = false;
+					};
+					
+					switch (scheduleType) {
+						case 'interval':
+							const intervalValueEl = document.getElementById(`${prefix}interval-value`);
+							if (intervalValueEl) {
+								const value = intervalValueEl.value.trim();
+								if (!value || isNaN(value) || parseInt(value) < 1) {
+									addBuilderError(intervalValueEl, 'Please enter a valid number greater than 0');
+								} else {
+									intervalValueEl.classList.remove('border-red-500', 'dark:border-red-500');
+								}
+							}
+							break;
+							
+						case 'daily':
+							const dailyHourEl = document.getElementById(`${prefix}daily-hour`);
+							const dailyMinuteEl = document.getElementById(`${prefix}daily-minute`);
+							
+							if (dailyHourEl) {
+								const hour = dailyHourEl.value.trim();
+								if (!hour || isNaN(hour) || parseInt(hour) < 0 || parseInt(hour) > 23) {
+									addBuilderError(dailyHourEl, 'Hour must be between 0-23');
+								} else {
+									dailyHourEl.classList.remove('border-red-500', 'dark:border-red-500');
+								}
+							}
+							
+							if (dailyMinuteEl) {
+								const minute = dailyMinuteEl.value.trim();
+								if (!minute || isNaN(minute) || parseInt(minute) < 0 || parseInt(minute) > 59) {
+									addBuilderError(dailyMinuteEl, 'Minute must be between 0-59');
+								} else {
+									dailyMinuteEl.classList.remove('border-red-500', 'dark:border-red-500');
+								}
+							}
+							break;
+							
+						case 'weekly':
+							const weeklyHourEl = document.getElementById(`${prefix}weekly-hour`);
+							const weeklyMinuteEl = document.getElementById(`${prefix}weekly-minute`);
+							
+							if (weeklyHourEl) {
+								const hour = weeklyHourEl.value.trim();
+								if (!hour || isNaN(hour) || parseInt(hour) < 0 || parseInt(hour) > 23) {
+									addBuilderError(weeklyHourEl, 'Hour must be between 0-23');
+								} else {
+									weeklyHourEl.classList.remove('border-red-500', 'dark:border-red-500');
+								}
+							}
+							
+							if (weeklyMinuteEl) {
+								const minute = weeklyMinuteEl.value.trim();
+								if (!minute || isNaN(minute) || parseInt(minute) < 0 || parseInt(minute) > 59) {
+									addBuilderError(weeklyMinuteEl, 'Minute must be between 0-59');
+								} else {
+									weeklyMinuteEl.classList.remove('border-red-500', 'dark:border-red-500');
+								}
+							}
+							
+							// Check if at least one day is selected
+							let daySelected = false;
+							for (let i = 0; i < 7; i++) {
+								const dayCheckbox = document.getElementById(`${prefix}day-${i}`);
+								if (dayCheckbox && dayCheckbox.checked) {
+									daySelected = true;
+									break;
+								}
+							}
+							
+							if (!daySelected) {
+								const daysContainer = form.querySelector(`#${prefix}weekly-section .flex.flex-wrap.gap-2`);
+								if (daysContainer) {
+									daysContainer.classList.add('border', 'border-red-500', 'rounded-md', 'p-1');
+									
+									// Add to form errors
+									formErrors[`${prefix}weekly-days`] = 'Please select at least one day of the week';
+									
+									// Add error message
+									const errorDiv = document.createElement('p');
+									errorDiv.className = 'mt-1 text-sm text-red-600 dark:text-red-500 schedule-builder-error';
+									errorDiv.innerHTML = '<span class="font-medium"><i class="fas fa-exclamation-circle mr-1"></i>Please select at least one day</span>';
+									daysContainer.parentNode.insertBefore(errorDiv, daysContainer.nextSibling);
+									
+									isValid = false;
+								}
+							} else {
+								const daysContainer = form.querySelector(`#${prefix}weekly-section .flex.flex-wrap.gap-2`);
+								if (daysContainer) {
+									daysContainer.classList.remove('border', 'border-red-500', 'rounded-md', 'p-1');
+								}
+							}
+							break;
+							
+						case 'monthly':
+							const monthlyHourEl = document.getElementById(`${prefix}monthly-hour`);
+							const monthlyMinuteEl = document.getElementById(`${prefix}monthly-minute`);
+							const monthlyDayEl = document.getElementById(`${prefix}monthly-day`);
+							
+							if (monthlyHourEl) {
+								const hour = monthlyHourEl.value.trim();
+								if (!hour || isNaN(hour) || parseInt(hour) < 0 || parseInt(hour) > 23) {
+									addBuilderError(monthlyHourEl, 'Hour must be between 0-23');
+								} else {
+									monthlyHourEl.classList.remove('border-red-500', 'dark:border-red-500');
+								}
+							}
+							
+							if (monthlyMinuteEl) {
+								const minute = monthlyMinuteEl.value.trim();
+								if (!minute || isNaN(minute) || parseInt(minute) < 0 || parseInt(minute) > 59) {
+									addBuilderError(monthlyMinuteEl, 'Minute must be between 0-59');
+								} else {
+									monthlyMinuteEl.classList.remove('border-red-500', 'dark:border-red-500');
+								}
+							}
+							
+							if (monthlyDayEl) {
+								const day = monthlyDayEl.value.trim();
+								if (!day || isNaN(day) || parseInt(day) < 1 || parseInt(day) > 31) {
+									addBuilderError(monthlyDayEl, 'Day must be between 1-31');
+								} else {
+									monthlyDayEl.classList.remove('border-red-500', 'dark:border-red-500');
+								}
+							}
+							break;
+							
+						case 'custom':
+							// No validation required for custom option
+							break;
+					}
+					
+					// Update form errors
+					updateFormErrors();
+					
+					return isValid;
+				};
+				
+				// Run validation on all fields
+				const validateForm = () => {
+					// Clear all existing form errors
+					Object.keys(formErrors).forEach(key => delete formErrors[key]);
+					
+					let isValid = true;
+					
+					// Get form fields based on form ID
+					const prefix = formId === 'new-job-form' ? '' : 'edit-';
+					const nameInput = document.getElementById(`${prefix}name`);
+					const scheduleInput = document.getElementById(`${prefix}schedule`);
+					
+					// Validate job name (if present)
+					if (nameInput) {
+						isValid = validateJobName(nameInput) && isValid;
+					}
+					
+					// Validate schedule builder fields
+					isValid = validateScheduleBuilder() && isValid;
+					
+					// Validate schedule
+					if (scheduleInput) {
+						isValid = validateSchedule(scheduleInput) && isValid;
+					}
+					
+					// Validate config selection
+					isValid = validateConfigSelection(form) && isValid;
+					
+					// Update form errors
+					updateFormErrors();
+					
+					return isValid;
+				};
+				
+				// Handle form submission validation
+				form.addEventListener('submit', (e) => {
+					const isValid = validateForm();
+					
+					// Prevent form submission if validation fails
+					if (!isValid) {
+						e.preventDefault();
+						
+						// Scroll to the error container first
+						if (errorContainer && !errorContainer.classList.contains('hidden')) {
+							errorContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+						} else {
+							// Or scroll to the first field error
+							const firstError = document.querySelector('.text-red-600');
+							if (firstError) {
+								firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+							}
+						}
+					}
+				});
+				
+				// Add input event listeners to validate fields as they are completed
+				const prefix = formId === 'new-job-form' ? '' : 'edit-';
+				
+				// Job name validation
+				const nameInput = document.getElementById(`${prefix}name`);
+				if (nameInput) {
+					nameInput.addEventListener('blur', () => {
+						validateJobName(nameInput);
+					});
+					
+					nameInput.addEventListener('input', () => {
+						if (nameInput.value.length > 100) {
+							validateJobName(nameInput);
+						} else if (nameInput.hasAttribute('aria-invalid')) {
+							validateJobName(nameInput);
+						}
+					});
+				}
+				
+				// Schedule validation
+				const scheduleInput = document.getElementById(`${prefix}schedule`);
+				if (scheduleInput) {
+					scheduleInput.addEventListener('blur', () => {
+						validateSchedule(scheduleInput);
+					});
+					
+					scheduleInput.addEventListener('change', () => {
+						validateSchedule(scheduleInput);
+					});
+				}
+				
+				// Add validation to config selection checkboxes
+				const configCheckboxes = form.querySelectorAll('input[name="config_ids[]"]');
+				configCheckboxes.forEach(checkbox => {
+					checkbox.addEventListener('change', () => {
+						validateConfigSelection(form);
+					});
+				});
+				
+				// Add a validate all button for testing
+				if (submitBtn && form.classList.contains('debug-mode')) {
+					const validateBtn = document.createElement('button');
+					validateBtn.type = 'button';
+					validateBtn.textContent = 'Validate Form';
+					validateBtn.className = 'ml-2 text-white bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center';
+					validateBtn.addEventListener('click', validateForm);
+					submitBtn.parentNode.insertBefore(validateBtn, submitBtn.nextSibling);
+				}
+				
+				// Add the validation function to the form object for global access
+				form._validateScheduleBuilder = validateScheduleBuilder;
+			};
+			
+			// Initialize form validation for both forms
+			initFormValidation('new-job-form', 'new-job-submit');
+			initFormValidation('edit-job-form', 'edit-job-submit');
+		});
+	</script>
+}
+
 templ JobForm(ctx context.Context, data JobFormData) {
 	@LayoutWithContext(getJobFormTitle(data.IsNew), ctx) {
 		@configSearchScript()
 		@scheduleBuilderScript()
+		@formValidationScript()
 		
 		<!-- Main Content -->
 		<section class="py-8 px-4">
@@ -520,6 +1004,16 @@ templ JobForm(ctx context.Context, data JobFormData) {
 					<!-- Main Form -->
 					if data.IsNew {
 						<form id="new-job-form" hx-post="/jobs" hx-target="body" hx-boost="true" class="space-y-6">
+							<!-- Form level errors -->
+							<div id="form-errors" class="hidden p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400" role="alert">
+								<div class="flex items-center">
+									<i class="fas fa-circle-exclamation mr-2"></i>
+									<span class="font-medium">Please fix the following errors:</span>
+								</div>
+								<ul class="mt-1.5 ml-4 list-disc list-inside" id="error-list">
+								</ul>
+							</div>
+							
 							<!-- Job Details Section -->
 							<div class="p-5 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
 								<h3 class="mb-4 text-xl font-bold text-gray-900 dark:text-white flex items-center">
@@ -541,6 +1035,7 @@ templ JobForm(ctx context.Context, data JobFormData) {
 											id="name" 
 											class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
 											placeholder="Daily Production Backup"
+											maxlength="100"
 										/>
 									</div>
 									<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
@@ -552,7 +1047,7 @@ templ JobForm(ctx context.Context, data JobFormData) {
 								<!-- Schedule field -->
 								<div class="mb-6">
 									<label for="schedule-type" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-										Schedule Type
+										Schedule Type <span class="text-red-500">*</span>
 									</label>
 									<select 
 										id="schedule-type" 
@@ -606,6 +1101,7 @@ templ JobForm(ctx context.Context, data JobFormData) {
 																class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
 																min="0"
 																max="23"
+																
 																placeholder="HH"
 																value="0"
 															/>
@@ -618,6 +1114,7 @@ templ JobForm(ctx context.Context, data JobFormData) {
 																class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
 																min="0"
 																max="59"
+																
 																placeholder="MM"
 																value="0"
 															/>
@@ -763,6 +1260,7 @@ templ JobForm(ctx context.Context, data JobFormData) {
 											name="schedule" 
 											id="schedule" 
 											required
+											aria-required="true"
 											class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
 											placeholder="*/15 * * * *"
 											value="*/15 * * * *"
@@ -874,13 +1372,23 @@ templ JobForm(ctx context.Context, data JobFormData) {
 								<a href="/jobs" class="text-white bg-gray-500 hover:bg-gray-600 focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-gray-600 dark:hover:bg-gray-700 dark:focus:ring-gray-800">
 									<i class="fas fa-arrow-left mr-2"></i>Cancel
 								</a>
-								<button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+								<button type="submit" id="new-job-submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
 									<i class="fas fa-plus mr-2"></i>Create Job
 								</button>
 							</div>
 						</form>
 					} else {
 						<form id="edit-job-form" hx-post={ fmt.Sprintf("/jobs/%d", data.Job.ID) } hx-target="body" hx-boost="true" data-config-order={ data.Job.ConfigIDs } class="space-y-6">
+							<!-- Form level errors -->
+							<div id="edit-form-errors" class="hidden p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400" role="alert">
+								<div class="flex items-center">
+									<i class="fas fa-circle-exclamation mr-2"></i>
+									<span class="font-medium">Please fix the following errors:</span>
+								</div>
+								<ul class="mt-1.5 ml-4 list-disc list-inside" id="edit-error-list">
+								</ul>
+							</div>
+							
 							<!-- Job Details Section -->
 							<div class="p-5 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
 								<h3 class="mb-4 text-xl font-bold text-gray-900 dark:text-white flex items-center">
@@ -889,7 +1397,7 @@ templ JobForm(ctx context.Context, data JobFormData) {
 							
 								<!-- Job name field -->
 								<div class="mb-6">
-									<label for="name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+									<label for="edit-name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
 										Job Name
 									</label>
 									<div class="relative">
@@ -899,10 +1407,11 @@ templ JobForm(ctx context.Context, data JobFormData) {
 										<input 
 											type="text" 
 											name="name" 
-											id="name" 
+											id="edit-name" 
 											value={ data.Job.Name }
 											class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
 											placeholder="Daily Production Backup"
+											maxlength="100"
 										/>
 									</div>
 									<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
@@ -914,7 +1423,7 @@ templ JobForm(ctx context.Context, data JobFormData) {
 								<!-- Schedule field -->
 								<div class="mb-6">
 									<label for="edit-schedule-type" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-										Schedule Type
+										Schedule Type <span class="text-red-500">*</span>
 									</label>
 									<select 
 										id="edit-schedule-type" 
@@ -968,6 +1477,7 @@ templ JobForm(ctx context.Context, data JobFormData) {
 																class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
 																min="0"
 																max="23"
+																
 																placeholder="HH"
 																value="0"
 															/>
@@ -980,6 +1490,7 @@ templ JobForm(ctx context.Context, data JobFormData) {
 																class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
 																min="0"
 																max="59"
+																
 																placeholder="MM"
 																value="0"
 															/>
@@ -1126,6 +1637,7 @@ templ JobForm(ctx context.Context, data JobFormData) {
 											id="edit-schedule" 
 											value={ data.Job.Schedule }
 											required
+											aria-required="true"
 											class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
 											placeholder="*/15 * * * *"
 										/>
@@ -1239,7 +1751,7 @@ templ JobForm(ctx context.Context, data JobFormData) {
 								<a href="/jobs" class="text-white bg-gray-500 hover:bg-gray-600 focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-gray-600 dark:hover:bg-gray-700 dark:focus:ring-gray-800">
 									<i class="fas fa-arrow-left mr-2"></i>Cancel
 								</a>
-								<button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+								<button type="submit" id="edit-job-submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
 									<i class="fas fa-save mr-2"></i>Save Changes
 								</button>
 							</div>

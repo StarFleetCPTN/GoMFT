@@ -114,13 +114,13 @@ func (l *Logger) Write(p []byte) (n int, err error) {
 	level, source, message := parseLogEntry(logLine)
 
 	// *** DEBUG: Print parsed result to stderr ***
-	fmt.Fprintf(os.Stderr, "[DEBUG-LOGGER-V2] Parsed: Level='%s', Source='%s', Message='%s'\n", level, source, strings.TrimSpace(message))
+	fmt.Fprintf(os.Stderr, "[DEBUG-LOGGER] Parsed: Level='%s', Source='%s', Message='%s'\n", level, source, strings.TrimSpace(message))
 
 	// --- TEMPORARILY DISABLED FILTER ---
 	/*
 		// Don't broadcast logs about WebSocket activity to avoid potential loops
 		if source == "handler" || source == "admin_handlers" || strings.Contains(message, "WebSocket") || strings.Contains(message, "Broadcasting log") || source == "routes" {
-			fmt.Fprintf(os.Stderr, "[DEBUG-LOGGER-V2] Filtered out log from source '%s'\n", source)
+			fmt.Fprintf(os.Stderr, "[DEBUG-LOGGER] Filtered out log from source '%s'\n", source)
 			return n, nil
 		}
 	*/
@@ -128,10 +128,10 @@ func (l *Logger) Write(p []byte) (n int, err error) {
 
 	// Broadcast to WebSocket clients if handlers are initialized
 	if handlers, ok := web.GetHandlersInstance(); ok && handlers != nil {
-		fmt.Fprintf(os.Stderr, "[DEBUG-LOGGER-V2] Broadcasting: Level='%s', Source='%s'\n", level, source)
+		fmt.Fprintf(os.Stderr, "[DEBUG-LOGGER] Broadcasting: Level='%s', Source='%s'\n", level, source)
 		handlers.BroadcastLog(level, message, source) // Pass parsed values
 	} else {
-		fmt.Fprintf(os.Stderr, "[DEBUG-LOGGER-V2] Skipped broadcast: handlers not ready\n")
+		fmt.Fprintf(os.Stderr, "[DEBUG-LOGGER] Skipped broadcast: handlers not ready\n")
 	}
 
 	return n, nil // Return the number of bytes written and no error
