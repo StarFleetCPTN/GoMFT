@@ -146,6 +146,15 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 			auditGroup.GET("/export", h.PermissionMiddleware("audit.export"), h.HandleExportAuditLogs)
 		}
 
+		// Log viewer routes
+		logsGroup := admin.Group("/logs")
+		logsGroup.Use(h.PermissionMiddleware("logs.view"))
+		{
+			logsGroup.GET("", h.HandleLogViewer)
+			logsGroup.GET("/ws", h.HandleLogStream)
+			logsGroup.POST("/start-generator", h.HandleStartLogGenerator)
+		}
+
 		// System settings routes
 		settingsGroup := admin.Group("/settings")
 		settingsGroup.Use(h.PermissionMiddleware("system.settings"))

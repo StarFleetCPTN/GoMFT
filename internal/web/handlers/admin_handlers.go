@@ -1,15 +1,22 @@
 package handlers
 
 import (
+	"bufio"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	"github.com/starfleetcptn/gomft/components"
 	"github.com/starfleetcptn/gomft/internal/db"
 )
@@ -1277,4 +1284,468 @@ func (h *Handlers) HandleDeleteUser(c *gin.Context) {
 
 	// Always use the partial for HTMX delete requests
 	_ = components.UserManagementContent(data).Render(ctx, c.Writer)
+}
+
+// HandleLogViewer renders the log viewer page
+func (h *Handlers) HandleLogViewer(c *gin.Context) {
+	ctx := components.CreateTemplateContext(c)
+
+	// Create logs data for initial page load
+	logFilePath := filepath.Join(h.LogsDir, "scheduler.log")
+
+	// Log the full path for debugging
+	log.Printf("Log viewer initialized with log file path: %s", logFilePath)
+
+	data := components.LogViewerData{
+		Logs:          []components.LogEntry{},
+		CurrentFilter: "",
+		LogFilePath:   logFilePath,
+	}
+
+	// Render the log viewer component
+	components.AdminLogs(ctx, data).Render(ctx, c.Writer)
+}
+
+// HandleLogStream handles WebSocket connections for real-time log streaming
+func (h *Handlers) HandleLogStream(c *gin.Context) {
+	// Configure upgrader
+	upgrader := websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			return true // Allow all origins for now
+		},
+	}
+
+	fmt.Fprintf(os.Stderr, "[DEBUG-WS] New WebSocket connection request from %s\n", c.ClientIP())
+
+	ws, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[DEBUG-WS] Failed to upgrade WebSocket for %s: %v\n", c.ClientIP(), err)
+		return
+	}
+	fmt.Fprintf(os.Stderr, "[DEBUG-WS] WebSocket connection upgraded for %s\n", c.ClientIP())
+
+	// Set ping handler to respond with pong
+	ws.SetPingHandler(func(data string) error {
+		fmt.Fprintf(os.Stderr, "[DEBUG-WS] Received ping from %s, responding with pong\n", ws.RemoteAddr())
+		return ws.WriteControl(websocket.PongMessage, []byte{}, time.Now().Add(5*time.Second))
+	})
+
+	// Ensure connection is closed eventually
+	defer func() {
+		fmt.Fprintf(os.Stderr, "[DEBUG-WS] Closing WebSocket connection for %s\n", ws.RemoteAddr())
+		ws.Close()
+	}()
+
+	// Register the new client and create its mutex
+	WebSocketClientsMutex.Lock()
+	WebSocketClients[ws] = true
+	WebSocketClientWriteMutexes[ws] = &sync.Mutex{}
+	numClients := len(WebSocketClients)
+	WebSocketClientsMutex.Unlock()
+
+	fmt.Fprintf(os.Stderr, "[DEBUG-WS] Registered client %s. Total clients: %d\n", ws.RemoteAddr(), numClients)
+
+	// De-register the client when the handler exits
+	defer func() {
+		WebSocketClientsMutex.Lock()
+		delete(WebSocketClients, ws)
+		delete(WebSocketClientWriteMutexes, ws)
+		remainingClients := len(WebSocketClients)
+		WebSocketClientsMutex.Unlock()
+		fmt.Fprintf(os.Stderr, "[DEBUG-WS] De-registered client %s. Remaining clients: %d\n", ws.RemoteAddr(), remainingClients)
+	}()
+
+	// Send recent logs immediately after connection
+	h.sendRecentLogs(ws)
+
+	// Start a goroutine to send pings periodically to keep the connection alive
+	stopPinger := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if err := ws.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(10*time.Second)); err != nil {
+					fmt.Fprintf(os.Stderr, "[DEBUG-WS] Failed to send ping to client %s: %v\n", ws.RemoteAddr(), err)
+					return
+				}
+				fmt.Fprintf(os.Stderr, "[DEBUG-WS] Sent ping to client %s\n", ws.RemoteAddr())
+			case <-stopPinger:
+				return
+			}
+		}
+	}()
+
+	// Keep the connection alive by reading messages (and discarding them)
+	// This also detects when the client closes the connection.
+	for {
+		messageType, message, err := ws.ReadMessage()
+		if err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				fmt.Fprintf(os.Stderr, "[DEBUG-WS] WebSocket closed unexpectedly for %s: %v\n", ws.RemoteAddr(), err)
+			} else {
+				fmt.Fprintf(os.Stderr, "[DEBUG-WS] WebSocket closed normally for %s.\n", ws.RemoteAddr())
+			}
+			break // Exit loop on Read error
+		}
+
+		// Handle client messages (like ping)
+		if messageType == websocket.TextMessage && len(message) > 0 {
+			fmt.Fprintf(os.Stderr, "[DEBUG-WS] Received message from client %s: %s\n", ws.RemoteAddr(), message)
+
+			// Try to parse as JSON and check for ping
+			var msgData map[string]interface{}
+			if err := json.Unmarshal(message, &msgData); err == nil {
+				if msgType, ok := msgData["type"].(string); ok && msgType == "ping" {
+					fmt.Fprintf(os.Stderr, "[DEBUG-WS] Received ping from client %s, responding with pong\n", ws.RemoteAddr())
+
+					// Send a pong response
+					pongResp := map[string]interface{}{
+						"type": "pong",
+						"time": time.Now().Unix(),
+					}
+
+					WebSocketClientsMutex.Lock()
+					mutex, exists := WebSocketClientWriteMutexes[ws]
+					WebSocketClientsMutex.Unlock()
+
+					if exists {
+						mutex.Lock()
+						err := ws.WriteJSON(pongResp)
+						mutex.Unlock()
+
+						if err != nil {
+							fmt.Fprintf(os.Stderr, "[DEBUG-WS] Error sending pong to client %s: %v\n", ws.RemoteAddr(), err)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Stop the ping goroutine
+	close(stopPinger)
+}
+
+// sendRecentLogs sends recent log entries to a new WebSocket client
+func (h *Handlers) sendRecentLogs(ws *websocket.Conn) {
+	// Get the mutex for this client *first*
+	WebSocketClientsMutex.Lock()
+	mutex, exists := WebSocketClientWriteMutexes[ws]
+	if !exists {
+		// This shouldn't happen if HandleLogStream is correct, but handle defensively
+		WebSocketClientsMutex.Unlock()
+		fmt.Fprintf(os.Stderr, "[DEBUG-WS] Mutex not found for client %v during sendRecentLogs. Aborting recent logs send.\n", ws.RemoteAddr())
+		return
+	}
+	WebSocketClientsMutex.Unlock()
+
+	// Construct the path to the log file
+	logFilePath := filepath.Join(h.LogsDir, "scheduler.log")
+
+	// Check if the log file exists
+	if _, err := os.Stat(logFilePath); os.IsNotExist(err) {
+		fmt.Fprintf(os.Stderr, "[DEBUG-WS] Log file not found at %s for sendRecentLogs. Sending example logs.\n", logFilePath)
+		h.sendExampleLogs(ws) // Send examples if main log file isn't there
+		return
+	}
+
+	// Open the log file
+	file, err := os.Open(logFilePath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[DEBUG-WS] Error opening log file %s: %v. Sending example logs.\n", logFilePath, err)
+		h.sendExampleLogs(ws)
+		return
+	}
+	defer file.Close()
+
+	// Read the last 20 lines
+	lines, err := readLastLines(file, 20)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[DEBUG-WS] Error reading log file %s: %v. Sending example logs.\n", logFilePath, err)
+		h.sendExampleLogs(ws)
+		return
+	}
+
+	fmt.Fprintf(os.Stderr, "[DEBUG-WS] Read %d lines from %s for client %v.\n", len(lines), logFilePath, ws.RemoteAddr())
+
+	// Parse and send each line as a log entry, protected by the client's mutex
+	for i, line := range lines {
+		level, source, message := parseLogLine(line)
+		timestamp := extractTimestamp(line)
+
+		logEntry := components.LogEntry{
+			Timestamp: timestamp,
+			Level:     level,
+			Message:   message,
+			Source:    source,
+		}
+
+		// Use the specific client's mutex
+		fmt.Fprintf(os.Stderr, "[DEBUG-WS] Sending recent log %d/%d to client %v\n", i+1, len(lines), ws.RemoteAddr())
+		mutex.Lock()
+		err := ws.WriteJSON(logEntry)
+		mutex.Unlock()
+
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[DEBUG-WS] Error sending recent log %d to client %v: %v. Stopping recent logs send.\n", i+1, ws.RemoteAddr(), err)
+			// Don't try to remove the client here, let the main read loop handle it
+			break // Stop sending recent logs on first error
+		}
+	}
+	fmt.Fprintf(os.Stderr, "[DEBUG-WS] Finished sending %d recent logs to client %v.\n", len(lines), ws.RemoteAddr())
+}
+
+// readLastLines reads the last n lines from a file
+func readLastLines(file *os.File, n int) ([]string, error) {
+	// Implement a simpler version that reads the whole file and keeps the last n lines
+	scanner := bufio.NewScanner(file)
+	var lines []string
+
+	// Read all lines
+	for scanner.Scan() {
+		lines = append(lines, scanner.Text())
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	// Return the last n lines (or all if less than n)
+	if len(lines) <= n {
+		return lines, nil
+	}
+
+	return lines[len(lines)-n:], nil
+}
+
+// parseLogLine extracts level, source, and message from a log line
+// This is specific to the format found in the log file being read,
+// NOT the format generated by the standard Go logger directly.
+func parseLogLine(line string) (level, source, message string) {
+	// Default values
+	level = "info"
+	source = "system"
+	originalLine := line // Keep original for prefix check
+
+	// Check for level prefixes first
+	foundPrefix := false
+	if strings.HasPrefix(originalLine, "DEBUG:") { // Check original line for prefix
+		level = "debug"
+		line = strings.TrimSpace(strings.TrimPrefix(originalLine, "DEBUG:"))
+		foundPrefix = true
+	} else if strings.HasPrefix(originalLine, "INFO:") {
+		level = "info"
+		line = strings.TrimSpace(strings.TrimPrefix(originalLine, "INFO:"))
+		foundPrefix = true
+	} else if strings.HasPrefix(originalLine, "ERROR:") {
+		level = "error"
+		line = strings.TrimSpace(strings.TrimPrefix(originalLine, "ERROR:"))
+		foundPrefix = true
+	} else if strings.HasPrefix(originalLine, "WARN:") {
+		level = "warn"
+		line = strings.TrimSpace(strings.TrimPrefix(originalLine, "WARN:"))
+		foundPrefix = true
+	} else if strings.HasPrefix(originalLine, "WARNING:") {
+		level = "warn"
+		line = strings.TrimSpace(strings.TrimPrefix(originalLine, "WARNING:"))
+		foundPrefix = true
+	} else if strings.HasPrefix(originalLine, "FATAL:") {
+		level = "fatal"
+		line = strings.TrimSpace(strings.TrimPrefix(originalLine, "FATAL:"))
+		foundPrefix = true
+	}
+
+	// Now parse the rest (timestamp + message) using the potentially modified 'line'
+	parts := strings.SplitN(line, " ", 3)
+	if len(parts) >= 3 {
+		message = parts[2] // The rest is the message
+
+		// Try to extract source *only if no level prefix was found initially*
+		// Assumes standard log format prefixes message with file:line
+		if !foundPrefix {
+			if fileStart := strings.Index(message, " "); fileStart > 0 {
+				filePath := message[:fileStart]
+				if strings.Contains(filePath, ":") {
+					filePathParts := strings.Split(filePath, "/")
+					if len(filePathParts) > 0 {
+						fileNameWithLine := filePathParts[len(filePathParts)-1]
+						fileName := strings.Split(fileNameWithLine, ":")[0]
+						source = strings.TrimSuffix(fileName, ".go")
+					}
+				}
+				// Update message to remove the file info
+				message = message[fileStart+1:]
+			}
+		}
+
+		// If no prefix was found, attempt level detection from message content (e.g., [info])
+		if !foundPrefix {
+			parsedLevel, cleanMessage := parseLevelFromMessageContent(message)
+			level = parsedLevel
+			message = cleanMessage
+		}
+
+	} else {
+		// Fallback if split doesn't work as expected, use the (potentially prefix-stripped) line
+		message = line
+	}
+
+	return level, source, message
+}
+
+// parseLevelFromMessageContent checks for bracketed level indicators
+func parseLevelFromMessageContent(msg string) (string, string) {
+	level := "info" // Default
+	cleanMsg := msg
+
+	if strings.HasPrefix(msg, "[debug]") {
+		level = "debug"
+		cleanMsg = strings.TrimSpace(strings.TrimPrefix(msg, "[debug]"))
+	} else if strings.HasPrefix(msg, "[info]") {
+		level = "info"
+		cleanMsg = strings.TrimSpace(strings.TrimPrefix(msg, "[info]"))
+	} else if strings.HasPrefix(msg, "[warn]") {
+		level = "warn"
+		cleanMsg = strings.TrimSpace(strings.TrimPrefix(msg, "[warn]"))
+	} else if strings.HasPrefix(msg, "[warning]") {
+		level = "warn"
+		cleanMsg = strings.TrimSpace(strings.TrimPrefix(msg, "[warning]"))
+	} else if strings.HasPrefix(msg, "[error]") {
+		level = "error"
+		cleanMsg = strings.TrimSpace(strings.TrimPrefix(msg, "[error]"))
+	} else if strings.HasPrefix(msg, "[fatal]") {
+		level = "fatal"
+		cleanMsg = strings.TrimSpace(strings.TrimPrefix(msg, "[fatal]"))
+	}
+	// Optional: Add inference based on keywords like the logger does
+	// else if strings.Contains(strings.ToLower(msg), "error") { level = "error" } ...
+	return level, cleanMsg
+}
+
+// extractTimestamp extracts the timestamp from a log line, handling potential prefixes
+func extractTimestamp(line string) time.Time {
+	now := time.Now() // Default
+	originalLine := line
+
+	// Remove known level prefixes for timestamp parsing
+	prefixes := []string{"DEBUG:", "INFO:", "ERROR:", "WARN:", "WARNING:", "FATAL:"}
+	for _, prefix := range prefixes {
+		if strings.HasPrefix(line, prefix) {
+			line = strings.TrimSpace(strings.TrimPrefix(line, prefix))
+			break
+		}
+	}
+
+	// Try to extract timestamp parts (date and time)
+	parts := strings.SplitN(line, " ", 3)
+	if len(parts) >= 2 {
+		dateStr := parts[0]
+		timeStr := parts[1]
+		timestampStr := dateStr + " " + timeStr
+
+		// List of timestamp formats to try
+		formats := []string{
+			"2006/01/02 15:04:05",        // Standard Go log with slashes
+			"2006/01/02 15:04:05.999",    // With milliseconds
+			"2006/01/02 15:04:05.999999", // With microseconds
+			"2006-01-02 15:04:05",        // Standard Go log with dashes
+			"2006-01-02 15:04:05.999",    // With milliseconds
+			"2006-01-02 15:04:05.999999", // With microseconds
+		}
+
+		for _, format := range formats {
+			timestamp, err := time.Parse(format, timestampStr)
+			if err == nil {
+				return timestamp // Successfully parsed
+			}
+		}
+		// If all formats failed, log the original attempt
+		fmt.Fprintf(os.Stderr, "[DEBUG-TIMESTAMP] Failed to parse timestamp from '%s' (derived from line: %s)\n", timestampStr, originalLine)
+	} else {
+		fmt.Fprintf(os.Stderr, "[DEBUG-TIMESTAMP] Could not split timestamp parts from line: %s\n", originalLine)
+	}
+
+	return now // Return current time if parsing failed
+}
+
+// sendExampleLogs sends example log entries for demonstration
+func (h *Handlers) sendExampleLogs(ws *websocket.Conn) {
+	// Get the mutex for this client *first*
+	WebSocketClientsMutex.Lock()
+	mutex, exists := WebSocketClientWriteMutexes[ws]
+	if !exists {
+		WebSocketClientsMutex.Unlock()
+		fmt.Fprintf(os.Stderr, "[DEBUG-WS] Mutex not found for client %v during sendExampleLogs. Aborting example logs send.\n", ws.RemoteAddr())
+		return
+	}
+	WebSocketClientsMutex.Unlock()
+
+	fmt.Fprintf(os.Stderr, "[DEBUG-WS] Sending example logs to client %v\n", ws.RemoteAddr())
+
+	// Example log entries for demonstration
+	exampleLogs := []components.LogEntry{
+		{
+			Timestamp: time.Now().UTC().Add(-time.Minute * 5),
+			Level:     "info",
+			Message:   "Application started successfully",
+			Source:    "main",
+		},
+		{
+			Timestamp: time.Now().UTC().Add(-time.Minute * 3),
+			Level:     "debug",
+			Message:   "Connected to database",
+			Source:    "database",
+		},
+		{
+			Timestamp: time.Now().UTC().Add(-time.Minute * 2),
+			Level:     "warn",
+			Message:   "High memory usage detected: 85%",
+			Source:    "monitor",
+		},
+	}
+
+	for i, logEntry := range exampleLogs {
+		// Use the specific client's mutex
+		fmt.Fprintf(os.Stderr, "[DEBUG-WS] Sending example log %d/%d to client %v\n", i+1, len(exampleLogs), ws.RemoteAddr())
+		mutex.Lock()
+		err := ws.WriteJSON(logEntry)
+		mutex.Unlock()
+
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[DEBUG-WS] Error sending example log %d to client %v: %v. Stopping example logs send.\n", i+1, ws.RemoteAddr(), err)
+			break // Stop sending example logs on first error
+		}
+	}
+	fmt.Fprintf(os.Stderr, "[DEBUG-WS] Finished sending example logs to client %v.\n", ws.RemoteAddr())
+}
+
+// HandleStartLogGenerator handles requests to start the log generator for testing
+func (h *Handlers) HandleStartLogGenerator(c *gin.Context) {
+	// Directly send a log to verify the WebSocket is working
+	h.BroadcastLog("info", "Starting log generator...", "test")
+
+	// Start a goroutine to generate some test logs
+	go func() {
+		logLevels := []string{"debug", "info", "warn", "error"}
+		sources := []string{"test", "generator", "system", "scheduler"}
+
+		// First, send a direct log message to all clients
+		for i := 0; i < 20; i++ {
+			level := logLevels[i%len(logLevels)]
+			source := sources[i%len(sources)]
+			message := fmt.Sprintf("Test log entry #%d generated at %s", i+1, time.Now().Format(time.RFC3339))
+
+			// First directly broadcast without going through normal logging
+			h.BroadcastLog(level, message, source)
+
+			// Wait a short time between logs
+			time.Sleep(500 * time.Millisecond)
+		}
+	}()
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Log generator started"})
 }

@@ -24,6 +24,9 @@ const (
 	LogLevelDebug
 )
 
+// BroadcastFunc is a function type that can be used to broadcast logs
+type BroadcastFunc func(level, message, source string)
+
 // String returns the string representation of a log level
 func (l LogLevel) String() string {
 	switch l {
@@ -54,31 +57,70 @@ func ParseLogLevel(level string) LogLevel {
 
 // Logger handles log output to file and console
 type Logger struct {
-	Info     *log.Logger
-	Error    *log.Logger
-	Debug    *log.Logger
-	file     *lumberjack.Logger
-	logLevel LogLevel
+	Info         *log.Logger
+	Error        *log.Logger
+	Debug        *log.Logger
+	file         *lumberjack.Logger
+	logLevel     LogLevel
+	useBroadcast bool
+	broadcastFn  BroadcastFunc
+}
+
+// SetBroadcastFunc sets the function to use for broadcasting logs
+func (l *Logger) SetBroadcastFunc(fn BroadcastFunc) {
+	l.broadcastFn = fn
+	l.useBroadcast = fn != nil
+
+	// Log the setting of the broadcast function to help with troubleshooting
+	if fn != nil {
+		fmt.Fprintf(os.Stderr, "[SCHEDULER-LOGGER] Broadcast function set successfully, logs will be streamed to WebSocket clients\n")
+	} else {
+		fmt.Fprintf(os.Stderr, "[SCHEDULER-LOGGER] Broadcast function cleared or set to nil\n")
+	}
 }
 
 // LogInfo logs an info message if the log level allows it
 func (l *Logger) LogInfo(format string, v ...interface{}) {
 	if l.logLevel >= LogLevelInfo {
-		l.Info.Printf(format, v...)
+		msg := fmt.Sprintf(format, v...)
+		l.Info.Println(msg)
+
+		// If broadcasting is enabled, call the broadcast function
+		if l.useBroadcast && l.broadcastFn != nil {
+			// Add debug output
+			fmt.Fprintf(os.Stderr, "[SCHEDULER-LOGGER-BROADCAST] INFO: %s\n", msg)
+			l.broadcastFn("info", msg, "scheduler")
+		}
 	}
 }
 
 // LogError logs an error message if the log level allows it
 func (l *Logger) LogError(format string, v ...interface{}) {
 	if l.logLevel >= LogLevelError {
-		l.Error.Printf(format, v...)
+		msg := fmt.Sprintf(format, v...)
+		l.Error.Println(msg)
+
+		// If broadcasting is enabled, call the broadcast function
+		if l.useBroadcast && l.broadcastFn != nil {
+			// Add debug output
+			fmt.Fprintf(os.Stderr, "[SCHEDULER-LOGGER-BROADCAST] ERROR: %s\n", msg)
+			l.broadcastFn("error", msg, "scheduler")
+		}
 	}
 }
 
 // LogDebug logs a debug message if the log level allows it
 func (l *Logger) LogDebug(format string, v ...interface{}) {
 	if l.logLevel >= LogLevelDebug {
-		l.Debug.Printf(format, v...)
+		msg := fmt.Sprintf(format, v...)
+		l.Debug.Println(msg)
+
+		// If broadcasting is enabled, call the broadcast function
+		if l.useBroadcast && l.broadcastFn != nil {
+			// Add debug output
+			fmt.Fprintf(os.Stderr, "[SCHEDULER-LOGGER-BROADCAST] DEBUG: %s\n", msg)
+			l.broadcastFn("debug", msg, "scheduler")
+		}
 	}
 }
 
@@ -133,6 +175,12 @@ func NewLogger() *Logger {
 		logLevel = ParseLogLevel(envLogLevel)
 	}
 
+	// Check if we should enable WebSocket broadcasting
+	useBroadcast := true
+	if envBroadcast := os.Getenv("LOG_BROADCAST"); envBroadcast == "false" {
+		useBroadcast = false
+	}
+
 	// Setup log rotation
 	logFile := &lumberjack.Logger{
 		Filename:   filepath.Join(logsDir, "scheduler.log"),
@@ -147,17 +195,19 @@ func NewLogger() *Logger {
 
 	// Create loggers with different prefixes
 	logger := &Logger{
-		Info:     log.New(consoleAndFile, "INFO: ", log.Ldate|log.Ltime),
-		Error:    log.New(consoleAndFile, "ERROR: ", log.Ldate|log.Ltime),
-		Debug:    log.New(consoleAndFile, "DEBUG: ", log.Ldate|log.Ltime),
-		file:     logFile,
-		logLevel: logLevel,
+		Info:         log.New(consoleAndFile, "INFO: ", log.Ldate|log.Ltime),
+		Error:        log.New(consoleAndFile, "ERROR: ", log.Ldate|log.Ltime),
+		Debug:        log.New(consoleAndFile, "DEBUG: ", log.Ldate|log.Ltime),
+		file:         logFile,
+		logLevel:     logLevel,
+		useBroadcast: useBroadcast,
+		broadcastFn:  nil, // Will be set later
 	}
 
 	// Log rotation settings and log level
 	if logLevel >= LogLevelInfo {
-		logger.Info.Printf("Log rotation configured: file=%s, maxSize=%dMB, maxBackups=%d, maxAge=%d days, compress=%v, logLevel=%s",
-			filepath.Join(logsDir, "scheduler.log"), maxSize, maxBackups, maxAge, compress, logLevel.String())
+		logger.Info.Printf("Log rotation configured: file=%s, maxSize=%dMB, maxBackups=%d, maxAge=%d days, compress=%v, logLevel=%s, useBroadcast=%v",
+			filepath.Join(logsDir, "scheduler.log"), maxSize, maxBackups, maxAge, compress, logLevel.String(), useBroadcast)
 	}
 
 	if logLevel >= LogLevelDebug {
