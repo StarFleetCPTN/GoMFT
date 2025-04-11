@@ -21,6 +21,26 @@ type LogViewerData struct {
     LogFilePath   string
 }
 
+// Helper function to get the appropriate CSS class for log levels
+func getLogLevelClass(level string) string {
+    baseClass := "px-4 py-2 text-sm font-medium whitespace-nowrap "
+    
+    switch level {
+    case "debug":
+        return baseClass + "text-purple-500 dark:text-purple-400"
+    case "info":
+        return baseClass + "text-blue-500 dark:text-blue-400"
+    case "warn":
+        return baseClass + "text-yellow-500 dark:text-yellow-400"
+    case "error":
+        return baseClass + "text-red-500 dark:text-red-400"
+    case "fatal":
+        return baseClass + "text-red-700 dark:text-red-600 font-bold"
+    default:
+        return baseClass + "text-gray-500 dark:text-gray-400"
+    }
+}
+
 // AdminLogs renders the log viewer page
 templ AdminLogs(ctx context.Context, data LogViewerData) {
     @LayoutWithContext("Log Viewer", ctx) {
@@ -175,7 +195,7 @@ templ AdminLogs(ctx context.Context, data LogViewerData) {
                     }
                     
                     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                    const wsUrl = `${protocol}//${window.location.host}/admin/logs/ws`;
+                    const wsUrl = protocol + '//' + window.location.host + '/admin/logs/ws';
                     
                     console.log("Connecting to WebSocket:", wsUrl);
                     connectionStatus.innerHTML = '<span class="inline-block w-2 h-2 bg-yellow-500 dark:bg-yellow-400 rounded-full mr-2"></span>Connecting...';
@@ -373,7 +393,7 @@ templ AdminLogs(ctx context.Context, data LogViewerData) {
                             
                             // Add milliseconds
                             const ms = String(date.getMilliseconds()).padStart(3, '0');
-                            formattedTime += `.${ms}`;
+                            formattedTime += "." + ms;
                         } catch (e) {
                             console.error("Error formatting timestamp:", e);
                             formattedTime = String(timestamp);
@@ -404,12 +424,11 @@ templ AdminLogs(ctx context.Context, data LogViewerData) {
                                 levelClass += 'text-gray-500 dark:text-gray-400';
                         }
                         
-                        row.innerHTML = `
-                            <td class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">${formattedTime}</td>
-                            <td class="${levelClass}">${level}</td>
-                            <td class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">${source}</td>
-                            <td class="px-4 py-2 text-sm text-gray-900 dark:text-white font-mono">${message}</td>
-                        `;
+                        row.innerHTML = 
+                            '<td class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">' + formattedTime + '</td>' +
+                            '<td class="' + levelClass + '">' + level + '</td>' +
+                            '<td class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">' + source + '</td>' +
+                            '<td class="px-4 py-2 text-sm text-gray-900 dark:text-white font-mono">' + message + '</td>';
                         
                         logEntries.appendChild(row);
                     });
@@ -475,15 +494,18 @@ templ AdminLogs(ctx context.Context, data LogViewerData) {
                             
                             // Add milliseconds
                             const ms = String(date.getMilliseconds()).padStart(3, '0');
-                            formattedTime += `.${ms}`;
+                            formattedTime += "." + ms;
                         } catch (e) {
                             formattedTime = String(timestamp);
                         }
                         
                         // Properly escape CSV fields
-                        const escapedMessage = message.replace(/"/g, '""');
+                        let escapedMessage = '';
+                        if (message) {
+                            escapedMessage = message.split('"').join('""');
+                        }
                         
-                        csv += `"${formattedTime}","${level}","${source}","${escapedMessage}"\n`;
+                        csv += '"' + formattedTime + '","' + level + '","' + source + '","' + escapedMessage + '"\n';
                     });
                     
                     // Create and trigger download
@@ -493,7 +515,7 @@ templ AdminLogs(ctx context.Context, data LogViewerData) {
                     const date = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
                     
                     a.setAttribute('href', url);
-                    a.setAttribute('download', `gomft-logs-${date}.csv`);
+                    a.setAttribute('download', 'gomft-logs-' + date + '.csv');
                     a.click();
                 });
                 
@@ -514,23 +536,3 @@ templ AdminLogs(ctx context.Context, data LogViewerData) {
         </script>
     }
 }
-
-// Helper function to get the appropriate CSS class for log levels
-func getLogLevelClass(level string) string {
-    baseClass := "px-4 py-2 text-sm font-medium whitespace-nowrap "
-    
-    switch level {
-    case "debug":
-        return baseClass + "text-purple-500 dark:text-purple-400"
-    case "info":
-        return baseClass + "text-blue-500 dark:text-blue-400"
-    case "warn":
-        return baseClass + "text-yellow-500 dark:text-yellow-400"
-    case "error":
-        return baseClass + "text-red-500 dark:text-red-400"
-    case "fatal":
-        return baseClass + "text-red-700 dark:text-red-600 font-bold"
-    default:
-        return baseClass + "text-gray-500 dark:text-gray-400"
-    }
-} 
