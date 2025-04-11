@@ -1473,7 +1473,7 @@ func (h *Handlers) sendRecentLogs(ws *websocket.Conn) {
 	fmt.Fprintf(os.Stderr, "[DEBUG-WS] Read %d lines from %s for client %v.\n", len(lines), logFilePath, ws.RemoteAddr())
 
 	// Parse and send each line as a log entry, protected by the client's mutex
-	for i, line := range lines {
+	for _, line := range lines {
 		level, source, message := parseLogLine(line)
 		timestamp := extractTimestamp(line)
 
@@ -1485,18 +1485,18 @@ func (h *Handlers) sendRecentLogs(ws *websocket.Conn) {
 		}
 
 		// Use the specific client's mutex
-		fmt.Fprintf(os.Stderr, "[DEBUG-WS] Sending recent log %d/%d to client %v\n", i+1, len(lines), ws.RemoteAddr())
+		// fmt.Fprintf(os.Stderr, "[DEBUG-WS] Sending recent log %d/%d to client %v\n", i+1, len(lines), ws.RemoteAddr())
 		mutex.Lock()
 		err := ws.WriteJSON(logEntry)
 		mutex.Unlock()
 
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "[DEBUG-WS] Error sending recent log %d to client %v: %v. Stopping recent logs send.\n", i+1, ws.RemoteAddr(), err)
+			// fmt.Fprintf(os.Stderr, "[DEBUG-WS] Error sending recent log %d to client %v: %v. Stopping recent logs send.\n", i+1, ws.RemoteAddr(), err)
 			// Don't try to remove the client here, let the main read loop handle it
 			break // Stop sending recent logs on first error
 		}
 	}
-	fmt.Fprintf(os.Stderr, "[DEBUG-WS] Finished sending %d recent logs to client %v.\n", len(lines), ws.RemoteAddr())
+	// fmt.Fprintf(os.Stderr, "[DEBUG-WS] Finished sending %d recent logs to client %v.\n", len(lines), ws.RemoteAddr())
 }
 
 // readLastLines reads the last n lines from a file
@@ -1721,31 +1721,4 @@ func (h *Handlers) sendExampleLogs(ws *websocket.Conn) {
 		}
 	}
 	fmt.Fprintf(os.Stderr, "[DEBUG-WS] Finished sending example logs to client %v.\n", ws.RemoteAddr())
-}
-
-// HandleStartLogGenerator handles requests to start the log generator for testing
-func (h *Handlers) HandleStartLogGenerator(c *gin.Context) {
-	// Directly send a log to verify the WebSocket is working
-	h.BroadcastLog("info", "Starting log generator...", "test")
-
-	// Start a goroutine to generate some test logs
-	go func() {
-		logLevels := []string{"debug", "info", "warn", "error"}
-		sources := []string{"test", "generator", "system", "scheduler"}
-
-		// First, send a direct log message to all clients
-		for i := 0; i < 20; i++ {
-			level := logLevels[i%len(logLevels)]
-			source := sources[i%len(sources)]
-			message := fmt.Sprintf("Test log entry #%d generated at %s", i+1, time.Now().Format(time.RFC3339))
-
-			// First directly broadcast without going through normal logging
-			h.BroadcastLog(level, message, source)
-
-			// Wait a short time between logs
-			time.Sleep(500 * time.Millisecond)
-		}
-	}()
-
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Log generator started"})
 }

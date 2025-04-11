@@ -28,7 +28,7 @@ templ AdminLogs(ctx context.Context, data LogViewerData) {
             <!-- Page Header -->
             <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                    <i class="fas fa-file-alt w-6 h-6 mr-2 text-blue-500 dark:text-blue-400"></i> Log Viewer
+                    <i class="fas fa-stream w-6 h-6 mr-2 text-blue-500 dark:text-blue-400"></i> Log Viewer
                 </h1>
                 <div class="flex gap-2">
                     <button id="pause-logs" class="flex items-center justify-center text-white bg-yellow-500 hover:bg-yellow-600 focus:ring-4 focus:ring-yellow-300 font-medium rounded-lg px-4 py-2 dark:bg-yellow-600 dark:hover:bg-yellow-700 focus:outline-none dark:focus:ring-yellow-800">
@@ -42,9 +42,6 @@ templ AdminLogs(ctx context.Context, data LogViewerData) {
                     </button>
                     <button id="download-logs" class="flex items-center justify-center text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
                         <i class="fas fa-download w-4 h-4 mr-2"></i> Download
-                    </button>
-                    <button id="start-generator" class="flex items-center justify-center text-white bg-purple-700 hover:bg-purple-800 focus:ring-4 focus:ring-purple-300 font-medium rounded-lg px-4 py-2 dark:bg-purple-600 dark:hover:bg-purple-700 focus:outline-none dark:focus:ring-purple-800">
-                        <i class="fas fa-cogs w-4 h-4 mr-2"></i> Start Log Generator
                     </button>
                 </div>
             </div>
@@ -150,7 +147,6 @@ templ AdminLogs(ctx context.Context, data LogViewerData) {
                 const resumeButton = document.getElementById('resume-logs');
                 const clearButton = document.getElementById('clear-logs');
                 const downloadButton = document.getElementById('download-logs');
-                const generatorButton = document.getElementById('start-generator');
                 const connectionStatus = document.getElementById('connection-status');
                 const filterLevel = document.getElementById('filter-level');
                 const filterSource = document.getElementById('filter-source');
@@ -510,33 +506,6 @@ templ AdminLogs(ctx context.Context, data LogViewerData) {
                 filterSearch.addEventListener('input', function() {
                     clearTimeout(searchTimeout);
                     searchTimeout = setTimeout(applyFilters, 300);
-                });
-                
-                // Start Log Generator button click
-                generatorButton.addEventListener('click', function() {
-                    fetch('/admin/logs/start-generator', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log(data.message);
-                        // Show toast or notification
-                        const toast = document.createElement('div');
-                        toast.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-                        toast.innerHTML = 'Log generator started';
-                        document.body.appendChild(toast);
-                        
-                        // Remove toast after 3 seconds
-                        setTimeout(() => {
-                            toast.remove();
-                        }, 3000);
-                    })
-                    .catch(error => {
-                        console.error('Error starting log generator:', error);
-                    });
                 });
                 
                 // Initial connection

@@ -66,9 +66,6 @@ func main() {
 	// Set Gin to release mode
 	gin.SetMode(gin.ReleaseMode)
 
-	// Initialize random for test log generator (Go 1.20+ compatible)
-	// No need to seed in newer Go versions as it's automatically initialized
-
 	// Initialize configuration
 	cfg, err := config.Load()
 	if err != nil {

@@ -194,7 +194,7 @@ templ LayoutWithContext(title string, ctx context.Context) {
 											Audit Logs
 										</a>
 										<a href="/admin/logs" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
-											<i class="fas fa-file-alt w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
+											<i class="fas fa-stream w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
 											Log Viewer
 										</a>
 										<a href="/admin/database" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
@@ -297,19 +297,23 @@ templ LayoutWithContext(title string, ctx context.Context) {
 										<i class="fas fa-clipboard-list w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
 										Audit Logs
 									</a>
+									<a href="/admin/logs" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+										<i class="fas fa-stream w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
+										Log Viewer
+									</a>
 									<a href="/admin/database" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
 										<i class="fas fa-database w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
 										Database Tools
 									</a>
 									// Settings Dropdown
-									<button type="button" class="flex items-center w-full p-2 text-base text-gray-900 transition duration-75 rounded-lg group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700" aria-controls="dropdown-settings" data-collapse-toggle="dropdown-settings">
+									<button type="button" class="flex items-center w-full p-2 text-base text-gray-900 transition duration-75 rounded-lg group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700" aria-controls="dropdown-settings-mobile" data-collapse-toggle="dropdown-settings-mobile">
 										<i class="fas fa-cog w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
 										<span class="flex-1 ms-3 text-left rtl:text-right whitespace-nowrap">Settings</span>
 										<svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 10 6">
 											<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 4 4 4-4"/>
 										</svg>
 									</button>
-									<ul id="dropdown-settings" class="hidden py-2 space-y-2">
+									<ul id="dropdown-settings-mobile" class="hidden py-2 space-y-2">
 										// <li>
 										// 	<a href="#" class="flex items-center w-full p-2 text-gray-900 transition duration-75 rounded-lg pl-11 group hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700">General (Coming Soon)</a>
 										// </li>
@@ -510,6 +514,26 @@ templ LayoutWithContext(title string, ctx context.Context) {
 			<!-- Application scripts -->
 			<script defer src="/static/dist/app.js"></script>
 			<script defer src="/static/dist/init.js"></script>
+			<!-- Dropdown fix for mobile -->
+			<script>
+				document.addEventListener("DOMContentLoaded", function() {
+					// Initialize the mobile dropdown separately
+					const mobileDropdownButton = document.querySelector('[data-collapse-toggle="dropdown-settings-mobile"]');
+					const mobileDropdown = document.getElementById("dropdown-settings-mobile");
+					
+					if (mobileDropdownButton && mobileDropdown) {
+						// Show dropdown if on admin pages
+						if (window.location.pathname.startsWith("/admin")) {
+							// Keep it hidden by default, will be toggled by button
+							mobileDropdown.classList.add("hidden");
+						}
+						
+						mobileDropdownButton.addEventListener("click", function() {
+							mobileDropdown.classList.toggle("hidden");
+						});
+					}
+				});
+			</script>
 		</body>
 	</html>
 }
