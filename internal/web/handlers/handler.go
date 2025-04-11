@@ -143,18 +143,18 @@ func (h *Handlers) BroadcastLog(level, message, source string) {
 	// Only attempt to write to channel if there are clients
 	if numClients > 0 {
 		// *** DEBUG: Print channel send attempt ***
-		fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTLOG-V4] Attempting to send to LogChannel: Level='%s', Source='%s'\n", level, source)
+		fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTLOG] Attempting to send to LogChannel: Level='%s', Source='%s'\n", level, source)
 
 		// Try to send the log entry to the channel with a timeout
 		select {
 		case LogChannel <- logEntry:
 			// Successfully sent
-			fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTLOG-V4] Successfully sent to LogChannel.\n")
+			fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTLOG] Successfully sent to LogChannel.\n")
 		case <-time.After(100 * time.Millisecond):
 			// Channel is full or blocked, log and continue
-			fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTLOG-V4] Log channel timeout, discarding log entry: %s\n", message)
+			fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTLOG] Log channel timeout, discarding log entry: %s\n", message)
 		}
 	} else {
-		fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTLOG-V4] No clients connected, skipping send to LogChannel.\n")
+		fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTLOG] No clients connected, skipping send to LogChannel.\n")
 	}
 }
