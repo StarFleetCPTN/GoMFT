@@ -35,6 +35,10 @@ WORKDIR /app
 ARG VERSION=dev
 ARG BUILD_TIME=unknown
 ARG COMMIT=unknown
+# Architecture-related build arguments
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+ARG TARGETVARIANT=""
 
 # Install build dependencies
 RUN apk add --no-cache git build-base
@@ -66,15 +70,22 @@ COPY . .
 RUN templ generate
 
 # Compile the application with version information
-RUN CGO_ENABLED=0 GOOS=linux go build \
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -ldflags "-X github.com/starfleetcptn/gomft/components.AppVersion=${VERSION} -X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME} -X main.Commit=${COMMIT} -X github.com/starfleetcptn/gomft/components.BuildTime=${BUILD_TIME} -X github.com/starfleetcptn/gomft/components.Commit=${COMMIT}" \
     -o /app/gomft
 
-# Install rclone
+# Install rclone with appropriate architecture
 RUN apk add --no-cache curl unzip && \
-    curl -O https://downloads.rclone.org/rclone-current-linux-amd64.zip && \
-    unzip rclone-current-linux-amd64.zip && \
-    cd rclone-*-linux-amd64 && \
+    if [ "$TARGETARCH" = "arm64" ]; then \
+        RCLONE_ARCH="arm64"; \
+    elif [ "$TARGETARCH" = "arm" ]; then \
+        RCLONE_ARCH="arm-v7"; \
+    else \
+        RCLONE_ARCH="amd64"; \
+    fi && \
+    curl -O https://downloads.rclone.org/rclone-current-linux-${RCLONE_ARCH}.zip && \
+    unzip rclone-current-linux-${RCLONE_ARCH}.zip && \
+    cd rclone-*-linux-${RCLONE_ARCH} && \
     cp rclone /usr/local/bin/ && \
     chmod 755 /usr/local/bin/rclone && \
     cd .. && \
@@ -87,6 +98,8 @@ FROM alpine:3.19
 ARG UID=1000
 ARG GID=1000
 ARG USERNAME=gomft
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR /app
 

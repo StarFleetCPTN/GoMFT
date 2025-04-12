@@ -71,3 +71,14 @@ static/dist/
 
 # Ignore binaries
 gomft
+
+# Docusaurus files
+docs/.docusaurus/
+docs/.cache-loader/
+docs/build/
+docs/build-searchindex/
+docs/static/search/
+docs/static/js/
+docs/node_modules/
+docs/.env*
+docs/*.log

@@ -10,6 +10,9 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
   <a href="https://discord.gg/f9dwtM3j">
     <img src="https://img.shields.io/discord/1351354052654403675?color=7289da&logo=discord&logoColor=white&label=Discord" alt="Join our Discord server!" />
   </a>
+  <a href="https://starfleetcptn.github.io/GoMFT/">
+    <img src="https://img.shields.io/badge/docs-online-blue.svg" alt="Documentation" />
+  </a>
 </p>
 
 > [!WARNING]  
