@@ -69,6 +69,13 @@
   margin-right: 0.5rem;
 }
 
+/* Hero logo styling */
+.hero__logo {
+  width: 120px;
+  height: auto;
+  margin-bottom: 1.5rem;
+}
+
 /* Card styling for feature sections */
 .card {
   border-radius: 8px;
