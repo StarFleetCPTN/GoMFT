@@ -50,6 +50,11 @@ func isNewerVersionAvailable(current, latest string) bool {
 		return false
 	}
 	
+	// Special case for DEV versions - always show update available
+	if current == "DEV" {
+		return true
+	}
+	
 	// Strip 'v' prefix if present for comparison
 	if strings.HasPrefix(current, "v") {
 		current = current[1:]
@@ -61,6 +66,12 @@ func isNewerVersionAvailable(current, latest string) bool {
 	// Split versions into components
 	currentParts := strings.Split(current, ".")
 	latestParts := strings.Split(latest, ".")
+	
+	// Handle non-semver format in either version
+	if len(currentParts) < 2 || len(latestParts) < 2 {
+		// If format doesn't match semver pattern, do string comparison
+		return current != latest && latest != ""
+	}
 	
 	// Compare major, minor, patch versions
 	for i := 0; i < len(currentParts) && i < len(latestParts); i++ {
@@ -310,7 +321,7 @@ templ Dashboard(ctx context.Context, data DashboardData) {
 														<i class="fas fa-exclamation-triangle w-3 h-3 mr-1"></i>
 														{ data.CurrentVersion }
 													</span>
-													<a href="https://github.com/starfleetcptn/gomft/releases/tag/{ data.LatestVersion }" target="_blank" 
+													<a href={ templ.SafeURL(fmt.Sprintf("https://github.com/starfleetcptn/gomft/releases/tag/%s", data.LatestVersion)) } target="_blank" 
 														class="bg-green-100 text-green-800 text-xs font-medium inline-flex items-center px-2.5 py-0.5 rounded-full dark:bg-green-900 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800">
 														<i class="fas fa-arrow-circle-up w-3 h-3 mr-1"></i>
 														{ data.LatestVersion } Available

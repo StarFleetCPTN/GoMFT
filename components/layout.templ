@@ -364,7 +364,7 @@ templ LayoutWithContext(title string, ctx context.Context) {
 											hx-get="/notifications/dropdown"
 											hx-trigger="click once"
 											hx-target="#notification-dropdown-content"
-											data-dropdown-placement="bottom-end"
+											data-dropdown-placement="bottom-start"
 										>
 											<span class="sr-only">View notifications</span>
 											<i class="fas fa-bell"></i>
@@ -375,10 +375,10 @@ templ LayoutWithContext(title string, ctx context.Context) {
 									</div>
 									<!-- Notification dropdown -->
 									<div
-										class="hidden overflow-hidden z-50 my-4 max-w-sm md:max-w-md w-full text-base list-none bg-white rounded divide-y divide-gray-100 shadow-lg dark:divide-gray-600 dark:bg-gray-700 rounded-xl"
+										class="hidden overflow-hidden z-50 my-4 max-w-sm md:max-w-md w-full text-base list-none bg-white rounded divide-y divide-gray-100 shadow-lg dark:divide-gray-600 dark:bg-gray-700 rounded-xl fixed"
 										id="notification-dropdown"
 										style="min-width: 320px; width: 100%;"
-										data-dropdown-placement="bottom-end"
+										data-dropdown-placement="bottom-start"
 									>
 										<div id="notification-dropdown-content">
 											<!-- Content will be loaded dynamically via HTMX -->

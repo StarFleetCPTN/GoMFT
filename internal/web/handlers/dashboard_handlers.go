@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"net/http"
@@ -12,6 +13,36 @@ import (
 	"github.com/starfleetcptn/gomft/components"
 	"github.com/starfleetcptn/gomft/internal/db"
 )
+
+// getLatestGitHubRelease fetches the latest release tag from GitHub
+func getLatestGitHubRelease() string {
+	// Create an HTTP client with a timeout
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+
+	// Make a request to the GitHub API
+	resp, err := client.Get("https://api.github.com/repos/starfleetcptn/gomft/releases/latest")
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	// Check if the response was successful
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+
+	// Parse the response
+	var release struct {
+		TagName string `json:"tag_name"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		return ""
+	}
+
+	return release.TagName
+}
 
 // HandleDashboard handles the GET /dashboard route
 func (h *Handlers) HandleDashboard(c *gin.Context) {
@@ -71,6 +102,12 @@ func (h *Handlers) HandleDashboard(c *gin.Context) {
 	// Get the rclone version
 	rcloneVersion := components.GetRcloneVersion()
 
+	// Set current version from the application version
+	currentVersion := components.AppVersion
+
+	// Get the latest release version from GitHub
+	latestVersion := getLatestGitHubRelease()
+
 	data := components.DashboardData{
 		RecentJobs:      recentHistory,
 		ActiveTransfers: int(totalJobs),
@@ -78,6 +115,8 @@ func (h *Handlers) HandleDashboard(c *gin.Context) {
 		FailedTransfers: int(failedJobs),
 		Configs:         configsMap,
 		RcloneVersion:   rcloneVersion,
+		CurrentVersion:  currentVersion,
+		LatestVersion:   latestVersion,
 	}
 
 	components.Dashboard(components.CreateTemplateContext(c), data).Render(c, c.Writer)
