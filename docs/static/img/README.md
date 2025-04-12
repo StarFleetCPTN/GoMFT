@@ -1,6 +1,14 @@
-# GoMFT Documentation Images
+# Images directory
 
-This directory contains images used in the GoMFT documentation.
+This directory contains various images used throughout the documentation, including:
+
+1. Logo files
+2. Screenshots
+3. Icons and other assets
+
+Some screenshots are automatically copied from the main repository's `/screenshots` directory during the build process.
+
+The automated copy is handled by the `prepare-screenshots` script in package.json.
 
 ## Required Images
 

@@ -40,7 +40,32 @@ jobs:
         run: npm ci
       
       - name: Copy screenshots to static directory
-        run: npm run prepare-screenshots
+        run: |
+          npm run prepare-screenshots
+          # Ensure the images referenced in the docs are definitely available
+          mkdir -p static/img
+          cp -v ../screenshots/dashboard.gomft.png static/img/
+          cp -v ../screenshots/transfer.config.gomft.png static/img/
+          ls -la static/img/dashboard.gomft.png static/img/transfer.config.gomft.png
+      
+      - name: Fix Markdown image paths
+        run: npm run fix-image-paths
+      
+      - name: Verify screenshots exist
+        run: |
+          echo "Checking if screenshots were copied correctly..."
+          if [ -f "static/img/dashboard.gomft.png" ]; then
+            echo "✅ Found dashboard.gomft.png in static/img/"
+          else
+            echo "❌ Missing dashboard.gomft.png in static/img/"
+            exit 1
+          fi
+          if [ -f "static/img/transfer.config.gomft.png" ]; then
+            echo "✅ Found transfer.config.gomft.png in static/img/"
+          else
+            echo "❌ Missing transfer.config.gomft.png in static/img/"
+            exit 1
+          fi
       
       - name: Build
         run: npm run build

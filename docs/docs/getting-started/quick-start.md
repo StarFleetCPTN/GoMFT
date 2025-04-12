@@ -23,7 +23,7 @@ The dashboard provides an overview of:
 - System status
 - Quick action buttons
 
-![GoMFT Dashboard](../../img/dashboard.gomft.png)
+![GoMFT Dashboard](../../static/img/dashboard.gomft.png)
 
 ## Creating Your First Transfer Configuration
 
@@ -36,7 +36,7 @@ The dashboard provides an overview of:
    - Configure transfer options (file filtering, bandwidth limits, etc.)
 4. Click **Save Transfer**
 
-![Create Transfer](../../img/transfer.config.gomft.png)
+![Create Transfer](../../static/img/transfer.config.gomft.png)
 
 ## Create Your First Scheduled Job
 1. Naviagate to **Scheduled Jobs** in the sidebar menu
