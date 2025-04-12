@@ -14,7 +14,7 @@
     "write-heading-ids": "docusaurus write-heading-ids",
     "typecheck": "tsc",
     "deploy-gh-pages": "GIT_USER=StarFleetCPTN USE_SSH=true yarn deploy",
-    "prepare-screenshots": "node -e \"const fs = require('fs'); if (!fs.existsSync('./static/screenshots')) { fs.mkdirSync('./static/screenshots', { recursive: true }); fs.readdirSync('../screenshots').forEach(file => { if (!fs.existsSync('./static/screenshots/' + file)) { fs.copyFileSync('../screenshots/' + file, './static/screenshots/' + file); } }); }\""
+    "prepare-screenshots": "node -e \"const fs = require('fs'); const paths = ['./static/screenshots', './static/img/screenshots']; paths.forEach(path => { if (!fs.existsSync(path)) { fs.mkdirSync(path, { recursive: true }); } }); fs.readdirSync('../screenshots').forEach(file => { paths.forEach(path => { const targetFile = path + '/' + file; if (!fs.existsSync(targetFile)) { fs.copyFileSync('../screenshots/' + file, targetFile); } }); });\""
   },
   "dependencies": {
     "@docusaurus/core": "3.7.0",

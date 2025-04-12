@@ -22,6 +22,9 @@ const config: Config = {
   deploymentBranch: 'gh-pages',
   trailingSlash: false,
 
+  // Explicit static directories configuration
+  staticDirectories: ['static', 'static/screenshots'],
+
   onBrokenLinks: 'warn',
   onBrokenMarkdownLinks: 'warn',
 
