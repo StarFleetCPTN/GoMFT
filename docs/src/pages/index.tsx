@@ -15,9 +15,9 @@ function HomepageHeader() {
         <div className="row">
           <div className="col col--8 col--offset-2">
             <img 
-              src="/img/logo.svg" 
-              alt="GoMFT Logo" 
-              style={{width: '120px', marginBottom: '1.5rem'}}
+              className="hero__logo"
+              src="img/logo.svg"
+              alt="Project Logo"
             />
             <Heading as="h1" className="hero__title">
               {siteConfig.title}
@@ -125,7 +125,7 @@ export default function Home(): React.ReactNode {
                 </Link>
               </div>
               <div className="col col--6">
-                <img src="/img/dashboard.gomft.png" alt="GoMFT Dashboard" className="shadow--md" style={{borderRadius: '8px'}} />
+                <img src="img/dashboard.gomft.png" alt="GoMFT Dashboard" className="shadow--md" style={{borderRadius: '8px'}} />
               </div>
             </div>
           </div>
@@ -135,7 +135,7 @@ export default function Home(): React.ReactNode {
           <div className="container">
             <div className="row">
               <div className="col col--6">
-                <img src="/img/transfer.config.gomft.png" alt="Transfer Configuration" className="shadow--md" style={{borderRadius: '8px'}} />
+                <img src="img/transfer.config.gomft.png" alt="Transfer Configuration" className="shadow--md" style={{borderRadius: '8px'}} />
               </div>
               <div className="col col--6">
                 <Heading as="h2">Easy Deployment</Heading>
