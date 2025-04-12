@@ -6,6 +6,12 @@
 
 GoMFT is a web-based managed file transfer application built with Go, leveraging rclone for robust file transfer capabilities. It provides a user-friendly interface for configuring, scheduling, and monitoring file transfers across various storage providers.
 
+<p align="center">
+  <a href="https://discord.gg/f9dwtM3j">
+    <img src="https://img.shields.io/discord/1351354052654403675?color=7289da&logo=discord&logoColor=white&label=Discord" alt="Join our Discord server!" />
+  </a>
+</p>
+
 > [!WARNING]  
 > This application is actively under development. As such, any aspect of the application—including configurations, data structures, and database fields—may change rapidly and without prior notice. Please review all release notes thoroughly before updating.
 
@@ -363,8 +369,13 @@ Log files contain detailed information about file transfers, job execution, and 
 5. Create jobs using your configurations:
    - Navigate to "Jobs" section
    - Select an existing transfer config
-   - Set up a schedule using cron expressions or run manually
-   - Enable/disable as needed
+   - Use the visual schedule builder to set your timing preferences:
+     - Choose from common presets (hourly, daily, weekly, monthly)
+     - Customize with specific days, times, or intervals
+     - See a plain-language description of your schedule
+     - View upcoming run times on the interactive calendar
+     - Switch to advanced mode for direct cron expression input if needed
+   - Enable/disable jobs with a single click
 
 6. Monitor transfers:
    - View active and completed transfers on the Dashboard
@@ -575,9 +586,14 @@ The following fields have been added to the `users` table:
    - Adaptive processing based on source/destination capabilities
 
 7. **Schedule Options**:
-   - Cron expressions for flexible scheduling
-   - Manual execution
-   - Enable/disable schedules
+   - **Visual Schedule Builder**: Intuitive interface for setting schedule preferences
+   - **Natural Language Description**: Plain-language description of schedule
+   - **Interactive Calendar**: Visual representation of upcoming runs
+   - **Common Presets**: Hourly, daily, weekly, monthly schedules
+   - **Advanced Mode**: Manual cron expression input for complex schedules
+   - **Schedule Validation**: Preview and confirm schedule
+   - **Enable/Disable**: One-click enable/disable
+   - **Time Zone Support**: Accurate scheduling based on user's time zone
 
 8. **Notification Options**:
    - **Email Notifications**: Receive job status updates via email
@@ -771,92 +787,4 @@ volumes:
   - /host/path/backups:/app/backups   # For database backups
 ```
 
-These paths can be customized using the environment variables `DATA_DIR`, `BACKUP_DIR`, and `LOGS_DIR`.
-
----
-
-## Security Considerations
-
-### Running as a Non-Root User
-
-By default, Docker containers run as the root user, which can pose security risks. GoMFT supports running as a non-root user, which is recommended for production environments.
-
-#### Benefits of Running as Non-Root
-
-- **Improved Security**: Limits the potential damage if the container is compromised
-- **Better File Permissions**: Files created by the container will match your host user permissions
-- **Compliance**: Many security policies and best practices require containers to run as non-root
-
-#### Methods to Run as Non-Root
-
-1. **Using PUID/PGID environment variables (recommended)**:
-   ```bash
-   # Using current user's ID
-   docker run -e PUID=$(id -u) -e PGID=$(id -g) starfleetcptn/gomft:latest
-   
-   # Or in docker-compose.yml
-   environment:
-     - PUID=1000
-     - PGID=1000
-   ```
-   This is the most flexible method as it allows changing the user at runtime without rebuilding the image.
-
-2. **Using the `--user` flag with Docker run**:
-   ```bash
-   docker run --user $(id -u):$(id -g) starfleetcptn/gomft:latest
-   ```
-
-3. **Using Docker Compose with environment variables for `user` directive**:
-   ```yaml
-   services:
-     gomft:
-       image: starfleetcptn/gomft:latest
-       user: "${UID:-1000}:${GID:-1000}"
-   ```
-
-4. **Building a custom image with specified UID/GID**:
-   ```yaml
-   services:
-     gomft:
-       build:
-         context: .
-         args:
-           UID: ${UID:-1000}
-           GID: ${GID:-1000}
-   ```
-
-#### Environment Variables for User Management
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PUID`   | User ID to run as | Built-in user ID (1000) |
-| `PGID`   | Group ID to run as | Built-in group ID (1000) |
-| `USERNAME` | Username to use | `gomft` |
-
-These environment variables allow you to change the user/group IDs at runtime without rebuilding the image.
-
-#### Volume Permissions
-
-When mounting volumes, ensure that the directories on the host have appropriate permissions for the container user:
-
-```bash
-# Create directories with correct ownership
-mkdir -p data backups
-chown -R $(id -u):$(id -g) data backups
-
-# Or adjust permissions to allow the container user to write
-mkdir -p data backups
-chmod -R 777 data backups  # Less secure, but easier for testing
-```
-
----
-
-## License
-
-[MIT License](LICENSE) - see the full license terms
-
-The GoMFT logo is licensed under the Creative Commons Attribution 4.0 International Public License.
-
-The gopher design is from https://github.com/egonelbre/gophers.
-
-The original Go gopher was designed by Renee French (http://reneefrench.blogspot.com/).
+These paths can be customized using the environment variables `

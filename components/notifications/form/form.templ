@@ -10,8 +10,48 @@ import (
 )
 
 templ NotificationForm(ctx context.Context, data types.NotificationFormData) {
-	@FormScripts() // Include the form-specific scripts
 	@components.LayoutWithContext(utils.GetNotificationFormTitle(data.IsNew), ctx) {
+		<script>
+			// Toggle notification fields based on selection
+			document.addEventListener('DOMContentLoaded', function() {
+				const typeSelector = document.getElementById('notification_type');
+				// Ensure typeSelector exists before adding listener
+				if (!typeSelector) {
+					console.warn("Notification type selector not found.");
+					return; 
+				}
+
+				const allFields = document.querySelectorAll('.notification-fields');
+				const commonFields = document.querySelectorAll('.common-fields');
+
+				function toggleFields() {
+					// Hide all specific fields first
+					allFields.forEach(field => field.classList.add('hidden'));
+
+					// Show/hide common fields based on selection
+					const selectedType = typeSelector.value;
+					if (selectedType) {
+						// Show common fields (name, description, is_enabled, submit)
+						commonFields.forEach(field => field.classList.remove('hidden'));
+
+						// Show the selected type's specific fields
+						const fieldsToShow = document.getElementById(`${selectedType}_fields`);
+						if (fieldsToShow) {
+							fieldsToShow.classList.remove('hidden');
+						}
+					} else {
+						// Hide common fields if no type selected
+						commonFields.forEach(field => field.classList.add('hidden'));
+					}
+				}
+
+				typeSelector.addEventListener('change', toggleFields);
+
+				// Initialize form state on load (if editing or if a type is pre-selected)
+				toggleFields(); 
+			});
+		</script>
+		
 		<!-- Status and Error Messages (Handled by shared toast component in layout) -->
 
 		<div id="notification-form-container" class="notifications-page bg-gray-50 dark:bg-gray-900 min-h-screen">
@@ -41,10 +81,12 @@ templ NotificationForm(ctx context.Context, data types.NotificationFormData) {
 					<form id="notification-form"
 						if data.IsNew {
 							hx-post="/admin/settings/notifications"
+							hx-redirect="/admin/settings/notifications"
 						} else {
 							hx-put={ fmt.Sprintf("/admin/settings/notifications/%d", data.NotificationService.ID) }
+							hx-redirect="/admin/settings/notifications"
 						}
-						hx-target="#notification-form-container">
+						hx-target="body">
 						<div class="mb-6">
 							<label for="notification_type" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Notification Type</label>
 							<select id="notification_type" name="type" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">

@@ -915,8 +915,8 @@ func (n *Notifier) sendNtfyNotification(service *db.NotificationService, job *db
 	title := replaceVariables(titleTemplate, variables)     // Use package-level helper
 	message := replaceVariables(messageTemplate, variables) // Use package-level helper
 
-	// Create the URL for the notification
-	ntfyURL := fmt.Sprintf("%s/%s", strings.TrimRight(server, "/"), topic)
+	// Create the URL for the notification - do not append topic
+	ntfyURL := strings.TrimRight(server, "/")
 
 	// Create the notification data
 	ntfyData := map[string]interface{}{
@@ -926,7 +926,7 @@ func (n *Notifier) sendNtfyNotification(service *db.NotificationService, job *db
 		"priority": priority,
 	}
 
-	// Add username and password if provided
+	// Get username and password if provided
 	username := service.Config["username"]
 	password := service.Config["password"]
 
@@ -935,6 +935,9 @@ func (n *Notifier) sendNtfyNotification(service *db.NotificationService, job *db
 	if err != nil {
 		return fmt.Errorf("failed to marshal ntfy notification data: %v", err)
 	}
+
+	// Debug log the payload
+	n.logger.LogDebug("ntfy URL: %s, payload: %s", ntfyURL, string(jsonData))
 
 	// Create HTTP request
 	req, err := http.NewRequest("POST", ntfyURL, bytes.NewBuffer(jsonData))

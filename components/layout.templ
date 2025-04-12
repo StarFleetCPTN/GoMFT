@@ -151,27 +151,27 @@ templ LayoutWithContext(title string, ctx context.Context) {
 						<div class="flex flex-col flex-grow pt-5 bg-white dark:bg-gray-800 overflow-y-auto border-r border-gray-200 dark:border-gray-700">
 							<div class="flex items-center flex-shrink-0 px-4">
 								<a href="/" class="flex items-center text-xl font-bold text-primary-600 dark:text-primary-400">
-									<i class="fas fa-exchange-alt mr-2"></i>
+									<img src="/static/img/logo.png" alt="GoMFT" class="w-8 h-8 mr-2">
 									GoMFT
 								</a>
 							</div>
 							<nav class="flex-1 px-2 py-4 bg-white dark:bg-gray-800">
 								<div class="space-y-1">
 									<a href="/dashboard" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
-										<i class="fas fa-tachometer-alt mr-3 text-gray-500 dark:text-gray-400"></i>
+										<i class="fas fa-chart-pie mr-3 text-gray-500 dark:text-gray-400"></i>
 										Dashboard
 									</a>
 									<a href="/configs" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
-										<i class="fas fa-cogs mr-3 text-gray-500 dark:text-gray-400"></i>
-										Configs
+										<i class="fas fa-exchange-alt mr-3 text-gray-500 dark:text-gray-400"></i>
+										Transfer Configurations
 									</a>
 									<a href="/jobs" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
-										<i class="fas fa-tasks mr-3 text-gray-500 dark:text-gray-400"></i>
-										Jobs
+										<i class="fas fa-calendar-alt mr-3 text-gray-500 dark:text-gray-400"></i>
+										Scheduled Jobs
 									</a>
 									<a href="/history" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
 										<i class="fas fa-history mr-3 text-gray-500 dark:text-gray-400"></i>
-										History
+										Transfer History
 									</a>
 									<a href="/files" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
 										<i class="fas fa-file-alt mr-3 text-gray-500 dark:text-gray-400"></i>
@@ -183,11 +183,11 @@ templ LayoutWithContext(title string, ctx context.Context) {
 										</p>
 										<a href="/admin/users" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
 											<i class="fas fa-users w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
-											Users
+											User Management
 										</a>
 										<a href="/admin/roles" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
 											<i class="fas fa-user-shield w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
-											Roles
+											Role Management
 										</a>
 										<a href="/admin/audit" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
 											<i class="fas fa-clipboard-list w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
@@ -250,8 +250,8 @@ templ LayoutWithContext(title string, ctx context.Context) {
 					<div id="mobile-menu" class="fixed top-0 left-0 z-40 h-screen p-4 overflow-y-auto transition-transform -translate-x-full bg-white w-64 dark:bg-gray-800" tabindex="-1">
 						<div class="flex items-center justify-between">
 							<a href="/" class="flex items-center text-xl font-bold text-primary-600 dark:text-primary-400">
-								<i class="fas fa-exchange-alt mr-2"></i>
-								GoMFT
+								<!-- GoMFT Logo -->
+								<img src="/static/img/logo.png" alt="GoMFT" class="w-8 h-8 mr-2">
 							</a>
 							<button type="button" data-drawer-hide="mobile-menu" class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 inline-flex items-center dark:hover:bg-gray-600 dark:hover:text-white">
 								<i class="fas fa-times"></i>
@@ -262,20 +262,20 @@ templ LayoutWithContext(title string, ctx context.Context) {
 							<div class="space-y-1">
 								<!-- Copy the same links from the desktop sidebar -->
 								<a href="/dashboard" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
-									<i class="fas fa-tachometer-alt mr-3 text-gray-500 dark:text-gray-400"></i>
+									<i class="fas fa-chart-pie mr-3 text-gray-500 dark:text-gray-400"></i>
 									Dashboard
 								</a>
 								<a href="/configs" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
-									<i class="fas fa-cogs mr-3 text-gray-500 dark:text-gray-400"></i>
-									Configs
+									<i class="fas fa-exchange-alt mr-3 text-gray-500 dark:text-gray-400"></i>
+									Transfer Configurations
 								</a>
 								<a href="/jobs" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
-									<i class="fas fa-tasks mr-3 text-gray-500 dark:text-gray-400"></i>
-									Jobs
+									<i class="fas fa-calendar-alt mr-3 text-gray-500 dark:text-gray-400"></i>
+									Scheduled Jobs
 								</a>
 								<a href="/history" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
 									<i class="fas fa-history mr-3 text-gray-500 dark:text-gray-400"></i>
-									History
+									Transfer History
 								</a>
 								<a href="/files" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
 									<i class="fas fa-file-alt mr-3 text-gray-500 dark:text-gray-400"></i>
@@ -287,11 +287,11 @@ templ LayoutWithContext(title string, ctx context.Context) {
 									</p>
 									<a href="/admin/users" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
 										<i class="fas fa-users w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
-										Users
+										User Management
 									</a>
 									<a href="/admin/roles" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
 										<i class="fas fa-user-shield w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
-										Roles
+										Role Management
 									</a>
 									<a href="/admin/audit" class="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
 										<i class="fas fa-clipboard-list w-4 h-4 mr-2 text-gray-500 dark:text-gray-400"></i>
@@ -340,7 +340,7 @@ templ LayoutWithContext(title string, ctx context.Context) {
 						<header class="bg-white dark:bg-gray-800 shadow-sm">
 							<div class="flex items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
 								<div class="flex items-center space-x-3">
-									<h1 class="text-lg font-semibold text-gray-900 dark:text-white">{ title }</h1>
+									// <h1 class="text-lg font-semibold text-gray-900 dark:text-white">{ title }</h1>
 								</div>
 								<!-- Theme toggle and user menu -->
 								<div class="flex items-center space-x-4">
@@ -368,40 +368,41 @@ templ LayoutWithContext(title string, ctx context.Context) {
 										>
 											<span class="sr-only">View notifications</span>
 											<i class="fas fa-bell"></i>
-											<!-- Notification badge will be loaded dynamically -->
-											<div hx-get="/notifications/count" hx-trigger="load, notification-updated from:body" id="notification-count-container"></div>
+											<!-- Notification count will be placed here via HTMX -->
 										</button>
-										<!-- Notification dropdown -->
-										<div
-											class="hidden overflow-hidden z-50 my-4 max-w-sm md:max-w-md w-full text-base list-none bg-white rounded divide-y divide-gray-100 shadow-lg dark:divide-gray-600 dark:bg-gray-700 rounded-xl"
-											id="notification-dropdown"
-											style="min-width: 320px; width: 100%;"
-											data-dropdown-placement="bottom-end"
-										>
-											<div id="notification-dropdown-content">
-												<!-- Content will be loaded dynamically via HTMX -->
-												<div class="block py-2 px-4 text-base font-medium text-center text-gray-700 bg-gray-50 dark:bg-gray-600 dark:text-gray-300">
-													Notifications
-												</div>
-												<div class="py-4 px-4 text-center text-gray-500 dark:text-gray-400">
-													<div class="animate-pulse flex flex-col items-center">
-														<div class="rounded-full bg-gray-200 dark:bg-gray-700 h-12 w-12 mb-2"></div>
-														<div class="h-2 bg-gray-200 dark:bg-gray-700 rounded w-24 mb-4"></div>
-														<div class="h-2 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
-														<div class="h-2 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
-														<div class="h-2 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-													</div>
-												</div>
-												<a href="/notifications" class="block py-2 text-md font-medium text-center text-gray-900 bg-gray-50 hover:bg-gray-100 dark:bg-gray-600 dark:text-white dark:hover:underline">
-													<div class="inline-flex items-center">
-														<svg aria-hidden="true" class="mr-2 w-4 h-4 text-gray-500 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-															<path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path>
-															<path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"></path>
-														</svg>
-														View all
-													</div>
-												</a>
+										<!-- Place the notification count container outside but still in the relative container -->
+										<div id="notification-count-container" class="absolute top-0 right-0" hx-get="/notifications/count" hx-trigger="load, notification-updated from:body"></div>
+									</div>
+									<!-- Notification dropdown -->
+									<div
+										class="hidden overflow-hidden z-50 my-4 max-w-sm md:max-w-md w-full text-base list-none bg-white rounded divide-y divide-gray-100 shadow-lg dark:divide-gray-600 dark:bg-gray-700 rounded-xl"
+										id="notification-dropdown"
+										style="min-width: 320px; width: 100%;"
+										data-dropdown-placement="bottom-end"
+									>
+										<div id="notification-dropdown-content">
+											<!-- Content will be loaded dynamically via HTMX -->
+											<div class="block py-2 px-4 text-base font-medium text-center text-gray-700 bg-gray-50 dark:bg-gray-600 dark:text-gray-300">
+												Notifications
 											</div>
+											<div class="py-4 px-4 text-center text-gray-500 dark:text-gray-400">
+												<div class="animate-pulse flex flex-col items-center">
+													<div class="rounded-full bg-gray-200 dark:bg-gray-700 h-12 w-12 mb-2"></div>
+													<div class="h-2 bg-gray-200 dark:bg-gray-700 rounded w-24 mb-4"></div>
+													<div class="h-2 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
+													<div class="h-2 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
+													<div class="h-2 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+												</div>
+											</div>
+											<a href="/notifications" class="block py-2 text-md font-medium text-center text-gray-900 bg-gray-50 hover:bg-gray-100 dark:bg-gray-600 dark:text-white dark:hover:underline">
+												<div class="inline-flex items-center">
+													<svg aria-hidden="true" class="mr-2 w-4 h-4 text-gray-500 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+														<path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path>
+														<path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"></path>
+													</svg>
+													View all
+												</div>
+											</a>
 										</div>
 									</div>
 									<!-- User menu dropdown -->
@@ -474,6 +475,9 @@ templ LayoutWithContext(title string, ctx context.Context) {
 										<a href="https://github.com/starfleetcptn/gomft" class="hover:text-primary-600 dark:hover:text-primary-400">
 											<i class="fab fa-github"></i>
 										</a>
+										<a href="https://discord.gg/f9dwtM3j" class="hover:text-primary-600 dark:hover:text-primary-400" target="_blank">
+											<i class="fab fa-discord"></i>
+										</a>
 										<a href={ GetReleaseURL() } class="hover:text-primary-600 dark:hover:text-primary-400">
 											<i class="fas fa-tag"></i> { AppVersion }
 										</a>
@@ -496,6 +500,9 @@ templ LayoutWithContext(title string, ctx context.Context) {
 								<div class="flex items-center space-x-4">
 									<a href="https://github.com/starfleetcptn/gomft" class="hover:text-primary-600 dark:hover:text-primary-400">
 										<i class="fab fa-github"></i>
+									</a>
+									<a href="https://discord.gg/f9dwtM3j" class="hover:text-primary-600 dark:hover:text-primary-400" target="_blank">
+										<i class="fab fa-discord"></i>
 									</a>
 									<a href={ GetReleaseURL() } class="hover:text-primary-600 dark:hover:text-primary-400">
 										<i class="fas fa-tag"></i> { AppVersion }

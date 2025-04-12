@@ -59,7 +59,7 @@ func NewHandlers(database *db.DB, scheduler scheduler.SchedulerInterface, jwtSec
 // StartLogBroadcaster starts a goroutine that broadcasts logs to all connected WebSocket clients
 func StartLogBroadcaster() {
 	go func() {
-		fmt.Fprintln(os.Stderr, "[DEBUG-BROADCASTER-V4] Broadcaster goroutine started.")
+		fmt.Fprintln(os.Stderr, "[DEBUG-BROADCASTER] Broadcaster goroutine started.")
 		for {
 			logEntry := <-LogChannel // Wait for a log entry
 
@@ -76,7 +76,7 @@ func StartLogBroadcaster() {
 				continue // Skip if no clients
 			}
 
-			fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTER-V4] Received log. Broadcasting to %d clients. Level='%s', Src='%s'\n",
+			fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTER] Received log. Broadcasting to %d clients. Level='%s', Src='%s'\n",
 				len(clientsToSend), logEntry.Level, logEntry.Source)
 
 			var wg sync.WaitGroup
@@ -85,7 +85,7 @@ func StartLogBroadcaster() {
 				go func(c *websocket.Conn, m *sync.Mutex, entry components.LogEntry) {
 					defer wg.Done()
 
-					fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTER-V4] Attempting send to client %v\n", c.RemoteAddr())
+					fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTER] Attempting send to client %v\n", c.RemoteAddr())
 
 					// Lock only for this specific client's write
 					m.Lock()
@@ -93,7 +93,7 @@ func StartLogBroadcaster() {
 					deadline := time.Now().Add(5 * time.Second) // 5-second deadline
 					err := c.SetWriteDeadline(deadline)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTER-V4] Error setting write deadline for client %v: %v\n", c.RemoteAddr(), err)
+						fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTER] Error setting write deadline for client %v: %v\n", c.RemoteAddr(), err)
 						// Don't unlock yet, proceed to cleanup
 					} else {
 						err = c.WriteJSON(entry)
@@ -101,19 +101,19 @@ func StartLogBroadcaster() {
 					m.Unlock() // Unlock after write attempt (or deadline error)
 
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTER-V4] Error writing to client %v: %v. Initiating removal.\n", c.RemoteAddr(), err)
+						fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTER] Error writing to client %v: %v. Initiating removal.\n", c.RemoteAddr(), err)
 						WebSocketClientsMutex.Lock()
 						if _, stillExists := WebSocketClients[c]; stillExists {
 							delete(WebSocketClients, c)
 							delete(WebSocketClientWriteMutexes, c)
-							fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTER-V4] Removed client %v from maps.\n", c.RemoteAddr())
+							fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTER] Removed client %v from maps.\n", c.RemoteAddr())
 						} else {
-							fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTER-V4] Client %v already removed by another process.\n", c.RemoteAddr())
+							fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTER] Client %v already removed by another process.\n", c.RemoteAddr())
 						}
 						WebSocketClientsMutex.Unlock()
 						c.Close() // Close the connection outside the lock
 					} else {
-						fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTER-V4] Successfully sent to client %v\n", c.RemoteAddr())
+						fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTER] Successfully sent to client %v\n", c.RemoteAddr())
 					}
 				}(client, mutex, logEntry)
 			}
@@ -143,18 +143,18 @@ func (h *Handlers) BroadcastLog(level, message, source string) {
 	// Only attempt to write to channel if there are clients
 	if numClients > 0 {
 		// *** DEBUG: Print channel send attempt ***
-		fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTLOG-V4] Attempting to send to LogChannel: Level='%s', Source='%s'\n", level, source)
+		fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTLOG] Attempting to send to LogChannel: Level='%s', Source='%s'\n", level, source)
 
 		// Try to send the log entry to the channel with a timeout
 		select {
 		case LogChannel <- logEntry:
 			// Successfully sent
-			fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTLOG-V4] Successfully sent to LogChannel.\n")
+			fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTLOG] Successfully sent to LogChannel.\n")
 		case <-time.After(100 * time.Millisecond):
 			// Channel is full or blocked, log and continue
-			fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTLOG-V4] Log channel timeout, discarding log entry: %s\n", message)
+			fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTLOG] Log channel timeout, discarding log entry: %s\n", message)
 		}
 	} else {
-		fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTLOG-V4] No clients connected, skipping send to LogChannel.\n")
+		fmt.Fprintf(os.Stderr, "[DEBUG-BROADCASTLOG] No clients connected, skipping send to LogChannel.\n")
 	}
 }

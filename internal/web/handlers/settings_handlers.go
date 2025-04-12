@@ -162,59 +162,90 @@ func (h *Handlers) HandleCreateNotificationService(c *gin.Context) {
 		config["priority"] = c.PostForm("ntfy_priority")
 		config["username"] = c.PostForm("ntfy_username")
 		config["password"] = c.PostForm("ntfy_password")
-		config["title_template"] = c.PostForm("ntfy_title_template")
-		config["message_template"] = c.PostForm("ntfy_message_template")
-
-		// Event triggers are handled above
+		config["title"] = c.PostForm("ntfy_title")
 
 		// Validate required fields
-		if config["server"] == "" || config["topic"] == "" {
-			h.handleNotificationsWithError(c, "Ntfy Server and Topic are required.")
+		if config["topic"] == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Ntfy Topic is required"})
 			return
 		}
 
-		// Create new notification service
-		service := db.NotificationService{
-			Name: name,
-			Type: serviceType,
-			// IsEnabled will be set using the helper method below
-			Config:        config,
-			Description:   description,
-			EventTriggers: eventTriggers,
-			CreatedBy:     c.GetUint("userID"),
+		// Set default server if not provided
+		if config["server"] == "" {
+			config["server"] = "https://ntfy.sh"
 		}
-		service.SetIsEnabled(isEnabled) // Use helper method
 
-		// Save to database
-		if err := h.DB.Create(&service).Error; err != nil {
-			log.Printf("Error creating notification service: %v", err)
-			h.handleNotificationsWithError(c, "Failed to create notification service: "+err.Error())
+		// Create the URL for the notification - no need to include topic in the URL
+		ntfyURL := strings.TrimRight(config["server"], "/")
+
+		// Create the notification data
+		ntfyData := map[string]interface{}{
+			"topic":   config["topic"],
+			"title":   "GoMFT Test Notification",
+			"message": "This is a test notification from GoMFT",
+		}
+
+		// Add priority if provided
+		if config["priority"] != "" {
+			priority, err := strconv.Atoi(config["priority"])
+			if err == nil {
+				ntfyData["priority"] = priority
+			} else {
+				ntfyData["priority"] = config["priority"]
+			}
+		}
+
+		// Add title if provided and not empty
+		if config["title"] != "" {
+			ntfyData["title"] = config["title"]
+		}
+
+		// Marshal to JSON
+		jsonData, err := json.Marshal(ntfyData)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to prepare test notification: " + err.Error()})
 			return
 		}
 
-		// Create audit log
-		auditDetails := map[string]interface{}{
-			"name":           service.Name,
-			"type":           service.Type,
-			"is_enabled":     service.GetIsEnabled(), // Use getter
-			"description":    service.Description,
-			"event_triggers": eventTriggers,
+		// Create request
+		req, err := http.NewRequest("POST", ntfyURL, bytes.NewBuffer(jsonData))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to create request: " + err.Error()})
+			return
 		}
 
-		auditLog := db.AuditLog{
-			Action:     "create",
-			EntityType: "notification_service",
-			EntityID:   service.ID,
-			UserID:     c.GetUint("userID"),
-			Details:    auditDetails,
+		// Set the Content-Type header
+		req.Header.Set("Content-Type", "application/json")
+
+		// Add authentication if provided
+		if config["username"] != "" && config["password"] != "" {
+			req.SetBasicAuth(config["username"], config["password"])
 		}
 
-		if err := h.DB.Create(&auditLog).Error; err != nil {
-			log.Printf("Error creating audit log: %v", err)
-		}
+		// Debug info
+		fmt.Printf("ntfy URL: %s\n", ntfyURL)
+		fmt.Printf("ntfy payload: %s\n", string(jsonData))
 
-		// Redirect back to notifications page with success message
-		h.handleNotificationsWithSuccess(c, "Ntfy notification service created successfully.")
+		// Send the request
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to send test notification: " + err.Error()})
+			return
+		}
+		defer resp.Body.Close()
+
+		// Read response body for error details if needed
+		respBody, _ := io.ReadAll(resp.Body)
+
+		fmt.Printf("ntfy response status: %s\n", resp.Status)
+		fmt.Printf("ntfy response body: %s\n", string(respBody))
+
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			c.JSON(http.StatusOK, gin.H{"success": true, "message": "Test notification sent successfully"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Test notification returned error: " + resp.Status + " - " + string(respBody)})
+		}
 		return
 
 	case "gotify":
@@ -636,8 +667,8 @@ func (h *Handlers) HandleTestNotification(c *gin.Context) {
 			config["server"] = "https://ntfy.sh"
 		}
 
-		// Create the URL for the notification
-		ntfyURL := fmt.Sprintf("%s/%s", strings.TrimRight(config["server"], "/"), config["topic"])
+		// Create the URL for the notification - no need to include topic in the URL
+		ntfyURL := strings.TrimRight(config["server"], "/")
 
 		// Create the notification data
 		ntfyData := map[string]interface{}{
@@ -648,32 +679,64 @@ func (h *Handlers) HandleTestNotification(c *gin.Context) {
 
 		// Add priority if provided
 		if config["priority"] != "" {
-			ntfyData["priority"] = config["priority"]
+			priority, err := strconv.Atoi(config["priority"])
+			if err == nil {
+				ntfyData["priority"] = priority
+			} else {
+				ntfyData["priority"] = config["priority"]
+			}
 		}
 
-		// Add title if provided
+		// Add title if provided and not empty
 		if config["title"] != "" {
 			ntfyData["title"] = config["title"]
 		}
 
+		// Marshal to JSON
 		jsonData, err := json.Marshal(ntfyData)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to prepare test notification: " + err.Error()})
 			return
 		}
 
-		// Send the notification
-		resp, err := http.Post(ntfyURL, "application/json", bytes.NewBuffer(jsonData))
+		// Create request
+		req, err := http.NewRequest("POST", ntfyURL, bytes.NewBuffer(jsonData))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to create request: " + err.Error()})
+			return
+		}
+
+		// Set the Content-Type header
+		req.Header.Set("Content-Type", "application/json")
+
+		// Add authentication if provided
+		if config["username"] != "" && config["password"] != "" {
+			req.SetBasicAuth(config["username"], config["password"])
+		}
+
+		// Debug info
+		fmt.Printf("ntfy URL: %s\n", ntfyURL)
+		fmt.Printf("ntfy payload: %s\n", string(jsonData))
+
+		// Send the request
+		client := &http.Client{}
+		resp, err := client.Do(req)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Failed to send test notification: " + err.Error()})
 			return
 		}
 		defer resp.Body.Close()
 
+		// Read response body for error details if needed
+		respBody, _ := io.ReadAll(resp.Body)
+
+		fmt.Printf("ntfy response status: %s\n", resp.Status)
+		fmt.Printf("ntfy response body: %s\n", string(respBody))
+
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			c.JSON(http.StatusOK, gin.H{"success": true, "message": "Test notification sent successfully"})
 		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Test notification returned non-success status code: " + resp.Status})
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Test notification returned error: " + resp.Status + " - " + string(respBody)})
 		}
 		return
 

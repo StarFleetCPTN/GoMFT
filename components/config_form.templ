@@ -167,6 +167,9 @@ func getInitialData(config *db.TransferConfig) string {
 		deleteAfterTransfer = config.GetDeleteAfterTransfer()
 		skipProcessedFiles = config.GetSkipProcessedFiles()
 		maxConcurrentTransfers = config.MaxConcurrentTransfers
+		if maxConcurrentTransfers <= 0 {
+			maxConcurrentTransfers = 1 // Ensure at least 1 concurrent transfer
+		}
 		rcloneFlags = config.RcloneFlags
 		commandId = config.CommandID
 		commandFlags = config.CommandFlags
@@ -377,6 +380,7 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 
 					<!-- Main Form -->
 					<form 
+						id="config-form"
 						class="space-y-6" 
 						if data.IsNew {
 							hx-post="/configs"
@@ -413,6 +417,11 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 								}
 							}
 
+							// Ensure maxConcurrentTransfers is at least 1
+							if (!maxConcurrentTransfers || maxConcurrentTransfers < 1) {
+								maxConcurrentTransfers = 1;
+							}
+
 							// Initialize command requirements
 							updateCommandRequirements();
 						})"
@@ -435,7 +444,17 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 							destPort = 23;
 							console.log('Updating destination port to 23 for Hetzner');
 						}"
+						@formvalidation
 						>
+						
+						<!-- Form Error Container -->
+						<div id="form-errors" class="hidden p-4 mb-6 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-red-800/20 dark:text-red-400 border border-red-200 dark:border-red-900" role="alert">
+							<div class="flex items-center mb-2">
+								<i class="fas fa-exclamation-circle text-red-600 dark:text-red-500 mr-2"></i>
+								<h3 class="text-base font-medium text-red-800 dark:text-red-400">Please correct the following errors:</h3>
+							</div>
+							<ul id="error-list" class="ml-5 list-disc space-y-1"></ul>
+						</div>
 						
 						<!-- Configuration Details Section -->
 						<div class="p-4 mb-4 bg-blue-50 border border-blue-100 rounded-lg dark:bg-blue-900/20 dark:border-blue-900">
@@ -450,13 +469,16 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 							
 						<!-- Name field -->
 						<div class="mb-2">
-							<label for="name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Configuration Name</label>
+							<label for="name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+								Configuration Name <span class="text-red-500">*</span>
+							</label>
 							<input 
 								type="text" 
 								id="name" 
 								name="name" 
 								x-model="name" 
 								required 
+								aria-required="true"
 								class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
 								placeholder="My Transfer Configuration"
 							/>
@@ -703,4 +725,215 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 			</div>
 		</section>
 	}
+}
+
+templ formvalidation() {
+	<script>
+		document.addEventListener('htmx:beforeRequest', function(evt) {
+			if (evt.detail.elt.id === 'config-form') {
+				const formErrors = document.getElementById('form-errors');
+				const errorList = document.getElementById('error-list');
+				let errors = [];
+				let hasErrors = false;
+				
+				// Clear previous errors
+				errorList.innerHTML = '';
+				formErrors.classList.add('hidden');
+				
+				// Validate name
+				const name = document.getElementById('name').value;
+				if (!name || name.trim() === '') {
+					errors.push('Configuration name is required');
+					hasErrors = true;
+				}
+				
+				// Source path validation
+				// Note: Most source and destination forms already have HTML5 validation 
+				// with the required attribute, but we do additional JS validation here
+				// to provide a better user experience with a centralized error display
+				const sourcePath = document.getElementById('source_path')?.value;
+				if (!sourcePath || sourcePath.trim() === '') {
+					errors.push('Source path is required');
+					hasErrors = true;
+				}
+				
+				// Get source type
+				const sourceType = document.querySelector('input[name="source_type"]').value;
+				
+				// For remote source, validate credentials
+				if (sourceType !== 'local') {
+					// Host validation for remote sources
+					const sourceHost = document.getElementById('source_host')?.value;
+					if (!sourceHost || sourceHost.trim() === '') {
+						errors.push('Source host is required for remote connections');
+						hasErrors = true;
+					}
+					
+					// Port validation
+					const sourcePort = document.getElementById('source_port')?.value;
+					if (!sourcePort || isNaN(parseInt(sourcePort)) || parseInt(sourcePort) <= 0 || parseInt(sourcePort) > 65535) {
+						errors.push('Source port must be a valid port number (1-65535)');
+						hasErrors = true;
+					}
+					
+					// Username validation for SFTP/FTP/etc.
+					if (['sftp', 'ftp', 'hetzner'].includes(sourceType)) {
+						const sourceUser = document.getElementById('source_username')?.value;
+						if (!sourceUser || sourceUser.trim() === '') {
+							errors.push('Source username is required');
+							hasErrors = true;
+						}
+						
+						// Check auth type
+						const sourceAuthType = document.querySelector('input[name="source_auth_type"]:checked')?.value;
+						
+						// Password validation if using password auth
+						if (sourceAuthType === 'password') {
+							const sourcePassword = document.getElementById('source_password')?.value;
+							if (!sourcePassword || sourcePassword.trim() === '') {
+								errors.push('Source password is required when using password authentication');
+								hasErrors = true;
+							}
+						} else if (sourceAuthType === 'key') {
+							// Key file validation if using key auth
+							const sourceKeyFile = document.getElementById('source_key_file')?.value;
+							if (!sourceKeyFile || sourceKeyFile.trim() === '') {
+								errors.push('Source key file path is required when using key authentication');
+								hasErrors = true;
+							}
+						}
+					}
+					
+					// S3/B2/Wasabi specific validations
+					if (['s3', 'b2', 'wasabi', 'minio'].includes(sourceType)) {
+						const sourceAccessKey = document.getElementById('source_access_key')?.value;
+						const sourceSecretKey = document.getElementById('source_secret_key')?.value;
+						
+						if (!sourceAccessKey || sourceAccessKey.trim() === '') {
+							errors.push('Source access key is required');
+							hasErrors = true;
+						}
+						
+						if (!sourceSecretKey || sourceSecretKey.trim() === '') {
+							errors.push('Source secret key is required');
+							hasErrors = true;
+						}
+						
+						// Bucket validation
+						const sourceBucket = document.getElementById('source_bucket')?.value;
+						if (!sourceBucket || sourceBucket.trim() === '') {
+							errors.push('Source bucket is required');
+							hasErrors = true;
+						}
+					}
+				}
+				
+				// Validate destination if it's a required field
+				const requiresDestination = document.querySelector('form').__x.$data.requiresDestination;
+				if (requiresDestination) {
+					// Destination path validation
+					const destPath = document.getElementById('destination_path')?.value;
+					if (!destPath || destPath.trim() === '') {
+						errors.push('Destination path is required');
+						hasErrors = true;
+					}
+					
+					// Get destination type
+					const destType = document.querySelector('input[name="destination_type"]').value;
+					
+					// For remote destination, validate credentials
+					if (destType !== 'local') {
+						// Host validation for remote destinations
+						const destHost = document.getElementById('destination_host')?.value;
+						if (!destHost || destHost.trim() === '') {
+							errors.push('Destination host is required for remote connections');
+							hasErrors = true;
+						}
+						
+						// Port validation
+						const destPort = document.getElementById('destination_port')?.value;
+						if (!destPort || isNaN(parseInt(destPort)) || parseInt(destPort) <= 0 || parseInt(destPort) > 65535) {
+							errors.push('Destination port must be a valid port number (1-65535)');
+							hasErrors = true;
+						}
+						
+						// Username validation for SFTP/FTP/etc.
+						if (['sftp', 'ftp', 'hetzner'].includes(destType)) {
+							const destUser = document.getElementById('destination_username')?.value;
+							if (!destUser || destUser.trim() === '') {
+								errors.push('Destination username is required');
+								hasErrors = true;
+							}
+							
+							// Check auth type
+							const destAuthType = document.querySelector('input[name="destination_auth_type"]:checked')?.value;
+							
+							// Password validation if using password auth
+							if (destAuthType === 'password') {
+								const destPassword = document.getElementById('destination_password')?.value;
+								if (!destPassword || destPassword.trim() === '') {
+									errors.push('Destination password is required when using password authentication');
+									hasErrors = true;
+								}
+							} else if (destAuthType === 'key') {
+								// Key file validation if using key auth
+								const destKeyFile = document.getElementById('destination_key_file')?.value;
+								if (!destKeyFile || destKeyFile.trim() === '') {
+									errors.push('Destination key file path is required when using key authentication');
+									hasErrors = true;
+								}
+							}
+						}
+						
+						// S3/B2/Wasabi specific validations
+						if (['s3', 'b2', 'wasabi', 'minio'].includes(destType)) {
+							const destAccessKey = document.getElementById('destination_access_key')?.value;
+							const destSecretKey = document.getElementById('destination_secret_key')?.value;
+							
+							if (!destAccessKey || destAccessKey.trim() === '') {
+								errors.push('Destination access key is required');
+								hasErrors = true;
+							}
+							
+							if (!destSecretKey || destSecretKey.trim() === '') {
+								errors.push('Destination secret key is required');
+								hasErrors = true;
+							}
+							
+							// Bucket validation
+							const destBucket = document.getElementById('destination_bucket')?.value;
+							if (!destBucket || destBucket.trim() === '') {
+								errors.push('Destination bucket is required');
+								hasErrors = true;
+							}
+						}
+					}
+				}
+				
+				// Check for concurrent transfers
+				const maxTransfers = document.getElementById('max_concurrent_transfers')?.value;
+				if (maxTransfers && (isNaN(parseInt(maxTransfers)) || parseInt(maxTransfers) < 1)) {
+					errors.push('Maximum concurrent transfers must be at least 1');
+					hasErrors = true;
+				}
+				
+				// If errors exist, prevent form submission and display errors
+				if (hasErrors) {
+					evt.preventDefault();
+					
+					// Display errors
+					errors.forEach(error => {
+						const li = document.createElement('li');
+						li.textContent = error;
+						errorList.appendChild(li);
+					});
+					
+					formErrors.classList.remove('hidden');
+					
+					// Scroll to the errors
+					formErrors.scrollIntoView({ behavior: 'smooth', block: 'start' });
+				}
+			}
+		});
+	</script>
 } 

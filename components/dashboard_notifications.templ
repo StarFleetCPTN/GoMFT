@@ -177,12 +177,15 @@ templ NotificationDropdown(data NotificationsData) {
 
 templ NotificationCount(count int64) {
 	if count > 0 {
-		<div class="absolute inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full -top-1 -right-1" id="notification-count">
+		<div class="absolute inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 border border-white dark:border-gray-800 rounded-full -translate-y-1/2 translate-x-1/2" style="top: 0; right: 0;" id="notification-count">
 			if count > 99 {
 				99+
 			} else {
 				{ fmt.Sprintf("%d", count) }
 			}
 		</div>
+	} else {
+		<!-- Empty element to ensure proper swap when count is zero -->
+		<span class="hidden"></span>
 	}
 } 
