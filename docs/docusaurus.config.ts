@@ -41,13 +41,13 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           // Please change this to your repo.
           editUrl:
-            'https://github.com/StarFleetCPTN/GoMFT/tree/main/documentation',
+            'https://github.com/StarFleetCPTN/GoMFT/tree/main/docs',
         },
         blog: {
           showReadingTime: true,
           // Please change this to your repo.
           editUrl:
-            'https://github.com/StarFleetCPTN/GoMFT/tree/main/documentation',
+            'https://github.com/StarFleetCPTN/GoMFT/tree/main/docs',
         },
         theme: {
           customCss: './src/css/custom.css',
