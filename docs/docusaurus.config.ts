@@ -23,7 +23,12 @@ const config: Config = {
   trailingSlash: false,
 
   // Explicit static directories configuration
-  staticDirectories: ['static', 'static/screenshots'],
+  staticDirectories: ['static'],
+
+  // Configure image loader to handle absolute paths with baseUrl
+  markdown: {
+    mermaid: true,
+  },
 
   onBrokenLinks: 'warn',
   onBrokenMarkdownLinks: 'warn',
