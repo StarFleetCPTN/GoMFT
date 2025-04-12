@@ -39,6 +39,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
+      - name: Copy screenshots to static directory
+        run: npm run prepare-screenshots
+      
       - name: Build
         run: npm run build
       
