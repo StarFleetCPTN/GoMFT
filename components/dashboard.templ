@@ -16,6 +16,8 @@ type DashboardData struct {
 	FailedTransfers int
 	Configs         map[uint]db.TransferConfig
 	RcloneVersion   string
+	LatestVersion   string
+	CurrentVersion  string
 }
 
 // GetRcloneVersion executes the rclone --version command and returns the version string
@@ -39,6 +41,53 @@ func GetRcloneVersion() string {
 	}
 	
 	return "Unknown"
+}
+
+// isNewerVersionAvailable checks if the latest version is newer than the current version
+func isNewerVersionAvailable(current, latest string) bool {
+	// If either version is empty, we can't do a comparison
+	if current == "" || latest == "" {
+		return false
+	}
+	
+	// Strip 'v' prefix if present for comparison
+	if strings.HasPrefix(current, "v") {
+		current = current[1:]
+	}
+	if strings.HasPrefix(latest, "v") {
+		latest = latest[1:]
+	}
+	
+	// Split versions into components
+	currentParts := strings.Split(current, ".")
+	latestParts := strings.Split(latest, ".")
+	
+	// Compare major, minor, patch versions
+	for i := 0; i < len(currentParts) && i < len(latestParts); i++ {
+		// Parse to integers
+		currentNum, err1 := strconv.Atoi(currentParts[i])
+		latestNum, err2 := strconv.Atoi(latestParts[i])
+		
+		// If either can't be parsed, do string comparison
+		if err1 != nil || err2 != nil {
+			if currentParts[i] < latestParts[i] {
+				return true
+			} else if currentParts[i] > latestParts[i] {
+				return false
+			}
+			continue
+		}
+		
+		// Compare numbers
+		if latestNum > currentNum {
+			return true
+		} else if latestNum < currentNum {
+			return false
+		}
+	}
+	
+	// If all components are equal but latest has more components, it's newer
+	return len(latestParts) > len(currentParts)
 }
 
 templ Dashboard(ctx context.Context, data DashboardData) {
@@ -252,6 +301,31 @@ templ Dashboard(ctx context.Context, data DashboardData) {
 													Unknown
 												}
 											</span>
+										</div>
+										<div class="flex items-center justify-between">
+											<span class="text-sm text-gray-700 dark:text-gray-300">Application Version</span>
+											if data.CurrentVersion != "" && data.LatestVersion != "" && isNewerVersionAvailable(data.CurrentVersion, data.LatestVersion) {
+												<div class="flex items-center">
+													<span class="bg-yellow-100 text-yellow-800 text-xs font-medium inline-flex items-center px-2.5 py-0.5 rounded-full dark:bg-yellow-900 dark:text-yellow-300 mr-2">
+														<i class="fas fa-exclamation-triangle w-3 h-3 mr-1"></i>
+														{ data.CurrentVersion }
+													</span>
+													<a href="https://github.com/starfleetcptn/gomft/releases/tag/{ data.LatestVersion }" target="_blank" 
+														class="bg-green-100 text-green-800 text-xs font-medium inline-flex items-center px-2.5 py-0.5 rounded-full dark:bg-green-900 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800">
+														<i class="fas fa-arrow-circle-up w-3 h-3 mr-1"></i>
+														{ data.LatestVersion } Available
+													</a>
+												</div>
+											} else {
+												<span class="bg-green-100 text-green-800 text-xs font-medium inline-flex items-center px-2.5 py-0.5 rounded-full dark:bg-green-900 dark:text-green-300">
+													<i class="fas fa-check-circle w-3 h-3 mr-1"></i>
+													if data.CurrentVersion != "" {
+														{ data.CurrentVersion }
+													} else {
+														Up to date
+													}
+												</span>
+											}
 										</div>
 									</div>
 								</div>
