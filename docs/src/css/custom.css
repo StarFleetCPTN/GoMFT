@@ -1,0 +1,206 @@
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-centric websites.
+ */
+
+/* You can override the default Infima variables here. */
+:root {
+  --ifm-color-primary: #2e6db8;
+  --ifm-color-primary-dark: #2962a6;
+  --ifm-color-primary-darker: #275c9c;
+  --ifm-color-primary-darkest: #204c81;
+  --ifm-color-primary-light: #3378ca;
+  --ifm-color-primary-lighter: #3e7fcf;
+  --ifm-color-primary-lightest: #5a92d6;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  
+  /* Custom colors */
+  --ifm-color-secondary: #54b4d3;
+  --ifm-color-success: #28a745;
+  --ifm-color-info: #54b4d3;
+  --ifm-color-warning: #ffc107;
+  --ifm-color-danger: #dc3545;
+  
+  /* Font settings */
+  --ifm-font-family-base: system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, Cantarell, 'Noto Sans', sans-serif;
+  --ifm-heading-font-weight: 600;
+}
+
+/* For readability concerns, you should choose a lighter palette in dark mode. */
+[data-theme='dark'] {
+  --ifm-color-primary: #4d94ff;
+  --ifm-color-primary-dark: #2d81ff;
+  --ifm-color-primary-darker: #1d77ff;
+  --ifm-color-primary-darkest: #0058dc;
+  --ifm-color-primary-light: #6da7ff;
+  --ifm-color-primary-lighter: #7db1ff;
+  --ifm-color-primary-lightest: #aeccff;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+  
+  /* Custom colors in dark mode */
+  --ifm-background-color: #1a1a1a;
+  --ifm-background-surface-color: #242526;
+  --ifm-color-secondary: #4290ac;
+  --ifm-color-success: #2a9d47;
+  --ifm-color-info: #4290ac;
+  --ifm-color-warning: #d9a406;
+  --ifm-color-danger: #bd2130;
+}
+
+.hero--primary {
+  --ifm-hero-background-color: var(--ifm-color-primary);
+  --ifm-hero-text-color: var(--ifm-font-color-base-inverse);
+  padding: 4rem 2rem;
+}
+
+/* Add custom button spacing on homepage */
+.buttons {
+  gap: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Logo styling */
+.navbar__logo {
+  height: 2.5rem;
+  margin-right: 0.5rem;
+}
+
+/* Card styling for feature sections */
+.card {
+  border-radius: 8px;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Section styling */
+.section {
+  padding: 4rem 0;
+}
+
+.sectionAlt {
+  background-color: var(--ifm-color-emphasis-100);
+}
+
+/* Footer styling */
+.footer {
+  padding: 2rem 0;
+  background-color: var(--ifm-color-primary-darkest);
+  color: var(--ifm-color-white);
+}
+
+.footer a {
+  color: var(--ifm-color-primary-lightest);
+}
+
+.footer a:hover {
+  color: var(--ifm-color-white);
+  text-decoration: underline;
+}
+
+.footer__title {
+  color: var(--ifm-color-white);
+}
+
+.footer__link-item {
+  opacity: 0.85;
+  transition: opacity 0.2s;
+}
+
+.footer__link-item:hover {
+  opacity: 1;
+}
+
+.footer__bottom {
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  padding-top: 1rem;
+  margin-top: 1rem;
+}
+
+[data-theme='dark'] .footer {
+  background-color: #191919;
+  border-top: 1px solid #333;
+}
+
+/* Documentation styling */
+.markdown h1:first-child {
+  --ifm-h1-font-size: 2.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.markdown > h2 {
+  --ifm-h2-font-size: 2rem;
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--ifm-color-emphasis-300);
+}
+
+.markdown > h3 {
+  --ifm-h3-font-size: 1.5rem;
+  margin-top: 2rem;
+}
+
+/* Code block styling */
+pre {
+  border-radius: 8px;
+}
+
+/* Discord button styling */
+.header-discord-link:hover {
+  opacity: 0.8;
+}
+
+.header-discord-link::before {
+  content: '';
+  width: 24px;
+  height: 24px;
+  display: flex;
+  background: url("../../static/img/discord.svg") no-repeat;
+  background-size: 100% 100%;
+  margin-right: 8px;
+}
+
+[data-theme='dark'] .header-discord-link::before {
+  filter: brightness(0) invert(1);
+}
+
+/* Discord badge for other elements */
+.discord-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  font-size: 0.9rem;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background-color: #5865F2;
+  color: white;
+  text-decoration: none;
+  transition: background-color 0.2s;
+}
+
+.discord-badge:hover {
+  background-color: #4752c4;
+  text-decoration: none;
+  color: white;
+}
+
+.discord-badge::before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+  background: url("../../static/img/discord.svg") no-repeat;
+  background-size: 100% 100%;
+  margin-right: 6px;
+  filter: brightness(0) invert(1);
+}
