@@ -42,6 +42,23 @@ func (h *Handlers) HandleJobs(c *gin.Context) {
 	components.Jobs(c, data).Render(c, c.Writer)
 }
 
+// HandleCalendarView handles the GET /calendar route
+func (h *Handlers) HandleCalendarView(c *gin.Context) {
+	userID := c.GetUint("userID")
+
+	// Get all jobs with Next Run time for this user
+	var jobs []db.Job
+	h.DB.Where("created_by = ?", userID).Preload("Config").Find(&jobs)
+
+	// Prepare data for the calendar view
+	data := components.JobCalendarData{
+		Jobs: jobs,
+	}
+
+	// Render the calendar view
+	components.JobCalendar(c, data).Render(c, c.Writer)
+}
+
 // HandleJobRunDetails handles the GET /job/:id route
 func (h *Handlers) HandleJobRunDetails(c *gin.Context) {
 	userID := c.GetUint("userID")

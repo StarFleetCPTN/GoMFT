@@ -1,0 +1,255 @@
+/* FullCalendar Basic Styles */
+
+.fc {
+  display: flex;
+  flex-direction: column;
+  font-size: 1em;
+  max-width: 100%;
+}
+
+.fc-view-harness {
+  flex-grow: 1;
+  position: relative;
+}
+
+.fc-scrollgrid {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.fc-scrollgrid, .fc-scrollgrid table {
+  table-layout: fixed;
+}
+
+.fc-scrollgrid, .fc-scrollgrid table {
+  border-style: solid;
+  border-color: #ddd;
+  border-width: 1px;
+}
+
+.fc-theme-standard td, .fc-theme-standard th {
+  border: 1px solid #ddd;
+}
+
+.fc-header-toolbar {
+  padding: 1em;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fc-toolbar-title {
+  font-size: 1.5em;
+  font-weight: bold;
+}
+
+.fc-button-group {
+  display: inline-flex;
+}
+
+.fc-button {
+  background-color: #f3f4f6;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  padding: 0.5em 0.75em;
+  cursor: pointer;
+  font-size: 0.9em;
+  margin: 0;
+  border-radius: 0.25em;
+}
+
+.fc-button:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.fc-button:not(:first-child):not(:last-child) {
+  border-radius: 0;
+  border-left: none;
+}
+
+.fc-button:last-child {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: none;
+}
+
+.fc-button:hover {
+  background-color: #e5e7eb;
+  z-index: 1;
+}
+
+.fc-button-primary {
+  background-color: #3b82f6;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.fc-button-primary:hover {
+  background-color: #2563eb;
+}
+
+.fc-button-active {
+  background-color: #1d4ed8;
+  border-color: #1e40af;
+  color: #ffffff;
+  z-index: 2;
+}
+
+.fc-col-header-cell {
+  padding: 0.5em;
+  background-color: #f9fafb;
+  font-weight: bold;
+}
+
+.fc-col-header-cell-cushion {
+  display: block;
+  padding: 0.25em 0;
+  text-decoration: none;
+  color: #374151;
+}
+
+.fc-scrollgrid-sync-inner {
+  text-align: center;
+}
+
+.fc-daygrid-day-top {
+  padding: 0.5em;
+  text-align: right;
+}
+
+.fc-daygrid-day-number {
+  font-size: 0.9em;
+  color: #374151;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.fc-daygrid-day-events {
+  min-height: 2em;
+  position: relative;
+  padding: 0 0.5em;
+}
+
+.fc-daygrid-event {
+  margin-bottom: 1px;
+  font-size: 0.85em;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fc-h-event {
+  display: block;
+  border: 1px solid #3b82f6;
+  background-color: #3b82f6;
+  color: #fff;
+  margin-top: 1px;
+  margin-bottom: 1px;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.fc-h-event .fc-event-main {
+  color: #fff;
+}
+
+.fc-day-today {
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+.fc-theme-standard .fc-list {
+  border: 1px solid #ddd;
+}
+
+.fc-list-day {
+  background-color: #f9fafb;
+}
+
+.fc-list-day-cushion {
+  padding: 0.75em 1em;
+}
+
+.fc-list-event {
+  cursor: pointer;
+}
+
+.fc-list-event:hover td {
+  background-color: #f3f4f6;
+}
+
+.fc-list-event-time {
+  white-space: nowrap;
+  width: 1px;
+  text-align: right;
+}
+
+.fc-list-event-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Dark mode */
+.dark .fc {
+  color: #e5e7eb;
+}
+
+.dark .fc-scrollgrid, .dark .fc-scrollgrid table {
+  border-color: #4b5563;
+}
+
+.dark .fc-theme-standard td, .dark .fc-theme-standard th {
+  border-color: #4b5563;
+}
+
+.dark .fc-button {
+  background-color: #374151;
+  border-color: #4b5563;
+  color: #e5e7eb;
+}
+
+.dark .fc-button:hover {
+  background-color: #4b5563;
+}
+
+.dark .fc-button-primary {
+  background-color: #3b82f6;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.dark .fc-button-primary:hover {
+  background-color: #2563eb;
+}
+
+.dark .fc-button-active {
+  background-color: #1d4ed8;
+  border-color: #1e40af;
+  color: #ffffff;
+}
+
+.dark .fc-col-header-cell {
+  background-color: #1f2937;
+}
+
+.dark .fc-col-header-cell-cushion {
+  color: #e5e7eb;
+}
+
+.dark .fc-day-today {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+}
+
+.dark .fc-daygrid-day-number {
+  color: #e5e7eb;
+}
+
+.dark .fc-list-day {
+  background-color: #1f2937;
+}
+
+.dark .fc-list-event:hover td {
+  background-color: #374151;
+} 

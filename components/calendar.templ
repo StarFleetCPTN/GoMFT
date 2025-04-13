@@ -1,0 +1,640 @@
+package components
+
+import (
+	"context"
+	"fmt"
+	"github.com/starfleetcptn/gomft/internal/db"
+	"time"
+	"encoding/json"
+	"strings"
+	"strconv"
+	"sort"
+)
+
+// JobCalendarData contains the data for the calendar view
+type JobCalendarData struct {
+	Jobs []db.Job
+}
+
+// generateCalendarEvents converts jobs to calendar events in JSON format
+func generateCalendarEvents(jobs []db.Job) string {
+	type CalendarEvent struct {
+		ID           string   `json:"id"`
+		Title        string   `json:"title"`
+		Start        string   `json:"start"`
+		End          string   `json:"end,omitempty"`
+		AllDay       bool     `json:"allDay,omitempty"`
+		URL          string   `json:"url,omitempty"`
+		ClassName    string   `json:"className,omitempty"`
+		Description  string   `json:"description,omitempty"`
+		Enabled      bool     `json:"enabled"`
+		JobID        uint     `json:"jobId"`
+		JobName      string   `json:"jobName"`
+		RunTimes     []string `json:"runTimes,omitempty"`  // Store additional run times for this day
+		RunCount     int      `json:"runCount,omitempty"`  // Count of runs on this day
+		Schedule     string   `json:"schedule,omitempty"`  // Store the schedule for tooltip
+	}
+	
+	var events []CalendarEvent
+	
+	// Set the range for future occurrences - 2 months seems to be a good balance
+	now := time.Now()
+	twoMonthsLater := now.AddDate(0, 2, 0)
+	
+	// Map to track events by job ID and date to consolidate multiple occurrences
+	eventsByJobAndDay := make(map[string][]time.Time)
+	
+	// Store job information for easy access
+	jobInfo := make(map[uint]struct {
+		Name     string
+		Enabled  bool
+		Schedule string
+	})
+	
+	// First, gather all runs and group them by job ID and day
+	for _, job := range jobs {
+		// Skip jobs with no next run time
+		if job.NextRun == nil {
+			continue
+		}
+		
+		// Store job information
+		jobName := job.Name
+		if jobName == "" {
+			jobName = job.Config.Name
+		}
+		
+		jobInfo[job.ID] = struct {
+			Name     string
+			Enabled  bool
+			Schedule string
+		}{
+			Name:     jobName,
+			Enabled:  job.GetEnabled(),
+			Schedule: job.Schedule,
+		}
+		
+		// Create the first occurrence based on NextRun
+		nextRun := *job.NextRun
+		
+		// Skip past events that are more than a day old
+		oneDayAgo := now.AddDate(0, 0, -1)
+		if nextRun.Before(oneDayAgo) {
+			// For past events, if we have LastRun, use that instead
+			if job.LastRun != nil {
+				nextRun = *job.LastRun
+				// Still skip if it's too old
+				if nextRun.Before(oneDayAgo) {
+					continue
+				}
+			} else {
+				continue
+			}
+		}
+		
+		// Add initial run to the map
+		dateKey := fmt.Sprintf("%d-%s", job.ID, nextRun.Format("2006-01-02"))
+		eventsByJobAndDay[dateKey] = append(eventsByJobAndDay[dateKey], nextRun)
+		
+		// Try to determine future occurrences based on the cron schedule
+		var interval time.Duration
+		schedule := strings.ToLower(job.Schedule)
+		
+		// Determine interval based on schedule
+		switch {
+		case strings.Contains(schedule, "every minute") || strings.Contains(schedule, "* * * * *"):
+			interval = 1 * time.Minute
+		case strings.Contains(schedule, "every 5 minutes") || strings.Contains(schedule, "*/5 * * * *"):
+			interval = 5 * time.Minute
+		case strings.Contains(schedule, "every 10 minutes") || strings.Contains(schedule, "*/10 * * * *"):
+			interval = 10 * time.Minute
+		case strings.Contains(schedule, "every 15 minutes") || strings.Contains(schedule, "*/15 * * * *"):
+			interval = 15 * time.Minute
+		case strings.Contains(schedule, "every 30 minutes") || strings.Contains(schedule, "*/30 * * * *"):
+			interval = 30 * time.Minute
+		case strings.Contains(schedule, "hourly") || strings.Contains(schedule, "0 * * * *"):
+			interval = 1 * time.Hour
+		case strings.Contains(schedule, "every 2 hours") || strings.Contains(schedule, "0 */2 * * *"):
+			interval = 2 * time.Hour
+		case strings.Contains(schedule, "every 3 hours") || strings.Contains(schedule, "0 */3 * * *"):
+			interval = 3 * time.Hour
+		case strings.Contains(schedule, "every 4 hours") || strings.Contains(schedule, "0 */4 * * *"):
+			interval = 4 * time.Hour
+		case strings.Contains(schedule, "every 6 hours") || strings.Contains(schedule, "0 */6 * * *"):
+			interval = 6 * time.Hour
+		case strings.Contains(schedule, "every 12 hours") || strings.Contains(schedule, "0 */12 * * *"):
+			interval = 12 * time.Hour
+		case strings.Contains(schedule, "daily") || strings.Contains(schedule, "0 0 * * *"):
+			interval = 24 * time.Hour
+		case strings.Contains(schedule, "weekly") || strings.Contains(schedule, "0 0 * * 0"):
+			interval = 7 * 24 * time.Hour
+		case strings.Contains(schedule, "monthly") || strings.Contains(schedule, "0 0 1 * *"):
+			// Approximate as 30 days
+			interval = 30 * 24 * time.Hour
+		default:
+			// For other schedules, try a simple cron expression check
+			if strings.Contains(schedule, "* * * * *") {
+				// Every minute
+				interval = 1 * time.Minute
+			} else if strings.Contains(schedule, "*/") {
+				// Likely a recurring job with specific interval
+				interval = 1 * time.Hour // Default to hourly as a safe guess
+			} else {
+				continue
+			}
+		}
+		
+		// Generate future occurrences
+		// Limit the number of runs we'll capture per day
+		maxRunsPerDay := 20
+		
+		// Generate future occurrences up to our limits
+		currentTime := nextRun.Add(interval)
+		
+		for currentTime.Before(twoMonthsLater) {
+			dateKey := fmt.Sprintf("%d-%s", job.ID, currentTime.Format("2006-01-02"))
+			
+			// Check if we already have too many runs for this day
+			if len(eventsByJobAndDay[dateKey]) < maxRunsPerDay {
+				eventsByJobAndDay[dateKey] = append(eventsByJobAndDay[dateKey], currentTime)
+			}
+			
+			currentTime = currentTime.Add(interval)
+		}
+	}
+	
+	// Now convert the map to calendar events, consolidating runs on the same day
+	for dateKey, runTimes := range eventsByJobAndDay {
+		// Parse job ID from date key
+		parts := strings.Split(dateKey, "-")
+		jobIDStr := parts[0]
+		
+		jobID, _ := strconv.ParseUint(jobIDStr, 10, 32)
+		
+		// Get the job info
+		job, exists := jobInfo[uint(jobID)]
+		if !exists {
+			continue
+		}
+		
+		// Sort run times chronologically
+		sort.Slice(runTimes, func(i, j int) bool {
+			return runTimes[i].Before(runTimes[j])
+		})
+		
+		// Use the first run time as the event time
+		firstRunTime := runTimes[0]
+		
+		// Format run times for display in tooltip
+		formattedTimes := make([]string, 0, len(runTimes))
+		for i, rt := range runTimes {
+			// Limit to showing max 10 times in tooltip
+			if i >= 10 {
+				formattedTimes = append(formattedTimes, fmt.Sprintf("... and %d more", len(runTimes)-10))
+				break
+			}
+			formattedTimes = append(formattedTimes, rt.Format("15:04:05"))
+		}
+		
+		// Set class based on job enabled status
+		className := ""
+		if job.Enabled {
+			className = "bg-blue-200 border-blue-600 text-blue-800 dark:bg-blue-800 dark:border-blue-500 dark:text-blue-100"
+		} else {
+			className = "bg-gray-200 border-gray-400 text-gray-700 dark:bg-gray-700 dark:border-gray-500 dark:text-gray-300"
+		}
+		
+		// Create a single event for this job on this day
+		title := job.Name
+		if len(runTimes) > 1 {
+			title = fmt.Sprintf("%s (%d runs)", job.Name, len(runTimes))
+		}
+		
+		// Create event
+		events = append(events, CalendarEvent{
+			ID:          fmt.Sprintf("job-%d-%s", jobID, firstRunTime.Format("20060102")),
+			Title:       title,
+			Start:       firstRunTime.Format(time.RFC3339),
+			AllDay:      false,
+			URL:         fmt.Sprintf("/jobs/%d", jobID),
+			ClassName:   className,
+			Description: fmt.Sprintf("Schedule: %s", job.Schedule),
+			Enabled:     job.Enabled,
+			JobID:       uint(jobID),
+			JobName:     job.Name,
+			RunTimes:    formattedTimes,
+			RunCount:    len(runTimes),
+			Schedule:    job.Schedule,
+		})
+	}
+	
+	// Debug info
+	fmt.Printf("Generated %d consolidated calendar events\n", len(events))
+	
+	eventsJSON, err := json.Marshal(events)
+	if err != nil {
+		return "[]" // Return empty array if marshaling fails
+	}
+	
+	return string(eventsJSON)
+}
+
+// JobCalendar displays scheduled jobs in a calendar view
+templ JobCalendar(ctx context.Context, data JobCalendarData) {
+	@LayoutWithContext("Transfer Calendar", ctx) {
+		<div class="p-6">
+			<div class="w-full">
+				<div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+					<div class="flex items-center mb-4 md:mb-0">
+						<i class="fas fa-calendar-alt text-blue-500 mr-2"></i>
+						<h1 class="text-2xl font-bold text-gray-900 dark:text-white">Transfer Calendar</h1>
+					</div>
+					<a href="/jobs/new" class="text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 flex items-center">
+						<i class="fas fa-plus mr-2"></i>
+						New Job
+					</a>
+				</div>
+				
+				<div class="mb-6">
+					<div class="flex flex-wrap gap-2">
+						<button id="showAll" class="flex items-center text-sm px-4 py-2 rounded-lg bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-800 dark:text-blue-100 dark:hover:bg-blue-700">
+							<i class="fas fa-calendar-check mr-2"></i>All Jobs
+						</button>
+						<button id="showActive" class="flex items-center text-sm px-4 py-2 rounded-lg bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600">
+							<i class="fas fa-toggle-on mr-2"></i>Active Only
+						</button>
+						<button id="showInactive" class="flex items-center text-sm px-4 py-2 rounded-lg bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600">
+							<i class="fas fa-toggle-off mr-2"></i>Inactive Only
+						</button>
+						<button id="showNext" class="flex items-center text-sm px-4 py-2 rounded-lg bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600">
+							<i class="fas fa-step-forward mr-2"></i>Next Occurrences Only
+						</button>
+					</div>
+				</div>
+				
+				<!-- Hidden div to store calendar event data -->
+				<div id="calendar-data" style="display: none;">{ generateCalendarEvents(data.Jobs) }</div>
+				
+				<!-- Loading indicator -->
+				<div id="calendar-loading" class="flex items-center justify-center p-8">
+					<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 dark:border-blue-400"></div>
+					<span class="ml-3 text-gray-600 dark:text-gray-400">Loading calendar...</span>
+				</div>
+				
+				<div id="calendar" class="w-full bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hidden"></div>
+			</div>
+		</div>
+
+		<!-- Info section -->
+		<div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-8 mt-6 mx-6">
+			<h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">About the Calendar View</h2>
+			<p class="text-gray-700 dark:text-gray-300 mb-4">
+				This calendar displays your scheduled transfer jobs for the next 2 months. Click on any event to view or edit the job details.
+			</p>
+			
+			<div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg mb-4">
+				<p class="text-blue-700 dark:text-blue-300 text-sm">
+					<i class="fas fa-info-circle mr-2"></i>
+					Jobs with multiple runs on the same day are consolidated into a single event. Hover over any event to see all scheduled run times for that day.
+				</p>
+			</div>
+			
+			<h3 class="text-lg font-medium text-gray-900 dark:text-white mt-4 mb-2">Filter Options</h3>
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+				<div class="flex items-start">
+					<i class="fas fa-calendar-check mt-1 text-blue-500 dark:text-blue-400 mr-2"></i>
+					<div>
+						<p class="font-medium text-gray-800 dark:text-gray-200">All Jobs</p>
+						<p class="text-sm text-gray-600 dark:text-gray-400">Shows all scheduled occurrences in the selected timeframe.</p>
+					</div>
+				</div>
+				<div class="flex items-start">
+					<i class="fas fa-toggle-on mt-1 text-blue-500 dark:text-blue-400 mr-2"></i>
+					<div>
+						<p class="font-medium text-gray-800 dark:text-gray-200">Active Only</p>
+						<p class="text-sm text-gray-600 dark:text-gray-400">Shows only enabled jobs that will actually run.</p>
+					</div>
+				</div>
+				<div class="flex items-start">
+					<i class="fas fa-toggle-off mt-1 text-blue-500 dark:text-blue-400 mr-2"></i>
+					<div>
+						<p class="font-medium text-gray-800 dark:text-gray-200">Inactive Only</p>
+						<p class="text-sm text-gray-600 dark:text-gray-400">Shows disabled jobs that won't run unless re-enabled.</p>
+					</div>
+				</div>
+				<div class="flex items-start">
+					<i class="fas fa-step-forward mt-1 text-blue-500 dark:text-blue-400 mr-2"></i>
+					<div>
+						<p class="font-medium text-gray-800 dark:text-gray-200">Next Occurrences Only</p>
+						<p class="text-sm text-gray-600 dark:text-gray-400">Shows only the next upcoming occurrence of each job.</p>
+					</div>
+				</div>
+			</div>
+			
+			<h3 class="text-lg font-medium text-gray-900 dark:text-white mt-4 mb-2">Legend</h3>
+			<div class="flex flex-wrap gap-4">
+				<div class="flex items-center">
+					<div class="w-4 h-4 rounded-full bg-blue-500 mr-2"></div>
+					<span class="text-gray-700 dark:text-gray-300">Active Jobs</span>
+				</div>
+				<div class="flex items-center">
+					<div class="w-4 h-4 rounded-full bg-gray-500 mr-2"></div>
+					<span class="text-gray-700 dark:text-gray-300">Inactive Jobs</span>
+				</div>
+			</div>
+		</div>
+		
+		<!-- Local assets are now loaded through vendor.js bundle -->
+		
+		<script>
+			document.addEventListener('DOMContentLoaded', function() {
+				// Get the event data from the hidden div
+				try {
+					// Show loading indicator
+					const loadingIndicator = document.getElementById('calendar-loading');
+					const calendarElement = document.getElementById('calendar');
+					
+					// Parse the data in a non-blocking way
+					setTimeout(function() {
+						try {
+							const eventsData = JSON.parse(document.getElementById('calendar-data').textContent);
+							
+							// Initialize calendar with events data
+							const calendar = new FullCalendar.Calendar(calendarElement, {
+								initialView: 'dayGridMonth',
+								plugins: [
+									FullCalendar.dayGridPlugin,
+									FullCalendar.timeGridPlugin,
+									FullCalendar.listPlugin,
+									FullCalendar.interactionPlugin
+								],
+								headerToolbar: {
+									left: 'prev,next today',
+									center: 'title',
+									right: 'dayGridMonth,timeGridWeek,listWeek'
+								},
+								events: eventsData,
+								eventTimeFormat: {
+									hour: '2-digit',
+									minute: '2-digit',
+									hour12: true
+								},
+								eventDidMount: function(info) {
+									// Log the event data for debugging
+									console.log('Event mounted:', info.event.title, 'Enabled:', info.event.extendedProps.enabled);
+                                    
+                                    // Add tooltips to events
+									if (info.event.extendedProps) {
+										// Only add tooltips to visible events to improve performance
+										if (info.view.type === 'dayGridMonth' && 
+											info.event.start >= calendar.view.activeStart && 
+											info.event.start <= calendar.view.activeEnd) {
+                                            
+                                            // Create enhanced tooltip content with run times
+                                            let tooltipContent = `<div class="p-2">`;
+                                            
+                                            tooltipContent += `<div class="font-bold mb-1">${info.event.title}</div>`;
+                                            tooltipContent += `<div class="text-sm mb-2">Schedule: ${info.event.extendedProps.schedule || 'Unknown'}</div>`;
+                                            
+                                            // Show the run times if available
+                                            if (info.event.extendedProps.runTimes && info.event.extendedProps.runTimes.length > 0) {
+                                                tooltipContent += `<div class="font-bold text-xs mt-1">Run Times:</div>`;
+                                                tooltipContent += `<div class="text-xs">`;
+                                                
+                                                // Show the run times in a list
+                                                info.event.extendedProps.runTimes.forEach(time => {
+                                                    tooltipContent += `<div>${time}</div>`;
+                                                });
+                                                
+                                                tooltipContent += `</div>`;
+                                            }
+                                            
+                                            tooltipContent += `<div class="text-xs mt-2">Click to view/edit job</div>`;
+                                            tooltipContent += `</div>`;
+                                            
+											tippy(info.el, {
+												content: tooltipContent,
+                                                allowHTML: true,
+												placement: 'top',
+												arrow: true,
+                                                interactive: true,
+                                                maxWidth: 300,
+												theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+											});
+										}
+									}
+								},
+								eventClick: function(info) {
+									// Use the URL property to navigate to job details
+									if (info.event.url) {
+										window.location.href = info.event.url;
+										return false; // Prevents the default action
+									}
+								},
+								eventWillUnmount: function(info) {
+									// Cleanup any tooltips to prevent memory leaks
+									if (info.el._tippy) {
+										info.el._tippy.destroy();
+									}
+								},
+								themeSystem: 'standard',
+								loading: function(isLoading) {
+									if (!isLoading) {
+										// Hide loading indicator and show calendar
+										loadingIndicator.classList.add('hidden');
+										calendarElement.classList.remove('hidden');
+									}
+								}
+							});
+							
+							calendar.render();
+							
+							// Handle filter buttons with optimized filtering
+							document.getElementById('showAll').addEventListener('click', function() {
+								updateActiveButton(this);
+								// Show all events
+								calendar.getEvents().forEach(event => {
+									event.setProp('display', '');
+								});
+								calendar.render(); // Re-render to apply changes
+							});
+							
+							document.getElementById('showActive').addEventListener('click', function() {
+								updateActiveButton(this);
+								// Show only active events
+								calendar.getEvents().forEach(event => {
+									const isEnabled = event.extendedProps.enabled;
+									event.setProp('display', isEnabled ? '' : 'none');
+								});
+								calendar.render(); // Re-render to apply changes
+							});
+							
+							document.getElementById('showInactive').addEventListener('click', function() {
+								updateActiveButton(this);
+								// Show only inactive events
+								calendar.getEvents().forEach(event => {
+									const isEnabled = event.extendedProps.enabled;
+									event.setProp('display', !isEnabled ? '' : 'none');
+								});
+								calendar.render(); // Re-render to apply changes
+							});
+							
+							document.getElementById('showNext').addEventListener('click', function() {
+								updateActiveButton(this);
+								
+								console.log("Next Occurrences Only filter clicked");
+								
+                                // First reset all events to make sure none are hidden
+                                calendar.getEvents().forEach(event => {
+                                    event.setProp('display', 'none');
+                                });
+                                
+                                // Get a map of all jobs
+                                const jobIDs = new Set();
+                                calendar.getEvents().forEach(event => {
+                                    if (event.extendedProps && event.extendedProps.jobId) {
+                                        jobIDs.add(event.extendedProps.jobId);
+                                    }
+                                });
+                                
+                                console.log("Found jobs:", Array.from(jobIDs));
+                                
+                                // For each job, find the next occurrence and show it
+                                const now = new Date();
+                                jobIDs.forEach(jobId => {
+                                    // Get all events for this job
+                                    const jobEvents = calendar.getEvents().filter(event => 
+                                        event.extendedProps && 
+                                        event.extendedProps.jobId === jobId
+                                    );
+                                    
+                                    console.log(`Job ${jobId}: Found ${jobEvents.length} events`);
+                                    
+                                    // Find future events
+                                    const futureEvents = jobEvents.filter(event => 
+                                        new Date(event.start) >= now
+                                    ).sort((a, b) => 
+                                        new Date(a.start) - new Date(b.start)
+                                    );
+                                    
+                                    // If we have future events, show the earliest one
+                                    if (futureEvents.length > 0) {
+                                        console.log(`Job ${jobId}: Next occurrence at ${futureEvents[0].start}`);
+                                        futureEvents[0].setProp('display', '');
+                                    } else {
+                                        // If no future events, find most recent past event
+                                        const pastEvents = jobEvents.filter(event => 
+                                            new Date(event.start) < now
+                                        ).sort((a, b) => 
+                                            new Date(b.start) - new Date(a.start)
+                                        );
+                                        
+                                        if (pastEvents.length > 0) {
+                                            console.log(`Job ${jobId}: Most recent occurrence at ${pastEvents[0].start}`);
+                                            pastEvents[0].setProp('display', '');
+                                        }
+                                    }
+                                });
+                                
+								calendar.render(); // Re-render to apply changes
+							});
+							
+							function updateActiveButton(activeBtn) {
+								// Reset all buttons
+								document.querySelectorAll('#showAll, #showActive, #showInactive, #showNext').forEach(btn => {
+									btn.classList.remove('bg-blue-100', 'text-blue-800', 'dark:bg-blue-800', 'dark:text-blue-100');
+									btn.classList.add('bg-gray-100', 'text-gray-800', 'dark:bg-gray-700', 'dark:text-gray-100');
+								});
+								
+								// Set active button
+								activeBtn.classList.remove('bg-gray-100', 'text-gray-800', 'dark:bg-gray-700', 'dark:text-gray-100');
+								activeBtn.classList.add('bg-blue-100', 'text-blue-800', 'dark:bg-blue-800', 'dark:text-blue-100');
+							}
+							
+							// Handle theme changes
+							const themeToggle = document.getElementById('theme-toggle');
+							if (themeToggle) {
+								themeToggle.addEventListener('click', function() {
+									setTimeout(function() {
+										// Update tooltips theme
+										document.querySelectorAll('[data-tippy-root]').forEach(tooltip => {
+											tooltip.className = document.documentElement.classList.contains('dark') 
+												? 'tippy-box dark-theme' 
+												: 'tippy-box light-theme';
+										});
+									}, 100);
+								});
+							}
+						} catch (error) {
+							console.error("Error initializing calendar:", error);
+							loadingIndicator.innerHTML = '<div class="text-red-500"><i class="fas fa-exclamation-triangle mr-2"></i>Error loading calendar data</div>';
+						}
+					}, 100);
+				} catch (error) {
+					console.error("Error during initial calendar setup:", error);
+				}
+			});
+		</script>
+		
+		<style>
+			.fc-event {
+				cursor: pointer;
+				border-radius: 4px;
+				padding: 2px 4px;
+				border-left-width: 4px;
+			}
+			
+			/* Style consolidated events */
+			.fc-event-title {
+				font-weight: 500;
+				font-size: 0.85em;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+			
+			/* Tooltip styles */
+			.tippy-box {
+				border-radius: 6px;
+				font-size: 13px;
+			}
+			
+			.tippy-box[data-theme~='dark'] {
+				background-color: #1f2937;
+				color: #f3f4f6;
+			}
+			
+			.tippy-box[data-theme~='light'] {
+				background-color: #ffffff;
+				color: #1f2937;
+				box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+			}
+			
+			@media (prefers-color-scheme: dark) {
+				.fc {
+					--fc-page-bg-color: #1f2937;
+					--fc-border-color: #374151;
+					--fc-neutral-bg-color: #374151;
+					--fc-neutral-text-color: #e5e7eb;
+					--fc-today-bg-color: rgba(59, 130, 246, 0.15);
+				}
+				
+				.fc-day-today {
+					background-color: rgba(59, 130, 246, 0.15) !important;
+				}
+				
+				.fc-col-header-cell {
+					background-color: #111827;
+				}
+				
+				.fc-scrollgrid-sync-inner {
+					color: #e5e7eb;
+				}
+				
+				.fc-daygrid-day-number {
+					color: #e5e7eb;
+				}
+			}
+		</style>
+	}
+} 
