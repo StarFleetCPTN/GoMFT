@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/starfleetcptn/gomft/internal/db"
+	"github.com/starfleetcptn/gomft/internal/encryption"
 )
 
 // --- Interfaces for Dependencies ---
@@ -26,6 +27,7 @@ type TransferDB interface {
 	UpdateJobHistory(history *db.JobHistory) error
 	CreateFileMetadata(metadata *db.FileMetadata) error
 	GetRcloneCommandFlagsMap(commandID uint) (map[uint]db.RcloneCommandFlag, error)
+	GetStorageProvider(id uint) (*db.StorageProvider, error)
 }
 
 // TransferNotifier defines the notification methods needed by TransferExecutor.
@@ -71,6 +73,123 @@ func NewTransferExecutor(
 	}
 }
 
+// decryptCredentials securely decrypts credentials for use during transfer operations
+// This ensures that sensitive data is only decrypted when needed and never logged
+func (te *TransferExecutor) decryptCredentials(config *db.TransferConfig) error {
+	var errors []string
+
+	// Get credential encryptor
+	credentialEncryptor, err := encryption.GetGlobalCredentialEncryptor()
+	if err != nil {
+		return fmt.Errorf("failed to get credential encryptor: %v", err)
+	}
+
+	// Decrypt source provider credentials if using provider references
+	if config.IsUsingSourceProviderReference() && config.SourceProvider != nil {
+		provider := config.SourceProvider
+
+		// Decrypt password if present
+		if provider.EncryptedPassword != "" {
+			password, err := credentialEncryptor.DecryptField(provider.EncryptedPassword)
+			if err != nil {
+				errors = append(errors, fmt.Sprintf("failed to decrypt source password: %v", err))
+			} else {
+				// Store decrypted password in memory-only field
+				provider.Password = password
+			}
+		}
+
+		// Decrypt secret key if present (for S3)
+		if provider.EncryptedSecretKey != "" {
+			secretKey, err := credentialEncryptor.DecryptField(provider.EncryptedSecretKey)
+			if err != nil {
+				errors = append(errors, fmt.Sprintf("failed to decrypt source secret key: %v", err))
+			} else {
+				// Store decrypted secret key in memory-only field
+				provider.SecretKey = secretKey
+			}
+		}
+
+		// Decrypt client secret if present (for OAuth)
+		if provider.EncryptedClientSecret != "" {
+			clientSecret, err := credentialEncryptor.DecryptField(provider.EncryptedClientSecret)
+			if err != nil {
+				errors = append(errors, fmt.Sprintf("failed to decrypt source client secret: %v", err))
+			} else {
+				// Store decrypted client secret in memory-only field
+				provider.ClientSecret = clientSecret
+			}
+		}
+
+		// Decrypt refresh token if present (for OAuth)
+		if provider.EncryptedRefreshToken != "" {
+			refreshToken, err := credentialEncryptor.DecryptField(provider.EncryptedRefreshToken)
+			if err != nil {
+				errors = append(errors, fmt.Sprintf("failed to decrypt source refresh token: %v", err))
+			} else {
+				// Store decrypted refresh token in memory-only field
+				provider.RefreshToken = refreshToken
+			}
+		}
+	}
+
+	// Decrypt destination provider credentials if using provider references
+	if config.IsUsingDestinationProviderReference() && config.DestinationProvider != nil {
+		provider := config.DestinationProvider
+
+		// Decrypt password if present
+		if provider.EncryptedPassword != "" {
+			password, err := credentialEncryptor.DecryptField(provider.EncryptedPassword)
+			if err != nil {
+				errors = append(errors, fmt.Sprintf("failed to decrypt destination password: %v", err))
+			} else {
+				// Store decrypted password in memory-only field
+				provider.Password = password
+			}
+		}
+
+		// Decrypt secret key if present (for S3)
+		if provider.EncryptedSecretKey != "" {
+			secretKey, err := credentialEncryptor.DecryptField(provider.EncryptedSecretKey)
+			if err != nil {
+				errors = append(errors, fmt.Sprintf("failed to decrypt destination secret key: %v", err))
+			} else {
+				// Store decrypted secret key in memory-only field
+				provider.SecretKey = secretKey
+			}
+		}
+
+		// Decrypt client secret if present (for OAuth)
+		if provider.EncryptedClientSecret != "" {
+			clientSecret, err := credentialEncryptor.DecryptField(provider.EncryptedClientSecret)
+			if err != nil {
+				errors = append(errors, fmt.Sprintf("failed to decrypt destination client secret: %v", err))
+			} else {
+				// Store decrypted client secret in memory-only field
+				provider.ClientSecret = clientSecret
+			}
+		}
+
+		// Decrypt refresh token if present (for OAuth)
+		if provider.EncryptedRefreshToken != "" {
+			refreshToken, err := credentialEncryptor.DecryptField(provider.EncryptedRefreshToken)
+			if err != nil {
+				errors = append(errors, fmt.Sprintf("failed to decrypt destination refresh token: %v", err))
+			} else {
+				// Store decrypted refresh token in memory-only field
+				provider.RefreshToken = refreshToken
+			}
+		}
+	}
+
+	// If there were any decryption errors, return them combined
+	if len(errors) > 0 {
+		return fmt.Errorf("credential decryption errors: %s", strings.Join(errors, "; "))
+	}
+
+	return nil
+}
+
 // executeConfigTransfer performs the actual file transfer for a single configuration
 func (te *TransferExecutor) executeConfigTransfer(job db.Job, config db.TransferConfig, history *db.JobHistory) {
 	te.logger.LogDebug("Starting transfer for config %d with params: %+v", config.ID, config)
@@ -80,6 +199,23 @@ func (te *TransferExecutor) executeConfigTransfer(job db.Job, config db.Transfer
 
 	// Get rclone config path
 	configPath := te.db.GetConfigRclonePath(&config) // Calls interface method
+
+	// Decrypt credentials if using provider references
+	if config.IsUsingSourceProviderReference() || config.IsUsingDestinationProviderReference() {
+		if err := te.decryptCredentials(&config); err != nil {
+			te.logger.LogError("Failed to decrypt credentials for transfer config %d: %v", config.ID, err)
+			history.Status = "failed"
+			history.ErrorMessage = fmt.Sprintf("Credential decryption failed: %v", err)
+			endTime := time.Now()
+			history.EndTime = &endTime
+			if updateErr := te.db.UpdateJobHistory(history); updateErr != nil {
+				te.logger.LogError("Error updating job history after credential error for job %d, config %d: %v", job.ID, config.ID, updateErr)
+			}
+			te.notifier.SendNotifications(&job, history, &config)
+			return
+		}
+		te.logger.LogDebug("Successfully decrypted credentials for transfer config %d", config.ID)
+	}
 
 	// Get the command to use for the transfer
 	var rcloneCommand string = "copyto" // Default command
@@ -721,24 +857,50 @@ func (te *TransferExecutor) executeSimpleCommand(cmdName string, cmdType string,
 	// Prepare source and destination paths
 	var sourcePath, destPath string
 
-	// Handle source path with bucket for S3-compatible storage
-	if config.SourceType == "s3" || config.SourceType == "minio" || config.SourceType == "b2" {
-		sourcePath = fmt.Sprintf("source_%d:%s", config.ID, config.SourceBucket)
-		if config.SourcePath != "" && config.SourcePath != "/" {
-			sourcePath = fmt.Sprintf("source_%d:%s/%s", config.ID, config.SourceBucket, config.SourcePath)
-		}
+	// Determine correct source bucket/path based on provider or direct configuration
+	var sourceBucket, sourceBasePath string
+	if config.IsUsingSourceProviderReference() && config.SourceProvider != nil {
+		sourceBucket = config.SourceProvider.Bucket
+		sourceBasePath = config.SourcePath // Still use config's path for the specific location
 	} else {
-		sourcePath = fmt.Sprintf("source_%d:%s", config.ID, config.SourcePath)
+		sourceBucket = config.SourceBucket
+		sourceBasePath = config.SourcePath
 	}
 
-	// Handle destination path with bucket for S3-compatible storage
-	if config.DestinationType == "s3" || config.DestinationType == "minio" || config.DestinationType == "b2" {
-		destPath = fmt.Sprintf("dest_%d:%s", config.ID, config.DestBucket)
-		if config.DestinationPath != "" && config.DestinationPath != "/" {
-			destPath = fmt.Sprintf("dest_%d:%s/%s", config.ID, config.DestBucket, config.DestinationPath)
+	// Get the effective source type (from provider if using reference, otherwise from config)
+	sourceType := te.getEffectiveSourceType(&config)
+
+	// Handle source path with bucket for S3-compatible storage
+	if sourceType == "s3" || sourceType == "minio" || sourceType == "b2" {
+		sourcePath = fmt.Sprintf("source_%d:%s", config.ID, sourceBucket)
+		if sourceBasePath != "" && sourceBasePath != "/" {
+			sourcePath = fmt.Sprintf("source_%d:%s/%s", config.ID, sourceBucket, sourceBasePath)
 		}
 	} else {
-		destPath = fmt.Sprintf("dest_%d:%s", config.ID, config.DestinationPath)
+		sourcePath = fmt.Sprintf("source_%d:%s", config.ID, sourceBasePath)
+	}
+
+	// Determine correct destination bucket/path based on provider or direct configuration
+	var destBucket, destBasePath string
+	if config.IsUsingDestinationProviderReference() && config.DestinationProvider != nil {
+		destBucket = config.DestinationProvider.Bucket
+		destBasePath = config.DestinationPath // Still use config's path for the specific location
+	} else {
+		destBucket = config.DestBucket
+		destBasePath = config.DestinationPath
+	}
+
+	// Get the effective destination type (from provider if using reference, otherwise from config)
+	destType := te.getEffectiveDestinationType(&config)
+
+	// Handle destination path with bucket for S3-compatible storage
+	if destType == "s3" || destType == "minio" || destType == "b2" {
+		destPath = fmt.Sprintf("dest_%d:%s", config.ID, destBucket)
+		if destBasePath != "" && destBasePath != "/" {
+			destPath = fmt.Sprintf("dest_%d:%s/%s", config.ID, destBucket, destBasePath)
+		}
+	} else {
+		destPath = fmt.Sprintf("dest_%d:%s", config.ID, destBasePath)
 	}
 
 	// Add appropriate paths based on command type
@@ -1013,8 +1175,8 @@ func (te *TransferExecutor) executeSimpleCommand(cmdName string, cmdType string,
 	te.notifier.SendNotifications(&job, history, &config) // Calls interface method
 }
 
-// prepareBaseArguments prepares the base arguments for a command
-func (te *TransferExecutor) prepareBaseArguments(command string, config *db.TransferConfig, progressCallback func(string)) []string {
+// prepareBaseArguments prepares rclone command arguments
+func (te *TransferExecutor) prepareBaseArguments(command string, config *db.TransferConfig, progressCallback interface{}) []string {
 	args := []string{command}
 
 	// Add rclone flags from the config
@@ -1087,8 +1249,42 @@ func (te *TransferExecutor) prepareBaseArguments(command string, config *db.Tran
 		args = append(args, "--stats-one-line") // Keep this for general stats output
 	}
 
-	// Consider adding --json only if specifically needed for parsing output later
-	// args = append(args, "--json")
+	// Ensure providers are fully loaded if using references
+	if config.IsUsingSourceProviderReference() && config.SourceProvider == nil {
+		provider, err := te.db.GetStorageProvider(*config.SourceProviderID)
+		if err != nil {
+			te.logger.LogError("Failed to load source provider (ID %d): %v", *config.SourceProviderID, err)
+		} else {
+			config.SourceProvider = provider
+			te.logger.LogDebug("Loaded source provider (ID %d): %s", provider.ID, provider.Name)
+		}
+	}
+
+	if config.IsUsingDestinationProviderReference() && config.DestinationProvider == nil {
+		provider, err := te.db.GetStorageProvider(*config.DestinationProviderID)
+		if err != nil {
+			te.logger.LogError("Failed to load destination provider (ID %d): %v", *config.DestinationProviderID, err)
+		} else {
+			config.DestinationProvider = provider
+			te.logger.LogDebug("Loaded destination provider (ID %d): %s", provider.ID, provider.Name)
+		}
+	}
 
 	return args
+}
+
+// getEffectiveSourceType returns the effective source type based on provider or direct configuration
+func (te *TransferExecutor) getEffectiveSourceType(config *db.TransferConfig) string {
+	if config.IsUsingSourceProviderReference() && config.SourceProvider != nil {
+		return string(config.SourceProvider.Type)
+	}
+	return config.SourceType
+}
+
+// getEffectiveDestinationType returns the effective destination type based on provider or direct configuration
+func (te *TransferExecutor) getEffectiveDestinationType(config *db.TransferConfig) string {
+	if config.IsUsingDestinationProviderReference() && config.DestinationProvider != nil {
+		return string(config.DestinationProvider.Type)
+	}
+	return config.DestinationType
 }

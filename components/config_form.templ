@@ -16,6 +16,9 @@ type ConfigFormData struct {
 	InitialCommand     *db.RcloneCommand
 	SelectedFlagsMap   map[uint]bool
 	SelectedFlagValues map[uint]string
+	// Add source and destination providers
+	SourceProviders      []db.StorageProvider
+	DestinationProviders []db.StorageProvider
 }
 
 func getConfigFormTitle(isNew bool) string {
@@ -91,6 +94,13 @@ func getInitialData(config *db.TransferConfig) string {
 	commandFlags := ""
 	useBuiltinAuthSource := true
 	useBuiltinAuthDest := true
+
+	// Provider configuration
+	useSourceProvider := false
+	sourceProviderId := uint(0)
+	
+	useDestinationProvider := false
+	destinationProviderId := uint(0)
 
 	// If editing an existing config, populate with those values
 	if config != nil {
@@ -183,6 +193,17 @@ func getInitialData(config *db.TransferConfig) string {
 		} else if destClientId != "" || destClientSecret != "" {
 			useBuiltinAuthDest = false
 		}
+
+		// Provider reference fields
+		if config.IsUsingSourceProviderReference() {
+			useSourceProvider = true
+			sourceProviderId = *config.SourceProviderID
+		}
+		
+		if config.IsUsingDestinationProviderReference() {
+			useDestinationProvider = true
+			destinationProviderId = *config.DestinationProviderID
+		}
 	}
 
 	// Return the JSON-formatted string with all the data, add new path validation states
@@ -212,6 +233,9 @@ func getInitialData(config *db.TransferConfig) string {
 		sourceStartYear: %d,
 		sourceIncludeArchived: %v,
 		
+		useSourceProvider: %v,
+		sourceProviderId: %d,
+		
 		filePattern: '%s',
 		outputPattern: '%s',
 		
@@ -238,6 +262,9 @@ func getInitialData(config *db.TransferConfig) string {
 		destReadOnly: %v,
 		destStartYear: %d,
 		destIncludeArchived: %v,
+		
+		useDestinationProvider: %v,
+		destinationProviderId: %d,
 		
 		useBuiltinAuthSource: %v,
 		useBuiltinAuthDest: %v,
@@ -347,11 +374,13 @@ func getInitialData(config *db.TransferConfig) string {
 	sourceBucket, sourceRegion, sourceAccessKey, sourceSecretKey, sourceEndpoint, sourceShare, sourceDomain, sourcePassiveMode,
 	sourceClientId, sourceClientSecret, sourceDriveId, sourceTeamDrive,
 	sourceReadOnly, sourceStartYear, sourceIncludeArchived,
+	useSourceProvider, sourceProviderId,
 	filePattern, outputPattern,
 	destinationType, destinationPath, destHost, destPort, destUser, destPassword, destKeyFile, destAuthType,
 	destBucket, destRegion, destAccessKey, destSecretKey, destEndpoint, destShare, destDomain, destPassiveMode,
 	destClientId, destClientSecret, destDriveId, destTeamDrive,
 	destReadOnly, destStartYear, destIncludeArchived,
+	useDestinationProvider, destinationProviderId,
 	useBuiltinAuthSource, useBuiltinAuthDest,
 	archivePath, archiveEnabled, deleteAfterTransfer, skipProcessedFiles, maxConcurrentTransfers, rcloneFlags, 
 	commandId, commandFlags)
@@ -421,6 +450,10 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 							if (!maxConcurrentTransfers || maxConcurrentTransfers < 1) {
 								maxConcurrentTransfers = 1;
 							}
+
+							// Initialize provider selection states
+							useSourceProvider = useSourceProvider || false;
+							useDestinationProvider = useDestinationProvider || false;
 
 							// Initialize command requirements
 							updateCommandRequirements();
@@ -512,8 +545,9 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 							</h3>
 							
 							<!-- Source selection -->
-							@common.SourceSelection()
+							@common.SourceSelection(data.SourceProviders)
 							
+              <!-- Test Source Connection button -->
               <div class="mt-4">
                 <button type="button"
                   class="text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-4 py-2 text-center dark:bg-green-500 dark:hover:bg-green-600 dark:focus:ring-green-800"
@@ -525,60 +559,102 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
                   <i class="fas fa-plug mr-1"></i> Test Source
                   <span id="source-test-spinner" class="htmx-indicator ml-2"><i class="fas fa-spinner fa-spin"></i></span>
                 </button>
-                <!-- Removed target div, result shown via toast -->
               </div>
 
-							<!-- Source type specific forms -->
-							<template x-if="sourceType === 'local'">
-								@source.LocalSourceForm()
+							<!-- Source type specific forms - only show when not using a provider -->
+							<template x-if="!useSourceProvider">
+								<div class="mt-4">
+									<template x-if="sourceType === 'local'">
+										@source.LocalSourceForm()
+									</template>
+									
+									<template x-if="sourceType === 'sftp'">
+										@source.SFTPSourceForm()
+									</template>
+
+									<template x-if="sourceType === 'ftp'">
+										@source.FTPSourceForm()
+									</template>
+
+									<template x-if="sourceType === 's3'">
+										@source.S3SourceForm()
+									</template>
+
+									<template x-if="sourceType === 'b2'">
+										@source.B2SourceForm()
+									</template>
+									
+									<template x-if="sourceType === 'wasabi'">
+										@source.WasabiSourceForm()
+									</template>
+									
+									<template x-if="sourceType === 'minio'">
+										@source.MinIOSourceForm()
+									</template>
+									
+									<template x-if="sourceType === 'smb'">
+										@source.SMBSourceForm()
+									</template>
+									
+									<template x-if="sourceType === 'webdav'">
+										@source.WebDAVSourceForm()
+									</template>
+
+									<template x-if="sourceType === 'nextcloud'">
+										@source.NextCloudSourceForm()
+									</template>
+
+									<template x-if="sourceType === 'gdrive'">
+										@source.GoogleDriveSourceForm()
+									</template>
+
+									<template x-if="sourceType === 'gphotos'">
+										@source.GooglePhotosSourceForm()
+									</template>
+
+									<template x-if="sourceType === 'hetzner'">
+										@source.HetznerSourceForm()
+									</template>
+								</div>
 							</template>
 							
-							<template x-if="sourceType === 'sftp'">
-								@source.SFTPSourceForm()
-							</template>
-
-							<template x-if="sourceType === 'ftp'">
-								@source.FTPSourceForm()
-							</template>
-
-							<template x-if="sourceType === 's3'">
-								@source.S3SourceForm()
-							</template>
-
-							<template x-if="sourceType === 'b2'">
-								@source.B2SourceForm()
+							<!-- Provider usage notice -->
+							<template x-if="useSourceProvider">
+								<div class="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-lg dark:bg-blue-900/20 dark:border-blue-800">
+									<div class="flex">
+										<i class="fas fa-info-circle text-blue-500 dark:text-blue-400 mt-0.5 mr-2"></i>
+										<div>
+											<p class="text-sm text-blue-800 dark:text-blue-300">
+												Using storage provider configuration. Customize source path options below if needed.
+											</p>
+										</div>
+									</div>
+								</div>
 							</template>
 							
-							<template x-if="sourceType === 'wasabi'">
-								@source.WasabiSourceForm()
-							</template>
-							
-							<template x-if="sourceType === 'minio'">
-								@source.MinIOSourceForm()
-							</template>
-							
-							<template x-if="sourceType === 'smb'">
-								@source.SMBSourceForm()
-							</template>
-							
-							<template x-if="sourceType === 'webdav'">
-								@source.WebDAVSourceForm()
-							</template>
-
-							<template x-if="sourceType === 'nextcloud'">
-								@source.NextCloudSourceForm()
-							</template>
-
-							<template x-if="sourceType === 'gdrive'">
-								@source.GoogleDriveSourceForm()
-							</template>
-
-							<template x-if="sourceType === 'gphotos'">
-								@source.GooglePhotosSourceForm()
-							</template>
-
-							<template x-if="sourceType === 'hetzner'">
-								@source.HetznerSourceForm()
+							<!-- Always show source path field with provider or without provider -->
+							<template x-if="useSourceProvider && sourceProviderId > 0">
+								<div class="mt-4">
+									<label for="source_path" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Source Path</label>
+									<div class="relative">
+										<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+											<i class="fas fa-folder text-gray-400 dark:text-gray-500"></i>
+										</div>
+										<input 
+											type="text" 
+											id="source_path" 
+											name="source_path" 
+											x-model="sourcePath"
+											@blur="checkPath(sourcePath, 'source')"
+											class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
+											placeholder="/path/to/source"
+											/>
+										<template x-if="sourcePathValid === false">
+											<p class="mt-2 text-sm text-red-600 dark:text-red-500" x-text="sourcePathError"></p>
+										</template>
+									</div>
+									<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Specify source path within the provider</p>
+								</div>
 							</template>
 						</div>
 						
@@ -592,15 +668,16 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 							@common.FilePatternFields()
 						</div>
 						
-						<!-- Destination Configuration Section (only shown if required) -->
+						<!-- Destination Configuration Section -->
 						<div x-show="requiresDestination" x-transition class="p-5 bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
 							<h3 class="mb-4 text-xl font-bold text-gray-900 dark:text-white flex items-center">
 								<i class="fas fa-download mr-2 text-blue-500 dark:text-blue-400"></i>Destination Configuration
 							</h3>
 							
 							<!-- Destination selection -->
-							@common.DestinationSelection()
+							@common.DestinationSelection(data.DestinationProviders)
 							
+              <!-- Test Destination button -->
               <div class="mt-4">
                 <button type="button"
                   class="text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-4 py-2 text-center dark:bg-green-500 dark:hover:bg-green-600 dark:focus:ring-green-800"
@@ -612,60 +689,102 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
                   <i class="fas fa-plug mr-1"></i> Test Destination
                   <span id="dest-test-spinner" class="htmx-indicator ml-2"><i class="fas fa-spinner fa-spin"></i></span>
                 </button>
-                <!-- Removed target div, result shown via toast -->
               </div>
 
-							<!-- Destination type specific forms -->
-							<template x-if="destinationType === 'local'">
-								@destination.LocalDestinationForm()
-							</template>
-							
-							<template x-if="destinationType === 'sftp'">
-								@destination.SFTPDestinationForm()
-							</template>
+							<!-- Destination type specific forms - only show when not using a provider -->
+							<template x-if="!useDestinationProvider">
+								<div class="mt-4">
+									<template x-if="destinationType === 'local'">
+										@destination.LocalDestinationForm()
+									</template>
+									
+									<template x-if="destinationType === 'sftp'">
+										@destination.SFTPDestinationForm()
+									</template>
 
-							<template x-if="destinationType === 'ftp'">
-								@destination.FTPDestinationForm()
-							</template>
-							
-							<template x-if="destinationType === 's3'">
-								@destination.S3DestinationForm()
-							</template>
-							
-							<template x-if="destinationType === 'b2'">
-								@destination.B2DestinationForm()
-							</template>
-							
-							<template x-if="destinationType === 'wasabi'">
-								@destination.WasabiDestinationForm()
-							</template>
-							
-							<template x-if="destinationType === 'minio'">
-								@destination.MinIODestinationForm()
-							</template>
-							
-							<template x-if="destinationType === 'smb'">
-								@destination.SMBDestinationForm()
-							</template>	
+									<template x-if="destinationType === 'ftp'">
+										@destination.FTPDestinationForm()
+									</template>
+									
+									<template x-if="destinationType === 's3'">
+										@destination.S3DestinationForm()
+									</template>
+									
+									<template x-if="destinationType === 'b2'">
+										@destination.B2DestinationForm()
+									</template>
+									
+									<template x-if="destinationType === 'wasabi'">
+										@destination.WasabiDestinationForm()
+									</template>
+									
+									<template x-if="destinationType === 'minio'">
+										@destination.MinIODestinationForm()
+									</template>
+									
+									<template x-if="destinationType === 'smb'">
+										@destination.SMBDestinationForm()
+									</template>	
 
-							<template x-if="destinationType === 'nextcloud'">
-								@destination.NextCloudDestinationForm()
-							</template>
+									<template x-if="destinationType === 'nextcloud'">
+										@destination.NextCloudDestinationForm()
+									</template>
 
-							<template x-if="destinationType === 'webdav'">
-								@destination.WebDAVDestinationForm()
-							</template>
+									<template x-if="destinationType === 'webdav'">
+										@destination.WebDAVDestinationForm()
+									</template>
 
-							<template x-if="destinationType === 'gdrive'">
-								@destination.GoogleDriveDestinationForm()
+									<template x-if="destinationType === 'gdrive'">
+										@destination.GoogleDriveDestinationForm()
+									</template>
+									
+									<template x-if="destinationType === 'gphotos'">
+										@destination.GooglePhotosDestinationForm()
+									</template>
+
+									<template x-if="destinationType === 'hetzner'">
+										@destination.HetznerDestinationForm()
+									</template>
+								</div>
 							</template>
 							
-							<template x-if="destinationType === 'gphotos'">
-								@destination.GooglePhotosDestinationForm()
+							<!-- Provider usage notice -->
+							<template x-if="useDestinationProvider">
+								<div class="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-lg dark:bg-blue-900/20 dark:border-blue-800">
+									<div class="flex">
+										<i class="fas fa-info-circle text-blue-500 dark:text-blue-400 mt-0.5 mr-2"></i>
+										<div>
+											<p class="text-sm text-blue-800 dark:text-blue-300">
+												Using storage provider configuration. Customize destination path options below if needed.
+											</p>
+										</div>
+									</div>
+								</div>
 							</template>
-
-							<template x-if="destinationType === 'hetzner'">
-								@destination.HetznerDestinationForm()
+							
+							<!-- Always show destination path field with provider or without provider -->
+							<template x-if="useDestinationProvider && destinationProviderId > 0">
+								<div class="mt-4">
+									<label for="destination_path" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Destination Path</label>
+									<div class="relative">
+										<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+											<i class="fas fa-folder text-gray-400 dark:text-gray-500"></i>
+										</div>
+										<input 
+											type="text" 
+											id="destination_path" 
+											name="destination_path" 
+											x-model="destinationPath"
+											@blur="checkPath(destinationPath, 'dest')"
+											class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
+											placeholder="/path/to/destination"
+											/>
+										<template x-if="destPathValid === false">
+											<p class="mt-2 text-sm text-red-600 dark:text-red-500" x-text="destPathError"></p>
+										</template>
+									</div>
+									<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Specify destination path within the provider</p>
+								</div>
 							</template>
 						</div>
 						
@@ -747,191 +866,38 @@ templ formvalidation() {
 					hasErrors = true;
 				}
 				
-				// Source path validation
-				// Note: Most source and destination forms already have HTML5 validation 
-				// with the required attribute, but we do additional JS validation here
-				// to provide a better user experience with a centralized error display
-				const sourcePath = document.getElementById('source_path')?.value;
-				if (!sourcePath || sourcePath.trim() === '') {
-					errors.push('Source path is required');
-					hasErrors = true;
-				}
+				// Get form data to check provider usage
+				const useSourceProvider = document.getElementById('use_source_provider')?.checked || false;
+				const useDestinationProvider = document.getElementById('use_destination_provider')?.checked || false;
 				
-				// Get source type
-				const sourceType = document.querySelector('input[name="source_type"]').value;
-				
-				// For remote source, validate credentials
-				if (sourceType !== 'local') {
-					// Host validation for remote sources
-					const sourceHost = document.getElementById('source_host')?.value;
-					if (!sourceHost || sourceHost.trim() === '') {
-						errors.push('Source host is required for remote connections');
+				// Validate source provider selection if using provider
+				if (useSourceProvider) {
+					const sourceProviderId = document.getElementById('source_provider_id').value;
+					if (!sourceProviderId || sourceProviderId === '') {
+						errors.push('Source provider selection is required');
 						hasErrors = true;
 					}
-					
-					// Port validation
-					const sourcePort = document.getElementById('source_port')?.value;
-					if (!sourcePort || isNaN(parseInt(sourcePort)) || parseInt(sourcePort) <= 0 || parseInt(sourcePort) > 65535) {
-						errors.push('Source port must be a valid port number (1-65535)');
+				}
+				
+				// Validate destination provider selection if using provider
+				if (useDestinationProvider) {
+					const destProviderId = document.getElementById('destination_provider_id').value;
+					if (!destProviderId || destProviderId === '') {
+						errors.push('Destination provider selection is required');
 						hasErrors = true;
 					}
-					
-					// Username validation for SFTP/FTP/etc.
-					if (['sftp', 'ftp', 'hetzner'].includes(sourceType)) {
-						const sourceUser = document.getElementById('source_username')?.value;
-						if (!sourceUser || sourceUser.trim() === '') {
-							errors.push('Source username is required');
-							hasErrors = true;
-						}
-						
-						// Check auth type
-						const sourceAuthType = document.querySelector('input[name="source_auth_type"]:checked')?.value;
-						
-						// Password validation if using password auth
-						if (sourceAuthType === 'password') {
-							const sourcePassword = document.getElementById('source_password')?.value;
-							if (!sourcePassword || sourcePassword.trim() === '') {
-								errors.push('Source password is required when using password authentication');
-								hasErrors = true;
-							}
-						} else if (sourceAuthType === 'key') {
-							// Key file validation if using key auth
-							const sourceKeyFile = document.getElementById('source_key_file')?.value;
-							if (!sourceKeyFile || sourceKeyFile.trim() === '') {
-								errors.push('Source key file path is required when using key authentication');
-								hasErrors = true;
-							}
-						}
-					}
-					
-					// S3/B2/Wasabi specific validations
-					if (['s3', 'b2', 'wasabi', 'minio'].includes(sourceType)) {
-						const sourceAccessKey = document.getElementById('source_access_key')?.value;
-						const sourceSecretKey = document.getElementById('source_secret_key')?.value;
-						
-						if (!sourceAccessKey || sourceAccessKey.trim() === '') {
-							errors.push('Source access key is required');
-							hasErrors = true;
-						}
-						
-						if (!sourceSecretKey || sourceSecretKey.trim() === '') {
-							errors.push('Source secret key is required');
-							hasErrors = true;
-						}
-						
-						// Bucket validation
-						const sourceBucket = document.getElementById('source_bucket')?.value;
-						if (!sourceBucket || sourceBucket.trim() === '') {
-							errors.push('Source bucket is required');
-							hasErrors = true;
-						}
-					}
 				}
 				
-				// Validate destination if it's a required field
-				const requiresDestination = document.querySelector('form').__x.$data.requiresDestination;
-				if (requiresDestination) {
-					// Destination path validation
-					const destPath = document.getElementById('destination_path')?.value;
-					if (!destPath || destPath.trim() === '') {
-						errors.push('Destination path is required');
-						hasErrors = true;
-					}
-					
-					// Get destination type
-					const destType = document.querySelector('input[name="destination_type"]').value;
-					
-					// For remote destination, validate credentials
-					if (destType !== 'local') {
-						// Host validation for remote destinations
-						const destHost = document.getElementById('destination_host')?.value;
-						if (!destHost || destHost.trim() === '') {
-							errors.push('Destination host is required for remote connections');
-							hasErrors = true;
-						}
-						
-						// Port validation
-						const destPort = document.getElementById('destination_port')?.value;
-						if (!destPort || isNaN(parseInt(destPort)) || parseInt(destPort) <= 0 || parseInt(destPort) > 65535) {
-							errors.push('Destination port must be a valid port number (1-65535)');
-							hasErrors = true;
-						}
-						
-						// Username validation for SFTP/FTP/etc.
-						if (['sftp', 'ftp', 'hetzner'].includes(destType)) {
-							const destUser = document.getElementById('destination_username')?.value;
-							if (!destUser || destUser.trim() === '') {
-								errors.push('Destination username is required');
-								hasErrors = true;
-							}
-							
-							// Check auth type
-							const destAuthType = document.querySelector('input[name="destination_auth_type"]:checked')?.value;
-							
-							// Password validation if using password auth
-							if (destAuthType === 'password') {
-								const destPassword = document.getElementById('destination_password')?.value;
-								if (!destPassword || destPassword.trim() === '') {
-									errors.push('Destination password is required when using password authentication');
-									hasErrors = true;
-								}
-							} else if (destAuthType === 'key') {
-								// Key file validation if using key auth
-								const destKeyFile = document.getElementById('destination_key_file')?.value;
-								if (!destKeyFile || destKeyFile.trim() === '') {
-									errors.push('Destination key file path is required when using key authentication');
-									hasErrors = true;
-								}
-							}
-						}
-						
-						// S3/B2/Wasabi specific validations
-						if (['s3', 'b2', 'wasabi', 'minio'].includes(destType)) {
-							const destAccessKey = document.getElementById('destination_access_key')?.value;
-							const destSecretKey = document.getElementById('destination_secret_key')?.value;
-							
-							if (!destAccessKey || destAccessKey.trim() === '') {
-								errors.push('Destination access key is required');
-								hasErrors = true;
-							}
-							
-							if (!destSecretKey || destSecretKey.trim() === '') {
-								errors.push('Destination secret key is required');
-								hasErrors = true;
-							}
-							
-							// Bucket validation
-							const destBucket = document.getElementById('destination_bucket')?.value;
-							if (!destBucket || destBucket.trim() === '') {
-								errors.push('Destination bucket is required');
-								hasErrors = true;
-							}
-						}
-					}
-				}
-				
-				// Check for concurrent transfers
-				const maxTransfers = document.getElementById('max_concurrent_transfers')?.value;
-				if (maxTransfers && (isNaN(parseInt(maxTransfers)) || parseInt(maxTransfers) < 1)) {
-					errors.push('Maximum concurrent transfers must be at least 1');
-					hasErrors = true;
-				}
-				
-				// If errors exist, prevent form submission and display errors
+				// Display errors if any
 				if (hasErrors) {
-					evt.preventDefault();
-					
-					// Display errors
-					errors.forEach(error => {
+					formErrors.classList.remove('hidden');
+					errors.forEach(function(error) {
 						const li = document.createElement('li');
 						li.textContent = error;
 						errorList.appendChild(li);
 					});
 					
-					formErrors.classList.remove('hidden');
-					
-					// Scroll to the errors
-					formErrors.scrollIntoView({ behavior: 'smooth', block: 'start' });
+					evt.preventDefault(); // Prevent form submission
 				}
 			}
 		});

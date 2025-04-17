@@ -47,6 +47,17 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 	authorized.POST("/notifications/:id/read", h.HandleMarkNotificationAsRead)
 	authorized.POST("/notifications/mark-all-read", h.HandleMarkAllNotificationsAsRead)
 
+	// Storage provider routes
+	authorized.GET("/storage-providers", h.HandleListStorageProviders)
+	authorized.GET("/storage-providers/new", h.HandleNewStorageProvider)
+	authorized.POST("/storage-providers", h.HandleCreateStorageProvider)
+	authorized.GET("/storage-providers/:id", h.HandleEditStorageProvider)
+	authorized.PUT("/storage-providers/:id", h.HandleUpdateStorageProvider)
+	authorized.POST("/storage-providers/:id", h.HandleUpdateStorageProvider)
+	authorized.DELETE("/storage-providers/:id", h.HandleDeleteStorageProvider)
+	authorized.POST("/storage-providers/:id/test", h.HandleTestStorageProvider)
+	authorized.POST("/storage-providers/:id/duplicate", h.HandleDuplicateStorageProvider)
+
 	{
 		authorized.GET("/dashboard", h.HandleDashboard)
 		authorized.GET("/configs", h.HandleConfigs)
@@ -218,6 +229,9 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 		apiAuthorized := api.Group("/")
 		apiAuthorized.Use(h.APIAuthMiddleware())
 		{
+			// Storage providers options endpoints for dropdown selection
+			apiAuthorized.GET("/storage-providers/options", h.HandleStorageProviderOptions)
+
 			// Config endpoints
 			apiAuthorized.GET("/configs", h.HandleAPIConfigs)
 			apiAuthorized.GET("/configs/:id", h.HandleAPIConfig)

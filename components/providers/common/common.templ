@@ -182,57 +182,167 @@ templ RcloneCommandOptions(currentCommandID uint) { // Accept currentCommandID
 	</div>
 }
 
-templ SourceSelection() {
+templ SourceSelection(providers []db.StorageProvider) {
 <div class="mb-6">
 	<label for="source_type" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Source Type</label>
-	<div class="relative">
-		<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
-			<i class="fas fa-server text-gray-400 dark:text-gray-500"></i>
+	
+	<!-- Provider selection -->
+	<div class="mb-4">
+		<div class="flex items-center mb-4">
+			<input id="use_source_provider" name="use_source_provider" type="checkbox" x-model="useSourceProvider" value="true" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+			<label for="use_source_provider" class="ml-2 text-sm font-medium text-gray-900 dark:text-white">Use existing storage provider</label>
 		</div>
-		<select id="source_type" name="source_type" x-model="sourceType"
-			class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
-			<option value="local">Local</option>
-			<option value="sftp">SFTP</option>
-			<option value="ftp">FTP</option>
-			<option value="s3">S3</option>
-			<option value="b2">Backblaze B2</option>
-			<option value="wasabi">Wasabi</option>
-			<option value="minio">MinIO</option>
-			<option value="smb">SMB</option>
-			<option value="nextcloud">NextCloud</option>
-			<option value="webdav">WebDAV</option>
-			<option value="gdrive">Google Drive (BETA)</option>
-			<option value="gphotos">Google Photos (BETA)</option>
-			<option value="hetzner">Hetzner Storage Box</option>
-		</select>
+		
+		<template x-if="useSourceProvider">
+			<div class="mt-2 space-y-4">
+				<div>
+					<label for="source_provider_id" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Select provider</label>
+					<div class="relative">
+						<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+							<i class="fas fa-server text-gray-400 dark:text-gray-500"></i>
+						</div>
+						<select 
+							id="source_provider_id" 
+							name="source_provider_id" 
+							x-model="sourceProviderId"
+							class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+							hx-get="/api/storage-providers/options"
+							hx-trigger="load delay:500ms"
+							hx-target="this"
+							hx-swap="innerHTML">
+							<option value="">Select a provider...</option>
+							for _, provider := range providers {
+								<option value={ fmt.Sprintf("%d", provider.ID) }>{ provider.Name } ({ string(provider.Type) })</option>
+							}
+						</select>
+					</div>
+				</div>
+				
+				<div class="flex items-center justify-between">
+					<a href="/storage-providers/new" target="_blank" class="text-blue-600 hover:underline flex items-center text-sm">
+						<i class="fas fa-plus mr-1"></i> Add new storage provider
+					</a>
+					
+					<button type="button"
+						class="text-sm text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg px-3 py-1.5 dark:bg-blue-500 dark:hover:bg-blue-600 dark:focus:ring-blue-800"
+						hx-get="/api/storage-providers/options"
+						hx-target="#source_provider_id"
+						hx-swap="innerHTML">
+						<i class="fas fa-sync-alt mr-1"></i> Refresh List
+					</button>
+				</div>
+			</div>
+		</template>
 	</div>
+	
+	<!-- Manual configuration -->
+	<template x-if="!useSourceProvider">
+		<div>
+			<div class="relative">
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-server text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<select id="source_type" name="source_type" x-model="sourceType"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+					<option value="local">Local</option>
+					<option value="sftp">SFTP</option>
+					<option value="ftp">FTP</option>
+					<option value="s3">S3</option>
+					<option value="b2">Backblaze B2</option>
+					<option value="wasabi">Wasabi</option>
+					<option value="minio">MinIO</option>
+					<option value="smb">SMB</option>
+					<option value="nextcloud">NextCloud</option>
+					<option value="webdav">WebDAV</option>
+					<option value="gdrive">Google Drive (BETA)</option>
+					<option value="gphotos">Google Photos (BETA)</option>
+					<option value="hetzner">Hetzner Storage Box</option>
+				</select>
+			</div>
+		</div>
+	</template>
 </div>
 }
 
-templ DestinationSelection() {
+templ DestinationSelection(providers []db.StorageProvider) {
 <div class="mb-6">
 	<label for="destination_type" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Destination Type</label>
-	<div class="relative">
-		<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
-			<i class="fas fa-server text-gray-400 dark:text-gray-500"></i>
+	
+	<!-- Provider selection -->
+	<div class="mb-4">
+		<div class="flex items-center mb-4">
+			<input id="use_destination_provider" name="use_destination_provider" type="checkbox" x-model="useDestinationProvider" value="true" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+			<label for="use_destination_provider" class="ml-2 text-sm font-medium text-gray-900 dark:text-white">Use existing storage provider</label>
 		</div>
-		<select id="destination_type" name="destination_type" x-model="destinationType"
-			class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
-			<option value="local">Local</option>
-			<option value="sftp">SFTP</option>
-			<option value="ftp">FTP</option>
-			<option value="s3">S3</option>
-			<option value="b2">Backblaze B2</option>
-			<option value="wasabi">Wasabi</option>
-			<option value="minio">MinIO</option>
-			<option value="smb">SMB</option>
-			<option value="nextcloud">NextCloud</option>
-			<option value="webdav">WebDAV</option>
-			<option value="gdrive">Google Drive (BETA)</option>
-			<option value="gphotos">Google Photos (BETA)</option>
-			<option value="hetzner">Hetzner Storage Box</option>
-		</select>
+		
+		<template x-if="useDestinationProvider">
+			<div class="mt-2 space-y-4">
+				<div>
+					<label for="destination_provider_id" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Select provider</label>
+					<div class="relative">
+						<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+							<i class="fas fa-server text-gray-400 dark:text-gray-500"></i>
+						</div>
+						<select 
+							id="destination_provider_id" 
+							name="destination_provider_id" 
+							x-model="destinationProviderId"
+							class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+							hx-get="/api/storage-providers/options"
+							hx-trigger="load delay:500ms"
+							hx-target="this"
+							hx-swap="innerHTML">
+							<option value="">Select a provider...</option>
+							for _, provider := range providers {
+								<option value={ fmt.Sprintf("%d", provider.ID) }>{ provider.Name } ({ string(provider.Type) })</option>
+							}
+						</select>
+					</div>
+				</div>
+				
+				<div class="flex items-center justify-between">
+					<a href="/storage-providers/new" target="_blank" class="text-blue-600 hover:underline flex items-center text-sm">
+						<i class="fas fa-plus mr-1"></i> Add new storage provider
+					</a>
+					
+					<button type="button"
+						class="text-sm text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg px-3 py-1.5 dark:bg-blue-500 dark:hover:bg-blue-600 dark:focus:ring-blue-800"
+						hx-get="/api/storage-providers/options"
+						hx-target="#destination_provider_id"
+						hx-swap="innerHTML">
+						<i class="fas fa-sync-alt mr-1"></i> Refresh List
+					</button>
+				</div>
+			</div>
+		</template>
 	</div>
+	
+	<!-- Manual configuration -->
+	<template x-if="!useDestinationProvider">
+		<div>
+			<div class="relative">
+				<div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
+					<i class="fas fa-server text-gray-400 dark:text-gray-500"></i>
+				</div>
+				<select id="destination_type" name="destination_type" x-model="destinationType"
+					class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+					<option value="local">Local</option>
+					<option value="sftp">SFTP</option>
+					<option value="ftp">FTP</option>
+					<option value="s3">S3</option>
+					<option value="b2">Backblaze B2</option>
+					<option value="wasabi">Wasabi</option>
+					<option value="minio">MinIO</option>
+					<option value="smb">SMB</option>
+					<option value="nextcloud">NextCloud</option>
+					<option value="webdav">WebDAV</option>
+					<option value="gdrive">Google Drive (BETA)</option>
+					<option value="gphotos">Google Photos (BETA)</option>
+					<option value="hetzner">Hetzner Storage Box</option>
+				</select>
+			</div>
+		</div>
+	</template>
 </div>
 }
 

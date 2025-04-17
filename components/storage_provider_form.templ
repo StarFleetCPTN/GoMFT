@@ -1,0 +1,404 @@
+package components
+
+import (
+	"context"
+	"fmt"
+	"github.com/starfleetcptn/gomft/internal/db"
+)
+
+type StorageProviderFormData struct {
+	Provider *db.StorageProvider
+	IsEdit   bool
+	Error    string
+}
+
+// getTitle returns the appropriate title based on whether we're editing or creating
+func getTitle(isEdit bool) string {
+	if isEdit {
+		return "Edit Storage Provider"
+	}
+	return "New Storage Provider"
+}
+
+// Main template for Storage Provider form
+templ StorageProviderForm(ctx context.Context, data StorageProviderFormData) {
+	@LayoutWithContext(getTitle(data.IsEdit), ctx) {
+		<div class="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+			<div class="max-w-3xl mx-auto">
+				<div class="flex items-center justify-between mb-6">
+					<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+						<i class="fas fa-server w-6 h-6 mr-2 text-blue-500 dark:text-blue-400"></i>
+						if data.IsEdit {
+							Edit Storage Provider
+						} else {
+							New Storage Provider
+						}
+					</h1>
+					<a href="/storage-providers" class="text-blue-600 dark:text-blue-400 hover:underline flex items-center">
+						<i class="fas fa-arrow-left mr-1.5"></i>
+						Back to Providers
+					</a>
+				</div>
+
+				if data.Error != "" {
+					<div class="mb-4 p-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400">
+						<div class="flex items-center">
+							<i class="fas fa-exclamation-circle mr-2"></i>
+							<span>{ data.Error }</span>
+						</div>
+					</div>
+				}
+
+				<div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+					if data.IsEdit {
+						<form action={ templ.SafeURL(fmt.Sprintf("/storage-providers/%d", data.Provider.ID)) } method="POST">
+							<input type="hidden" name="_method" value="PUT" />
+							@formFields(data)
+						</form>
+					} else {
+						<form action="/storage-providers" method="POST">
+							@formFields(data)
+						</form>
+					}
+				</div>
+			</div>
+		</div>
+		
+		<!-- Include the provider form scripts -->
+		@providerFormScript()
+	}
+}
+
+// Form fields template
+templ formFields(data StorageProviderFormData) {
+	<!-- Basic Information -->
+	<div class="mb-6">
+		<h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Basic Information</h2>
+		
+		<!-- Provider Name -->
+		<div class="mb-4">
+			<label for="name" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Provider Name <span class="text-red-500">*</span></label>
+			<input type="text" id="name" name="name" value={ data.Provider.Name } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Storage Provider Name" required />
+		</div>
+		
+		<!-- Provider Type -->
+		<div>
+			<label for="type" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Provider Type <span class="text-red-500">*</span></label>
+			<select id="type" name="type" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" required onchange="toggleProviderFields()">
+				<option value="" disabled
+					if data.Provider.Type == "" {
+						selected="selected"
+					}
+				>
+					Select provider type
+				</option>
+				<option value="sftp"
+					if data.Provider.Type == db.ProviderTypeSFTP {
+						selected="selected"
+					}
+				>SFTP</option>
+				<option value="s3"
+					if data.Provider.Type == db.ProviderTypeS3 {
+						selected="selected"
+					}
+				>S3</option>
+				<option value="ftp"
+					if data.Provider.Type == db.ProviderTypeFTP {
+						selected="selected"
+					}
+				>FTP</option>
+				<option value="smb"
+					if data.Provider.Type == db.ProviderTypeSMB {
+						selected="selected"
+					}
+				>SMB/CIFS</option>
+				<option value="onedrive"
+					if data.Provider.Type == db.ProviderTypeOneDrive {
+						selected="selected"
+					}
+				>OneDrive</option>
+				<option value="gdrive"
+					if data.Provider.Type == db.ProviderTypeGoogleDrive {
+						selected="selected"
+					}
+				>Google Drive</option>
+				<option value="gphotos"
+					if data.Provider.Type == db.ProviderTypeGooglePhoto {
+						selected="selected"
+					}
+				>Google Photos</option>
+				<option value="local"
+					if data.Provider.Type == db.ProviderTypeLocal {
+						selected="selected"
+					}
+				>Local Filesystem</option>
+				<option value="hetzner"
+					if data.Provider.Type == db.ProviderTypeHetzner {
+						selected="selected"
+					}
+				>Hetzner Storage Box</option>
+			</select>
+		</div>
+	</div>
+	
+	<!-- Connection Details - SFTP/FTP/SMB --> 
+	<div id="sftp-ftp-fields" class="mb-6 provider-fields hidden">
+		<h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Connection Details</h2>
+		
+		<!-- Host -->
+		<div class="mb-4">
+			<label for="host" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Host <span class="text-red-500">*</span></label>
+			<input type="text" id="host" name="host" value={ data.Provider.Host } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="sftp.example.com" />
+		</div>
+		
+		<!-- Port -->
+		<div class="mb-4">
+			<label for="port" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Port</label>
+			<input type="number" id="port" name="port" value={ fmt.Sprint(data.Provider.Port) } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="22" />
+			<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave empty for default (SFTP: 22, FTP: 21, SMB: 445)</p>
+		</div>
+		
+		<!-- Username -->
+		<div class="mb-4">
+			<label for="username" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Username <span class="text-red-500">*</span></label>
+			<input type="text" id="username" name="username" value={ data.Provider.Username } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="username" />
+		</div>
+		
+		<!-- Password -->
+		<div class="mb-4">
+			<label for="password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Password</label>
+			<input type="password" id="password" name="password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="••••••••" />
+			if data.IsEdit {
+				<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave empty to keep the current password</p>
+			}
+		</div>
+		
+		<!-- Key File (SFTP only) -->
+		<div id="key-file-field" class="mb-4 hidden">
+			<label for="keyFile" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Key File Path</label>
+			<input type="text" id="keyFile" name="keyFile" value={ data.Provider.KeyFile } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="/path/to/key.pem" />
+			<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Path to private key file (if using key-based authentication)</p>
+		</div>
+		
+		<!-- Domain (SMB only) -->
+		<div id="domain-field" class="mb-4 hidden">
+			<label for="domain" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Domain</label>
+			<input type="text" id="domain" name="domain" value={ data.Provider.Domain } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="WORKGROUP" />
+		</div>
+		
+		<!-- Passive Mode (FTP only) -->
+		<div id="passive-mode-field" class="mb-4 hidden">
+			<div class="flex items-center">
+				<input id="passiveMode" name="passiveMode" type="checkbox" value="true" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" 
+				if data.Provider.PassiveMode != nil && *data.Provider.PassiveMode {
+					checked="checked"
+				}
+				/>
+				<label for="passiveMode" class="ml-2 text-sm font-medium text-gray-900 dark:text-white">Use Passive Mode</label>
+			</div>
+			<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Recommended for most FTP connections through firewalls</p>
+		</div>
+	</div>
+	
+	<!-- S3 Fields -->
+	<div id="s3-fields" class="mb-6 provider-fields hidden">
+		<h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">S3 Connection Details</h2>
+		
+		<!-- Endpoint -->
+		<div class="mb-4">
+			<label for="endpoint" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Endpoint <span class="text-red-500">*</span></label>
+			<input type="text" id="endpoint" name="endpoint" value={ data.Provider.Endpoint } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="s3.amazonaws.com" />
+		</div>
+		
+		<!-- Region -->
+		<div class="mb-4">
+			<label for="region" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Region <span class="text-red-500">*</span></label>
+			<input type="text" id="region" name="region" value={ data.Provider.Region } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="us-east-1" />
+		</div>
+		
+		<!-- Bucket -->
+		<div class="mb-4">
+			<label for="bucket" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Bucket <span class="text-red-500">*</span></label>
+			<input type="text" id="bucket" name="bucket" value={ data.Provider.Bucket } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="my-bucket" />
+		</div>
+		
+		<!-- Access Key -->
+		<div class="mb-4">
+			<label for="accessKey" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Access Key <span class="text-red-500">*</span></label>
+			<input type="text" id="accessKey" name="accessKey" value={ data.Provider.AccessKey } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="AKIAXXXXXXXXXXXXXXXX" />
+		</div>
+		
+		<!-- Secret Key -->
+		<div class="mb-4">
+			<label for="secretKey" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Secret Key <span class="text-red-500">*</span></label>
+			<input type="password" id="secretKey" name="secretKey" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="••••••••••••••••••••••••••••••••" />
+			if data.IsEdit {
+				<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave empty to keep the current secret key</p>
+			}
+		</div>
+	</div>
+	
+	<!-- Cloud Storage Fields (OneDrive, Google Drive, Google Photos) -->
+	<div id="cloud-fields" class="mb-6 provider-fields hidden">
+		<h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Cloud Storage Details</h2>
+		
+		<!-- Client ID -->
+		<div class="mb-4">
+			<label for="clientID" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Client ID <span class="text-red-500">*</span></label>
+			<input type="text" id="clientID" name="clientID" value={ data.Provider.ClientID } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Client ID from developer console" />
+		</div>
+		
+		<!-- Client Secret -->
+		<div class="mb-4">
+			<label for="clientSecret" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Client Secret <span class="text-red-500">*</span></label>
+			<input type="password" id="clientSecret" name="clientSecret" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="••••••••••••••••••••••••••••••••" />
+			if data.IsEdit {
+				<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave empty to keep the current client secret</p>
+			}
+		</div>
+		
+		<!-- Google Drive - Drive ID -->
+		<div id="drive-id-field" class="mb-4 hidden">
+			<label for="driveID" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Drive ID</label>
+			<input type="text" id="driveID" name="driveID" value={ data.Provider.DriveID } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="For shared/team drives" />
+			<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Only required for shared drives</p>
+		</div>
+		
+		<!-- Google Drive - Team Drive -->
+		<div id="team-drive-field" class="mb-4 hidden">
+			<label for="teamDrive" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Team Drive</label>
+			<input type="text" id="teamDrive" name="teamDrive" value={ data.Provider.TeamDrive } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Team drive identifier" />
+			<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Only required for team drives</p>
+		</div>
+		
+		<!-- Google Photos - Read Only -->
+		<div id="readonly-field" class="mb-4 hidden">
+			<div class="flex items-center">
+				<input id="readOnly" name="readOnly" type="checkbox" value="true" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" 
+				if data.Provider.ReadOnly != nil && *data.Provider.ReadOnly {
+					checked="checked"
+				}
+				/>
+				<label for="readOnly" class="ml-2 text-sm font-medium text-gray-900 dark:text-white">Read Only Mode</label>
+			</div>
+			<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Google Photos has limited write capabilities</p>
+		</div>
+	</div>
+	
+	<!-- Local File System Fields -->
+	<div id="local-fields" class="mb-6 provider-fields hidden">
+		<h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Local File System</h2>
+		
+		<div class="mb-4">
+			<label for="localPath" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Base Path <span class="text-red-500">*</span></label>
+			<input type="text" id="localPath" name="localPath" value={ data.Provider.Host } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="/path/to/directory" />
+			<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Absolute path on the server's file system</p>
+		</div>
+	</div>
+	
+	<!-- Submit Buttons -->
+	<div class="flex items-center justify-between mt-8">
+		<a href="/storage-providers" class="text-gray-500 bg-gray-50 hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600">
+			Cancel
+		</a>
+		<div class="flex space-x-2">
+			<button type="submit" name="test" value="true" class="text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm w-full sm:w-auto px-5 py-2.5 text-center dark:bg-blue-500 dark:hover:bg-blue-600 dark:focus:ring-blue-700">
+				Save & Test
+			</button>
+			<button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm w-full sm:w-auto px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+				Save Provider
+			</button>
+		</div>
+	</div>
+}
+
+// JavaScript helper for toggling provider fields
+templ providerFormScript() {
+	<script>
+		// Set current active fields on page load
+		document.addEventListener('DOMContentLoaded', function() {
+			toggleProviderFields();
+		});
+
+		function toggleProviderFields() {
+			// Hide all provider fields first
+			const providerFieldsets = document.querySelectorAll('.provider-fields');
+			providerFieldsets.forEach(fieldset => {
+				fieldset.classList.add('hidden');
+			});
+			
+			// Show the appropriate fields based on the selected provider type
+			const providerType = document.getElementById('type').value;
+			console.log("Provider type selected:", providerType);
+			
+			// SFTP/FTP/SMB fields
+			if (['sftp', 'ftp', 'smb'].includes(providerType)) {
+				document.getElementById('sftp-ftp-fields').classList.remove('hidden');
+				
+				// SFTP-specific fields
+				if (providerType === 'sftp') {
+					document.getElementById('key-file-field').classList.remove('hidden');
+				}
+				
+				// SMB-specific fields
+				if (providerType === 'smb') {
+					document.getElementById('domain-field').classList.remove('hidden');
+				}
+				
+				// FTP-specific fields
+				if (providerType === 'ftp') {
+					document.getElementById('passive-mode-field').classList.remove('hidden');
+				}
+			}
+			
+			// S3 fields
+			if (providerType === 's3' || providerType === 'hetzner') {
+				document.getElementById('s3-fields').classList.remove('hidden');
+			}
+			
+			// Cloud storage fields
+			if (['onedrive', 'gdrive', 'gphotos'].includes(providerType)) {
+				document.getElementById('cloud-fields').classList.remove('hidden');
+				
+				// Google Drive specific fields
+				if (providerType === 'gdrive') {
+					document.getElementById('drive-id-field').classList.remove('hidden');
+					document.getElementById('team-drive-field').classList.remove('hidden');
+				}
+				
+				// Google Photos specific fields
+				if (providerType === 'gphotos') {
+					document.getElementById('readonly-field').classList.remove('hidden');
+				}
+			}
+			
+			// Local filesystem fields
+			if (providerType === 'local') {
+				document.getElementById('local-fields').classList.remove('hidden');
+			}
+		}
+	</script>
+}
+
+// Test result dialog
+templ ConnectionTestResult(success bool, message string, errorCode string) {
+	<div class="text-center">
+		if success {
+			<i class="fas fa-check-circle text-green-500 text-5xl mb-4"></i>
+			<h3 class="mb-2 text-lg font-semibold text-green-500 dark:text-green-400">Connection Successful</h3>
+		} else {
+			<i class="fas fa-times-circle text-red-500 text-5xl mb-4"></i>
+			<h3 class="mb-2 text-lg font-semibold text-red-500 dark:text-red-400">Connection Failed</h3>
+		}
+		
+		<p class="text-gray-500 dark:text-gray-400 mb-4">
+			{ message }
+		</p>
+		
+		if errorCode != "" {
+			<div class="text-sm bg-gray-100 dark:bg-gray-800 p-2 rounded">
+				<p class="text-gray-700 dark:text-gray-300">Error code: { errorCode }</p>
+			</div>
+		}
+	</div>
+} 

@@ -11,6 +11,7 @@ import (
 	"github.com/starfleetcptn/gomft/internal/auth"
 	"github.com/starfleetcptn/gomft/internal/db"
 	"github.com/starfleetcptn/gomft/internal/scheduler"
+	"github.com/starfleetcptn/gomft/internal/storage"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -55,6 +56,15 @@ func InitializeRoutes(router *gin.Engine, database *db.DB, scheduler *scheduler.
 		protected.GET("/configs/:id", handleGetConfig(database))
 		protected.PUT("/configs/:id", handleUpdateConfig(database))
 		protected.DELETE("/configs/:id", handleDeleteConfig(database))
+
+		// Storage provider routes
+		protected.GET("/storage-providers", handleListStorageProviders(database))
+		protected.POST("/storage-providers", handleCreateStorageProvider(database))
+		protected.GET("/storage-providers/:id", handleGetStorageProvider(database))
+		protected.PUT("/storage-providers/:id", handleUpdateStorageProvider(database))
+		protected.DELETE("/storage-providers/:id", handleDeleteStorageProvider(database))
+		protected.POST("/storage-providers/:id/test", handleTestStorageProvider(database))
+		protected.GET("/storage-providers/options", handleProviderOptions(database))
 
 		// Job routes
 		protected.GET("/jobs", handleListJobs(database))
@@ -730,5 +740,260 @@ func handleListHistory(database *db.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, history)
+	}
+}
+
+// Handler functions for storage providers
+
+func handleListStorageProviders(database *db.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Get user ID from context
+		userID := c.GetUint("userID")
+
+		providers, err := database.GetStorageProviders(userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch storage providers"})
+			return
+		}
+
+		c.JSON(http.StatusOK, providers)
+	}
+}
+
+func handleCreateStorageProvider(database *db.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var provider db.StorageProvider
+		if err := c.ShouldBindJSON(&provider); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// Set user ID
+		provider.CreatedBy = c.GetUint("userID")
+
+		// Validate provider
+		if err := provider.Validate(); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		if err := database.CreateStorageProvider(&provider); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create storage provider"})
+			return
+		}
+
+		c.JSON(http.StatusCreated, provider)
+	}
+}
+
+func handleGetStorageProvider(database *db.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+		if id == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing provider ID"})
+			return
+		}
+
+		var providerID uint
+		if _, err := fmt.Sscanf(id, "%d", &providerID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid provider ID"})
+			return
+		}
+
+		// Use the owner check version to ensure proper access control
+		provider, err := database.GetStorageProviderWithOwnerCheck(providerID, c.GetUint("userID"))
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Storage provider not found"})
+			return
+		}
+
+		c.JSON(http.StatusOK, provider)
+	}
+}
+
+func handleUpdateStorageProvider(database *db.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+		if id == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing provider ID"})
+			return
+		}
+
+		var providerID uint
+		if _, err := fmt.Sscanf(id, "%d", &providerID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid provider ID"})
+			return
+		}
+
+		// Get existing provider
+		existingProvider, err := database.GetStorageProvider(providerID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Storage provider not found"})
+			return
+		}
+
+		// Check if user has access to this provider
+		if existingProvider.CreatedBy != c.GetUint("userID") {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		// Bind updated fields
+		var updatedProvider db.StorageProvider
+		if err := c.ShouldBindJSON(&updatedProvider); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// Update fields but preserve ID and CreatedBy
+		updatedProvider.ID = existingProvider.ID
+		updatedProvider.CreatedBy = existingProvider.CreatedBy
+		updatedProvider.CreatedAt = existingProvider.CreatedAt
+
+		// Handle sensitive fields - don't overwrite encrypted fields if new values not provided
+		if updatedProvider.Password == "" {
+			updatedProvider.EncryptedPassword = existingProvider.EncryptedPassword
+		}
+		if updatedProvider.SecretKey == "" {
+			updatedProvider.EncryptedSecretKey = existingProvider.EncryptedSecretKey
+		}
+		if updatedProvider.ClientSecret == "" {
+			updatedProvider.EncryptedClientSecret = existingProvider.EncryptedClientSecret
+		}
+		if updatedProvider.RefreshToken == "" {
+			updatedProvider.EncryptedRefreshToken = existingProvider.EncryptedRefreshToken
+		}
+
+		// Validate provider
+		if err := updatedProvider.Validate(); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		if err := database.UpdateStorageProvider(&updatedProvider); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update storage provider"})
+			return
+		}
+
+		c.JSON(http.StatusOK, updatedProvider)
+	}
+}
+
+func handleDeleteStorageProvider(database *db.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+		if id == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing provider ID"})
+			return
+		}
+
+		var providerID uint
+		if _, err := fmt.Sscanf(id, "%d", &providerID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid provider ID"})
+			return
+		}
+
+		// Get existing provider to check ownership
+		provider, err := database.GetStorageProvider(providerID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Storage provider not found"})
+			return
+		}
+
+		// Check if user has access to this provider
+		if provider.CreatedBy != c.GetUint("userID") {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		if err := database.DeleteStorageProvider(providerID); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Storage provider deleted successfully"})
+	}
+}
+
+func handleTestStorageProvider(database *db.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.Param("id")
+		if id == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Missing provider ID"})
+			return
+		}
+
+		var providerID uint
+		if _, err := fmt.Sscanf(id, "%d", &providerID); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid provider ID"})
+			return
+		}
+
+		// Get user ID from context
+		userID := c.GetUint("userID")
+
+		// Create connector service
+		connectorService, err := storage.NewConnectorService(database)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to initialize connection service"})
+			log.Printf("Failed to initialize connection service: %v", err)
+			return
+		}
+
+		// Test the connection
+		result, err := connectorService.TestConnection(c.Request.Context(), providerID, userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Connection test failed: %v", err)})
+			return
+		}
+
+		// Get provider details for the response
+		provider, _ := database.GetStorageProviderWithOwnerCheck(providerID, userID)
+
+		// Prepare response
+		response := gin.H{
+			"success": result.Success,
+			"message": result.Message,
+			"provider": map[string]interface{}{
+				"id":   providerID,
+				"name": provider.Name,
+				"type": provider.Type,
+			},
+			"timestamp": result.Timestamp,
+		}
+
+		// Add error details if present
+		if !result.Success && result.Error != nil {
+			response["error"] = map[string]interface{}{
+				"code": result.Error.Code,
+			}
+		}
+
+		c.JSON(http.StatusOK, response)
+	}
+}
+
+// Add this new function to provide provider options for select dropdown
+func handleProviderOptions(database *db.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Get user ID from context
+		userID := c.GetUint("userID")
+
+		providers, err := database.GetStorageProviders(userID)
+		if err != nil {
+			c.HTML(http.StatusInternalServerError, "", "Error loading providers")
+			return
+		}
+
+		// Return HTML for option elements
+		var html strings.Builder
+		html.WriteString("<option value=\"\">Select a provider...</option>")
+
+		for _, provider := range providers {
+			html.WriteString(fmt.Sprintf("<option value=\"%d\">%s (%s)</option>", provider.ID, provider.Name, provider.Type))
+		}
+
+		c.Header("Content-Type", "text/html")
+		c.String(http.StatusOK, html.String())
 	}
 }

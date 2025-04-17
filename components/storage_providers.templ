@@ -1,0 +1,568 @@
+package components
+
+import (
+	"context"
+	"fmt"
+	"github.com/starfleetcptn/gomft/components/shared/toast"
+	"github.com/starfleetcptn/gomft/internal/db"
+)
+
+type StorageProvidersData struct {
+	Providers []db.StorageProvider
+	Error     string
+	Status    string
+}
+
+// Main template for Storage Providers page
+templ StorageProviders(ctx context.Context, data StorageProvidersData) {
+	@LayoutWithContext("Storage Providers", ctx) {
+		@toast.Container()
+		@toast.ShowToastJS()
+
+		<script>
+			// Handle test provider button clicks
+			window.testProvider = function(button) {
+				const providerId = button.getAttribute('data-provider-id');
+				const providerName = button.getAttribute('data-provider-name') || `Provider #${providerId}`;
+				showToast(`Testing connection to "${providerName}"...`, 'info');
+				button.addEventListener('htmx:afterRequest', function(event) {
+					if (event.detail.successful) {
+						showToast(`Connection to "${providerName}" successful!`, 'success');
+					} else {
+						let errorMsg = `Failed to connect to "${providerName}"`;
+						if (event.detail.xhr && event.detail.xhr.responseText) {
+							try {
+								const error = JSON.parse(event.detail.xhr.responseText);
+								errorMsg = error.error ? `Connection error: ${error.error}` : `Connection error: ${event.detail.xhr.responseText}`;
+							} catch (e) {
+								errorMsg = `Connection error: ${event.detail.xhr.responseText}`;
+							}
+						}
+						showToast(errorMsg, 'error');
+					}
+				}, { once: true });
+			};
+
+			// --- Duplicate Provider HTMX Event Handling (configs.templ style) ---
+			// Track all HTMX events for duplicate provider
+			document.addEventListener('htmx:beforeRequest', function(event) {
+				const path = event.detail.path;
+				const method = event.detail.verb;
+				if (path && method === 'POST' && path.match(/^\/storage-providers\/\d+\/duplicate$/)) {
+					window.isProviderDuplicateRequest = true;
+					// Store the provider name for toast
+					const providerId = path.match(/^\/storage-providers\/(\d+)\/duplicate$/)[1];
+					const btn = document.querySelector(`button[hx-post="/storage-providers/${providerId}/duplicate"]`);
+					if (btn) {
+						window.duplicatingProviderName = btn.getAttribute('data-provider-name') || `Provider #${providerId}`;
+					}
+				}
+			});
+
+			document.addEventListener('htmx:afterRequest', function(event) {
+				// Handle delete provider events (existing logic)
+				if (event.detail.pathInfo && event.detail.pathInfo.requestPath && 
+					event.detail.pathInfo.requestPath.match(/^\/storage-providers\/\d+$/) && 
+					event.detail.verb === 'DELETE') {
+					const providerName = event.detail.elt.getAttribute('data-provider-name') || 'Provider';
+					if (event.detail.successful) {
+						showToast(`Provider "${providerName}" deleted successfully`, 'success');
+					} else {
+						let errorMsg = `Failed to delete provider "${providerName}"`;
+						if (event.detail.xhr && event.detail.xhr.responseText) {
+							try {
+								const error = JSON.parse(event.detail.xhr.responseText);
+								errorMsg = error.error ? error.error : `Error: ${event.detail.xhr.responseText}`;
+							} catch (e) {
+								errorMsg = `Error: ${event.detail.xhr.responseText}`;
+							}
+						}
+						showToast(errorMsg, 'error');
+					}
+				}
+
+				// Handle duplicate provider success
+				const isDuplicateRequest = window.isProviderDuplicateRequest && 
+					event.detail.pathInfo && 
+					event.detail.pathInfo.requestPath && 
+					event.detail.pathInfo.requestPath.match(/^\/storage-providers\/\d+\/duplicate$/);
+				if (isDuplicateRequest && event.detail.successful) {
+					const providerName = window.duplicatingProviderName || 'provider';
+					showToast(`Provider "${providerName}" duplicated successfully`, 'success');
+					window.isProviderDuplicateRequest = false;
+					window.duplicatingProviderName = null;
+				}
+			});
+
+			document.addEventListener('htmx:responseError', function(event) {
+				// Handle any HTMX response error
+				let errorMsg = "An error occurred";
+				let entityName = "Operation";
+				
+				// Get more context about the operation that failed
+				if (event.detail.elt && event.detail.elt.getAttribute('data-provider-name')) {
+					entityName = event.detail.elt.getAttribute('data-provider-name');
+				}
+				
+				// Handle duplicate provider errors
+				const isDuplicateRequest = window.isProviderDuplicateRequest && 
+					event.detail.pathInfo && 
+					event.detail.pathInfo.requestPath && 
+					event.detail.pathInfo.requestPath.match(/^\/storage-providers\/\d+\/duplicate$/);
+				if (isDuplicateRequest) {
+					const providerName = window.duplicatingProviderName || 'provider';
+					errorMsg = `Failed to duplicate provider "${providerName}"`;
+					if (event.detail.xhr && event.detail.xhr.responseText) {
+						try {
+							const error = JSON.parse(event.detail.xhr.responseText);
+							errorMsg = error.error ? error.error : errorMsg;
+						} catch (e) {
+							if (event.detail.xhr.responseText.trim()) {
+								errorMsg = event.detail.xhr.responseText;
+							}
+						}
+					}
+					showToast(errorMsg, 'error');
+					window.isProviderDuplicateRequest = false;
+					window.duplicatingProviderName = null;
+				} 
+				// Handle other HTMX errors
+				else if (event.detail.xhr && event.detail.xhr.responseText) {
+					try {
+						const error = JSON.parse(event.detail.xhr.responseText);
+						errorMsg = error.error ? error.error : `Error during ${entityName} operation`;
+					} catch (e) {
+						if (event.detail.xhr.responseText.trim()) {
+							errorMsg = event.detail.xhr.responseText;
+						} else {
+							errorMsg = `Error during ${entityName} operation`;
+						}
+					}
+					showToast(errorMsg, 'error');
+				}
+				
+				// Update the visual error alert for all error types
+				const errorAlert = document.getElementById('htmx-error-alert');
+				const errorMessageSpan = document.getElementById('htmx-error-message');
+				if (errorAlert && errorMessageSpan) {
+					errorMessageSpan.textContent = errorMsg;
+					errorAlert.classList.remove('hidden');
+					// Auto-hide after 10 seconds
+					setTimeout(() => {
+						errorAlert.classList.add('hidden');
+					}, 10000);
+				}
+			});
+
+			// Set a flag before duplicate request to show toast after reload
+			document.addEventListener('click', function(e) {
+				const btn = e.target.closest('button[data-provider-id][hx-post*="/duplicate"]');
+				if (btn) {
+					localStorage.setItem('showProviderDuplicateToast', '1');
+				}
+			});
+
+			document.addEventListener('DOMContentLoaded', function() {
+				// Display error from data.Error if present
+				const errorElement = document.getElementById('provider-error-message');
+				if (errorElement && errorElement.textContent.trim()) {
+					showToast(errorElement.textContent.trim(), 'error');
+				}
+				
+				// Display status messages programmatically
+				const statusElement = document.getElementById('provider-status-message');
+				if (statusElement && statusElement.textContent.trim()) {
+					const status = statusElement.textContent.trim();
+					let message = '';
+					let type = 'info';
+					
+					// Convert status to appropriate toast message
+					switch(status) {
+						case 'created':
+							message = 'Provider created successfully';
+							type = 'success';
+							break;
+						case 'updated':
+							message = 'Provider updated successfully';
+							type = 'success';
+							break;
+						case 'deleted':
+							message = 'Provider deleted successfully';
+							type = 'success';
+							break;
+						case 'duplicated':
+							message = 'Provider duplicated successfully';
+							type = 'success';
+							break;
+						default:
+							if (status) {
+								message = `Provider ${status}`;
+								type = 'info';
+							}
+					}
+					
+					if (message) {
+						showToast(message, type);
+					}
+				}
+				
+				// Show toasts based on localStorage or URL parameters
+				if (localStorage.getItem('showProviderDuplicateToast')) {
+					showToast('Provider duplicated successfully', 'success');
+					localStorage.removeItem('showProviderDuplicateToast');
+				}
+				
+				// Keep other status-based toasts if needed
+				const urlParams = new URLSearchParams(window.location.search);
+				if (urlParams.get('status') === 'created') {
+					showToast('Provider created successfully', 'success');
+				}
+				if (urlParams.get('status') === 'updated') {
+					showToast('Provider updated successfully', 'success');
+				}
+				if (urlParams.get('error')) {
+					showToast(urlParams.get('error'), 'error');
+				}
+			});
+		</script>
+
+		<!-- Error message holder (hidden, used to pass server-side errors to JS) -->
+		if data.Error != "" {
+			<div id="provider-error-message" class="hidden">{ data.Error }</div>
+		}
+
+		<!-- Status message holder (hidden, used to pass server-side status to JS) -->
+		if data.Status != "" {
+			<div id="provider-status-message" class="hidden">{ data.Status }</div>
+		}
+
+		<div id="providers-container" style="min-height: 100vh; background-color: rgb(249, 250, 251);" class="providers-page bg-gray-50 dark:bg-gray-900">
+			<div class="pb-8 w-full">
+				<!-- Display error alert if data.Error is not empty -->
+				if data.Error != "" {
+					<div class="mb-4 p-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400" role="alert">
+						<div class="flex items-center">
+							<i class="fas fa-exclamation-circle flex-shrink-0 mr-2"></i>
+							<span>{ data.Error }</span>
+						</div>
+					</div>
+				}
+				
+				<!-- Dynamic error alert container for HTMX errors -->
+				// <div id="htmx-error-alert" class="mb-4 p-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400 hidden" role="alert">
+				// 	<div class="flex items-center">
+				// 		<i class="fas fa-exclamation-circle flex-shrink-0 mr-2"></i>
+				// 		<span id="htmx-error-message"></span>
+				// 		<button type="button" class="ml-auto -mx-1.5 -my-1.5 bg-red-50 text-red-500 rounded-lg focus:ring-2 focus:ring-red-400 p-1.5 hover:bg-red-200 inline-flex items-center justify-center h-8 w-8 dark:bg-gray-800 dark:text-red-400 dark:hover:bg-gray-700" onclick="document.getElementById('htmx-error-alert').classList.add('hidden')">
+				// 			<span class="sr-only">Dismiss</span>
+				// 			<i class="fas fa-times"></i>
+				// 		</button>
+				// 	</div>
+				// </div>
+				
+				<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+					<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+						<i class="fas fa-server w-6 h-6 mr-2 text-blue-500 dark:text-blue-400"></i>
+						Storage Providers
+					</h1>
+					<a href="/storage-providers/new" class="flex items-center justify-center text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+						<i class="fas fa-plus w-4 h-4 mr-2"></i>
+						New Provider
+					</a>
+				</div>
+				
+				<div class="mt-6">
+					if len(data.Providers) == 0 {
+						<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 p-8 flex flex-col items-center justify-center text-center">
+							<div class="inline-flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 mb-4 dark:bg-gray-700">
+								<i class="fas fa-server text-gray-400 dark:text-gray-500 text-3xl"></i>
+							</div>
+							<h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">No storage providers</h3>
+							<p class="text-gray-500 dark:text-gray-400 mb-4">Get started by creating a new storage provider.</p>
+							<a href="/storage-providers/new" class="inline-flex items-center px-3 py-2 text-sm font-medium text-center text-white bg-blue-700 rounded-lg hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+								<i class="fas fa-plus w-4 h-4 mr-2"></i>
+								Create First Provider
+							</a>
+						</div>
+					} else {
+						@StorageProviders_ProvidersList(data.Providers)
+					}
+				</div>
+				
+				<!-- Help Section -->
+				<div class="bg-gray-50 dark:bg-gray-800 rounded-lg shadow-sm mt-8 p-4 border border-gray-200 dark:border-gray-700">
+					<div class="flex items-start mb-2">
+						<div class="flex items-center h-5">
+							<i class="fas fa-info-circle w-4 h-4 text-blue-500 dark:text-blue-400 mr-2"></i>
+						</div>
+						<div class="ml-2 text-sm">
+							<p class="text-gray-700 dark:text-gray-300">Storage providers define connection details to different storage systems.</p>
+						</div>
+					</div>
+
+					<div class="flex items-start mt-4">
+						<div class="flex items-center h-5">
+							<i class="fas fa-shield-alt w-4 h-4 text-blue-500 dark:text-blue-400 mr-2"></i>
+						</div>
+						<div class="ml-2 text-sm">
+							<p class="text-gray-700 dark:text-gray-300">Your credentials are encrypted for security. You can test connections before using them in transfers.</p>
+						</div>
+					</div>
+
+					<div class="flex items-start mt-4">
+						<div class="flex items-center h-5">
+							<i class="fas fa-link w-4 h-4 text-blue-500 dark:text-blue-400 mr-2"></i>
+						</div>
+						<div class="ml-2 text-sm">
+							<p class="text-gray-700 dark:text-gray-300">Providers can be used in multiple transfer configurations. Deleting a provider will affect any transfer that uses it.</p>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		
+		<script src="/static/js/storage-providers.js"></script>
+	}
+}
+
+// Partial for just the providers-list div
+// Usage: @StorageProviders_ProvidersList(providers)
+templ StorageProviders_ProvidersList(providers []db.StorageProvider) {
+	<div id="providers-list" class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 overflow-hidden">
+		<ul class="divide-y divide-gray-200 dark:divide-gray-700">
+			for _, provider := range providers {
+				<li>
+					<div class="block hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+						<div class="px-4 py-4 sm:px-6">
+							<div class="flex items-center justify-between">
+								<div class="flex items-center">
+									<p class="text-sm font-medium text-blue-600 dark:text-blue-400 truncate">
+										{ provider.Name }
+									</p>
+									<span class="ml-2 bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full dark:bg-blue-900 dark:text-blue-300">
+										{ string(provider.Type) }
+									</span>
+								</div>
+								<div class="ml-2 flex-shrink-0 flex space-x-2">
+									<!-- Test Connection Button -->
+									<button 
+										type="button"
+										hx-post={ fmt.Sprintf("/storage-providers/%d/test", provider.ID) }
+										hx-swap="none"
+										data-provider-id={ fmt.Sprint(provider.ID) }
+										data-provider-name={ provider.Name }
+										onclick="window.testProvider(this)"
+										class="test-provider-btn text-blue-700 bg-blue-100 hover:bg-blue-200 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-3 py-1.5 text-center inline-flex items-center dark:bg-blue-700 dark:text-blue-300 dark:hover:bg-blue-600 dark:focus:ring-blue-800">
+										<i class="fas fa-plug w-3.5 h-3.5 mr-1.5"></i>
+										Test
+									</button>
+									<!-- Duplicate Button -->
+									<button 
+										type="button"
+										hx-post={ fmt.Sprintf("/storage-providers/%d/duplicate", provider.ID) }
+										hx-swap="outerHTML"
+										hx-target="#providers-list"
+										data-provider-id={ fmt.Sprint(provider.ID) }
+										data-provider-name={ provider.Name }
+										class="text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:ring-4 focus:outline-none focus:ring-indigo-300 font-medium rounded-lg text-sm px-3 py-1.5 text-center inline-flex items-center dark:bg-indigo-700 dark:text-indigo-300 dark:hover:bg-indigo-600 dark:focus:ring-indigo-800">
+										<i class="fas fa-clone w-3.5 h-3.5 mr-1.5"></i>
+										Duplicate
+									</button>
+									<!-- Edit Button -->
+									<a href={ templ.SafeURL(fmt.Sprintf("/storage-providers/%d", provider.ID)) } class="text-gray-700 bg-gray-100 hover:bg-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-300 font-medium rounded-lg text-sm px-3 py-1.5 text-center inline-flex items-center dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 dark:focus:ring-gray-700">
+										<i class="fas fa-edit w-3.5 h-3.5 mr-1.5"></i>
+										Edit
+									</a>
+									<!-- Delete Button -->
+									@StorageProviderDialog(
+										fmt.Sprintf("delete-provider-dialog-%d", provider.ID),
+										"Delete Provider",
+										fmt.Sprintf("Are you sure you want to delete the provider '%s'? This cannot be undone.", provider.Name),
+										"text-white bg-red-600 hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 dark:focus:ring-red-800 font-medium rounded-lg text-sm inline-flex items-center px-5 py-2.5 text-center",
+										"Delete",
+										"delete",
+										provider.ID,
+										provider.Name,
+									)
+									<button 
+										type="button"
+										onclick={ showProviderModal(fmt.Sprintf("delete-provider-dialog-%d", provider.ID)) }
+										class="text-white bg-red-700 hover:bg-red-800 focus:ring-4 focus:outline-none focus:ring-red-300 font-medium rounded-lg text-sm px-3 py-1.5 text-center inline-flex items-center dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-800">
+										<i class="fas fa-trash-alt w-3.5 h-3.5 mr-1.5"></i>
+										Delete
+									</button>
+								</div>
+							</div>
+							<div class="mt-3 sm:flex sm:justify-between">
+								<div class="sm:flex flex-col md:flex-row gap-2 md:gap-6">
+									<!-- Show different details based on provider type -->
+									if provider.Type == "local" {
+										<p class="flex items-center text-sm text-gray-500 dark:text-gray-400">
+											<i class="fas fa-folder w-4 h-4 mr-1.5 text-gray-400 dark:text-gray-500"></i>
+											Path: { provider.Host }
+										</p>
+									} else if provider.Type == "s3" || provider.Type == "wasabi" || provider.Type == "minio" {
+										<p class="flex items-center text-sm text-gray-500 dark:text-gray-400">
+											<i class="fas fa-server w-4 h-4 mr-1.5 text-gray-400 dark:text-gray-500"></i>
+											Endpoint: { provider.Host }
+										</p>
+										<p class="mt-2 md:mt-0 flex items-center text-sm text-gray-500 dark:text-gray-400">
+											<i class="fas fa-box w-4 h-4 mr-1.5 text-gray-400 dark:text-gray-500"></i>
+											Bucket: { provider.Bucket }
+										</p>
+										if provider.Region != "" {
+											<p class="mt-2 md:mt-0 flex items-center text-sm text-gray-500 dark:text-gray-400">
+												<i class="fas fa-globe w-4 h-4 mr-1.5 text-gray-400 dark:text-gray-500"></i>
+												Region: { provider.Region }
+											</p>
+										}
+									} else if provider.Type == "google_drive" || provider.Type == "google_photo" {
+										<p class="flex items-center text-sm text-gray-500 dark:text-gray-400">
+											<i class="fab fa-google-drive w-4 h-4 mr-1.5 text-gray-400 dark:text-gray-500"></i>
+											Google 
+											if provider.Type == "google_drive" {
+												Drive
+											} else {
+												Photos
+											}
+											if provider.DriveID != "" {
+												: { provider.DriveID }
+											}
+										</p>
+										if provider.Authenticated != nil && *provider.Authenticated {
+											<span class="mt-2 md:mt-0 bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full dark:bg-green-900 dark:text-green-300">
+												Authenticated
+											</span>
+										} else {
+											<span class="mt-2 md:mt-0 bg-yellow-100 text-yellow-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full dark:bg-yellow-900 dark:text-yellow-300">
+												Not Authenticated
+											</span>
+										}
+									} else if provider.Type == "webdav" || provider.Type == "nextcloud" {
+										<p class="flex items-center text-sm text-gray-500 dark:text-gray-400">
+											<i class="fas fa-cloud w-4 h-4 mr-1.5 text-gray-400 dark:text-gray-500"></i>
+											Server: { provider.Host }
+										</p>
+										if provider.Username != "" {
+											<p class="mt-2 md:mt-0 flex items-center text-sm text-gray-500 dark:text-gray-400">
+												<i class="fas fa-user w-4 h-4 mr-1.5 text-gray-400 dark:text-gray-500"></i>
+												User: { provider.Username }
+											</p>
+										}
+									} else if provider.Type == "sftp" || provider.Type == "hetzner" {
+										<p class="flex items-center text-sm text-gray-500 dark:text-gray-400">
+											<i class="fas fa-server w-4 h-4 mr-1.5 text-gray-400 dark:text-gray-500"></i>
+											Host: { provider.Host }
+											if provider.Port > 0 {
+												:{ fmt.Sprint(provider.Port) }
+											}
+										</p>
+										if provider.Username != "" {
+											<p class="mt-2 md:mt-0 flex items-center text-sm text-gray-500 dark:text-gray-400">
+												<i class="fas fa-user w-4 h-4 mr-1.5 text-gray-400 dark:text-gray-500"></i>
+												User: { provider.Username }
+											</p>
+										}
+									} else if provider.Type == "b2" {
+										<p class="flex items-center text-sm text-gray-500 dark:text-gray-400">
+											<i class="fas fa-cloud w-4 h-4 mr-1.5 text-gray-400 dark:text-gray-500"></i>
+											Backblaze B2
+										</p>
+										if provider.Bucket != "" {
+											<p class="mt-2 md:mt-0 flex items-center text-sm text-gray-500 dark:text-gray-400">
+												<i class="fas fa-box w-4 h-4 mr-1.5 text-gray-400 dark:text-gray-500"></i>
+												Bucket: { provider.Bucket }
+											</p>
+										}
+									} else {
+										<!-- Default display for other provider types -->
+										<p class="flex items-center text-sm text-gray-500 dark:text-gray-400">
+											<i class="fas fa-server w-4 h-4 mr-1.5 text-gray-400 dark:text-gray-500"></i>
+											Host: { provider.Host }
+											if provider.Port > 0 {
+												:{ fmt.Sprint(provider.Port) }
+											}
+										</p>
+									}
+								</div>
+								<div class="mt-2 md:mt-0 flex items-center text-sm text-gray-500 dark:text-gray-400">
+									<i class="far fa-clock w-4 h-4 mr-1.5 text-gray-400 dark:text-gray-500"></i>
+									<p>
+										Updated: { provider.UpdatedAt.Format("2006-01-02 15:04:05") }
+									</p>
+								</div>
+							</div>
+						</div>
+					</div>
+				</li>
+			}
+		</ul>
+	</div>
+}
+
+// Dialog component for confirmation dialogs for storage providers
+// Usage: @StorageProviderDialog(id, title, message, confirmClass, confirmText, action, providerID, providerName)
+templ StorageProviderDialog(id string, title string, message string, confirmClass string, confirmText string, action string, providerID uint, providerName string) {
+	<div id={ id } tabindex="-1" aria-hidden="true" class="hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+		<!-- Backdrop -->
+		<div id={ fmt.Sprintf("%s-backdrop", id) } class="fixed inset-0 bg-gray-900/50 dark:bg-gray-900/80 backdrop-blur-sm"></div>
+		<!-- Modal content -->
+		<div class="relative p-4 w-full max-w-md max-h-full mx-auto">
+			<div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
+				<div class="p-6 text-center">
+					<i class="fas fa-trash-alt text-red-400 text-3xl mb-4"></i>
+					<h3 class="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">{ message }</h3>
+					<button 
+						type="button" 
+						class={ confirmClass } 
+						hx-delete={ fmt.Sprintf("/storage-providers/%d", providerID) }
+						hx-target="closest li"
+						hx-swap="delete"
+						data-provider-name={ providerName }
+						data-provider-id={ fmt.Sprint(providerID) }
+						id={ fmt.Sprintf("delete-provider-btn-%d", providerID) }
+						onclick={ triggerProviderDelete(id, providerID, providerName) }>
+						{ confirmText }
+					</button>
+					<button type="button" onclick={ closeProviderModal(id) } class="text-gray-500 bg-white hover:bg-gray-100 focus:ring-4 focus:outline-none focus:ring-gray-200 rounded-lg border border-gray-200 text-sm font-medium px-5 py-2.5 hover:text-gray-900 focus:z-10 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-500 dark:hover:text-white dark:hover:bg-gray-600 dark:focus:ring-gray-600">
+						Cancel
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+script closeProviderModal(id string) {
+	const modal = document.getElementById(id);
+	const backdrop = document.getElementById(id + '-backdrop');
+	if (modal) {
+		modal.classList.add('hidden');
+		modal.classList.remove('flex');
+	}
+	if (backdrop) {
+		backdrop.remove();
+	}
+	document.body.style.overflow = '';
+}
+
+script showProviderModal(id string) {
+	const modal = document.getElementById(id);
+	if (modal) {
+		modal.classList.remove('hidden');
+		modal.classList.add('flex');
+		document.body.style.overflow = 'hidden';
+	}
+}
+
+script triggerProviderDelete(dialogId string, providerID uint, providerName string) {
+	// Hide the dialog
+	document.getElementById(dialogId).classList.add("hidden");
+	document.getElementById(dialogId).classList.remove("flex");
+	// Store data for event handlers
+	window.lastDeletedProvider = {
+		id: providerID,
+		name: providerName
+	};
+	window.currentlyDeletingProvider = true;
+} 
