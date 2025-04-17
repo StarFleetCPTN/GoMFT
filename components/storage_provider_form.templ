@@ -92,51 +92,95 @@ templ formFields(data StorageProviderFormData) {
 				>
 					Select provider type
 				</option>
-				<option value="sftp"
-					if data.Provider.Type == db.ProviderTypeSFTP {
-						selected="selected"
-					}
-				>SFTP</option>
-				<option value="s3"
-					if data.Provider.Type == db.ProviderTypeS3 {
-						selected="selected"
-					}
-				>S3</option>
-				<option value="ftp"
-					if data.Provider.Type == db.ProviderTypeFTP {
-						selected="selected"
-					}
-				>FTP</option>
-				<option value="smb"
-					if data.Provider.Type == db.ProviderTypeSMB {
-						selected="selected"
-					}
-				>SMB/CIFS</option>
-				<option value="onedrive"
-					if data.Provider.Type == db.ProviderTypeOneDrive {
-						selected="selected"
-					}
-				>OneDrive</option>
-				<option value="gdrive"
-					if data.Provider.Type == db.ProviderTypeGoogleDrive {
-						selected="selected"
-					}
-				>Google Drive</option>
-				<option value="gphotos"
-					if data.Provider.Type == db.ProviderTypeGooglePhoto {
-						selected="selected"
-					}
-				>Google Photos</option>
-				<option value="local"
-					if data.Provider.Type == db.ProviderTypeLocal {
-						selected="selected"
-					}
-				>Local Filesystem</option>
-				<option value="hetzner"
-					if data.Provider.Type == db.ProviderTypeHetzner {
-						selected="selected"
-					}
-				>Hetzner Storage Box</option>
+				<!-- Server-based providers -->
+				<optgroup label="Server-based">
+					<option value="sftp"
+						if data.Provider.Type == db.ProviderTypeSFTP {
+							selected="selected"
+						}
+					>SFTP</option>
+					<option value="hetzner"
+						if data.Provider.Type == db.ProviderTypeHetzner {
+							selected="selected"
+						}
+					>Hetzner Storage Box</option>
+					<option value="ftp"
+						if data.Provider.Type == db.ProviderTypeFTP {
+							selected="selected"
+						}
+					>FTP</option>
+					<option value="smb"
+						if data.Provider.Type == db.ProviderTypeSMB {
+							selected="selected"
+						}
+					>SMB/CIFS</option>
+				</optgroup>
+				
+				<!-- Object Storage -->
+				<optgroup label="Object Storage">
+					<option value="s3"
+						if data.Provider.Type == db.ProviderTypeS3 {
+							selected="selected"
+						}
+					>Amazon S3</option>
+					<option value="wasabi"
+						if data.Provider.Type == "wasabi" {
+							selected="selected"
+						}
+					>Wasabi</option>
+					<option value="minio"
+						if data.Provider.Type == "minio" {
+							selected="selected"
+						}
+					>MinIO</option>
+					<option value="b2"
+						if data.Provider.Type == "b2" {
+							selected="selected"
+						}
+					>Backblaze B2</option>
+				</optgroup>
+				
+				<!-- Web-based storage -->
+				<optgroup label="Web Storage">
+					<option value="webdav"
+						if data.Provider.Type == "webdav" {
+							selected="selected"
+						}
+					>WebDAV</option>
+					<option value="nextcloud"
+						if data.Provider.Type == "nextcloud" {
+							selected="selected"
+						}
+					>Nextcloud</option>
+				</optgroup>
+				
+				<!-- Cloud providers -->
+				<optgroup label="Cloud Storage">
+					<option value="onedrive"
+						if data.Provider.Type == db.ProviderTypeOneDrive {
+							selected="selected"
+						}
+					>OneDrive</option>
+					<option value="gdrive"
+						if data.Provider.Type == db.ProviderTypeGoogleDrive {
+							selected="selected"
+						}
+					>Google Drive</option>
+					<option value="gphotos"
+						if data.Provider.Type == db.ProviderTypeGooglePhoto {
+							selected="selected"
+						}
+					>Google Photos</option>
+				</optgroup>
+				
+				<!-- Local -->
+				<optgroup label="Local">
+					<option value="local"
+						if data.Provider.Type == db.ProviderTypeLocal {
+							selected="selected"
+						}
+					>Local Filesystem</option>
+				</optgroup>
 			</select>
 		</div>
 	</div>
@@ -148,26 +192,26 @@ templ formFields(data StorageProviderFormData) {
 		<!-- Host -->
 		<div class="mb-4">
 			<label for="host" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Host <span class="text-red-500">*</span></label>
-			<input type="text" id="host" name="host" value={ data.Provider.Host } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="sftp.example.com" />
+			<input type="text" id="host" name="host" value={ data.Provider.Host } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="e.g., sftp.example.com or 192.168.1.10" />
 		</div>
 		
 		<!-- Port -->
 		<div class="mb-4">
 			<label for="port" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Port</label>
 			<input type="number" id="port" name="port" value={ fmt.Sprint(data.Provider.Port) } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="22" />
-			<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave empty for default (SFTP: 22, FTP: 21, SMB: 445)</p>
+			<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave empty for default (SFTP: 22, FTP: 21, SMB: 445, WebDAV: 80/443)</p>
 		</div>
 		
 		<!-- Username -->
 		<div class="mb-4">
 			<label for="username" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Username <span class="text-red-500">*</span></label>
-			<input type="text" id="username" name="username" value={ data.Provider.Username } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="username" />
+			<input type="text" id="username" name="username" value={ data.Provider.Username } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Your login username" />
 		</div>
 		
 		<!-- Password -->
 		<div class="mb-4">
 			<label for="password" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Password</label>
-			<input type="password" id="password" name="password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="••••••••" />
+			<input type="password" id="password" name="password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Your login password" />
 			if data.IsEdit {
 				<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave empty to keep the current password</p>
 			}
@@ -176,14 +220,14 @@ templ formFields(data StorageProviderFormData) {
 		<!-- Key File (SFTP only) -->
 		<div id="key-file-field" class="mb-4 hidden">
 			<label for="keyFile" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Key File Path</label>
-			<input type="text" id="keyFile" name="keyFile" value={ data.Provider.KeyFile } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="/path/to/key.pem" />
-			<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Path to private key file (if using key-based authentication)</p>
+			<input type="text" id="keyFile" name="keyFile" value={ data.Provider.KeyFile } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="e.g., /home/user/.ssh/id_rsa" />
+			<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Absolute path to private key file (if using key-based authentication)</p>
 		</div>
 		
 		<!-- Domain (SMB only) -->
 		<div id="domain-field" class="mb-4 hidden">
 			<label for="domain" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Domain</label>
-			<input type="text" id="domain" name="domain" value={ data.Provider.Domain } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="WORKGROUP" />
+			<input type="text" id="domain" name="domain" value={ data.Provider.Domain } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="e.g., WORKGROUP or domain.local" />
 		</div>
 		
 		<!-- Passive Mode (FTP only) -->
@@ -207,31 +251,31 @@ templ formFields(data StorageProviderFormData) {
 		<!-- Endpoint -->
 		<div class="mb-4">
 			<label for="endpoint" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Endpoint <span class="text-red-500">*</span></label>
-			<input type="text" id="endpoint" name="endpoint" value={ data.Provider.Endpoint } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="s3.amazonaws.com" />
+			<input type="text" id="endpoint" name="endpoint" value={ data.Provider.Endpoint } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="e.g., s3.amazonaws.com, s3.us-west-1.wasabisys.com" />
 		</div>
 		
 		<!-- Region -->
 		<div class="mb-4">
 			<label for="region" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Region <span class="text-red-500">*</span></label>
-			<input type="text" id="region" name="region" value={ data.Provider.Region } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="us-east-1" />
+			<input type="text" id="region" name="region" value={ data.Provider.Region } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="e.g., us-east-1, eu-central-1" />
 		</div>
 		
 		<!-- Bucket -->
 		<div class="mb-4">
 			<label for="bucket" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Bucket <span class="text-red-500">*</span></label>
-			<input type="text" id="bucket" name="bucket" value={ data.Provider.Bucket } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="my-bucket" />
+			<input type="text" id="bucket" name="bucket" value={ data.Provider.Bucket } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Your bucket name" />
 		</div>
 		
 		<!-- Access Key -->
 		<div class="mb-4">
 			<label for="accessKey" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Access Key <span class="text-red-500">*</span></label>
-			<input type="text" id="accessKey" name="accessKey" value={ data.Provider.AccessKey } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="AKIAXXXXXXXXXXXXXXXX" />
+			<input type="text" id="accessKey" name="accessKey" value={ data.Provider.AccessKey } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Your access key/key ID" />
 		</div>
 		
 		<!-- Secret Key -->
 		<div class="mb-4">
 			<label for="secretKey" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Secret Key <span class="text-red-500">*</span></label>
-			<input type="password" id="secretKey" name="secretKey" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="••••••••••••••••••••••••••••••••" />
+			<input type="password" id="secretKey" name="secretKey" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Your secret access key" />
 			if data.IsEdit {
 				<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave empty to keep the current secret key</p>
 			}
@@ -245,13 +289,13 @@ templ formFields(data StorageProviderFormData) {
 		<!-- Client ID -->
 		<div class="mb-4">
 			<label for="clientID" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Client ID <span class="text-red-500">*</span></label>
-			<input type="text" id="clientID" name="clientID" value={ data.Provider.ClientID } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Client ID from developer console" />
+			<input type="text" id="clientID" name="clientID" value={ data.Provider.ClientID } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="OAuth client ID from developer console" />
 		</div>
 		
 		<!-- Client Secret -->
 		<div class="mb-4">
 			<label for="clientSecret" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Client Secret <span class="text-red-500">*</span></label>
-			<input type="password" id="clientSecret" name="clientSecret" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="••••••••••••••••••••••••••••••••" />
+			<input type="password" id="clientSecret" name="clientSecret" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="OAuth client secret from developer console" />
 			if data.IsEdit {
 				<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave empty to keep the current client secret</p>
 			}
@@ -260,7 +304,7 @@ templ formFields(data StorageProviderFormData) {
 		<!-- Google Drive - Drive ID -->
 		<div id="drive-id-field" class="mb-4 hidden">
 			<label for="driveID" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Drive ID</label>
-			<input type="text" id="driveID" name="driveID" value={ data.Provider.DriveID } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="For shared/team drives" />
+			<input type="text" id="driveID" name="driveID" value={ data.Provider.DriveID } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="ID of shared/team drive (from Drive URL)" />
 			<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Only required for shared drives</p>
 		</div>
 		
@@ -291,7 +335,7 @@ templ formFields(data StorageProviderFormData) {
 		
 		<div class="mb-4">
 			<label for="localPath" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Base Path <span class="text-red-500">*</span></label>
-			<input type="text" id="localPath" name="localPath" value={ data.Provider.Host } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="/path/to/directory" />
+			<input type="text" id="localPath" name="localPath" value={ data.Provider.Host } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="e.g., /data/files or C:\transfer\data" />
 			<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Absolute path on the server's file system</p>
 		</div>
 	</div>
@@ -318,62 +362,107 @@ templ providerFormScript() {
 		// Set current active fields on page load
 		document.addEventListener('DOMContentLoaded', function() {
 			toggleProviderFields();
+			
+			// Add event listener to track if user manually changes the port
+			const portField = document.getElementById('port');
+			portField.addEventListener('input', function() {
+				// Mark the field as user-modified
+				this.dataset.userModified = 'true';
+			});
 		});
 
 		function toggleProviderFields() {
+			const provider = document.getElementById('type').value;
+			
 			// Hide all provider fields first
 			const providerFieldsets = document.querySelectorAll('.provider-fields');
 			providerFieldsets.forEach(fieldset => {
 				fieldset.classList.add('hidden');
 			});
 			
-			// Show the appropriate fields based on the selected provider type
-			const providerType = document.getElementById('type').value;
-			console.log("Provider type selected:", providerType);
+			// Auto-populate port based on provider type
+			const portField = document.getElementById('port');
+			const isPortEmpty = portField.value === '';
+			const userModified = portField.dataset.userModified === 'true';
 			
-			// SFTP/FTP/SMB fields
-			if (['sftp', 'ftp', 'smb'].includes(providerType)) {
+			// Only set default port if field is empty or hasn't been modified by user
+			if (isPortEmpty || !userModified) {
+				if (provider === 'sftp') {
+					portField.value = '22';
+				} else if (provider === 'hetzner') {
+					portField.value = '23';
+				} else if (provider === 'ftp') {
+					portField.value = '21';
+				} else if (provider === 'smb') {
+					portField.value = '445';
+				} else if (provider === 'webdav' || provider === 'nextcloud') {
+					portField.value = '443';
+				} else {
+					portField.value = '';
+				}
+				// Reset user modified flag if we're setting it programmatically
+				portField.dataset.userModified = 'false';
+			}
+			
+			// Show the appropriate fields based on the selected provider type
+			console.log("Provider type selected:", provider);
+			
+			// Server-based connection fields (SFTP, FTP, Hetzner)
+			if (['sftp', 'ftp', 'hetzner'].includes(provider)) {
 				document.getElementById('sftp-ftp-fields').classList.remove('hidden');
 				
-				// SFTP-specific fields
-				if (providerType === 'sftp') {
+				// SFTP/Hetzner-specific fields
+				if (provider === 'sftp' || provider === 'hetzner') {
 					document.getElementById('key-file-field').classList.remove('hidden');
 				}
 				
-				// SMB-specific fields
-				if (providerType === 'smb') {
-					document.getElementById('domain-field').classList.remove('hidden');
-				}
-				
 				// FTP-specific fields
-				if (providerType === 'ftp') {
+				if (provider === 'ftp') {
 					document.getElementById('passive-mode-field').classList.remove('hidden');
 				}
 			}
 			
-			// S3 fields
-			if (providerType === 's3' || providerType === 'hetzner') {
+			// WebDAV-based fields
+			if (['webdav', 'nextcloud'].includes(provider)) {
+				document.getElementById('sftp-ftp-fields').classList.remove('hidden');
+				// No special fields currently for WebDAV
+			}
+			
+			// SMB-specific fields
+			if (provider === 'smb') {
+				document.getElementById('sftp-ftp-fields').classList.remove('hidden');
+				document.getElementById('domain-field').classList.remove('hidden');
+			}
+			
+			// S3-compatible storage
+			if (['s3', 'wasabi', 'minio', 'b2'].includes(provider)) {
 				document.getElementById('s3-fields').classList.remove('hidden');
 			}
 			
-			// Cloud storage fields
-			if (['onedrive', 'gdrive', 'gphotos'].includes(providerType)) {
+			// Google services
+			if (['gdrive', 'gphotos'].includes(provider)) {
 				document.getElementById('cloud-fields').classList.remove('hidden');
 				
 				// Google Drive specific fields
-				if (providerType === 'gdrive') {
+				if (provider === 'gdrive') {
 					document.getElementById('drive-id-field').classList.remove('hidden');
 					document.getElementById('team-drive-field').classList.remove('hidden');
 				}
 				
 				// Google Photos specific fields
-				if (providerType === 'gphotos') {
+				if (provider === 'gphotos') {
 					document.getElementById('readonly-field').classList.remove('hidden');
 				}
 			}
 			
+			// OneDrive
+			if (provider === 'onedrive') {
+				document.getElementById('cloud-fields').classList.remove('hidden');
+				// No special fields for OneDrive currently
+			}
+			
 			// Local filesystem fields
-			if (providerType === 'local') {
+			if (provider === 'local') {
 				document.getElementById('local-fields').classList.remove('hidden');
 			}
 		}

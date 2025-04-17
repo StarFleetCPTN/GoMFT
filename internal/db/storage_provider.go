@@ -18,6 +18,11 @@ const (
 	ProviderTypeSMB         StorageProviderType = "smb"
 	ProviderTypeHetzner     StorageProviderType = "hetzner"
 	ProviderTypeLocal       StorageProviderType = "local"
+	ProviderTypeWebDAV      StorageProviderType = "webdav"
+	ProviderTypeNextcloud   StorageProviderType = "nextcloud"
+	ProviderTypeB2          StorageProviderType = "b2"
+	ProviderTypeWasabi      StorageProviderType = "wasabi"
+	ProviderTypeMinio       StorageProviderType = "minio"
 )
 
 // StorageProvider represents a connection to a storage service
@@ -164,7 +169,9 @@ func (sp *StorageProvider) SetAuthenticated(value bool) {
 func (sp *StorageProvider) IsOAuthProvider() bool {
 	return sp.Type == ProviderTypeOneDrive ||
 		sp.Type == ProviderTypeGoogleDrive ||
-		sp.Type == ProviderTypeGooglePhoto
+		sp.Type == ProviderTypeGooglePhoto ||
+		sp.Type == ProviderTypeWebDAV ||
+		sp.Type == ProviderTypeNextcloud
 }
 
 // RequiresEncryption returns true if the provider has sensitive fields that need encryption
@@ -183,7 +190,7 @@ func (sp *StorageProvider) GetSensitiveFields() map[string]string {
 		if sp.Password != "" {
 			sensitiveFields["Password"] = sp.Password
 		}
-	case ProviderTypeS3:
+	case ProviderTypeS3, ProviderTypeWasabi, ProviderTypeMinio, ProviderTypeB2:
 		if sp.SecretKey != "" {
 			sensitiveFields["SecretKey"] = sp.SecretKey
 		}
