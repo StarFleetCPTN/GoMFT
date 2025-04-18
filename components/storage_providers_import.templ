@@ -27,9 +27,93 @@ templ StorageProvidersImport(ctx context.Context, preview RcloneImportPreview) {
 		<!-- Main content -->
 		<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 p-6">
 			<div class="mb-6">
+				<h2 class="text-xl font-bold text-gray-900 dark:text-white mb-3">Import from rclone Config</h2>
 				<p class="text-gray-700 dark:text-gray-300 mb-4">
-					Upload your rclone configuration file to import storage providers. You'll be able to preview and select which remotes to import.
+					Upload your rclone configuration file to import storage providers. You'll be able to preview and select which remotes to import, and add any missing credentials.
 				</p>
+				<div class="p-4 mb-4 text-sm text-blue-800 rounded-lg bg-blue-50 dark:bg-gray-800 dark:text-blue-400" role="alert">
+					<div class="flex">
+						<i class="fas fa-info-circle flex-shrink-0 inline w-5 h-5 mr-3 mt-0.5"></i>
+						<div>
+							<span class="font-medium">Instructions:</span>
+							<ul class="mt-1.5 ml-4 list-disc">
+								<li>Upload your <code>rclone.conf</code> file (usually found in <code>~/.config/rclone/</code> or <code>%USERPROFILE%\.config\rclone\</code>)</li>
+								<li>Review the detected remotes and select which ones to import</li>
+								<li>Add any missing credentials that may not be in your config file</li>
+								<li>Use the "Add Custom Field" button to add any provider-specific options</li>
+							</ul>
+							<div class="mt-2">
+								<a href="https://rclone.org/docs/" target="_blank" class="text-blue-600 dark:text-blue-500 underline hover:no-underline">rclone documentation</a> | 
+								<button type="button" id="show-common-values" class="text-blue-600 dark:text-blue-500 underline hover:no-underline">Show common configuration values</button>
+							</div>
+						</div>
+					</div>
+				</div>
+				
+				<!-- Common values reference (hidden by default) -->
+				<div id="common-values-reference" class="hidden p-4 mb-4 text-sm text-gray-800 rounded-lg bg-gray-50 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
+					<h3 class="font-medium text-base mb-2">Common Configuration Values by Provider Type</h3>
+					<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+						<div>
+							<h4 class="font-medium mb-1">SFTP</h4>
+							<ul class="ml-4 list-disc">
+								<li><code>host</code>: Server hostname or IP</li>
+								<li><code>user</code>: Username</li>
+								<li><code>pass</code>: Password (if not using key)</li>
+								<li><code>port</code>: SSH port (default: 22)</li>
+								<li><code>key_file</code>: Path to private key</li>
+							</ul>
+						</div>
+						<div>
+							<h4 class="font-medium mb-1">S3 / Wasabi / Minio</h4>
+							<ul class="ml-4 list-disc">
+								<li><code>access_key_id</code>: Access key</li>
+								<li><code>secret_access_key</code>: Secret key</li>
+								<li><code>region</code>: Region name</li>
+								<li><code>endpoint</code>: Custom endpoint URL</li>
+								<li><code>bucket</code>: Bucket name</li>
+							</ul>
+						</div>
+						<div>
+							<h4 class="font-medium mb-1">FTP</h4>
+							<ul class="ml-4 list-disc">
+								<li><code>host</code>: Server hostname or IP</li>
+								<li><code>user</code>: Username</li>
+								<li><code>pass</code>: Password</li>
+								<li><code>port</code>: FTP port (default: 21)</li>
+								<li><code>tls</code>: Use FTPS (true/false)</li>
+							</ul>
+						</div>
+						<div>
+							<h4 class="font-medium mb-1">Google Drive</h4>
+							<ul class="ml-4 list-disc">
+								<li><code>client_id</code>: OAuth client ID</li>
+								<li><code>client_secret</code>: OAuth client secret</li>
+								<li><code>refresh_token</code>: OAuth refresh token</li>
+								<li><code>team_drive</code>: Team Drive ID (optional)</li>
+							</ul>
+						</div>
+						<div>
+							<h4 class="font-medium mb-1">OneDrive</h4>
+							<ul class="ml-4 list-disc">
+								<li><code>client_id</code>: OAuth client ID</li>
+								<li><code>client_secret</code>: OAuth client secret</li>
+								<li><code>refresh_token</code>: OAuth refresh token</li>
+								<li><code>drive_id</code>: Drive ID (optional)</li>
+							</ul>
+						</div>
+						<div>
+							<h4 class="font-medium mb-1">WebDAV / Nextcloud</h4>
+							<ul class="ml-4 list-disc">
+								<li><code>url</code>: WebDAV URL</li>
+								<li><code>user</code>: Username</li>
+								<li><code>pass</code>: Password</li>
+								<li><code>vendor</code>: nextcloud/owncloud/etc</li>
+							</ul>
+						</div>
+					</div>
+					<button type="button" id="hide-common-values" class="mt-3 text-blue-600 dark:text-blue-500 underline hover:no-underline">Hide reference</button>
+				</div>
 
 				<form id="rclone-upload-form" enctype="multipart/form-data" method="POST" action="/storage-providers/import/preview" hx-post="/storage-providers/import/preview" hx-target="#import-preview" hx-swap="innerHTML" class="mt-4">
 					<div class="mb-4">
@@ -98,12 +182,82 @@ templ RcloneImportPreviewContent(ctx context.Context, preview RcloneImportPrevie
 									</td>
 									<td class="px-6 py-4">
 										<div class="space-y-2">
+											<!-- Existing fields from rclone config -->
 											for k, v := range remote.Fields {
 												<div class="flex items-center gap-2">
 													<span class="font-mono text-xs text-gray-700 dark:text-gray-300 min-w-[80px]">{k}:</span>
 													<input type="text" name={"field_" + remote.Name + "_" + k} value={v} class="bg-gray-50 border border-gray-300 text-gray-900 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
 												</div>
 											}
+
+											<!-- Add missing credentials section -->
+											<div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+												<div class="text-sm font-medium text-gray-900 dark:text-white mb-2">Add or Update Credentials</div>
+												
+												<!-- Username field (if not present) -->
+												if _, exists := remote.Fields["user"]; !exists && (remote.Type == "sftp" || remote.Type == "ftp" || remote.Type == "smb" || remote.Type == "webdav") {
+													<div class="flex items-center gap-2">
+														<span class="font-mono text-xs text-gray-700 dark:text-gray-300 min-w-[80px]">user:</span>
+														<input type="text" name={"field_" + remote.Name + "_user"} placeholder="Username" class="bg-gray-50 border border-gray-300 text-gray-900 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
+													</div>
+												}
+
+												<!-- Password field (if not present) -->
+												if _, exists := remote.Fields["pass"]; !exists && (remote.Type == "sftp" || remote.Type == "ftp" || remote.Type == "smb" || remote.Type == "webdav") {
+													<div class="flex items-center gap-2">
+														<span class="font-mono text-xs text-gray-700 dark:text-gray-300 min-w-[80px]">pass:</span>
+														<input type="password" name={"field_" + remote.Name + "_pass"} placeholder="Password" class="bg-gray-50 border border-gray-300 text-gray-900 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
+													</div>
+												}
+
+												<!-- S3 credentials -->
+												if remote.Type == "s3" || remote.Type == "wasabi" || remote.Type == "minio" || remote.Type == "b2" {
+													<!-- Access Key -->
+													if _, exists := remote.Fields["access_key_id"]; !exists {
+														<div class="flex items-center gap-2">
+															<span class="font-mono text-xs text-gray-700 dark:text-gray-300 min-w-[80px]">access_key_id:</span>
+															<input type="text" name={"field_" + remote.Name + "_access_key_id"} placeholder="Access Key" class="bg-gray-50 border border-gray-300 text-gray-900 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
+														</div>
+													}
+
+													<!-- Secret Key -->
+													if _, exists := remote.Fields["secret_access_key"]; !exists {
+														<div class="flex items-center gap-2">
+															<span class="font-mono text-xs text-gray-700 dark:text-gray-300 min-w-[80px]">secret_access_key:</span>
+															<input type="password" name={"field_" + remote.Name + "_secret_access_key"} placeholder="Secret Key" class="bg-gray-50 border border-gray-300 text-gray-900 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
+														</div>
+													}
+												}
+
+												<!-- OAuth credentials -->
+												if remote.Type == "drive" || remote.Type == "onedrive" || remote.Type == "gphotos" {
+													<!-- Client ID -->
+													if _, exists := remote.Fields["client_id"]; !exists {
+														<div class="flex items-center gap-2">
+															<span class="font-mono text-xs text-gray-700 dark:text-gray-300 min-w-[80px]">client_id:</span>
+															<input type="text" name={"field_" + remote.Name + "_client_id"} placeholder="Client ID" class="bg-gray-50 border border-gray-300 text-gray-900 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
+														</div>
+													}
+
+													<!-- Client Secret -->
+													if _, exists := remote.Fields["client_secret"]; !exists {
+														<div class="flex items-center gap-2">
+															<span class="font-mono text-xs text-gray-700 dark:text-gray-300 min-w-[80px]">client_secret:</span>
+															<input type="password" name={"field_" + remote.Name + "_client_secret"} placeholder="Client Secret" class="bg-gray-50 border border-gray-300 text-gray-900 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
+														</div>
+													}
+												}
+
+												<!-- Add custom field button -->
+												<div class="mt-2">
+													<button type="button" id={"add-field-btn-" + remote.Name} class="text-xs text-blue-700 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+														<i class="fas fa-plus mr-1"></i> Add Custom Field
+													</button>
+												</div>
+
+												<!-- Container for dynamically added custom fields -->
+												<div id={"custom-fields-" + remote.Name} class="mt-2"></div>
+											</div>
 										</div>
 									</td>
 								</tr>
@@ -126,13 +280,150 @@ templ RcloneImportPreviewContent(ctx context.Context, preview RcloneImportPrevie
 			</div>
 
 			<script>
-				function toggleAllCheckboxes(source) {
-					const checkboxes = document.querySelectorAll('input[type="checkbox"][name^="import_"]');
-					for (let i = 0; i < checkboxes.length; i++) {
-						checkboxes[i].checked = source.checked;
-					}
+			function toggleAllCheckboxes(source) {
+				const checkboxes = document.querySelectorAll('input[type="checkbox"][name^="import_"]');
+				for (let i = 0; i < checkboxes.length; i++) {
+					checkboxes[i].checked = source.checked;
 				}
-			</script>
+			}
+
+			function addCustomField(remoteName) {
+				console.log('Adding custom field for remote:', remoteName);
+				const container = document.getElementById('custom-fields-' + remoteName);
+				if (!container) {
+					console.error('Container not found for remote:', remoteName);
+					return;
+				}
+
+				const fieldCount = container.children.length;
+				const fieldId = 'custom-field-' + remoteName + '-' + fieldCount;
+				
+				const fieldRow = document.createElement('div');
+				fieldRow.className = 'flex items-center gap-2 mt-2';
+				fieldRow.id = fieldId;
+				
+				// Create key input
+				const keyInput = document.createElement('input');
+				keyInput.type = 'text';
+				keyInput.className = 'bg-gray-50 border border-gray-300 text-gray-900 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 w-1/3 p-1.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500';
+				keyInput.placeholder = 'Field name';
+				keyInput.id = 'custom-key-' + remoteName + '-' + fieldCount;
+				keyInput.onchange = function() {
+					const valueInput = document.getElementById('custom-value-' + remoteName + '-' + fieldCount);
+					if (valueInput && this.value) {
+						valueInput.name = 'field_' + remoteName + '_' + this.value;
+					}
+				};
+				
+				// Create value input
+				const valueInput = document.createElement('input');
+				valueInput.type = 'text';
+				valueInput.className = 'bg-gray-50 border border-gray-300 text-gray-900 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 w-2/3 p-1.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500';
+				valueInput.placeholder = 'Value';
+				valueInput.id = 'custom-value-' + remoteName + '-' + fieldCount;
+				// Name will be set when key changes
+				
+				// Create remove button
+				const removeBtn = document.createElement('button');
+				removeBtn.type = 'button';
+				removeBtn.className = 'text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300';
+				removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+				removeBtn.onclick = function() {
+					document.getElementById(fieldId).remove();
+				};
+				
+				// Add elements to the row
+				fieldRow.appendChild(keyInput);
+				fieldRow.appendChild(valueInput);
+				fieldRow.appendChild(removeBtn);
+				
+				// Add row to container
+				container.appendChild(fieldRow);
+				
+				// Focus on the new key input
+				keyInput.focus();
+			}
+
+			// Initialize the buttons directly instead of using DOMContentLoaded
+			function initializeCustomFieldButtons() {
+				console.log('Initializing custom field buttons');
+				const addFieldButtons = document.querySelectorAll('[id^="add-field-btn-"]');
+				console.log('Found buttons:', addFieldButtons.length);
+				
+				// Add click event listeners to each button
+				addFieldButtons.forEach(function(button) {
+					const remoteName = button.id.replace('add-field-btn-', '');
+					console.log('Adding listener for remote:', remoteName);
+					button.addEventListener('click', function() {
+						console.log('Button clicked for remote:', remoteName);
+						addCustomField(remoteName);
+					});
+				});
+			}
+
+			// Try both approaches for maximum compatibility
+			// 1. Initialize immediately if document is already loaded
+			if (document.readyState === 'complete' || document.readyState === 'interactive') {
+				setTimeout(initializeCustomFieldButtons, 1);
+			}
+
+			// 2. Also listen for DOMContentLoaded
+			document.addEventListener('DOMContentLoaded', initializeCustomFieldButtons);
+
+			// 3. Also initialize when the form is loaded via HTMX
+			document.addEventListener('htmx:afterSwap', function(event) {
+				if (event.detail.target.id === 'import-preview') {
+					console.log('HTMX content loaded, initializing buttons');
+					setTimeout(initializeCustomFieldButtons, 1);
+				}
+			});
+
+			// 4. Toggle common values reference
+			function initializeReferenceToggle() {
+				console.log('Initializing reference toggle buttons');
+				const showBtn = document.getElementById('show-common-values');
+				const hideBtn = document.getElementById('hide-common-values');
+				const reference = document.getElementById('common-values-reference');
+
+				if (showBtn && hideBtn && reference) {
+					console.log('Found reference toggle elements');
+					// Remove any existing listeners to prevent duplicates
+					showBtn.removeEventListener('click', showReference);
+					hideBtn.removeEventListener('click', hideReference);
+
+					// Add new listeners
+					showBtn.addEventListener('click', showReference);
+					hideBtn.addEventListener('click', hideReference);
+
+					// Define the functions
+					function showReference() {
+						console.log('Showing reference');
+						reference.classList.remove('hidden');
+					}
+
+					function hideReference() {
+						console.log('Hiding reference');
+						reference.classList.add('hidden');
+					}
+				} else {
+					console.log('Reference toggle elements not found');
+				}
+			}
+
+			// Initialize on DOMContentLoaded
+			document.addEventListener('DOMContentLoaded', initializeReferenceToggle);
+
+			// Also initialize on page load
+			if (document.readyState === 'complete' || document.readyState === 'interactive') {
+				setTimeout(initializeReferenceToggle, 1);
+			}
+
+			// Also initialize when content is loaded via HTMX
+			document.addEventListener('htmx:afterSwap', function(event) {
+				console.log('HTMX content swapped, target:', event.detail.target.id);
+				setTimeout(initializeReferenceToggle, 1);
+			});
+		</script>
 		</form>
 	} else {
 		<div class="flex p-4 mb-4 text-sm text-gray-800 border border-gray-300 rounded-lg bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600" role="alert">

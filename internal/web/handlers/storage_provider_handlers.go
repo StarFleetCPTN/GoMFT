@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/starfleetcptn/gomft/components"
 	"github.com/starfleetcptn/gomft/internal/db"
+	"github.com/starfleetcptn/gomft/internal/encryption"
 	"github.com/starfleetcptn/gomft/internal/storage"
 )
 
@@ -455,10 +457,16 @@ func (h *Handlers) HandleStorageProvidersImportPreview(c *gin.Context) {
 
 // Handler for confirming import of selected remotes
 func (h *Handlers) HandleStorageProvidersImportConfirm(c *gin.Context) {
+	// Ensure encryption service is available
+	_, err := encryption.GetGlobalCredentialEncryptor()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to initialize encryption: " + err.Error()})
+		return
+	}
 	userID := c.GetUint("userID")
 
 	// Make sure form is parsed
-	err := c.Request.ParseMultipartForm(32 << 20) // 32MB max memory
+	err = c.Request.ParseMultipartForm(32 << 20) // 32MB max memory
 	if err != nil {
 		log.Printf("Error parsing form: %v", err)
 	}
@@ -516,9 +524,21 @@ func (h *Handlers) HandleStorageProvidersImportConfirm(c *gin.Context) {
 						case "client_id":
 							provider.ClientID = fieldValue
 						case "client_secret":
-							provider.ClientSecret = fieldValue
+							// Check if the value is already encrypted from rclone
+							if isRcloneEncryptedValue(fieldValue) {
+								// Store directly in EncryptedClientSecret to avoid double encryption
+								provider.EncryptedClientSecret = fieldValue
+							} else {
+								provider.ClientSecret = fieldValue
+							}
 						case "refresh_token":
-							provider.RefreshToken = fieldValue
+							// Check if the value is already encrypted from rclone
+							if isRcloneEncryptedValue(fieldValue) {
+								// Store directly in EncryptedRefreshToken to avoid double encryption
+								provider.EncryptedRefreshToken = fieldValue
+							} else {
+								provider.RefreshToken = fieldValue
+							}
 						case "token":
 							// Token is a JSON object containing access_token, refresh_token, etc.
 							// Extract refresh_token if not already set
@@ -547,7 +567,13 @@ func (h *Handlers) HandleStorageProvidersImportConfirm(c *gin.Context) {
 						case "access_key_id", "access_key":
 							provider.AccessKey = fieldValue
 						case "secret_access_key", "secret_key":
-							provider.SecretKey = fieldValue
+							// Check if the value is already encrypted from rclone
+							if isRcloneEncryptedValue(fieldValue) {
+								// Store directly in EncryptedSecretKey to avoid double encryption
+								provider.EncryptedSecretKey = fieldValue
+							} else {
+								provider.SecretKey = fieldValue
+							}
 						case "endpoint":
 							provider.Endpoint = fieldValue
 						case "region":
@@ -565,7 +591,13 @@ func (h *Handlers) HandleStorageProvidersImportConfirm(c *gin.Context) {
 						case "user", "username":
 							provider.Username = fieldValue
 						case "pass", "password":
-							provider.Password = fieldValue
+							// Check if the value is already encrypted from rclone
+							if isRcloneEncryptedValue(fieldValue) {
+								// Store directly in EncryptedPassword to avoid double encryption
+								provider.EncryptedPassword = fieldValue
+							} else {
+								provider.Password = fieldValue
+							}
 						case "port":
 							if port, err := strconv.Atoi(fieldValue); err == nil {
 								provider.Port = port
@@ -581,7 +613,13 @@ func (h *Handlers) HandleStorageProvidersImportConfirm(c *gin.Context) {
 						case "user", "username":
 							provider.Username = fieldValue
 						case "pass", "password":
-							provider.Password = fieldValue
+							// Check if the value is already encrypted from rclone
+							if isRcloneEncryptedValue(fieldValue) {
+								// Store directly in EncryptedPassword to avoid double encryption
+								provider.EncryptedPassword = fieldValue
+							} else {
+								provider.Password = fieldValue
+							}
 						case "domain":
 							provider.Domain = fieldValue
 						case "share":
@@ -595,9 +633,21 @@ func (h *Handlers) HandleStorageProvidersImportConfirm(c *gin.Context) {
 						case "client_id":
 							provider.ClientID = fieldValue
 						case "client_secret":
-							provider.ClientSecret = fieldValue
+							// Check if the value is already encrypted from rclone
+							if isRcloneEncryptedValue(fieldValue) {
+								// Store directly in EncryptedClientSecret to avoid double encryption
+								provider.EncryptedClientSecret = fieldValue
+							} else {
+								provider.ClientSecret = fieldValue
+							}
 						case "refresh_token":
-							provider.RefreshToken = fieldValue
+							// Check if the value is already encrypted from rclone
+							if isRcloneEncryptedValue(fieldValue) {
+								// Store directly in EncryptedRefreshToken to avoid double encryption
+								provider.EncryptedRefreshToken = fieldValue
+							} else {
+								provider.RefreshToken = fieldValue
+							}
 						case "drive_id":
 							provider.DriveID = fieldValue
 						}
@@ -743,6 +793,12 @@ func (h *Handlers) HandleImportRcloneConfig(c *gin.Context) {
 			errors = append(errors, name+": "+err.Error())
 			continue
 		}
+		// Log that we're handling already encrypted values from rclone
+		if provider.EncryptedPassword != "" || provider.EncryptedSecretKey != "" || 
+		   provider.EncryptedClientSecret != "" || provider.EncryptedRefreshToken != "" {
+			log.Printf("Processing provider %s with pre-encrypted values from rclone", provider.Name)
+		}
+
 		// Try to create or update
 		err = createOrUpdateStorageProvider(h.DB, &provider)
 		if err != nil {
@@ -787,12 +843,51 @@ func parseRcloneConfig(content []byte) (map[string]map[string]string, error) {
 
 // Helper: create or update provider (fallback if DB method not present)
 func createOrUpdateStorageProvider(dbh *db.DB, provider *db.StorageProvider) error {
+	// Handle already-encrypted fields from rclone
+	// If we have values in the encrypted fields, we need to ensure they're properly formatted
+	// for our database storage mechanism
+	if provider.EncryptedPassword != "" && !strings.HasPrefix(provider.EncryptedPassword, encryption.EncryptedPrefix) {
+		// Add our encryption prefix to make it compatible with our system
+		provider.EncryptedPassword = encryption.EncryptedPrefix + provider.EncryptedPassword
+	}
+
+	if provider.EncryptedSecretKey != "" && !strings.HasPrefix(provider.EncryptedSecretKey, encryption.EncryptedPrefix) {
+		provider.EncryptedSecretKey = encryption.EncryptedPrefix + provider.EncryptedSecretKey
+	}
+
+	if provider.EncryptedClientSecret != "" && !strings.HasPrefix(provider.EncryptedClientSecret, encryption.EncryptedPrefix) {
+		provider.EncryptedClientSecret = encryption.EncryptedPrefix + provider.EncryptedClientSecret
+	}
+
+	if provider.EncryptedRefreshToken != "" && !strings.HasPrefix(provider.EncryptedRefreshToken, encryption.EncryptedPrefix) {
+		provider.EncryptedRefreshToken = encryption.EncryptedPrefix + provider.EncryptedRefreshToken
+	}
+
+	// Now proceed with create/update
 	existing, err := dbh.GetStorageProviderByNameAndUser(provider.Name, provider.CreatedBy)
 	if err == nil && existing != nil {
 		provider.ID = existing.ID
 		return dbh.UpdateStorageProvider(provider)
 	}
 	return dbh.CreateStorageProvider(provider)
+}
+
+// isRcloneEncryptedValue checks if a value from rclone config is already encrypted
+func isRcloneEncryptedValue(value string) bool {
+	// Rclone typically uses these patterns for encrypted values
+	// 1. Base64-encoded values with specific patterns
+	if strings.HasPrefix(value, "enc_") || strings.HasPrefix(value, "mcrypt_") {
+		return true
+	}
+	// 2. Values that look like encrypted data (base64 with specific length)
+	if len(value) > 20 && regexp.MustCompile(`^[A-Za-z0-9+/=]+$`).MatchString(value) {
+		return true
+	}
+	// 3. Values with typical encryption markers
+	if strings.Contains(value, "ENCRYPTED") || strings.Contains(value, "ENCR:") {
+		return true
+	}
+	return false
 }
 
 // Helper: convert rclone section to StorageProvider
@@ -821,7 +916,13 @@ func storageProviderFromRcloneSection(name string, section map[string]string, us
 		case "user":
 			provider.Username = v
 		case "pass":
-			provider.Password = v
+			// Handle potentially encrypted password
+			if isRcloneEncryptedValue(v) {
+				// Store directly in EncryptedPassword to avoid double encryption
+				provider.EncryptedPassword = v
+			} else {
+				provider.Password = v
+			}
 		case "port":
 			if port, err := strconv.Atoi(v); err == nil {
 				provider.Port = port
@@ -833,11 +934,35 @@ func storageProviderFromRcloneSection(name string, section map[string]string, us
 		case "access_key_id":
 			provider.AccessKey = v
 		case "secret_access_key":
-			provider.SecretKey = v
+			// Handle potentially encrypted secret key
+			if isRcloneEncryptedValue(v) {
+				// Store directly in EncryptedSecretKey to avoid double encryption
+				provider.EncryptedSecretKey = v
+			} else {
+				provider.SecretKey = v
+			}
 		case "endpoint":
 			provider.Endpoint = v
 		case "domain":
 			provider.Domain = v
+		case "client_id":
+			provider.ClientID = v
+		case "client_secret":
+			// Handle potentially encrypted client secret
+			if isRcloneEncryptedValue(v) {
+				// Store directly in EncryptedClientSecret to avoid double encryption
+				provider.EncryptedClientSecret = v
+			} else {
+				provider.ClientSecret = v
+			}
+		case "refresh_token":
+			// Handle potentially encrypted refresh token
+			if isRcloneEncryptedValue(v) {
+				// Store directly in EncryptedRefreshToken to avoid double encryption
+				provider.EncryptedRefreshToken = v
+			} else {
+				provider.RefreshToken = v
+			}
 			// Add more mappings as needed
 		}
 	}
