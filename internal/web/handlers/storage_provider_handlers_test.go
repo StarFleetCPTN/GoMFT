@@ -426,8 +426,8 @@ func TestInputValidation(t *testing.T) {
 			"ftp":          true,
 			"smb":          true,
 			"onedrive":     true,
-			"google_drive": true,
-			"google_photo": true,
+			"drive":        true,
+			"gphotos":      true,
 			"hetzner":      true,
 			"local":        true,
 		}

@@ -1,0 +1,169 @@
+package components
+
+import (
+	"context"
+)
+
+// GDriveHeadlessAuthData contains data needed for rendering the headless auth page
+type GDriveHeadlessAuthData struct {
+	AuthCommand string
+	ConfigID    string
+}
+
+// GDriveHeadlessAuth renders the headless authentication page for Google Drive/Photos
+templ GDriveHeadlessAuth(ctx context.Context, data GDriveHeadlessAuthData) {
+	// Force the layout to display as authenticated content
+	@LayoutWithContext("Google Authentication - Headless Mode", ctx) {
+		<style>
+			/* Ensure proper styling for the headless auth page */
+			body.dark .auth-page {
+				background-color: #111827 !important;
+			}
+		</style>
+		
+		<div id="auth-container" class="auth-page w-full pb-8 bg-gray-50 dark:bg-gray-900" style="min-height: 100vh; background-color: rgb(249, 250, 251);">
+			<div class="max-w-4xl mx-auto">
+				<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+					<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+						<i class="fas fa-key w-6 h-6 mr-2 text-blue-500 dark:text-blue-400"></i>
+						Headless Google Authentication
+					</h1>
+					<a href="/configs" class="flex items-center justify-center text-gray-700 bg-gray-100 hover:bg-gray-200 focus:ring-4 focus:ring-gray-300 font-medium rounded-lg px-5 py-2.5 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 focus:outline-none dark:focus:ring-gray-700">
+						<i class="fas fa-arrow-left w-4 h-4 mr-2"></i>
+						Back to Configurations
+					</a>
+				</div>
+				
+				<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 p-6">
+					<div class="bg-blue-50 dark:bg-blue-900/30 border-l-4 border-blue-500 p-4 mb-6">
+						<div class="flex">
+							<div class="flex-shrink-0 mt-0.5">
+								<i class="fas fa-info-circle h-5 w-5 text-blue-500"></i>
+							</div>
+							<div class="ml-3">
+								<p class="text-sm text-blue-700 dark:text-blue-300">
+									You need to authenticate with Google using a web browser. Since you're running GoMFT behind a reverse proxy or in a headless environment, you'll need to complete authentication on a machine with a web browser.
+								</p>
+							</div>
+						</div>
+					</div>
+
+					<div class="mb-8">
+						<h2 class="text-lg font-medium mb-3 text-gray-900 dark:text-white">Step 1: Run the following command on a machine with a web browser</h2>
+						<div class="relative mb-4">
+							<pre id="auth-command-text" class="bg-gray-50 dark:bg-gray-900 rounded-md p-4 overflow-x-auto text-sm font-mono">{ data.AuthCommand }</pre>
+							<button id="copy-command" class="absolute top-2 right-2 bg-gray-200 dark:bg-gray-700 p-1.5 rounded hover:bg-gray-300 dark:hover:bg-gray-600" title="Copy to clipboard">
+								<i class="fas fa-copy h-5 w-5 text-gray-700 dark:text-gray-300"></i>
+							</button>
+						</div>
+						
+						<div>
+							<h3 class="text-md font-medium mb-2 text-gray-900 dark:text-white">What this command does:</h3>
+							<ul class="list-disc ml-6 text-sm text-gray-700 dark:text-gray-300 space-y-1">
+								<li>Opens a browser window on the machine where you run it</li>
+								<li>Allows you to authenticate with Google</li>
+								<li>Generates an authentication token</li>
+							</ul>
+						</div>
+					</div>
+
+					<div class="mb-6">
+						<h2 class="text-lg font-medium mb-3 text-gray-900 dark:text-white">Step 2: Paste the authentication token below</h2>
+						<p class="text-sm text-gray-700 dark:text-gray-300 mb-4">
+							After completing authentication in the browser, you'll receive a token. Copy and paste that token here:
+						</p>
+						
+						<form action="/configs/gdrive-headless-token" method="POST" class="space-y-4">
+							<input type="hidden" name="config_id" value={ data.ConfigID } />
+							
+							<div>
+								<label for="auth_token" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Authentication Token</label>
+								<textarea 
+									id="auth_token" 
+									name="auth_token" 
+									rows="5" 
+									class="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
+									placeholder="Paste your authentication token here..."
+									required
+								></textarea>
+								<p class="mt-2 text-xs text-gray-500 dark:text-gray-400">The token will look like a long JSON string containing access credentials.</p>
+							</div>
+							
+							<div class="flex items-center justify-end mt-6">
+								<a href="/configs" class="mr-4 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-500 dark:hover:text-gray-400">
+									Cancel
+								</a>
+								<button 
+									type="submit" 
+									class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+								>
+									Submit Token
+								</button>
+							</div>
+						</form>
+					</div>
+				</div>
+				
+				<!-- Help Section -->
+				<div class="bg-gray-50 dark:bg-gray-800 rounded-lg shadow-sm mt-8 p-4 border border-gray-200 dark:border-gray-700">
+					<div class="flex items-start">
+						<div class="flex items-center h-5">
+							<i class="fas fa-info-circle w-4 h-4 text-blue-500 dark:text-blue-400 mr-2"></i>
+						</div>
+						<div class="ml-2 text-sm">
+							<p class="text-gray-700 dark:text-gray-300">This authentication process is necessary for GoMFT to access your Google Drive or Google Photos account.</p>
+							<p class="mt-1 text-gray-600 dark:text-gray-400">The token is only used for authentication and is stored securely. You'll only need to complete this process once for each configuration.</p>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<script>
+			// Set dark background color if in dark mode
+			document.addEventListener('DOMContentLoaded', function() {
+				if (document.documentElement.classList.contains('dark')) {
+					document.getElementById('auth-container').style.backgroundColor = '#111827';
+				}
+				
+				// Add event listener for theme changes
+				const themeToggle = document.getElementById('theme-toggle');
+				if (themeToggle) {
+					themeToggle.addEventListener('click', function() {
+						setTimeout(function() {
+							const isDark = document.documentElement.classList.contains('dark');
+							document.getElementById('auth-container').style.backgroundColor = isDark ? '#111827' : 'rgb(249, 250, 251)';
+						}, 50);
+					});
+				}
+				
+				// Store the actual command text
+				const actualCommand = document.getElementById('auth-command-text').textContent.trim();
+				
+				// Add click handler to copy button
+				document.getElementById('copy-command').addEventListener('click', function() {
+					// Copy the actual command text, not the template variable
+					navigator.clipboard.writeText(actualCommand).then(function() {
+						// Show a success message
+						const button = document.getElementById('copy-command');
+						const originalTitle = button.getAttribute('title');
+						button.setAttribute('title', 'Copied!');
+						
+						// Also show visual feedback
+						button.classList.add('bg-green-200', 'dark:bg-green-700');
+						button.classList.remove('bg-gray-200', 'dark:bg-gray-700');
+						
+						setTimeout(function() {
+							button.setAttribute('title', originalTitle);
+							button.classList.remove('bg-green-200', 'dark:bg-green-700');
+							button.classList.add('bg-gray-200', 'dark:bg-gray-700');
+						}, 2000);
+					}).catch(function(err) {
+						console.error('Failed to copy text: ', err);
+						alert('Failed to copy command. Please select and copy it manually.');
+					});
+				});
+			});
+		</script>
+	}
+} 

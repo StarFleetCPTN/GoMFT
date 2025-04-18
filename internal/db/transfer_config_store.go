@@ -458,11 +458,189 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			}
 			return fmt.Errorf("%v", errorMsg)
 		}
+
 	case "local":
 		// For local source, ensure the section exists but might not need specific rclone config create
 		content := fmt.Sprintf("[%s]\ntype = local\n\n", sourceName)
 		if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
 			return fmt.Errorf("failed to write source config (local): %v", err)
+		}
+	case "drive":
+		// For Google Drive, we need client ID and secret
+		clientID := getStringValue(sourceCredentials, "client_id", config.SourceClientID)
+
+		// Get client secret with proper decryption if from provider
+		clientSecret := ""
+		if config.SourceClientSecret != "" {
+			// Direct input from form (transient)
+			clientSecret = config.SourceClientSecret
+		} else if encryptedSecret, ok := sourceCredentials["encrypted_client_secret"].(string); ok && encryptedSecret != "" {
+			// Provider reference with encrypted secret
+			decryptedSecret, err := db.DecryptCredential(encryptedSecret)
+			if err != nil {
+				return fmt.Errorf("failed to decrypt source client secret: %v", err)
+			}
+			clientSecret = decryptedSecret
+		}
+
+		// Get refresh token if available
+		refreshToken := getStringOrDefault(sourceCredentials, "token", "")
+		if refreshToken == "" {
+			refreshToken = getStringOrDefault(sourceCredentials, "refresh_token", "")
+		}
+
+		if refreshToken == "" {
+			if encryptedToken, ok := sourceCredentials["encrypted_refresh_token"].(string); ok && encryptedToken != "" {
+				decryptedToken, err := db.DecryptCredential(encryptedToken)
+				if err != nil {
+					return fmt.Errorf("failed to decrypt source refresh token: %v", err)
+				}
+				refreshToken = decryptedToken
+			}
+		}
+
+		// If not found in credentials, check if using a provider reference
+		if refreshToken == "" && config.IsUsingSourceProviderReference() && config.SourceProvider != nil {
+			refreshToken = config.SourceProvider.RefreshToken
+		}
+
+		// Clean up the token
+		if refreshToken != "" {
+			refreshToken = strings.TrimSpace(refreshToken)
+			refreshToken = strings.ReplaceAll(refreshToken, "\n", "")
+			refreshToken = strings.ReplaceAll(refreshToken, "\r", "")
+			refreshToken = strings.Join(strings.Fields(refreshToken), "")
+		}
+
+		// Create rclone config for Google Drive
+		args := []string{
+			"config", "create", sourceName, "drive",
+			"client_id", clientID,
+			"client_secret", clientSecret,
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+
+		// Add team drive or drive ID if specified
+		teamDrive := getStringValue(sourceCredentials, "team_drive", config.SourceTeamDrive)
+		if teamDrive != "" {
+			args = append(args, "team_drive", teamDrive)
+		}
+
+		driveID := getStringValue(sourceCredentials, "drive_id", config.SourceDriveID)
+		if driveID != "" {
+			args = append(args, "drive_id", driveID)
+		}
+
+		// If we have a refresh token, add it
+		if refreshToken != "" {
+			args = append(args, "token", fmt.Sprintf("%s", refreshToken))
+		}
+
+		cmd := exec.Command(rclonePath, args...)
+
+		if output, err := cmd.CombinedOutput(); err != nil {
+			errorMsg := fmt.Sprintf("failed to create source config (drive): %v", err)
+			// Check if output contains useful info, especially for auth errors
+			if len(output) > 0 {
+				errorMsg += fmt.Sprintf("\nOutput: %s", output)
+			}
+			return fmt.Errorf("%v", errorMsg)
+		}
+	case "gphotos":
+		// For Google Photos, we need client ID and secret
+		clientID := getStringValue(sourceCredentials, "client_id", config.SourceClientID)
+
+		// Get client secret with proper decryption if from provider
+		clientSecret := ""
+		if config.SourceClientSecret != "" {
+			// Direct input from form (transient)
+			clientSecret = config.SourceClientSecret
+		} else if encryptedSecret, ok := sourceCredentials["encrypted_client_secret"].(string); ok && encryptedSecret != "" {
+			// Provider reference with encrypted secret
+			decryptedSecret, err := db.DecryptCredential(encryptedSecret)
+			if err != nil {
+				return fmt.Errorf("failed to decrypt source client secret: %v", err)
+			}
+			clientSecret = decryptedSecret
+		}
+
+		// Get refresh token if available
+		refreshToken := getStringOrDefault(sourceCredentials, "token", "")
+		if refreshToken == "" {
+			refreshToken = getStringOrDefault(sourceCredentials, "refresh_token", "")
+		}
+
+		if refreshToken == "" {
+			if encryptedToken, ok := sourceCredentials["encrypted_refresh_token"].(string); ok && encryptedToken != "" {
+				decryptedToken, err := db.DecryptCredential(encryptedToken)
+				if err != nil {
+					return fmt.Errorf("failed to decrypt source refresh token: %v", err)
+				}
+				refreshToken = decryptedToken
+			}
+		}
+
+		// Clean up the token
+		if refreshToken != "" {
+			refreshToken = strings.TrimSpace(refreshToken)
+			refreshToken = strings.ReplaceAll(refreshToken, "\n", "")
+			refreshToken = strings.ReplaceAll(refreshToken, "\r", "")
+			refreshToken = strings.Join(strings.Fields(refreshToken), "")
+		}
+
+		// Create rclone config for Google Photos
+		args := []string{
+			"config", "create", sourceName, "gphotos",
+			"client_id", clientID,
+			"client_secret", clientSecret,
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+
+		// Add read-only flag if specified
+		readOnly := false
+		if readOnlyVal, ok := sourceCredentials["read_only"].(bool); ok {
+			readOnly = readOnlyVal
+		} else if config.SourceReadOnly != nil {
+			readOnly = *config.SourceReadOnly
+		}
+		if readOnly {
+			args = append(args, "read_only", "true")
+		}
+
+		// Add start year if specified
+		startYear := getIntValue(sourceCredentials, "start_year", config.SourceStartYear)
+		if startYear > 0 {
+			args = append(args, "start_year", fmt.Sprintf("%d", startYear))
+		}
+
+		// Add include archived if specified
+		includeArchived := false
+		if includeArchivedVal, ok := sourceCredentials["include_archived"].(bool); ok {
+			includeArchived = includeArchivedVal
+		} else if config.SourceIncludeArchived != nil {
+			includeArchived = *config.SourceIncludeArchived
+		}
+		if includeArchived {
+			args = append(args, "include_archived", "true")
+		}
+
+		// If we have a refresh token, add it
+		if refreshToken != "" {
+			args = append(args, "token", fmt.Sprintf("%s", refreshToken))
+		}
+
+		cmd := exec.Command(rclonePath, args...)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			errorMsg := fmt.Sprintf("failed to create source config (gphotos): %v", err)
+			// Check if output contains useful info, especially for auth errors
+			if len(output) > 0 {
+				errorMsg += fmt.Sprintf("\nOutput: %s", output)
+			}
+			return fmt.Errorf("%v", errorMsg)
 		}
 	default:
 		// Handle unknown or unsupported source types if necessary
@@ -840,6 +1018,176 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 		if _, err := f.WriteString(content); err != nil {
 			return fmt.Errorf("failed to write destination config (local): %v", err)
 		}
+	case "drive":
+		// For Google Drive, we need client ID and secret
+		clientID := getStringValue(destCredentials, "client_id", config.DestClientID)
+
+		// Get client secret with proper decryption if from provider
+		clientSecret := ""
+		if config.DestClientSecret != "" {
+			// Direct input from form (transient)
+			clientSecret = config.DestClientSecret
+		} else if encryptedSecret, ok := destCredentials["encrypted_client_secret"].(string); ok && encryptedSecret != "" {
+			// Provider reference with encrypted secret
+			decryptedSecret, err := db.DecryptCredential(encryptedSecret)
+			if err != nil {
+				return fmt.Errorf("failed to decrypt destination client secret: %v", err)
+			}
+			clientSecret = decryptedSecret
+		}
+
+		// Get refresh token if available
+		refreshToken := getStringOrDefault(destCredentials, "token", "")
+		if refreshToken == "" {
+			refreshToken = getStringOrDefault(destCredentials, "refresh_token", "")
+		}
+
+		if refreshToken == "" {
+			if encryptedToken, ok := destCredentials["encrypted_refresh_token"].(string); ok && encryptedToken != "" {
+				decryptedToken, err := db.DecryptCredential(encryptedToken)
+				if err != nil {
+					return fmt.Errorf("failed to decrypt source refresh token: %v", err)
+				}
+				refreshToken = decryptedToken
+			}
+		}
+
+		// Clean up the token
+		if refreshToken != "" {
+			refreshToken = strings.TrimSpace(refreshToken)
+			refreshToken = strings.ReplaceAll(refreshToken, "\n", "")
+			refreshToken = strings.ReplaceAll(refreshToken, "\r", "")
+			refreshToken = strings.Join(strings.Fields(refreshToken), "")
+		}
+
+		// Create rclone config for Google Drive
+		args := []string{
+			"config", "create", destName, "drive",
+			"client_id", clientID,
+			"client_secret", clientSecret,
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+
+		// Add team drive or drive ID if specified
+		teamDrive := getStringValue(destCredentials, "team_drive", config.DestTeamDrive)
+		if teamDrive != "" {
+			args = append(args, "team_drive", teamDrive)
+		}
+
+		driveID := getStringValue(destCredentials, "drive_id", config.DestDriveID)
+		if driveID != "" {
+			args = append(args, "drive_id", driveID)
+		}
+
+		// If we have a refresh token, add it
+		if refreshToken != "" {
+			args = append(args, "token", fmt.Sprintf("%s", refreshToken))
+		}
+
+		cmd := exec.Command(rclonePath, args...)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			errorMsg := fmt.Sprintf("failed to create destination config (drive): %v", err)
+			// Check if output contains useful info, especially for auth errors
+			if len(output) > 0 {
+				errorMsg += fmt.Sprintf("\nOutput: %s", output)
+			}
+			return fmt.Errorf("%v", errorMsg)
+		}
+	case "gphotos":
+		// For Google Photos, we need client ID and secret
+		clientID := getStringValue(destCredentials, "client_id", config.DestClientID)
+
+		// Get client secret with proper decryption if from provider
+		clientSecret := ""
+		if config.DestClientSecret != "" {
+			// Direct input from form (transient)
+			clientSecret = config.DestClientSecret
+		} else if encryptedSecret, ok := destCredentials["encrypted_client_secret"].(string); ok && encryptedSecret != "" {
+			// Provider reference with encrypted secret
+			decryptedSecret, err := db.DecryptCredential(encryptedSecret)
+			if err != nil {
+				return fmt.Errorf("failed to decrypt destination client secret: %v", err)
+			}
+			clientSecret = decryptedSecret
+		}
+
+		// Get refresh token if available
+		refreshToken := getStringOrDefault(destCredentials, "token", "")
+		if refreshToken == "" {
+			refreshToken = getStringOrDefault(destCredentials, "refresh_token", "")
+		}
+
+		if refreshToken == "" {
+			if encryptedToken, ok := destCredentials["encrypted_refresh_token"].(string); ok && encryptedToken != "" {
+				decryptedToken, err := db.DecryptCredential(encryptedToken)
+				if err != nil {
+					return fmt.Errorf("failed to decrypt source refresh token: %v", err)
+				}
+				refreshToken = decryptedToken
+			}
+		}
+
+		// Clean up the token
+		if refreshToken != "" {
+			refreshToken = strings.TrimSpace(refreshToken)
+			refreshToken = strings.ReplaceAll(refreshToken, "\n", "")
+			refreshToken = strings.ReplaceAll(refreshToken, "\r", "")
+		}
+
+		// Create rclone config for Google Photos
+		args := []string{
+			"config", "create", destName, "gphotos",
+			"client_id", clientID,
+			"client_secret", clientSecret,
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+
+		// Add read-only flag if specified
+		readOnly := false
+		if readOnlyVal, ok := destCredentials["read_only"].(bool); ok {
+			readOnly = readOnlyVal
+		} else if config.DestReadOnly != nil {
+			readOnly = *config.DestReadOnly
+		}
+		if readOnly {
+			args = append(args, "read_only", "true")
+		}
+
+		// Add start year if specified
+		startYear := getIntValue(destCredentials, "start_year", config.DestStartYear)
+		if startYear > 0 {
+			args = append(args, "start_year", fmt.Sprintf("%d", startYear))
+		}
+
+		// Add include archived if specified
+		includeArchived := false
+		if includeArchivedVal, ok := destCredentials["include_archived"].(bool); ok {
+			includeArchived = includeArchivedVal
+		} else if config.DestIncludeArchived != nil {
+			includeArchived = *config.DestIncludeArchived
+		}
+		if includeArchived {
+			args = append(args, "include_archived", "true")
+		}
+
+		// If we have a refresh token, add it
+		if refreshToken != "" {
+			args = append(args, "token", fmt.Sprintf("%s", refreshToken))
+		}
+
+		cmd := exec.Command(rclonePath, args...)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			errorMsg := fmt.Sprintf("failed to create destination config (gphotos): %v", err)
+			// Check if output contains useful info, especially for auth errors
+			if len(output) > 0 {
+				errorMsg += fmt.Sprintf("\nOutput: %s", output)
+			}
+			return fmt.Errorf("%v", errorMsg)
+		}
 	default:
 		// Handle unknown or unsupported destination types if necessary
 		return fmt.Errorf("unsupported destination type for rclone config generation: %s", config.DestinationType)
@@ -875,6 +1223,8 @@ func getIntValue(creds map[string]interface{}, key string, defaultValue int) int
 
 // StoreGoogleDriveToken stores the Google Drive auth token for a config
 func (db *DB) StoreGoogleDriveToken(configIDStr string, token string) error {
+	// Remove all whitespace to ensure the token is a single line
+	token = strings.Join(strings.Fields(token), "")
 	configID, err := strconv.ParseUint(configIDStr, 10, 64)
 	if err != nil {
 		return fmt.Errorf("invalid config ID: %v", err)

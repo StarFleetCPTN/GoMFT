@@ -306,6 +306,7 @@ templ StorageProviders(ctx context.Context, data StorageProvidersData) {
 						</div>
 						<div class="ml-2 text-sm">
 							<p class="text-gray-700 dark:text-gray-300">Your credentials are encrypted for security. You can test connections before using them in transfers.</p>
+							<p class="mt-1 text-gray-600 dark:text-gray-400">Google Drive and Google Photos providers require authentication. Click the "Authenticate" button to complete setup.</p>
 						</div>
 					</div>
 
@@ -322,6 +323,73 @@ templ StorageProviders(ctx context.Context, data StorageProvidersData) {
 		</div>
 		
 		<script src="/static/js/storage-providers.js"></script>
+		
+		<script>
+			// Function to initialize all auth dropdowns
+			function initAllAuthDropdowns() {
+				// Get all dropdown buttons
+				const dropdownButtons = document.querySelectorAll('[id^="auth-dropdown-button-"]');
+				
+				dropdownButtons.forEach(button => {
+					const providerId = button.getAttribute('data-provider-id');
+					const menu = document.getElementById(`auth-dropdown-menu-${providerId}`);
+					
+					if (button && menu) {
+						// Add click listener
+						button.addEventListener('click', function(e) {
+							e.preventDefault();
+							e.stopPropagation();
+							
+							// Position dropdown based on available space
+							const buttonRect = button.getBoundingClientRect();
+							const spaceRight = window.innerWidth - buttonRect.right;
+							const spaceLeft = buttonRect.left;
+							
+							// Check if there's more space on the left or right side
+							if (spaceLeft > spaceRight) {
+								menu.classList.add('right-0');
+								menu.classList.remove('left-0');
+							} else {
+								menu.classList.add('left-0');
+								menu.classList.remove('right-0');
+							}
+							
+							// Toggle visibility
+							menu.classList.toggle('hidden');
+							console.log(`Toggled dropdown for provider ${providerId}`);
+						});
+						
+						console.log(`Initialized dropdown for provider ${providerId}`);
+					} else {
+						console.error(`Could not find dropdown elements for provider ${providerId}`);
+					}
+				});
+				
+				// Close dropdowns when clicking elsewhere
+				document.addEventListener('click', function(e) {
+					dropdownButtons.forEach(button => {
+						const providerId = button.getAttribute('data-provider-id');
+						const menu = document.getElementById(`auth-dropdown-menu-${providerId}`);
+						
+						if (menu && !button.contains(e.target) && !menu.contains(e.target)) {
+							menu.classList.add('hidden');
+						}
+					});
+				});
+			}
+			
+			// Initialize dropdowns when DOM is loaded
+			document.addEventListener('DOMContentLoaded', function() {
+				// Check for status messages based on URL parameters
+				const urlParams = new URLSearchParams(window.location.search);
+				if (urlParams.get('status') === 'gdrive_auth_success') {
+					showToast("Google Drive authentication completed successfully", 'success');
+				}
+				
+				// Initialize all authentication dropdowns
+				initAllAuthDropdowns();
+			});
+		</script>
 	}
 }
 
@@ -416,11 +484,11 @@ templ StorageProviders_ProvidersList(providers []db.StorageProvider) {
 												Region: { provider.Region }
 											</p>
 										}
-									} else if provider.Type == "google_drive" || provider.Type == "google_photo" {
+									} else if provider.Type == "drive" || provider.Type == "gphotos" {
 										<p class="flex items-center text-sm text-gray-500 dark:text-gray-400">
 											<i class="fab fa-google-drive w-4 h-4 mr-1.5 text-gray-400 dark:text-gray-500"></i>
 											Google 
-											if provider.Type == "google_drive" {
+											if provider.Type == "drive" {
 												Drive
 											} else {
 												Photos
@@ -431,12 +499,51 @@ templ StorageProviders_ProvidersList(providers []db.StorageProvider) {
 										</p>
 										if provider.Authenticated != nil && *provider.Authenticated {
 											<span class="mt-2 md:mt-0 bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full dark:bg-green-900 dark:text-green-300">
+												<i class="fas fa-check-circle w-3 h-3 mr-1 inline"></i>
 												Authenticated
 											</span>
 										} else {
-											<span class="mt-2 md:mt-0 bg-yellow-100 text-yellow-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full dark:bg-yellow-900 dark:text-yellow-300">
-												Not Authenticated
-											</span>
+											<div class="flex flex-col md:flex-row items-start md:items-center mt-2 md:mt-0">
+												
+												<!-- Google Authentication Dropdown -->
+												<div class="relative inline-block text-left mt-2 md:mt-0">
+													<button 
+														id={ fmt.Sprintf("auth-dropdown-button-%d", provider.ID) }
+														data-provider-id={ fmt.Sprintf("%d", provider.ID) }
+														type="button" 
+														class="text-yellow-700 bg-yellow-100 hover:bg-yellow-200 focus:ring-4 focus:outline-none focus:ring-yellow-300 font-medium rounded-lg text-sm px-3 py-1.5 text-center inline-flex items-center dark:bg-yellow-900 dark:text-yellow-300 dark:hover:bg-yellow-800 dark:focus:ring-yellow-800"
+														aria-expanded="false" 
+														aria-haspopup="true">
+														<i class="fas fa-key w-3.5 h-3.5 mr-1.5"></i>
+														Authenticate with Google
+														<i class="fas fa-chevron-down w-3.5 h-3.5 ml-1.5"></i>
+													</button>
+													<div id={ fmt.Sprintf("auth-dropdown-menu-%d", provider.ID) } class="origin-top-right absolute left-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-gray-700 ring-1 ring-black ring-opacity-5 focus:outline-none z-50 hidden" style="max-height: 200px; overflow-y: auto;" role="menu" aria-orientation="vertical" aria-labelledby={ fmt.Sprintf("auth-dropdown-button-%d", provider.ID) }>
+														<div class="py-1" role="none">
+															<a href={ templ.SafeURL(fmt.Sprintf("/storage-providers/%d/gdrive-auth", provider.ID)) } class="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 group flex items-center px-4 py-2 text-sm" role="menuitem">
+																<i class="fas fa-globe w-4 h-4 mr-3 text-gray-500 dark:text-gray-400"></i>
+																Standard Authentication
+															</a>
+															<a href={ templ.SafeURL(fmt.Sprintf("/storage-providers/%d/gdrive-headless-auth", provider.ID)) } class="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 group flex items-center px-4 py-2 text-sm" role="menuitem">
+																<i class="fas fa-terminal w-4 h-4 mr-3 text-gray-500 dark:text-gray-400"></i>
+																Headless Authentication
+															</a>
+														</div>
+													</div>
+												</div>
+												
+												<!-- Hidden fallback links - only shown when JavaScript is disabled -->
+												<noscript>
+													<div class="flex flex-col text-xs text-gray-500 dark:text-gray-400 mt-1 ml-1">
+														<a href={ templ.SafeURL(fmt.Sprintf("/storage-providers/%d/gdrive-auth", provider.ID)) } class="hover:underline hover:text-blue-500">
+															Direct Standard Auth
+														</a>
+														<a href={ templ.SafeURL(fmt.Sprintf("/storage-providers/%d/gdrive-headless-auth", provider.ID)) } class="hover:underline hover:text-blue-500">
+															Direct Headless Auth
+														</a>
+													</div>
+												</noscript>
+											</div>
 										}
 									} else if provider.Type == "webdav" || provider.Type == "nextcloud" {
 										<p class="flex items-center text-sm text-gray-500 dark:text-gray-400">
@@ -493,6 +600,33 @@ templ StorageProviders_ProvidersList(providers []db.StorageProvider) {
 								</div>
 							</div>
 						</div>
+						
+						<!-- Authentication Notice (More Visible) -->
+						if (provider.Type == "drive" || provider.Type == "gphotos") && (provider.Authenticated == nil || !*provider.Authenticated) {
+							<div class="mt-3 flex items-center justify-between bg-yellow-50 dark:bg-yellow-900/30 rounded-lg p-3 border border-yellow-200 dark:border-yellow-800">
+								<div class="flex items-center">
+									<i class="fas fa-exclamation-triangle text-yellow-500 w-5 h-5 mr-2"></i>
+									<span class="text-sm text-yellow-700 dark:text-yellow-300">
+									Authentication required for Google 
+									if provider.Type == "drive" {
+										Drive
+									} else {
+										Photos
+									}
+									</span>
+								</div>
+								<div class="flex gap-2">
+									<a href={ templ.SafeURL(fmt.Sprintf("/storage-providers/%d/gdrive-auth", provider.ID)) } class="text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg">
+										<i class="fas fa-globe w-3.5 h-3.5 mr-1.5"></i>
+										Standard Auth
+									</a>
+									<a href={ templ.SafeURL(fmt.Sprintf("/storage-providers/%d/gdrive-headless-auth", provider.ID)) } class="text-sm font-medium text-white bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-lg">
+										<i class="fas fa-terminal w-3.5 h-3.5 mr-1.5"></i>
+										Headless Auth
+									</a>
+								</div>
+							</div>
+						}
 					</div>
 				</li>
 			}

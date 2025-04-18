@@ -161,12 +161,12 @@ templ formFields(data StorageProviderFormData) {
 							selected="selected"
 						}
 					>OneDrive</option>
-					<option value="google_drive"
+					<option value="drive"
 						if data.Provider.Type == db.ProviderTypeGoogleDrive {
 							selected="selected"
 						}
 					>Google Drive</option>
-					<option value="google_photo"
+					<option value="gphotos"
 						if data.Provider.Type == db.ProviderTypeGooglePhoto {
 							selected="selected"
 						}
@@ -512,7 +512,7 @@ templ providerFormScript() {
 					}
 					
 					// If Google Drive or Google Photos, update hidden fields
-					if (['google_drive', 'google_photo', 'onedrive'].includes(providerType)) {
+					if (['drive', 'gphotos', 'onedrive'].includes(providerType)) {
 						document.getElementById('hidden_clientID').value = document.getElementById('clientID').value;
 						
 						// Make sure clientSecret is always copied to the hidden field
@@ -866,7 +866,7 @@ templ providerFormScript() {
 			}
 			
 			// Google services
-			if (['google_drive', 'google_photo'].includes(provider)) {
+			if (['drive', 'gphotos'].includes(provider)) {
 				document.getElementById('cloud-fields').classList.remove('hidden');
 				document.getElementById('built-in-auth-field').classList.remove('hidden');
 				
@@ -880,9 +880,9 @@ templ providerFormScript() {
 						
 						if (editMode) {
 							// Edit mode - provider specific text
-							if (provider === 'google_drive') {
+							if (provider === 'drive') {
 								clientSecretDescription.textContent = "Leave empty to keep the current Google Drive client secret";
-							} else if (provider === 'google_photo') {
+							} else if (provider === 'gphotos') {
 								clientSecretDescription.textContent = "Leave empty to keep the current Google Photos client secret";
 							}
 						}
@@ -890,13 +890,13 @@ templ providerFormScript() {
 				}
 				
 				// Google Drive specific fields
-				if (provider === 'google_drive') {
+				if (provider === 'drive') {
 					document.getElementById('drive-id-field').classList.remove('hidden');
 					document.getElementById('team-drive-field').classList.remove('hidden');
 				}
 				
 				// Google Photos specific fields
-				if (provider === 'google_photo') {
+				if (provider === 'gphotos') {
 					document.getElementById('gphotos-options-field').classList.remove('hidden');
 				}
 			}

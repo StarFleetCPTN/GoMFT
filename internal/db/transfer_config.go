@@ -447,7 +447,8 @@ func (tc *TransferConfig) GetSourceCredentials(db interface{}) (map[string]inter
 			"  has_encrypted_password: %v\n"+
 			"  has_key_file: %v\n"+
 			"  has_encrypted_secret_key: %v\n"+
-			"  has_encrypted_client_secret: %v\n",
+			"  has_encrypted_client_secret: %v\n"+
+			"  has_encrypted_refresh_token: %v\n",
 			creds["type"],
 			creds["host"],
 			creds["port"],
@@ -455,7 +456,8 @@ func (tc *TransferConfig) GetSourceCredentials(db interface{}) (map[string]inter
 			creds["encrypted_password"] != "",
 			creds["key_file"] != "",
 			creds["encrypted_secret_key"] != "",
-			creds["encrypted_client_secret"] != "")
+			creds["encrypted_client_secret"] != "",
+			creds["encrypted_refresh_token"] != "")
 
 		return creds, nil
 	}
