@@ -184,7 +184,7 @@ func (sp *StorageProvider) GetSensitiveFields() map[string]string {
 
 	// Add fields based on provider type
 	switch sp.Type {
-	case ProviderTypeSFTP, ProviderTypeFTP, ProviderTypeSMB, ProviderTypeHetzner:
+	case ProviderTypeSFTP, ProviderTypeFTP, ProviderTypeSMB, ProviderTypeHetzner, ProviderTypeWebDAV, ProviderTypeNextcloud:
 		if sp.Password != "" {
 			sensitiveFields["Password"] = sp.Password
 		}

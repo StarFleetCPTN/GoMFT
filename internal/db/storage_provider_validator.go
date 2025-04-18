@@ -75,6 +75,11 @@ func (sp *StorageProvider) validateWebDAV() error {
 		return errors.New("host is required for WebDAV provider")
 	}
 
+	// Host must include the protocol
+	if !strings.HasPrefix(sp.Host, "http://") && !strings.HasPrefix(sp.Host, "https://") {
+		return errors.New("host must include the protocol (http:// or https://)")
+	}
+
 	if strings.TrimSpace(sp.Username) == "" {
 		return errors.New("username is required for WebDAV provider")
 	}

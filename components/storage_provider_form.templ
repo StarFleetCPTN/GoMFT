@@ -196,7 +196,7 @@ templ formFields(data StorageProviderFormData) {
 		</div>
 		
 		<!-- Port -->
-		<div class="mb-4">
+		<div id="port-field" class="mb-4">
 			<label for="port" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Port</label>
 			<input type="number" id="port" name="port" value={ fmt.Sprint(data.Provider.Port) } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="22" />
 			<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave empty for default (SFTP: 22, FTP: 21, SMB: 445, WebDAV: 80/443)</p>
@@ -533,6 +533,17 @@ templ providerFormScript() {
 							clientSecretLength: document.getElementById('hidden_clientSecret').value.length
 						});
 					}
+					
+					// Debug WebDAV form submission
+					if (['webdav', 'nextcloud'].includes(providerType)) {
+						console.log('Submitting WebDAV form with:', {
+							provider: providerType,
+							host: document.getElementById('host').value,
+							username: document.getElementById('username').value,
+							password: document.getElementById('password').value ? '[PRESENT]' : '[EMPTY]',
+							passwordLength: document.getElementById('password').value.length
+						});
+					}
 				});
 			});
 		});
@@ -580,6 +591,59 @@ templ providerFormScript() {
 				// SFTP/Hetzner-specific fields
 				if (provider === 'sftp' || provider === 'hetzner') {
 					document.getElementById('key-file-field').classList.remove('hidden');
+					
+					// Update placeholders for Hetzner
+					if (provider === 'hetzner') {
+						// Update host field
+						const hostField = document.getElementById('host');
+						if (hostField) {
+							hostField.placeholder = "uXXXXXX.your-storagebox.de";
+							
+							// Update host label and description
+							const hostLabel = document.querySelector('label[for="host"]');
+							if (hostLabel) {
+								hostLabel.textContent = "Storage Box Host";
+							}
+							
+							const hostDescription = hostField.nextElementSibling;
+							if (hostDescription?.tagName === 'P') {
+								hostDescription.textContent = "Your Hetzner Storage Box hostname (e.g., uXXXXXX.your-storagebox.de)";
+							}
+						}
+						
+						// Update username field
+						const usernameField = document.getElementById('username');
+						if (usernameField) {
+							usernameField.placeholder = "uXXXXXX";
+							
+							// Update username description
+							const usernameDescription = usernameField.nextElementSibling;
+							if (usernameDescription?.tagName === 'P') {
+								usernameDescription.textContent = "Your Hetzner Storage Box username (typically matches your Storage Box number)";
+							}
+						}
+						
+						// Update key file field
+						const keyFileField = document.getElementById('keyFile');
+						if (keyFileField) {
+							keyFileField.placeholder = "/path/to/id_rsa";
+							
+							// Update key file description
+							const keyFileDescription = keyFileField.nextElementSibling;
+							if (keyFileDescription?.tagName === 'P') {
+								keyFileDescription.textContent = "Path to your SSH private key file for Hetzner Storage Box authentication";
+							}
+						}
+						
+						// Update port field description
+						const portField = document.getElementById('port');
+						if (portField) {
+							const portDescription = portField.nextElementSibling;
+							if (portDescription?.tagName === 'P') {
+								portDescription.textContent = "Connection port for Hetzner Storage Box (default: 23)";
+							}
+						}
+					}
 				}
 				
 				// FTP-specific fields
@@ -591,7 +655,141 @@ templ providerFormScript() {
 			// WebDAV-based fields
 			if (['webdav', 'nextcloud'].includes(provider)) {
 				document.getElementById('sftp-ftp-fields').classList.remove('hidden');
-				// No special fields currently for WebDAV
+				// Hide fields that WebDAV doesn't use
+				document.getElementById('port-field').classList.add('hidden');
+				
+				// Update placeholders for WebDAV
+				const hostField = document.getElementById('host');
+				if (hostField) {
+					hostField.placeholder = "https://webdav.example.com";
+				}
+				
+				// Update label for host field
+				const hostLabel = document.querySelector('label[for="host"]');
+				if (hostLabel) {
+					hostLabel.textContent = "WebDAV URL";
+				}
+				
+				// Update description for host field
+				const hostDescription = hostField?.nextElementSibling;
+				if (hostDescription?.tagName === 'P') {
+					hostDescription.textContent = provider === 'webdav' ? 
+						"Full URL to your WebDAV server including protocol (https://)" :
+						"Full URL to your Nextcloud WebDAV endpoint (e.g., https://nextcloud.example.com/remote.php/dav/files/username/)";
+				}
+				
+				// Update username field
+				const usernameField = document.getElementById('username');
+				if (usernameField) {
+					usernameField.placeholder = provider === 'nextcloud' ? "nextcloud_username" : "webdav_username";
+					
+					// Update username description
+					const usernameDescription = usernameField.nextElementSibling;
+					if (usernameDescription?.tagName === 'P') {
+						usernameDescription.textContent = provider === 'nextcloud' ? 
+							"Your Nextcloud username for authentication" : 
+							"Your WebDAV username for authentication";
+					}
+				}
+				
+				// Update password field
+				const passwordField = document.getElementById('password');
+				if (passwordField) {
+					passwordField.name = "password"; // Ensure name is set correctly
+					
+					// Update password description
+					const passwordDescription = passwordField.nextElementSibling;
+					if (passwordDescription?.tagName === 'P') {
+						// Check if we're in edit mode
+						const editMode = passwordDescription.textContent.includes("Leave empty to keep");
+						
+						if (editMode) {
+							// Edit mode - tell user they can leave password empty to keep current one
+							passwordDescription.textContent = provider === 'nextcloud' ? 
+								"Leave empty to keep the current Nextcloud password" : 
+								"Leave empty to keep the current WebDAV password";
+						} else {
+							// New provider - show regular password help text
+							passwordDescription.textContent = provider === 'nextcloud' ? 
+								"Your Nextcloud password or app-specific password" : 
+								"Your WebDAV password for authentication";
+						}
+					}
+				}
+				
+				if (document.getElementById('key-file-field')) {
+					document.getElementById('key-file-field').classList.add('hidden');
+				}
+				if (document.getElementById('domain-field')) {
+					document.getElementById('domain-field').classList.add('hidden');
+				}
+			} else {
+				// Reset placeholders for other providers
+				const hostField = document.getElementById('host');
+				if (hostField && ['sftp', 'ftp', 'smb'].includes(provider)) {
+					hostField.placeholder = provider === 'sftp' ? "sftp.example.com" : 
+											provider === 'ftp' ? "ftp.example.com" : 
+											"192.168.1.10";
+				}
+				
+				// Reset label for host field
+				const hostLabel = document.querySelector('label[for="host"]');
+				if (hostLabel) {
+					hostLabel.textContent = "Host";
+				}
+				
+				// Reset username field
+				const usernameField = document.getElementById('username');
+				if (usernameField) {
+					usernameField.placeholder = provider === 'sftp' ? "sftp_username" : 
+											 provider === 'ftp' ? "ftp_username" :
+											 provider === 'smb' ? "smb_username" : "username";
+					
+					// Reset username description
+					const usernameDescription = usernameField.nextElementSibling;
+					if (usernameDescription?.tagName === 'P') {
+						usernameDescription.textContent = "Your login username";
+					}
+				}
+				
+				// Reset password field
+				const passwordField = document.getElementById('password');
+				if (passwordField) {
+					// Reset password description
+					const passwordDescription = passwordField.nextElementSibling;
+					if (passwordDescription?.tagName === 'P') {
+						// Check if we're in edit mode
+						const editMode = passwordDescription.textContent.includes("Leave empty to keep");
+						
+						if (editMode) {
+							// Edit mode - tell user they can leave password empty to keep current one
+							if (provider === 'sftp') {
+								passwordDescription.textContent = "Leave empty to keep the current SFTP password";
+							} else if (provider === 'ftp') {
+								passwordDescription.textContent = "Leave empty to keep the current FTP password";
+							} else if (provider === 'smb') {
+								passwordDescription.textContent = "Leave empty to keep the current SMB password";
+							} else if (provider === 'hetzner') {
+								passwordDescription.textContent = "Leave empty to keep the current Hetzner Storage Box password";
+							} else {
+								passwordDescription.textContent = "Leave empty to keep the current password";
+							}
+						} else {
+							// New provider - show regular password help text
+							if (provider === 'sftp') {
+								passwordDescription.textContent = "Your SFTP server password";
+							} else if (provider === 'ftp') {
+								passwordDescription.textContent = "Your FTP server password";
+							} else if (provider === 'smb') {
+								passwordDescription.textContent = "Your SMB/CIFS share password";
+							} else if (provider === 'hetzner') {
+								passwordDescription.textContent = "Your Hetzner Storage Box password";
+							} else {
+								passwordDescription.textContent = "Your login password";
+							}
+						}
+					}
+				}
 			}
 			
 			// SMB-specific fields
@@ -609,6 +807,40 @@ templ providerFormScript() {
 				const endpointRequired = document.getElementById('endpoint-required');
 				const regionInput = document.getElementById('region');
 				const endpointInput = document.getElementById('endpoint');
+				
+				// Update Secret Key field description based on provider type
+				const secretKeyField = document.getElementById('secretKey');
+				if (secretKeyField) {
+					const secretKeyDescription = secretKeyField.nextElementSibling;
+					if (secretKeyDescription?.tagName === 'P') {
+						// Check if in edit mode
+						const editMode = secretKeyDescription.textContent.includes("Leave empty to keep");
+						
+						if (editMode) {
+							// Edit mode - provider specific text
+							if (provider === 'b2') {
+								secretKeyDescription.textContent = "Leave empty to keep the current B2 Application Key";
+							} else if (provider === 'wasabi') {
+								secretKeyDescription.textContent = "Leave empty to keep the current Wasabi Secret Key";
+							} else if (provider === 'minio') {
+								secretKeyDescription.textContent = "Leave empty to keep the current MinIO Secret Key";
+							} else {
+								secretKeyDescription.textContent = "Leave empty to keep the current AWS Secret Access Key";
+							}
+						} else {
+							// New provider - provider specific text
+							if (provider === 'b2') {
+								secretKeyDescription.textContent = "Your Backblaze B2 Application Key";
+							} else if (provider === 'wasabi') {
+								secretKeyDescription.textContent = "Your Wasabi Secret Key";
+							} else if (provider === 'minio') {
+								secretKeyDescription.textContent = "Your MinIO Secret Key";
+							} else {
+								secretKeyDescription.textContent = "Your AWS Secret Access Key";
+							}
+						}
+					}
+				}
 				
 				// For B2: endpoint and region are optional
 				if (provider === 'b2') {
@@ -636,6 +868,26 @@ templ providerFormScript() {
 			// Google services
 			if (['google_drive', 'google_photo'].includes(provider)) {
 				document.getElementById('cloud-fields').classList.remove('hidden');
+				document.getElementById('built-in-auth-field').classList.remove('hidden');
+				
+				// Update client secret field description
+				const clientSecretField = document.getElementById('clientSecret');
+				if (clientSecretField) {
+					const clientSecretDescription = clientSecretField.nextElementSibling;
+					if (clientSecretDescription?.tagName === 'P') {
+						// Check if in edit mode
+						const editMode = clientSecretDescription.textContent.includes("Leave empty to keep");
+						
+						if (editMode) {
+							// Edit mode - provider specific text
+							if (provider === 'google_drive') {
+								clientSecretDescription.textContent = "Leave empty to keep the current Google Drive client secret";
+							} else if (provider === 'google_photo') {
+								clientSecretDescription.textContent = "Leave empty to keep the current Google Photos client secret";
+							}
+						}
+					}
+				}
 				
 				// Google Drive specific fields
 				if (provider === 'google_drive') {
@@ -645,14 +897,29 @@ templ providerFormScript() {
 				
 				// Google Photos specific fields
 				if (provider === 'google_photo') {
-					document.getElementById('readonly-field').classList.remove('hidden');
+					document.getElementById('gphotos-options-field').classList.remove('hidden');
 				}
 			}
 			
 			// OneDrive
 			if (provider === 'onedrive') {
 				document.getElementById('cloud-fields').classList.remove('hidden');
-				// No special fields for OneDrive currently
+				
+				// Update client secret field description
+				const clientSecretField = document.getElementById('clientSecret');
+				if (clientSecretField) {
+					const clientSecretDescription = clientSecretField.nextElementSibling;
+					if (clientSecretDescription?.tagName === 'P') {
+						// Check if in edit mode
+						const editMode = clientSecretDescription.textContent.includes("Leave empty to keep");
+						
+						if (editMode) {
+							clientSecretDescription.textContent = "Leave empty to keep the current OneDrive client secret";
+						} else {
+							clientSecretDescription.textContent = "Your Microsoft Azure OAuth client secret";
+						}
+					}
+				}
 			}
 			
 			// Local filesystem fields

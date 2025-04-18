@@ -399,7 +399,8 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 	case "webdav", "nextcloud": // Handle both webdav and nextcloud similarly
 		// Construct the WebDAV URL
 		// Parse the provided source URL, assuming it includes the scheme
-		inputURL := config.SourceHost
+		inputURL := getStringValue(sourceCredentials, "host", config.SourceHost)
+		fmt.Printf("Input URL: %s\n", inputURL)
 		parsedURL, err := url.Parse(inputURL)
 		if err != nil {
 			return fmt.Errorf("failed to parse source URL '%s': %v", inputURL, err)
@@ -424,12 +425,30 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"config", "create", sourceName, "webdav",
 			"url", webdavURL,
 			"vendor", vendor,
-			"user", config.SourceUser,
-			"pass", config.SourcePassword, // rclone obscures this
+			"user", getStringValue(sourceCredentials, "username", config.SourceUser),
 			"--non-interactive",
 			"--config", configPath,
 			"--log-level", "ERROR",
 		}
+
+		// Handle password
+		password := ""
+		if config.SourcePassword != "" {
+			password = config.SourcePassword
+		} else if encryptedPwd, ok := sourceCredentials["encrypted_password"].(string); ok && encryptedPwd != "" {
+			decryptedPwd, err := db.DecryptCredential(encryptedPwd)
+			if err != nil {
+				return fmt.Errorf("failed to decrypt source password: %v", err)
+			}
+			password = decryptedPwd
+		} else if pwVal, ok := sourceCredentials["password"].(string); ok && pwVal != "" {
+			password = pwVal
+		}
+
+		if password != "" {
+			args = append(args, "pass", password)
+		}
+
 		cmd := exec.Command(rclonePath, args...)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			errorMsg := fmt.Sprintf("failed to create source config (%s): %v", config.SourceType, err)
@@ -751,7 +770,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 	case "webdav", "nextcloud": // Combined case for WebDAV and Nextcloud
 		// Parse and reconstruct the WebDAV URL robustly
 		// Parse the provided destination URL, assuming it includes the scheme
-		inputURL := config.DestHost
+		inputURL := getStringValue(destCredentials, "host", config.DestHost)
 		parsedURL, err := url.Parse(inputURL)
 		if err != nil {
 			return fmt.Errorf("failed to parse destination URL '%s': %v", inputURL, err)

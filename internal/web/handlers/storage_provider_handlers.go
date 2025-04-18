@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -445,6 +446,19 @@ func (h *Handlers) parseProviderFromForm(c *gin.Context) (db.StorageProvider, er
 		// WebDAV specific fields
 		provider.Username = c.PostForm("username")
 		provider.Password = c.PostForm("password")
+
+		// Log for debugging
+		log.Printf("WebDAV provider: username=%s, password present=%v",
+			provider.Username, provider.Password != "")
+
+		// WebDAV uses Host without port (full URL)
+		if provider.Host == "" {
+			return provider, fmt.Errorf("host/URL is required for WebDAV provider")
+		}
+
+		if provider.Username == "" {
+			return provider, fmt.Errorf("username is required for WebDAV provider")
+		}
 
 	case db.ProviderTypeS3, db.ProviderTypeWasabi, db.ProviderTypeMinio, db.ProviderTypeB2:
 		// S3 specific fields
