@@ -457,6 +457,29 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 
 							// Initialize command requirements
 							updateCommandRequirements();
+							
+							// Initialize hidden input fields with their values to ensure they're included in form submission
+							document.getElementById('hidden_name').value = name;
+							document.getElementById('hidden_source_path').value = sourcePath;
+							document.getElementById('hidden_destination_path').value = destinationPath;
+							
+							// Initialize S3 source fields if applicable
+							if (sourceType === 's3' || sourceType === 'b2' || sourceType === 'wasabi' || sourceType === 'minio') {
+								document.getElementById('hidden_source_access_key').value = sourceAccessKey;
+								document.getElementById('hidden_source_secret_key').value = sourceSecretKey;
+								document.getElementById('hidden_source_endpoint').value = sourceEndpoint;
+								document.getElementById('hidden_source_bucket').value = sourceBucket;
+								document.getElementById('hidden_source_region').value = sourceRegion;
+							}
+							
+							// Initialize S3 destination fields if applicable
+							if (destinationType === 's3' || destinationType === 'b2' || destinationType === 'wasabi' || destinationType === 'minio') {
+								document.getElementById('hidden_dest_access_key').value = destAccessKey;
+								document.getElementById('hidden_dest_secret_key').value = destSecretKey;
+								document.getElementById('hidden_dest_endpoint').value = destEndpoint;
+								document.getElementById('hidden_dest_bucket').value = destBucket;
+								document.getElementById('hidden_dest_region').value = destRegion;
+							}
 						})"
 						x-effect="if (sourceType === 'sftp' && (sourcePort === 0 || sourcePort === 21 || sourcePort === 23)) {
 							sourcePort = 22;
@@ -478,7 +501,49 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 							console.log('Updating destination port to 23 for Hetzner');
 						}"
 						@formvalidation
+						@submit="
+							// Basic fields
+							document.getElementById('hidden_name').value = name; 
+							document.getElementById('hidden_source_path').value = sourcePath; 
+							document.getElementById('hidden_destination_path').value = destinationPath;
+							
+							// S3 source fields
+							if (sourceType === 's3' || sourceType === 'b2' || sourceType === 'wasabi' || sourceType === 'minio') {
+								document.getElementById('hidden_source_access_key').value = sourceAccessKey;
+								document.getElementById('hidden_source_secret_key').value = sourceSecretKey;
+								document.getElementById('hidden_source_endpoint').value = sourceEndpoint;
+								document.getElementById('hidden_source_bucket').value = sourceBucket;
+								document.getElementById('hidden_source_region').value = sourceRegion;
+							}
+							
+							// S3 destination fields
+							if (destinationType === 's3' || destinationType === 'b2' || destinationType === 'wasabi' || destinationType === 'minio') {
+								document.getElementById('hidden_dest_access_key').value = destAccessKey;
+								document.getElementById('hidden_dest_secret_key').value = destSecretKey;
+								document.getElementById('hidden_dest_endpoint').value = destEndpoint;
+								document.getElementById('hidden_dest_bucket').value = destBucket;
+								document.getElementById('hidden_dest_region').value = destRegion;
+							}
+						"
 						>
+						
+						<!-- Hidden fields to ensure values are submitted with the form -->
+						<input type="hidden" id="hidden_name" name="name" />
+						<input type="hidden" id="hidden_source_path" name="source_path" />
+						<input type="hidden" id="hidden_destination_path" name="destination_path" />
+						
+						<!-- Hidden fields for S3-compatible providers -->
+						<input type="hidden" id="hidden_source_access_key" name="source_access_key" />
+						<input type="hidden" id="hidden_source_secret_key" name="source_secret_key" />
+						<input type="hidden" id="hidden_source_endpoint" name="source_endpoint" /> 
+						<input type="hidden" id="hidden_source_bucket" name="source_bucket" />
+						<input type="hidden" id="hidden_source_region" name="source_region" />
+						
+						<input type="hidden" id="hidden_dest_access_key" name="dest_access_key" />
+						<input type="hidden" id="hidden_dest_secret_key" name="dest_secret_key" />
+						<input type="hidden" id="hidden_dest_endpoint" name="dest_endpoint" />
+						<input type="hidden" id="hidden_dest_bucket" name="dest_bucket" />
+						<input type="hidden" id="hidden_dest_region" name="dest_region" />
 						
 						<!-- Form Error Container -->
 						<div id="form-errors" class="hidden p-4 mb-6 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-red-800/20 dark:text-red-400 border border-red-200 dark:border-red-900" role="alert">
@@ -510,6 +575,7 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 								id="name" 
 								name="name" 
 								x-model="name" 
+								@input="document.getElementById('hidden_name').value = name"
 								required 
 								aria-required="true"
 								class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
@@ -645,6 +711,7 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 											id="source_path" 
 											name="source_path" 
 											x-model="sourcePath"
+											@input="document.getElementById('hidden_source_path').value = sourcePath"
 											@blur="checkPath(sourcePath, 'source')"
 											class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
 											placeholder="/path/to/source"
@@ -775,6 +842,7 @@ templ ConfigForm(ctx context.Context, data ConfigFormData) {
 											id="destination_path" 
 											name="destination_path" 
 											x-model="destinationPath"
+											@input="document.getElementById('hidden_destination_path').value = destinationPath"
 											@blur="checkPath(destinationPath, 'dest')"
 											class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
 											placeholder="/path/to/destination"

@@ -104,7 +104,15 @@ func createTempTransferConfig(provider *db.StorageProvider) *db.TransferConfig {
 			config.SetSourcePassiveMode(passive)
 		}
 
-	case db.ProviderTypeS3:
+	case db.ProviderTypeS3, db.ProviderTypeWasabi, db.ProviderTypeMinio:
+		config.SourceAccessKey = provider.AccessKey
+		config.SourceSecretKey = provider.SecretKey
+		config.SourceBucket = provider.Bucket
+		config.SourceRegion = provider.Region
+		config.SourceEndpoint = provider.Endpoint
+
+	case db.ProviderTypeB2:
+		// B2 uses AccessKey as account and SecretKey as application key
 		config.SourceAccessKey = provider.AccessKey
 		config.SourceSecretKey = provider.SecretKey
 		config.SourceBucket = provider.Bucket
@@ -162,13 +170,18 @@ func (s *ConnectorService) decryptProviderCredentials(provider *db.StorageProvid
 			provider.Password = password
 		}
 
-	case db.ProviderTypeS3:
+	case db.ProviderTypeS3, db.ProviderTypeWasabi, db.ProviderTypeMinio, db.ProviderTypeB2:
 		if provider.EncryptedSecretKey != "" {
 			secretKey, err := s.credentialEncryptor.Decrypt(provider.EncryptedSecretKey)
 			if err != nil {
 				return fmt.Errorf("failed to decrypt secret key: %w", err)
 			}
 			provider.SecretKey = secretKey
+			log.Printf("DEBUG: Decrypted secret key for %s provider (ID: %d, Type: %s) with length: %d",
+				provider.Name, provider.ID, provider.Type, len(provider.SecretKey))
+		} else {
+			log.Printf("WARNING: No encrypted secret key found for %s provider (ID: %d, Type: %s)",
+				provider.Name, provider.ID, provider.Type)
 		}
 
 	case db.ProviderTypeOneDrive, db.ProviderTypeGoogleDrive, db.ProviderTypeGooglePhoto:

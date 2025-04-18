@@ -147,6 +147,112 @@ func (h *Handlers) HandleCreateConfig(c *gin.Context) {
 	userID := c.GetUint("userID")
 	config.CreatedBy = userID
 
+	// Explicitly set critical fields
+	config.Name = c.PostForm("name")
+	config.SourcePath = c.PostForm("source_path")
+	config.DestinationPath = c.PostForm("destination_path")
+	config.SourceType = c.PostForm("source_type")
+	config.DestinationType = c.PostForm("destination_type")
+
+	// Debug logs
+	log.Printf("DEBUG: Config data from form - Name: '%s', SourcePath: '%s', DestPath: '%s', SourceType: '%s', DestType: '%s'",
+		config.Name, config.SourcePath, config.DestinationPath, config.SourceType, config.DestinationType)
+
+	// Additional fields we need to explicitly set
+	if config.SourceType == "sftp" || config.SourceType == "ftp" || config.SourceType == "hetzner" {
+		config.SourceHost = c.PostForm("source_host")
+		portStr := c.PostForm("source_port")
+		if portStr != "" {
+			port, err := strconv.Atoi(portStr)
+			if err == nil {
+				config.SourcePort = port
+			}
+		}
+		config.SourceUser = c.PostForm("source_user")
+		config.SourcePassword = c.PostForm("source_password")
+		config.SourceKeyFile = c.PostForm("source_key_file")
+	}
+
+	if config.DestinationType == "sftp" || config.DestinationType == "ftp" || config.DestinationType == "hetzner" {
+		config.DestHost = c.PostForm("dest_host")
+		portStr := c.PostForm("dest_port")
+		if portStr != "" {
+			port, err := strconv.Atoi(portStr)
+			if err == nil {
+				config.DestPort = port
+			}
+		}
+		config.DestUser = c.PostForm("dest_user")
+		config.DestPassword = c.PostForm("dest_password")
+		config.DestKeyFile = c.PostForm("dest_key_file")
+	}
+
+	// S3 and similar providers
+	if config.SourceType == "s3" || config.SourceType == "wasabi" || config.SourceType == "minio" || config.SourceType == "b2" {
+		config.SourceBucket = c.PostForm("source_bucket")
+		config.SourceRegion = c.PostForm("source_region")
+		config.SourceAccessKey = c.PostForm("source_access_key")
+		config.SourceSecretKey = c.PostForm("source_secret_key")
+		config.SourceEndpoint = c.PostForm("source_endpoint")
+
+		// Debug logging for S3-compatible providers
+		log.Printf("DEBUG: S3-compatible source provider details - Type: %s, Bucket: %s, Region: %s, Endpoint: %s, Has Access Key: %t, Has Secret Key: %t",
+			config.SourceType,
+			config.SourceBucket,
+			config.SourceRegion,
+			config.SourceEndpoint,
+			config.SourceAccessKey != "",
+			config.SourceSecretKey != "")
+	}
+
+	if config.DestinationType == "s3" || config.DestinationType == "wasabi" || config.DestinationType == "minio" || config.DestinationType == "b2" {
+		config.DestBucket = c.PostForm("dest_bucket")
+		config.DestRegion = c.PostForm("dest_region")
+		config.DestAccessKey = c.PostForm("dest_access_key")
+		config.DestSecretKey = c.PostForm("dest_secret_key")
+		config.DestEndpoint = c.PostForm("dest_endpoint")
+
+		// Debug logging for S3-compatible providers
+		log.Printf("DEBUG: S3-compatible destination provider details - Type: %s, Bucket: %s, Region: %s, Endpoint: %s, Has Access Key: %t, Has Secret Key: %t",
+			config.DestinationType,
+			config.DestBucket,
+			config.DestRegion,
+			config.DestEndpoint,
+			config.DestAccessKey != "",
+			config.DestSecretKey != "")
+	}
+
+	// SMB specific fields
+	if config.SourceType == "smb" {
+		config.SourceShare = c.PostForm("source_share")
+		config.SourceDomain = c.PostForm("source_domain")
+	}
+
+	if config.DestinationType == "smb" {
+		config.DestShare = c.PostForm("dest_share")
+		config.DestDomain = c.PostForm("dest_domain")
+	}
+
+	// File pattern fields
+	config.FilePattern = c.PostForm("file_pattern")
+	config.OutputPattern = c.PostForm("output_pattern")
+
+	// Archive path
+	config.ArchivePath = c.PostForm("archive_path")
+
+	// Max concurrent transfers
+	maxConcurrentStr := c.PostForm("max_concurrent_transfers")
+	if maxConcurrentStr != "" {
+		maxConcurrent, err := strconv.Atoi(maxConcurrentStr)
+		if err == nil && maxConcurrent > 0 {
+			config.MaxConcurrentTransfers = maxConcurrent
+		} else {
+			config.MaxConcurrentTransfers = 4 // Default value
+		}
+	} else {
+		config.MaxConcurrentTransfers = 4 // Default value
+	}
+
 	// Process Boolean fields
 	skipProcessedVal := c.Request.FormValue("skip_processed_files")
 	skipProcessedValue := skipProcessedVal == "on" || skipProcessedVal == "true"

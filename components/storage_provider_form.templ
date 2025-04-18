@@ -161,12 +161,12 @@ templ formFields(data StorageProviderFormData) {
 							selected="selected"
 						}
 					>OneDrive</option>
-					<option value="gdrive"
+					<option value="google_drive"
 						if data.Provider.Type == db.ProviderTypeGoogleDrive {
 							selected="selected"
 						}
 					>Google Drive</option>
-					<option value="gphotos"
+					<option value="google_photo"
 						if data.Provider.Type == db.ProviderTypeGooglePhoto {
 							selected="selected"
 						}
@@ -250,32 +250,60 @@ templ formFields(data StorageProviderFormData) {
 		
 		<!-- Endpoint -->
 		<div class="mb-4">
-			<label for="endpoint" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Endpoint <span class="text-red-500">*</span></label>
-			<input type="text" id="endpoint" name="endpoint" value={ data.Provider.Endpoint } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="e.g., s3.amazonaws.com, s3.us-west-1.wasabisys.com" />
+			<label for="endpoint" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+				Endpoint 
+				<span id="endpoint-required" class="text-red-500">*</span>
+			</label>
+			<input type="text" id="endpoint" name="endpoint" value={ data.Provider.Endpoint } 
+				class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
+				placeholder="e.g., s3.amazonaws.com, s3.us-west-1.wasabisys.com" />
+			<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+				Custom endpoint URL (only needed for non-standard regions or non-AWS S3-compatible services). Optional for B2.
+			</p>
 		</div>
 		
 		<!-- Region -->
 		<div class="mb-4">
-			<label for="region" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Region <span class="text-red-500">*</span></label>
-			<input type="text" id="region" name="region" value={ data.Provider.Region } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="e.g., us-east-1, eu-central-1" />
+			<label for="region" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
+				Region 
+				<span id="region-required" class="text-red-500">*</span>
+			</label>
+			<input type="text" id="region" name="region" value={ data.Provider.Region } 
+				class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
+				placeholder="e.g., us-east-1, eu-central-1" />
+			<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+				AWS Region where your S3 bucket is located (e.g., us-east-1, eu-west-1). Optional for B2 and Wasabi.
+			</p>
 		</div>
 		
 		<!-- Bucket -->
 		<div class="mb-4">
 			<label for="bucket" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Bucket <span class="text-red-500">*</span></label>
-			<input type="text" id="bucket" name="bucket" value={ data.Provider.Bucket } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Your bucket name" />
+			<input type="text" id="bucket" name="bucket" value={ data.Provider.Bucket } 
+				class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
+				placeholder="Your bucket name" />
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Name of your S3 bucket (case-sensitive)
+			</p>
 		</div>
 		
 		<!-- Access Key -->
 		<div class="mb-4">
 			<label for="accessKey" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Access Key <span class="text-red-500">*</span></label>
-			<input type="text" id="accessKey" name="accessKey" value={ data.Provider.AccessKey } class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Your access key/key ID" />
+			<input type="text" id="accessKey" name="accessKey" value={ data.Provider.AccessKey } 
+				class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
+				placeholder="Your access key/key ID" />
+			<p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+				Your AWS Access Key ID
+			</p>
 		</div>
 		
 		<!-- Secret Key -->
 		<div class="mb-4">
 			<label for="secretKey" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Secret Key <span class="text-red-500">*</span></label>
-			<input type="password" id="secretKey" name="secretKey" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Your secret access key" />
+			<input type="password" id="secretKey" name="secretKey" 
+				class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
+				placeholder="Your secret access key" />
 			if data.IsEdit {
 				<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave empty to keep the current secret key</p>
 			}
@@ -354,6 +382,17 @@ templ formFields(data StorageProviderFormData) {
 			</button>
 		</div>
 	</div>
+
+	<!-- Hidden fields for S3 form data to ensure it gets submitted correctly -->
+	<input type="hidden" id="hidden_endpoint" name="endpoint" value={ data.Provider.Endpoint } />
+	<input type="hidden" id="hidden_region" name="region" value={ data.Provider.Region } />
+	<input type="hidden" id="hidden_bucket" name="bucket" value={ data.Provider.Bucket } />
+	<input type="hidden" id="hidden_accessKey" name="accessKey" value={ data.Provider.AccessKey } />
+	<input type="hidden" id="hidden_secretKey" name="secretKey" />
+	
+	<!-- Hidden fields for Google Drive and Google Photos -->
+	<input type="hidden" id="hidden_clientID" name="clientID" value={ data.Provider.ClientID } />
+	<input type="hidden" id="hidden_clientSecret" name="clientSecret" />
 }
 
 // JavaScript helper for toggling provider fields
@@ -368,6 +407,133 @@ templ providerFormScript() {
 			portField.addEventListener('input', function() {
 				// Mark the field as user-modified
 				this.dataset.userModified = 'true';
+			});
+			
+			// Add event listeners for S3 fields
+			document.getElementById('endpoint').addEventListener('input', function() {
+				document.getElementById('hidden_endpoint').value = this.value;
+			});
+			
+			document.getElementById('region').addEventListener('input', function() {
+				document.getElementById('hidden_region').value = this.value;
+			});
+			
+			document.getElementById('bucket').addEventListener('input', function() {
+				document.getElementById('hidden_bucket').value = this.value;
+			});
+			
+			document.getElementById('accessKey').addEventListener('input', function() {
+				document.getElementById('hidden_accessKey').value = this.value;
+			});
+			
+			document.getElementById('secretKey').addEventListener('input', function() {
+				document.getElementById('hidden_secretKey').value = this.value;
+			});
+			
+			// Add event listeners for Google Drive/Photos fields
+			document.getElementById('clientID').addEventListener('input', function() {
+				document.getElementById('hidden_clientID').value = this.value;
+			});
+			
+			document.getElementById('clientSecret').addEventListener('input', function() {
+				document.getElementById('hidden_clientSecret').value = this.value;
+			});
+			
+			// Add form submit listener to ensure all hidden fields are populated
+			const forms = document.querySelectorAll('form');
+			forms.forEach(form => {
+				form.addEventListener('submit', function(e) {
+					// Find active provider type
+					const providerType = document.getElementById('type').value;
+					
+					// If S3-compatible, update hidden fields
+					if (['s3', 'wasabi', 'minio', 'b2'].includes(providerType)) {
+						document.getElementById('hidden_endpoint').value = document.getElementById('endpoint').value;
+						document.getElementById('hidden_region').value = document.getElementById('region').value;
+						document.getElementById('hidden_bucket').value = document.getElementById('bucket').value;
+						document.getElementById('hidden_accessKey').value = document.getElementById('accessKey').value;
+						
+						// Make sure secretKey is always copied to the hidden field
+						// This is especially important for B2 which uses this as Application Key
+						const secretKeyValue = document.getElementById('secretKey').value;
+						document.getElementById('hidden_secretKey').value = secretKeyValue;
+						
+						// For validation - ensure we have appropriate fields for each provider type
+						if (providerType === 'b2') {
+							// B2 does not require region or endpoint
+							if (!document.getElementById('hidden_bucket').value) {
+								alert('Bucket name is required');
+								e.preventDefault();
+								return false;
+							}
+							if (!document.getElementById('hidden_accessKey').value) {
+								alert('Account ID is required');
+								e.preventDefault();
+								return false;
+							}
+							if (!secretKeyValue && !document.getElementById('hidden_secretKey').value) {
+								alert('Application Key is required');
+								e.preventDefault();
+								return false;
+							}
+						} else if (providerType === 'wasabi') {
+							// Wasabi does not require region
+							if (!document.getElementById('hidden_endpoint').value) {
+								alert('Endpoint is required for Wasabi');
+								e.preventDefault();
+								return false;
+							}
+							if (!document.getElementById('hidden_bucket').value) {
+								alert('Bucket name is required');
+								e.preventDefault();
+								return false;
+							}
+							if (!document.getElementById('hidden_accessKey').value) {
+								alert('Access key is required');
+								e.preventDefault();
+								return false;
+							}
+							if (!secretKeyValue && !document.getElementById('hidden_secretKey').value) {
+								alert('Secret key is required');
+								e.preventDefault();
+								return false;
+							}
+						}
+						
+						console.log('Submitting S3-compatible form with:', {
+							provider: providerType,
+							endpoint: document.getElementById('hidden_endpoint').value,
+							region: document.getElementById('hidden_region').value,
+							bucket: document.getElementById('hidden_bucket').value,
+							accessKey: document.getElementById('hidden_accessKey').value,
+							secretKey: document.getElementById('hidden_secretKey').value ? '[PRESENT]' : '[EMPTY]',
+							secretKeyLength: document.getElementById('hidden_secretKey').value.length
+						});
+					}
+					
+					// If Google Drive or Google Photos, update hidden fields
+					if (['google_drive', 'google_photo', 'onedrive'].includes(providerType)) {
+						document.getElementById('hidden_clientID').value = document.getElementById('clientID').value;
+						
+						// Make sure clientSecret is always copied to the hidden field
+						const clientSecretValue = document.getElementById('clientSecret').value;
+						document.getElementById('hidden_clientSecret').value = clientSecretValue;
+						
+						// Validate required fields
+						if (!document.getElementById('hidden_clientID').value) {
+							alert('Client ID is required');
+							e.preventDefault();
+							return false;
+						}
+						
+						console.log('Submitting cloud storage form with:', {
+							provider: providerType,
+							clientID: document.getElementById('hidden_clientID').value,
+							clientSecret: document.getElementById('hidden_clientSecret').value ? '[PRESENT]' : '[EMPTY]',
+							clientSecretLength: document.getElementById('hidden_clientSecret').value.length
+						});
+					}
+				});
 			});
 		});
 
@@ -437,20 +603,48 @@ templ providerFormScript() {
 			// S3-compatible storage
 			if (['s3', 'wasabi', 'minio', 'b2'].includes(provider)) {
 				document.getElementById('s3-fields').classList.remove('hidden');
+				
+				// Set region and endpoint requirements based on provider type
+				const regionRequired = document.getElementById('region-required');
+				const endpointRequired = document.getElementById('endpoint-required');
+				const regionInput = document.getElementById('region');
+				const endpointInput = document.getElementById('endpoint');
+				
+				// For B2: endpoint and region are optional
+				if (provider === 'b2') {
+					regionRequired.style.display = 'none';
+					endpointRequired.style.display = 'none';
+					regionInput.removeAttribute('required');
+					endpointInput.removeAttribute('required');
+				}
+				// For Wasabi: region is optional
+				else if (provider === 'wasabi') {
+					regionRequired.style.display = 'none';
+					endpointRequired.style.display = 'inline';
+					regionInput.removeAttribute('required');
+					endpointInput.setAttribute('required', 'required');
+				}
+				// For S3 and MinIO: both are required
+				else {
+					regionRequired.style.display = 'inline';
+					endpointRequired.style.display = 'inline';
+					regionInput.setAttribute('required', 'required');
+					endpointInput.setAttribute('required', 'required');
+				}
 			}
 			
 			// Google services
-			if (['gdrive', 'gphotos'].includes(provider)) {
+			if (['google_drive', 'google_photo'].includes(provider)) {
 				document.getElementById('cloud-fields').classList.remove('hidden');
 				
 				// Google Drive specific fields
-				if (provider === 'gdrive') {
+				if (provider === 'google_drive') {
 					document.getElementById('drive-id-field').classList.remove('hidden');
 					document.getElementById('team-drive-field').classList.remove('hidden');
 				}
 				
 				// Google Photos specific fields
-				if (provider === 'gphotos') {
+				if (provider === 'google_photo') {
 					document.getElementById('readonly-field').classList.remove('hidden');
 				}
 			}

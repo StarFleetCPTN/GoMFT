@@ -441,7 +441,12 @@ func (h *Handlers) parseProviderFromForm(c *gin.Context) (db.StorageProvider, er
 			return provider, fmt.Errorf("host is required")
 		}
 
-	case db.ProviderTypeS3:
+	case db.ProviderTypeWebDAV, db.ProviderTypeNextcloud:
+		// WebDAV specific fields
+		provider.Username = c.PostForm("username")
+		provider.Password = c.PostForm("password")
+
+	case db.ProviderTypeS3, db.ProviderTypeWasabi, db.ProviderTypeMinio, db.ProviderTypeB2:
 		// S3 specific fields
 		provider.AccessKey = c.PostForm("accessKey")
 		provider.SecretKey = c.PostForm("secretKey")
@@ -458,8 +463,13 @@ func (h *Handlers) parseProviderFromForm(c *gin.Context) (db.StorageProvider, er
 			return provider, fmt.Errorf("bucket is required")
 		}
 
-		if provider.Region == "" {
-			return provider, fmt.Errorf("region is required")
+		// Validate region based on provider type
+		// B2 doesn't require region or endpoint
+		// Wasabi doesn't require region
+		if provider.Type == db.ProviderTypeS3 || provider.Type == db.ProviderTypeMinio {
+			if provider.Region == "" {
+				return provider, fmt.Errorf("region is required for %s", provider.Type)
+			}
 		}
 
 	case db.ProviderTypeOneDrive, db.ProviderTypeGoogleDrive, db.ProviderTypeGooglePhoto:

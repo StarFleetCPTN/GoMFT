@@ -191,6 +191,56 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create source config (sftp): %v\nOutput: %s", err, output)
 		}
+	case "smb":
+		args := []string{
+			"config", "create", sourceName, "smb",
+			"host", getStringValue(sourceCredentials, "host", config.SourceHost),
+			"user", getStringValue(sourceCredentials, "username", config.SourceUser),
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+
+		// Get domain if provided
+		domain := getStringValue(sourceCredentials, "domain", config.SourceDomain)
+		if domain != "" {
+			args = append(args, "domain", domain)
+		}
+
+		// Get port if specified (default is 445)
+		port := getIntValue(sourceCredentials, "port", config.SourcePort)
+		if port > 0 && port != 445 {
+			args = append(args, "port", fmt.Sprintf("%d", port))
+		}
+
+		// Get share if provided
+		share := getStringValue(sourceCredentials, "share", config.SourceShare)
+		if share != "" {
+			args = append(args, "share", share)
+		}
+
+		// Handle password
+		password := ""
+		if config.SourcePassword != "" {
+			password = config.SourcePassword
+		} else if encryptedPwd, ok := sourceCredentials["encrypted_password"].(string); ok && encryptedPwd != "" {
+			decryptedPwd, err := db.DecryptCredential(encryptedPwd)
+			if err != nil {
+				return fmt.Errorf("failed to decrypt source password: %v", err)
+			}
+			password = decryptedPwd
+		} else if pwVal, ok := sourceCredentials["password"].(string); ok && pwVal != "" {
+			password = pwVal
+		}
+
+		if password != "" {
+			args = append(args, "pass", password)
+		}
+
+		cmd := exec.Command(rclonePath, args...)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to create source config (smb): %v\nOutput: %s", err, output)
+		}
 	case "s3":
 		args := []string{
 			"config", "create", sourceName, "s3",
@@ -269,11 +319,35 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 	case "b2":
 		args := []string{
 			"config", "create", sourceName, "b2",
-			"account", config.SourceAccessKey, // B2 Account ID
-			"key", config.SourceSecretKey, // B2 Application Key
 			"--non-interactive",
 			"--config", configPath,
 			"--log-level", "ERROR",
+		}
+		// Handle account ID (access key)
+		accountID := getStringValue(sourceCredentials, "access_key", config.SourceAccessKey)
+		if accountID != "" {
+			args = append(args, "account", accountID)
+		}
+
+		// Handle secret key with proper decryption if from provider
+		secretKey := ""
+		if config.SourceSecretKey != "" {
+			// Direct input from form (transient)
+			secretKey = config.SourceSecretKey
+		} else if encryptedSecret, ok := sourceCredentials["encrypted_secret_key"].(string); ok && encryptedSecret != "" {
+			// Provider reference with encrypted secret
+			decryptedSecret, err := db.DecryptCredential(encryptedSecret)
+			if err != nil {
+				return fmt.Errorf("failed to decrypt source secret key: %v", err)
+			}
+			secretKey = decryptedSecret
+		} else if secretVal, ok := sourceCredentials["secret_key"].(string); ok && secretVal != "" {
+			// Backward compatibility
+			secretKey = secretVal
+		}
+
+		if secretKey != "" {
+			args = append(args, "key", secretKey)
 		}
 		if config.SourceEndpoint != "" {
 			args = append(args, "endpoint", config.SourceEndpoint)
@@ -288,12 +362,32 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"provider", "Minio",
 			"env_auth", "false",
 			"access_key_id", getStringValue(sourceCredentials, "access_key", config.SourceAccessKey),
-			"secret_access_key", getStringOrDefault(sourceCredentials, "secret_key", config.SourceSecretKey),
 			"endpoint", getStringValue(sourceCredentials, "endpoint", config.SourceEndpoint),
 			"--non-interactive",
 			"--config", configPath,
 			"--log-level", "ERROR",
 		}
+		// Handle secret key with proper decryption if from provider
+		secretKey := ""
+		if config.SourceSecretKey != "" {
+			// Direct input from form (transient)
+			secretKey = config.SourceSecretKey
+		} else if encryptedSecret, ok := sourceCredentials["encrypted_secret_key"].(string); ok && encryptedSecret != "" {
+			// Provider reference with encrypted secret
+			decryptedSecret, err := db.DecryptCredential(encryptedSecret)
+			if err != nil {
+				return fmt.Errorf("failed to decrypt source secret key: %v", err)
+			}
+			secretKey = decryptedSecret
+		} else if secretVal, ok := sourceCredentials["secret_key"].(string); ok && secretVal != "" {
+			// Backward compatibility
+			secretKey = secretVal
+		}
+
+		if secretKey != "" {
+			args = append(args, "secret_access_key", secretKey)
+		}
+
 		// Add region if specified
 		if getStringValue(sourceCredentials, "region", config.SourceRegion) != "" {
 			args = append(args, "region", getStringValue(sourceCredentials, "region", config.SourceRegion))
@@ -413,17 +507,87 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create destination config (sftp): %v\nOutput: %s", err, output)
 		}
+	case "smb":
+		args := []string{
+			"config", "create", destName, "smb",
+			"host", getStringValue(destCredentials, "host", config.DestHost),
+			"user", getStringValue(destCredentials, "username", config.DestUser),
+			"--non-interactive",
+			"--config", configPath,
+			"--log-level", "ERROR",
+		}
+
+		// Get domain if provided
+		domain := getStringValue(destCredentials, "domain", config.DestDomain)
+		if domain != "" {
+			args = append(args, "domain", domain)
+		}
+
+		// Get port if specified (default is 445)
+		port := getIntValue(destCredentials, "port", config.DestPort)
+		if port > 0 && port != 445 {
+			args = append(args, "port", fmt.Sprintf("%d", port))
+		}
+
+		// Get share if provided
+		share := getStringValue(destCredentials, "share", config.DestShare)
+		if share != "" {
+			args = append(args, "share", share)
+		}
+
+		// Handle password
+		password := ""
+		if config.DestPassword != "" {
+			password = config.DestPassword
+		} else if encryptedPwd, ok := destCredentials["encrypted_password"].(string); ok && encryptedPwd != "" {
+			decryptedPwd, err := db.DecryptCredential(encryptedPwd)
+			if err != nil {
+				return fmt.Errorf("failed to decrypt destination password: %v", err)
+			}
+			password = decryptedPwd
+		} else if pwVal, ok := destCredentials["password"].(string); ok && pwVal != "" {
+			password = pwVal
+		}
+
+		if password != "" {
+			args = append(args, "pass", password)
+		}
+
+		cmd := exec.Command(rclonePath, args...)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to create destination config (smb): %v\nOutput: %s", err, output)
+		}
 	case "s3":
 		args := []string{
 			"config", "create", destName, "s3",
 			"provider", "AWS", // Assuming AWS provider
 			"env_auth", "false",
 			"access_key_id", getStringValue(destCredentials, "access_key", config.DestAccessKey),
-			"secret_access_key", getStringOrDefault(destCredentials, "secret_key", config.DestSecretKey),
 			"region", getStringValue(destCredentials, "region", config.DestRegion),
 			"--non-interactive",
 			"--config", configPath,
 			"--log-level", "ERROR",
+		}
+
+		// Handle secret key with proper decryption if from provider
+		secretKey := ""
+		if config.DestSecretKey != "" {
+			// Direct input from form (transient)
+			secretKey = config.DestSecretKey
+		} else if encryptedSecret, ok := destCredentials["encrypted_secret_key"].(string); ok && encryptedSecret != "" {
+			// Provider reference with encrypted secret
+			decryptedSecret, err := db.DecryptCredential(encryptedSecret)
+			if err != nil {
+				return fmt.Errorf("failed to decrypt destination secret key: %v", err)
+			}
+			secretKey = decryptedSecret
+		} else if secretVal, ok := destCredentials["secret_key"].(string); ok && secretVal != "" {
+			// Backward compatibility
+			secretKey = secretVal
+		}
+
+		if secretKey != "" {
+			args = append(args, "secret_access_key", secretKey)
 		}
 
 		endpoint := getStringValue(destCredentials, "endpoint", config.DestEndpoint)
@@ -441,11 +605,31 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"provider", "Wasabi",
 			"env_auth", "false",
 			"access_key_id", getStringValue(destCredentials, "access_key", config.DestAccessKey),
-			"secret_access_key", getStringOrDefault(destCredentials, "secret_key", config.DestSecretKey),
 			"region", getStringValue(destCredentials, "region", config.DestRegion),
 			"--non-interactive",
 			"--config", configPath,
 			"--log-level", "ERROR",
+		}
+
+		// Handle secret key with proper decryption if from provider
+		secretKey := ""
+		if config.DestSecretKey != "" {
+			// Direct input from form (transient)
+			secretKey = config.DestSecretKey
+		} else if encryptedSecret, ok := destCredentials["encrypted_secret_key"].(string); ok && encryptedSecret != "" {
+			// Provider reference with encrypted secret
+			decryptedSecret, err := db.DecryptCredential(encryptedSecret)
+			if err != nil {
+				return fmt.Errorf("failed to decrypt destination secret key: %v", err)
+			}
+			secretKey = decryptedSecret
+		} else if secretVal, ok := destCredentials["secret_key"].(string); ok && secretVal != "" {
+			// Backward compatibility
+			secretKey = secretVal
+		}
+
+		if secretKey != "" {
+			args = append(args, "secret_access_key", secretKey)
 		}
 
 		endpoint := getStringValue(destCredentials, "endpoint", config.DestEndpoint)
@@ -470,6 +654,27 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 		accountID := getStringValue(destCredentials, "access_key", config.DestAccessKey)
 		if accountID != "" {
 			args = append(args, "account", accountID)
+		}
+
+		// Handle secret key with proper decryption if from provider
+		secretKey := ""
+		if config.DestSecretKey != "" {
+			// Direct input from form (transient)
+			secretKey = config.DestSecretKey
+		} else if encryptedSecret, ok := destCredentials["encrypted_secret_key"].(string); ok && encryptedSecret != "" {
+			// Provider reference with encrypted secret
+			decryptedSecret, err := db.DecryptCredential(encryptedSecret)
+			if err != nil {
+				return fmt.Errorf("failed to decrypt destination secret key: %v", err)
+			}
+			secretKey = decryptedSecret
+		} else if secretVal, ok := destCredentials["secret_key"].(string); ok && secretVal != "" {
+			// Backward compatibility
+			secretKey = secretVal
+		}
+
+		if secretKey != "" {
+			args = append(args, "key", secretKey)
 		}
 
 		// Handle application key (secret key) with proper decryption if from provider
@@ -508,12 +713,33 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 			"provider", "Minio",
 			"env_auth", "false",
 			"access_key_id", getStringValue(destCredentials, "access_key", config.DestAccessKey),
-			"secret_access_key", getStringOrDefault(destCredentials, "secret_key", config.DestSecretKey),
 			"endpoint", getStringValue(destCredentials, "endpoint", config.DestEndpoint),
 			"--non-interactive",
 			"--config", configPath,
 			"--log-level", "ERROR",
 		}
+
+		// Handle secret key with proper decryption if from provider
+		secretKey := ""
+		if config.DestSecretKey != "" {
+			// Direct input from form (transient)
+			secretKey = config.DestSecretKey
+		} else if encryptedSecret, ok := destCredentials["encrypted_secret_key"].(string); ok && encryptedSecret != "" {
+			// Provider reference with encrypted secret
+			decryptedSecret, err := db.DecryptCredential(encryptedSecret)
+			if err != nil {
+				return fmt.Errorf("failed to decrypt destination secret key: %v", err)
+			}
+			secretKey = decryptedSecret
+		} else if secretVal, ok := destCredentials["secret_key"].(string); ok && secretVal != "" {
+			// Backward compatibility
+			secretKey = secretVal
+		}
+
+		if secretKey != "" {
+			args = append(args, "secret_access_key", secretKey)
+		}
+
 		// Add region if specified
 		if getStringValue(destCredentials, "region", config.DestRegion) != "" {
 			args = append(args, "region", getStringValue(destCredentials, "region", config.DestRegion))

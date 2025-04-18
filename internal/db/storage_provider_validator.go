@@ -30,6 +30,8 @@ func (sp *StorageProvider) Validate() error {
 		return sp.validateS3()
 	case ProviderTypeFTP:
 		return sp.validateFTP()
+	case ProviderTypeWebDAV, ProviderTypeNextcloud:
+		return sp.validateWebDAV()
 	case ProviderTypeSMB:
 		return sp.validateSMB()
 	case ProviderTypeOneDrive:
@@ -62,6 +64,24 @@ func (sp *StorageProvider) validateSFTP() error {
 	// Either password or key file must be provided
 	if strings.TrimSpace(sp.Password) == "" && strings.TrimSpace(sp.EncryptedPassword) == "" && strings.TrimSpace(sp.KeyFile) == "" {
 		return errors.New("either password or key file is required for SFTP provider")
+	}
+
+	return nil
+}
+
+// validateWebDAV validates WebDAV-specific fields
+func (sp *StorageProvider) validateWebDAV() error {
+	if strings.TrimSpace(sp.Host) == "" {
+		return errors.New("host is required for WebDAV provider")
+	}
+
+	if strings.TrimSpace(sp.Username) == "" {
+		return errors.New("username is required for WebDAV provider")
+	}
+
+	// Either password or encrypted password must be provided
+	if strings.TrimSpace(sp.Password) == "" && strings.TrimSpace(sp.EncryptedPassword) == "" {
+		return errors.New("password is required for WebDAV provider")
 	}
 
 	return nil
@@ -113,10 +133,6 @@ func (sp *StorageProvider) validateFTP() error {
 func (sp *StorageProvider) validateSMB() error {
 	if strings.TrimSpace(sp.Host) == "" {
 		return errors.New("host is required for SMB provider")
-	}
-
-	if strings.TrimSpace(sp.Share) == "" {
-		return errors.New("share is required for SMB provider")
 	}
 
 	if strings.TrimSpace(sp.Username) == "" {

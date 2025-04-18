@@ -169,9 +169,7 @@ func (sp *StorageProvider) SetAuthenticated(value bool) {
 func (sp *StorageProvider) IsOAuthProvider() bool {
 	return sp.Type == ProviderTypeOneDrive ||
 		sp.Type == ProviderTypeGoogleDrive ||
-		sp.Type == ProviderTypeGooglePhoto ||
-		sp.Type == ProviderTypeWebDAV ||
-		sp.Type == ProviderTypeNextcloud
+		sp.Type == ProviderTypeGooglePhoto
 }
 
 // RequiresEncryption returns true if the provider has sensitive fields that need encryption
