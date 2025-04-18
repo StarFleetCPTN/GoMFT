@@ -6,6 +6,16 @@ import (
 
 // --- StorageProvider Store Methods ---
 
+// GetStorageProviderByNameAndUser retrieves a storage provider by name and user
+func (db *DB) GetStorageProviderByNameAndUser(name string, userID uint) (*StorageProvider, error) {
+	var provider StorageProvider
+	err := db.Where("name = ? AND created_by = ?", name, userID).First(&provider).Error
+	if err != nil {
+		return nil, err
+	}
+	return &provider, nil
+}
+
 // CreateStorageProvider creates a new storage provider record
 func (db *DB) CreateStorageProvider(provider *StorageProvider) error {
 	return db.Create(provider).Error

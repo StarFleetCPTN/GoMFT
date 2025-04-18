@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -381,6 +383,465 @@ func (h *Handlers) HandleDuplicateStorageProvider(c *gin.Context) {
 
 	c.Header("HX-Refresh", "true")
 	c.JSON(http.StatusOK, gin.H{"message": "Provider duplicated successfully"})
+}
+
+// Handler for rendering the import page
+func (h *Handlers) HandleStorageProvidersImportPage(c *gin.Context) {
+	ctx := components.CreateTemplateContext(c)
+	_ = components.StorageProvidersImportPage(ctx, components.RcloneImportPreview{}).Render(ctx, c.Writer)
+}
+
+// Handler for previewing rclone config remotes
+func (h *Handlers) HandleStorageProvidersImportPreview(c *gin.Context) {
+	userID := c.GetUint("userID")
+	file, _, err := c.Request.FormFile("rclone_config")
+	if err != nil {
+		ctx := components.CreateTemplateContext(c)
+		// Check if this is an HTMX request
+		if c.GetHeader("HX-Request") == "true" {
+			_ = components.RcloneImportPreviewContent(ctx, components.RcloneImportPreview{Error: "Failed to read uploaded file"}).Render(ctx, c.Writer)
+		} else {
+			_ = components.StorageProvidersImportPage(ctx, components.RcloneImportPreview{Error: "Failed to read uploaded file"}).Render(ctx, c.Writer)
+		}
+		return
+	}
+	defer file.Close()
+	content, err := io.ReadAll(file)
+	if err != nil {
+		ctx := components.CreateTemplateContext(c)
+		// Check if this is an HTMX request
+		if c.GetHeader("HX-Request") == "true" {
+			_ = components.RcloneImportPreviewContent(ctx, components.RcloneImportPreview{Error: "Failed to read file content"}).Render(ctx, c.Writer)
+		} else {
+			_ = components.StorageProvidersImportPage(ctx, components.RcloneImportPreview{Error: "Failed to read file content"}).Render(ctx, c.Writer)
+		}
+		return
+	}
+	parsed, err := parseRcloneConfig(content)
+	if err != nil {
+		ctx := components.CreateTemplateContext(c)
+		// Check if this is an HTMX request
+		if c.GetHeader("HX-Request") == "true" {
+			_ = components.RcloneImportPreviewContent(ctx, components.RcloneImportPreview{Error: fmt.Sprintf("Failed to parse config: %v", err)}).Render(ctx, c.Writer)
+		} else {
+			_ = components.StorageProvidersImportPage(ctx, components.RcloneImportPreview{Error: fmt.Sprintf("Failed to parse config: %v", err)}).Render(ctx, c.Writer)
+		}
+		return
+	}
+
+	var remotes []components.RcloneRemotePreview
+	for name, section := range parsed {
+		provider, _ := storageProviderFromRcloneSection(name, section, userID)
+		fields := make(map[string]string)
+		for k, v := range section {
+			fields[k] = v
+		}
+		remotes = append(remotes, components.RcloneRemotePreview{
+			Name:   provider.Name,
+			Type:   string(provider.Type),
+			Fields: fields,
+			Import: true,
+		})
+	}
+	ctx := components.CreateTemplateContext(c)
+
+	// Check if this is an HTMX request
+	if c.GetHeader("HX-Request") == "true" {
+		_ = components.RcloneImportPreviewContent(ctx, components.RcloneImportPreview{Remotes: remotes}).Render(ctx, c.Writer)
+	} else {
+		_ = components.StorageProvidersImportPage(ctx, components.RcloneImportPreview{Remotes: remotes}).Render(ctx, c.Writer)
+	}
+}
+
+// Handler for confirming import of selected remotes
+func (h *Handlers) HandleStorageProvidersImportConfirm(c *gin.Context) {
+	userID := c.GetUint("userID")
+
+	// Make sure form is parsed
+	err := c.Request.ParseMultipartForm(32 << 20) // 32MB max memory
+	if err != nil {
+		log.Printf("Error parsing form: %v", err)
+	}
+
+	// For debugging
+	log.Printf("Form data: %+v", c.Request.PostForm)
+	log.Printf("Form method: %s", c.Request.Method)
+
+	// Parse remotes from form
+	remotes := []db.StorageProvider{}
+
+	// Debug: check for import_ keys
+	var importKeys []string
+	for key := range c.Request.PostForm {
+		if strings.HasPrefix(key, "import_") {
+			importKeys = append(importKeys, key)
+			log.Printf("Found import key: %s with value: %v", key, c.Request.PostForm[key])
+		}
+	}
+	log.Printf("Import keys found: %v", importKeys)
+
+	for key, vals := range c.Request.PostForm {
+		log.Printf("Processing key: %s with values: %v", key, vals)
+		if strings.HasPrefix(key, "import_") {
+			// Check the value - it might not be exactly "on"
+			log.Printf("Import checkbox value: %v", vals)
+
+			// Accept any non-empty value as checked
+			if len(vals) > 0 && vals[0] != "" {
+				name := strings.TrimPrefix(key, "import_")
+				log.Printf("Processing remote: %s", name)
+				providerType := db.StorageProviderType(c.PostForm("type_" + name))
+
+				provider := db.StorageProvider{
+					Name:      c.PostForm("name_" + name),
+					Type:      providerType,
+					CreatedBy: userID,
+				}
+
+				// Collect all fields for this provider
+				fields := map[string]string{}
+				for k, v := range c.Request.PostForm {
+					if strings.HasPrefix(k, "field_"+name+"_") && len(v) > 0 {
+						fieldKey := strings.TrimPrefix(k, "field_"+name+"_")
+						fields[fieldKey] = v[0]
+					}
+				}
+
+				// Map fields to provider struct based on provider type
+				switch providerType {
+				case db.ProviderTypeGoogleDrive:
+					// Map Google Drive specific fields
+					for fieldKey, fieldValue := range fields {
+						switch fieldKey {
+						case "client_id":
+							provider.ClientID = fieldValue
+						case "client_secret":
+							provider.ClientSecret = fieldValue
+						case "refresh_token":
+							provider.RefreshToken = fieldValue
+						case "token":
+							// Token is a JSON object containing access_token, refresh_token, etc.
+							// Extract refresh_token if not already set
+							if provider.RefreshToken == "" {
+								// Try to parse the token JSON
+								var tokenData map[string]interface{}
+								if err := json.Unmarshal([]byte(fieldValue), &tokenData); err == nil {
+									if rt, ok := tokenData["refresh_token"].(string); ok && rt != "" {
+										provider.RefreshToken = rt
+									}
+								}
+							}
+						case "team_drive":
+							provider.TeamDrive = fieldValue
+						}
+					}
+					// Set authenticated to true for OAuth providers with refresh token
+					if provider.RefreshToken != "" {
+						authenticated := true
+						provider.Authenticated = &authenticated
+					}
+				case db.ProviderTypeS3, db.ProviderTypeB2, db.ProviderTypeWasabi, db.ProviderTypeMinio:
+					// Map S3-compatible provider fields
+					for fieldKey, fieldValue := range fields {
+						switch fieldKey {
+						case "access_key_id", "access_key":
+							provider.AccessKey = fieldValue
+						case "secret_access_key", "secret_key":
+							provider.SecretKey = fieldValue
+						case "endpoint":
+							provider.Endpoint = fieldValue
+						case "region":
+							provider.Region = fieldValue
+						case "bucket":
+							provider.Bucket = fieldValue
+						}
+					}
+				case db.ProviderTypeSFTP, db.ProviderTypeFTP:
+					// Map SFTP/FTP fields
+					for fieldKey, fieldValue := range fields {
+						switch fieldKey {
+						case "host":
+							provider.Host = fieldValue
+						case "user", "username":
+							provider.Username = fieldValue
+						case "pass", "password":
+							provider.Password = fieldValue
+						case "port":
+							if port, err := strconv.Atoi(fieldValue); err == nil {
+								provider.Port = port
+							}
+						}
+					}
+				case db.ProviderTypeSMB:
+					// Map SMB fields
+					for fieldKey, fieldValue := range fields {
+						switch fieldKey {
+						case "host":
+							provider.Host = fieldValue
+						case "user", "username":
+							provider.Username = fieldValue
+						case "pass", "password":
+							provider.Password = fieldValue
+						case "domain":
+							provider.Domain = fieldValue
+						case "share":
+							provider.Share = fieldValue
+						}
+					}
+				case db.ProviderTypeOneDrive:
+					// Map OneDrive fields
+					for fieldKey, fieldValue := range fields {
+						switch fieldKey {
+						case "client_id":
+							provider.ClientID = fieldValue
+						case "client_secret":
+							provider.ClientSecret = fieldValue
+						case "refresh_token":
+							provider.RefreshToken = fieldValue
+						case "drive_id":
+							provider.DriveID = fieldValue
+						}
+					}
+					// Set authenticated to true for OAuth providers with refresh token
+					if provider.RefreshToken != "" {
+						authenticated := true
+						provider.Authenticated = &authenticated
+					}
+				default:
+					// For other provider types, log the fields for debugging
+					log.Printf("Unhandled provider type: %s with fields: %v", providerType, fields)
+				}
+
+				remotes = append(remotes, provider)
+			}
+		}
+	}
+
+	// Import each selected provider
+	var importErrs []string
+	var successCount int
+
+	for _, provider := range remotes {
+		log.Printf("Importing provider: %+v", provider)
+		err := createOrUpdateStorageProvider(h.DB, &provider)
+		if err != nil {
+			importErrs = append(importErrs, fmt.Sprintf("%s: %v", provider.Name, err))
+		} else {
+			successCount++
+		}
+	}
+
+	// Create template context
+	ctx := components.CreateTemplateContext(c)
+	
+	// Prepare result message
+	if c.GetHeader("HX-Request") == "true" {
+		var resultHTML string
+
+		if len(importErrs) > 0 {
+			// Error message
+			errorMsg := "<div class=\"mb-4 p-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400\" role=\"alert\">\n"
+			errorMsg += "<div class=\"flex items-center\">\n"
+			errorMsg += "<i class=\"fas fa-exclamation-circle flex-shrink-0 mr-2\"></i>\n"
+			errorMsg += "<span>Failed to import some providers:</span>\n"
+			errorMsg += "</div>\n"
+			errorMsg += "<ul class=\"mt-1.5 ml-4 list-disc list-inside\">\n"
+			for _, err := range importErrs {
+				errorMsg += "<li>" + err + "</li>\n"
+			}
+			errorMsg += "</ul>\n"
+			errorMsg += "</div>\n"
+
+			// If some providers were imported successfully
+			if successCount > 0 {
+				errorMsg += "<div class=\"mb-4 p-4 text-sm text-green-800 rounded-lg bg-green-50 dark:bg-gray-800 dark:text-green-400\" role=\"alert\">\n"
+				errorMsg += "<div class=\"flex items-center\">\n"
+				errorMsg += "<i class=\"fas fa-check-circle flex-shrink-0 mr-2\"></i>\n"
+				errorMsg += fmt.Sprintf("<span>Successfully imported %d provider(s)</span>\n", successCount)
+				errorMsg += "</div>\n"
+				errorMsg += "</div>\n"
+			}
+
+			resultHTML = errorMsg
+		} else if successCount > 0 {
+			// Success message
+			successMsg := "<div class=\"mb-4 p-4 text-sm text-green-800 rounded-lg bg-green-50 dark:bg-gray-800 dark:text-green-400\" role=\"alert\">\n"
+			successMsg += "<div class=\"flex items-center\">\n"
+			successMsg += "<i class=\"fas fa-check-circle flex-shrink-0 mr-2\"></i>\n"
+			successMsg += fmt.Sprintf("<span>Successfully imported %d provider(s)</span>\n", successCount)
+			successMsg += "</div>\n"
+			successMsg += "</div>\n"
+
+			resultHTML = successMsg
+		} else {
+			// No providers selected
+			resultHTML = "<div class=\"mb-4 p-4 text-sm text-blue-800 rounded-lg bg-blue-50 dark:bg-gray-800 dark:text-blue-400\" role=\"alert\">\n"
+			resultHTML += "<div class=\"flex items-center\">\n"
+			resultHTML += "<i class=\"fas fa-info-circle flex-shrink-0 mr-2\"></i>\n"
+			resultHTML += "<span>No providers were selected for import</span>\n"
+			resultHTML += "</div>\n"
+			resultHTML += "</div>\n"
+		}
+
+		// Add buttons
+		resultHTML += "<div class=\"mt-6\">\n"
+		resultHTML += "<a href=\"/storage-providers\" class=\"text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800\">\n"
+		resultHTML += "<i class=\"fas fa-list mr-2\"></i>View All Providers\n"
+		resultHTML += "</a>\n"
+		resultHTML += "<a href=\"/storage-providers/import\" class=\"ml-2 text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700\">\n"
+		resultHTML += "<i class=\"fas fa-file-import mr-2\"></i>Import Another Config\n"
+		resultHTML += "</a>\n"
+		resultHTML += "</div>\n"
+
+		// Send response
+		c.Writer.Header().Set("Content-Type", "text/html")
+		c.Writer.WriteHeader(http.StatusOK)
+		c.Writer.Write([]byte(resultHTML))
+	} else {
+		// For regular requests, redirect to storage providers page with a flash message
+		if len(importErrs) > 0 {
+			// Show error page
+			_ = components.StorageProvidersImportPage(ctx, components.RcloneImportPreview{Error: strings.Join(importErrs, "; ")}).Render(ctx, c.Writer)
+		} else {
+			// Redirect to storage providers page on success
+			c.Redirect(http.StatusSeeOther, "/storage-providers")
+		}
+	}
+}
+
+// Handler for importing rclone config file
+func (h *Handlers) HandleImportRcloneConfig(c *gin.Context) {
+	userID := c.GetUint("userID")
+	file, _, err := c.Request.FormFile("rclone_config")
+	if err != nil {
+		c.JSON(400, gin.H{"error": "Missing file: " + err.Error()})
+		return
+	}
+	defer file.Close()
+
+	// Read the file content
+	content, err := io.ReadAll(file)
+	if err != nil {
+		c.JSON(400, gin.H{"error": "Failed to read file: " + err.Error()})
+		return
+	}
+
+	// Parse as INI (rclone config format)
+	cfg, err := parseRcloneConfig(content)
+	if err != nil {
+		c.JSON(400, gin.H{"error": "Invalid rclone config: " + err.Error()})
+		return
+	}
+
+	imported := 0
+	failed := 0
+	var errors []string
+	for name, section := range cfg {
+		provider, err := storageProviderFromRcloneSection(name, section, userID)
+		if err != nil {
+			failed++
+			errors = append(errors, name+": "+err.Error())
+			continue
+		}
+		// Try to create or update
+		err = createOrUpdateStorageProvider(h.DB, &provider)
+		if err != nil {
+			failed++
+			errors = append(errors, name+": "+err.Error())
+			continue
+		}
+		imported++
+	}
+	if failed == 0 {
+		c.JSON(200, gin.H{"message": "Imported successfully", "imported": imported})
+	} else {
+		c.JSON(400, gin.H{"error": "Some remotes failed", "imported": imported, "failed": failed, "details": errors})
+	}
+}
+
+// Helper: parse rclone config INI into map[string]map[string]string
+func parseRcloneConfig(content []byte) (map[string]map[string]string, error) {
+	cfg := make(map[string]map[string]string)
+	var current string
+	lines := strings.Split(string(content), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, ";") || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			current = strings.TrimSuffix(strings.TrimPrefix(line, "["), "]")
+			cfg[current] = make(map[string]string)
+			continue
+		}
+		if current == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			cfg[current][strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+		}
+	}
+	return cfg, nil
+}
+
+// Helper: create or update provider (fallback if DB method not present)
+func createOrUpdateStorageProvider(dbh *db.DB, provider *db.StorageProvider) error {
+	existing, err := dbh.GetStorageProviderByNameAndUser(provider.Name, provider.CreatedBy)
+	if err == nil && existing != nil {
+		provider.ID = existing.ID
+		return dbh.UpdateStorageProvider(provider)
+	}
+	return dbh.CreateStorageProvider(provider)
+}
+
+// Helper: convert rclone section to StorageProvider
+func storageProviderFromRcloneSection(name string, section map[string]string, userID uint) (db.StorageProvider, error) {
+	providerType, ok := section["type"]
+	if !ok || providerType == "" {
+		providerType = string(db.ProviderTypeGeneric)
+	}
+	// Optionally: you can check for known types and set generic if not recognized
+	knownTypes := map[string]bool{
+		"sftp": true, "s3": true, "onedrive": true, "drive": true, "gphotos": true, "ftp": true, "smb": true, "hetzner": true, "local": true, "webdav": true, "nextcloud": true, "b2": true, "wasabi": true, "minio": true,
+	}
+	if !knownTypes[providerType] {
+		providerType = string(db.ProviderTypeGeneric)
+	}
+	provider := db.StorageProvider{
+		Name:      name,
+		Type:      db.StorageProviderType(providerType),
+		CreatedBy: userID,
+	}
+	// Map common fields
+	for k, v := range section {
+		switch k {
+		case "host":
+			provider.Host = v
+		case "user":
+			provider.Username = v
+		case "pass":
+			provider.Password = v
+		case "port":
+			if port, err := strconv.Atoi(v); err == nil {
+				provider.Port = port
+			}
+		case "bucket":
+			provider.Bucket = v
+		case "region":
+			provider.Region = v
+		case "access_key_id":
+			provider.AccessKey = v
+		case "secret_access_key":
+			provider.SecretKey = v
+		case "endpoint":
+			provider.Endpoint = v
+		case "domain":
+			provider.Domain = v
+			// Add more mappings as needed
+		}
+	}
+	return provider, nil
 }
 
 // Helper function to parse provider from form

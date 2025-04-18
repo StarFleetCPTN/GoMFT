@@ -1,0 +1,12 @@
+package components
+
+import (
+	"context"
+)
+
+// StorageProvidersImportPage wraps the import component with the layout
+templ StorageProvidersImportPage(ctx context.Context, preview RcloneImportPreview) {
+	@LayoutWithContext("Import rclone Config", ctx) {
+		@StorageProvidersImport(ctx, preview)
+	}
+}

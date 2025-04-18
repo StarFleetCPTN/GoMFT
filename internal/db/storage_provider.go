@@ -9,6 +9,7 @@ type StorageProviderType string
 
 const (
 	// Storage provider types
+	ProviderTypeGeneric     StorageProviderType = "generic" // Generic/unknown provider type
 	ProviderTypeSFTP        StorageProviderType = "sftp"
 	ProviderTypeS3          StorageProviderType = "s3"
 	ProviderTypeOneDrive    StorageProviderType = "onedrive"

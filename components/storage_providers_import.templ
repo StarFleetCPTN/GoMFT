@@ -1,0 +1,146 @@
+package components
+
+import (
+	"context"
+	"fmt"
+)
+
+// Storage Providers Import Page
+// User uploads a config, previews/edit remotes, selects which to import
+// On submit, POSTs selected remotes to /storage-providers/import/confirm
+
+// Main import page template
+templ StorageProvidersImport(ctx context.Context, preview RcloneImportPreview) {
+	<div id="providers-container" style="min-height: 100vh; background-color: rgb(249, 250, 251);" class="providers-page bg-gray-50 dark:bg-gray-900 pb-8 w-full">
+		<!-- Header with back button -->
+		<div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+			<h1 class="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+				<i class="fas fa-file-import w-6 h-6 mr-2 text-blue-500 dark:text-blue-400"></i>
+				Import rclone Config
+			</h1>
+			<a href="/storage-providers" class="flex items-center justify-center text-gray-700 bg-gray-100 hover:bg-gray-200 focus:ring-4 focus:ring-gray-300 font-medium rounded-lg px-5 py-2.5 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white focus:outline-none dark:focus:ring-gray-800">
+				<i class="fas fa-arrow-left w-4 h-4 mr-2"></i>
+				Back to Providers
+			</a>
+		</div>
+
+		<!-- Main content -->
+		<div class="bg-white border border-gray-200 rounded-lg shadow-sm dark:border-gray-700 dark:bg-gray-800 p-6">
+			<div class="mb-6">
+				<p class="text-gray-700 dark:text-gray-300 mb-4">
+					Upload your rclone configuration file to import storage providers. You'll be able to preview and select which remotes to import.
+				</p>
+
+				<form id="rclone-upload-form" enctype="multipart/form-data" method="POST" action="/storage-providers/import/preview" hx-post="/storage-providers/import/preview" hx-target="#import-preview" hx-swap="innerHTML" class="mt-4">
+					<div class="mb-4">
+						<label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Select rclone config file:</label>
+						<input type="file" name="rclone_config" accept=".conf,.txt,.ini,.cfg" required class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400" />
+						<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Accepted formats: .conf, .txt, .ini, .cfg</p>
+					</div>
+					<button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+						<i class="fas fa-search mr-2"></i>
+						Preview Remotes
+					</button>
+				</form>
+			</div>
+
+			<div id="import-preview" class="mt-6">
+				@RcloneImportPreviewContent(ctx, preview)
+			</div>
+			<div id="import-result" class="mt-6"></div>
+		</div>
+	</div>
+}
+
+// Just the preview content for HTMX updates
+templ RcloneImportPreviewContent(ctx context.Context, preview RcloneImportPreview) {
+	if preview.Error != "" {
+		<div class="mb-4 p-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400" role="alert">
+			<div class="flex items-center">
+				<i class="fas fa-exclamation-circle flex-shrink-0 mr-2"></i>
+				<span>{preview.Error}</span>
+			</div>
+		</div>
+	} else if preview.Remotes != nil && len(preview.Remotes) > 0 {
+		<div class="mb-4">
+			<h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Found {fmt.Sprintf("%d", len(preview.Remotes))} remotes</h3>
+			<p class="text-gray-700 dark:text-gray-300 mb-4">Select which remotes to import and edit their details if needed.</p>
+		</div>
+
+		<form id="confirm-import-form" method="POST" action="/storage-providers/import/confirm" hx-post="/storage-providers/import/confirm" hx-target="#import-result" hx-swap="innerHTML">
+			<div class="relative overflow-x-auto shadow-md sm:rounded-lg">
+				<table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+					<thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+						<tr>
+							<th scope="col" class="px-6 py-3">
+								<div class="flex items-center">
+									<input type="checkbox" checked class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" id="select-all-checkbox" onclick="toggleAllCheckboxes(this)" />
+									<label for="select-all-checkbox" class="ml-2 text-sm font-medium text-gray-900 dark:text-gray-300">Import?</label>
+								</div>
+							</th>
+							<th scope="col" class="px-6 py-3">Name</th>
+							<th scope="col" class="px-6 py-3">Type</th>
+							<th scope="col" class="px-6 py-3">Fields</th>
+						</tr>
+					</thead>
+					<tbody>
+						if len(preview.Remotes) > 0 {
+							for _, remote := range preview.Remotes {
+								<tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+									<td class="px-6 py-4">
+										<input type="checkbox" name={"import_" + remote.Name} checked class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:focus:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
+									</td>
+									<td class="px-6 py-4">
+										<input type="text" name={"name_" + remote.Name} value={remote.Name} class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
+									</td>
+									<td class="px-6 py-4">
+										<input type="text" name={"type_" + remote.Name} value={remote.Type} class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
+									</td>
+									<td class="px-6 py-4">
+										<div class="space-y-2">
+											for k, v := range remote.Fields {
+												<div class="flex items-center gap-2">
+													<span class="font-mono text-xs text-gray-700 dark:text-gray-300 min-w-[80px]">{k}:</span>
+													<input type="text" name={"field_" + remote.Name + "_" + k} value={v} class="bg-gray-50 border border-gray-300 text-gray-900 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-1.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
+												</div>
+											}
+										</div>
+									</td>
+								</tr>
+							}
+						} else {
+							<tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+								<td colspan="4" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">No remotes found in config.</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+
+			<div class="mt-6">
+				<button type="submit" class="text-white bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-green-600 dark:hover:bg-green-700 focus:outline-none dark:focus:ring-green-800">
+					<i class="fas fa-file-import mr-2"></i>
+					Import Selected Remotes
+				</button>
+				<a href="/storage-providers" class="ml-2 text-gray-900 bg-white border border-gray-300 focus:outline-none hover:bg-gray-100 focus:ring-4 focus:ring-gray-200 font-medium rounded-lg text-sm px-5 py-2.5 dark:bg-gray-800 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-600 dark:focus:ring-gray-700">Cancel</a>
+			</div>
+
+			<script>
+				function toggleAllCheckboxes(source) {
+					const checkboxes = document.querySelectorAll('input[type="checkbox"][name^="import_"]');
+					for (let i = 0; i < checkboxes.length; i++) {
+						checkboxes[i].checked = source.checked;
+					}
+				}
+			</script>
+		</form>
+	} else {
+		<div class="flex p-4 mb-4 text-sm text-gray-800 border border-gray-300 rounded-lg bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600" role="alert">
+			<i class="fas fa-info-circle flex-shrink-0 inline w-5 h-5 mr-3"></i>
+			<span class="sr-only">Info</span>
+			<div>
+				Upload a config file to preview rclone remotes for import.
+			</div>
+		</div>
+	}
+}

@@ -57,12 +57,17 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 	authorized.DELETE("/storage-providers/:id", h.HandleDeleteStorageProvider)
 	authorized.POST("/storage-providers/:id/test", h.HandleTestStorageProvider)
 	authorized.POST("/storage-providers/:id/duplicate", h.HandleDuplicateStorageProvider)
-	
+
+	// New import workflow
+	authorized.GET("/storage-providers/import", h.HandleStorageProvidersImportPage)
+	authorized.POST("/storage-providers/import/preview", h.HandleStorageProvidersImportPreview)
+	authorized.POST("/storage-providers/import/confirm", h.HandleStorageProvidersImportConfirm)
+
 	// Google Drive authentication routes for storage providers
 	authorized.GET("/storage-providers/:id/gdrive-auth", h.HandleStorageProviderGDriveAuth)
 	authorized.GET("/storage-providers/gdrive-callback", h.HandleStorageProviderGDriveAuthCallback)
 	authorized.GET("/storage-providers/gdrive-token", h.HandleStorageProviderGDriveTokenProcess)
-	
+
 	// Google Drive headless authentication routes for storage providers
 	authorized.GET("/storage-providers/:id/gdrive-headless-auth", h.HandleStorageProviderGDriveHeadlessAuth)
 	authorized.POST("/storage-providers/gdrive-headless-token", h.HandleStorageProviderGDriveHeadlessTokenSubmit)
