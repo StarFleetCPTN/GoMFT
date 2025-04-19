@@ -421,15 +421,15 @@ func TestInputValidation(t *testing.T) {
 
 		// Validate type is one of the allowed values
 		validTypes := map[string]bool{
-			"s3":           true,
-			"sftp":         true,
-			"ftp":          true,
-			"smb":          true,
-			"onedrive":     true,
-			"drive":        true,
-			"gphotos":      true,
-			"hetzner":      true,
-			"local":        true,
+			"s3":       true,
+			"sftp":     true,
+			"ftp":      true,
+			"smb":      true,
+			"onedrive": true,
+			"gdrive":   true,
+			"gphotos":  true,
+			"hetzner":  true,
+			"local":    true,
 		}
 
 		if !validTypes[providerType] {

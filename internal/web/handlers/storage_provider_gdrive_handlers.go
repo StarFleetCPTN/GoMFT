@@ -39,7 +39,7 @@ func (h *Handlers) HandleStorageProviderGDriveAuth(c *gin.Context) {
 	}
 
 	// Ensure it's a Google Drive or Google Photos provider
-	if provider.Type != "drive" && provider.Type != "gphotos" {
+	if provider.Type != "gdrive" && provider.Type != "gphotos" {
 		RenderErrorPage(c, "Not a Google provider", "The selected provider is not set up for Google Drive or Google Photos")
 		return
 	}
@@ -113,14 +113,14 @@ func (h *Handlers) HandleStorageProviderGDriveAuth(c *gin.Context) {
 	}
 
 	// Create a config file with redirect URI-based auth
-	configType := "drive"
-	if provider.Type == "google_photo" {
-		configType = "google photos"
+	configType := "gdrive"
+	if provider.Type == "gphotos" {
+		configType = "gphotos"
 	}
 
 	// Use a standardized name for the rclone config section
-	configSection := "temp_drive"
-	if provider.Type == "google_photo" {
+	configSection := "temp_gdrive"
+	if provider.Type == "gphotos" {
 		configSection = "temp_gphotos"
 	}
 
@@ -331,7 +331,7 @@ func (h *Handlers) HandleStorageProviderGDriveTokenProcess(c *gin.Context) {
 	}
 
 	// Ensure it's a Google Drive or Google Photos provider
-	if provider.Type != "drive" && provider.Type != "gphotos" {
+	if provider.Type != "gdrive" && provider.Type != "gphotos" {
 		RenderErrorPage(c, "Not a Google provider", "")
 		return
 	}
@@ -378,15 +378,15 @@ func (h *Handlers) HandleStorageProviderGDriveHeadlessAuth(c *gin.Context) {
 	}
 
 	// Ensure it's a Google Drive or Google Photos provider
-	if provider.Type != "drive" && provider.Type != "gphotos" {
+	if provider.Type != "gdrive" && provider.Type != "gphotos" {
 		RenderErrorPage(c, "Not a Google provider", "The selected provider is not set up for Google Drive or Google Photos")
 		return
 	}
 
 	// Determine which Google service we're authenticating with
 	var serviceType string
-	if provider.Type == "drive" {
-		serviceType = "drive"
+	if provider.Type == "gdrive" {
+		serviceType = "gdrive"
 	} else {
 		serviceType = "gphotos"
 	}

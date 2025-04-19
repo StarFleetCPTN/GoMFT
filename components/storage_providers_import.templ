@@ -230,7 +230,7 @@ templ RcloneImportPreviewContent(ctx context.Context, preview RcloneImportPrevie
 												}
 
 												<!-- OAuth credentials -->
-												if remote.Type == "drive" || remote.Type == "onedrive" || remote.Type == "gphotos" {
+												if remote.Type == "gdrive" || remote.Type == "onedrive" || remote.Type == "gphotos" {
 													<!-- Client ID -->
 													if _, exists := remote.Fields["client_id"]; !exists {
 														<div class="flex items-center gap-2">

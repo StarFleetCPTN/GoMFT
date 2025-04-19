@@ -132,9 +132,9 @@ func (h *Handlers) HandleGDriveAuth(c *gin.Context) {
 	}
 
 	// Create a config file with redirect URI-based auth
-	configType := "drive"
+	configType := "gdrive"
 	if config.DestinationType == "gphotos" {
-		configType = "google photos"
+		configType = "gphotos"
 	}
 
 	configContent := fmt.Sprintf(`[temp_%s]

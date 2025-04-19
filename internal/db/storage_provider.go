@@ -13,7 +13,7 @@ const (
 	ProviderTypeSFTP        StorageProviderType = "sftp"
 	ProviderTypeS3          StorageProviderType = "s3"
 	ProviderTypeOneDrive    StorageProviderType = "onedrive"
-	ProviderTypeGoogleDrive StorageProviderType = "drive"
+	ProviderTypeGoogleDrive StorageProviderType = "gdrive"
 	ProviderTypeGooglePhoto StorageProviderType = "gphotos"
 	ProviderTypeFTP         StorageProviderType = "ftp"
 	ProviderTypeSMB         StorageProviderType = "smb"

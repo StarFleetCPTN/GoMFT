@@ -465,7 +465,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 		if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
 			return fmt.Errorf("failed to write source config (local): %v", err)
 		}
-	case "drive":
+	case "gdrive":
 		// For Google Drive, we need client ID and secret
 		clientID := getStringValue(sourceCredentials, "client_id", config.SourceClientID)
 
@@ -1018,7 +1018,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 		if _, err := f.WriteString(content); err != nil {
 			return fmt.Errorf("failed to write destination config (local): %v", err)
 		}
-	case "drive":
+	case "gdrive":
 		// For Google Drive, we need client ID and secret
 		clientID := getStringValue(destCredentials, "client_id", config.DestClientID)
 

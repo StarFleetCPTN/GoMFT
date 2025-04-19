@@ -683,7 +683,7 @@ func (h *Handlers) HandleStorageProvidersImportConfirm(c *gin.Context) {
 
 	// Create template context
 	ctx := components.CreateTemplateContext(c)
-	
+
 	// Prepare result message
 	if c.GetHeader("HX-Request") == "true" {
 		var resultHTML string
@@ -794,8 +794,8 @@ func (h *Handlers) HandleImportRcloneConfig(c *gin.Context) {
 			continue
 		}
 		// Log that we're handling already encrypted values from rclone
-		if provider.EncryptedPassword != "" || provider.EncryptedSecretKey != "" || 
-		   provider.EncryptedClientSecret != "" || provider.EncryptedRefreshToken != "" {
+		if provider.EncryptedPassword != "" || provider.EncryptedSecretKey != "" ||
+			provider.EncryptedClientSecret != "" || provider.EncryptedRefreshToken != "" {
 			log.Printf("Processing provider %s with pre-encrypted values from rclone", provider.Name)
 		}
 
@@ -898,7 +898,7 @@ func storageProviderFromRcloneSection(name string, section map[string]string, us
 	}
 	// Optionally: you can check for known types and set generic if not recognized
 	knownTypes := map[string]bool{
-		"sftp": true, "s3": true, "onedrive": true, "drive": true, "gphotos": true, "ftp": true, "smb": true, "hetzner": true, "local": true, "webdav": true, "nextcloud": true, "b2": true, "wasabi": true, "minio": true,
+		"sftp": true, "s3": true, "onedrive": true, "gdrive": true, "gphotos": true, "ftp": true, "smb": true, "hetzner": true, "local": true, "webdav": true, "nextcloud": true, "b2": true, "wasabi": true, "minio": true,
 	}
 	if !knownTypes[providerType] {
 		providerType = string(db.ProviderTypeGeneric)
