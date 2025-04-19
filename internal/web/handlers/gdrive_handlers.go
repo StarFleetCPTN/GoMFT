@@ -37,7 +37,7 @@ func (h *Handlers) HandleGDriveAuth(c *gin.Context) {
 	}
 
 	// Ensure it's a Google Drive or Google Photos configuration
-	if config.SourceType != "gdrive" && config.DestinationType != "gdrive" && config.SourceType != "gphotos" && config.DestinationType != "gphotos" {
+	if config.SourceType != "drive" && config.DestinationType != "drive" && config.SourceType != "gphotos" && config.DestinationType != "gphotos" {
 		RenderErrorPage(c, "Not a Google configuration", "The selected configuration is not set up for Google Drive or Google Photos")
 		return
 	}
@@ -132,7 +132,7 @@ func (h *Handlers) HandleGDriveAuth(c *gin.Context) {
 	}
 
 	// Create a config file with redirect URI-based auth
-	configType := "gdrive"
+	configType := "drive"
 	if config.DestinationType == "gphotos" {
 		configType = "gphotos"
 	}
@@ -362,7 +362,7 @@ func (h *Handlers) HandleGDriveTokenProcess(c *gin.Context) {
 	}
 
 	// Ensure it's a Google Drive or Google Photos configuration
-	if config.SourceType != "gdrive" && config.DestinationType != "gdrive" && config.SourceType != "gphotos" && config.DestinationType != "gphotos" {
+	if config.SourceType != "drive" && config.DestinationType != "drive" && config.SourceType != "gphotos" && config.DestinationType != "gphotos" {
 		RenderErrorPage(c, "Not a Google Drive configuration", "")
 		return
 	}

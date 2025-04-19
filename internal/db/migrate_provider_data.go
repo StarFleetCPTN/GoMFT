@@ -248,7 +248,7 @@ func extractSourceProviderConfig(config *TransferConfig) *ProviderConfig {
 	}
 
 	// Special handling for OAuth authentication status
-	if config.SourceType == "gdrive" || config.SourceType == "gphotos" {
+	if config.SourceType == "drive" || config.SourceType == "gphotos" {
 		authenticated := config.GetGoogleAuthenticated()
 		sourceConfig.Authenticated = &authenticated
 	}
@@ -296,7 +296,7 @@ func extractDestinationProviderConfig(config *TransferConfig) *ProviderConfig {
 	}
 
 	// Special handling for OAuth authentication status
-	if config.DestinationType == "gdrive" || config.DestinationType == "gphotos" {
+	if config.DestinationType == "drive" || config.DestinationType == "gphotos" {
 		authenticated := config.GetGoogleAuthenticated()
 		destConfig.Authenticated = &authenticated
 	}

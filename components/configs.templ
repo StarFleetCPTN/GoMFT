@@ -394,7 +394,7 @@ templ Configs(ctx context.Context, data ConfigsData) {
 														</p>
 
 														<!-- Google Drive Authentication Badge -->
-														if (config.DestinationType == "gdrive" || config.SourceType == "gdrive" || config.SourceType == "gphotos" || config.DestinationType == "gphotos") && !config.GetGoogleAuthenticated() {
+														if (config.DestinationType == "drive" || config.SourceType == "drive" || config.SourceType == "gphotos" || config.DestinationType == "gphotos") && !config.GetGoogleAuthenticated() {
 															<span class="ml-2 bg-yellow-100 text-yellow-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full dark:bg-yellow-900 dark:text-yellow-300">
 																<i class="fas fa-exclamation-triangle w-3 h-3 mr-1 inline"></i>
 																Authentication Required
@@ -402,7 +402,7 @@ templ Configs(ctx context.Context, data ConfigsData) {
 														}
 														
 														<!-- Google Drive Authentication Status Indicator -->
-														if (config.DestinationType == "gdrive" || config.SourceType == "gdrive" || config.SourceType == "gphotos" || config.DestinationType == "gphotos") && config.GetGoogleAuthenticated() {
+														if (config.DestinationType == "drive" || config.SourceType == "drive" || config.SourceType == "gphotos" || config.DestinationType == "gphotos") && config.GetGoogleAuthenticated() {
 															<span class="ml-2 bg-green-100 text-green-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded-full dark:bg-green-900 dark:text-green-300">
 																<i class="fas fa-check-circle w-3 h-3 mr-1 inline"></i>
 																Authenticated
@@ -411,7 +411,7 @@ templ Configs(ctx context.Context, data ConfigsData) {
 													</div>
 													<div class="ml-2 flex-shrink-0 flex space-x-2">
 														<!-- Google Drive Authentication Button -->
-														if (config.DestinationType == "gdrive" || config.SourceType == "gdrive" || config.SourceType == "gphotos" || config.DestinationType == "gphotos") && !config.GetGoogleAuthenticated() {
+														if (config.DestinationType == "drive" || config.SourceType == "drive" || config.SourceType == "gphotos" || config.DestinationType == "gphotos") && !config.GetGoogleAuthenticated() {
 															<a href={ templ.SafeURL(fmt.Sprintf("/configs/%d/gdrive-auth", config.ID)) } class="text-yellow-700 bg-yellow-100 hover:bg-yellow-200 focus:ring-4 focus:outline-none focus:ring-yellow-300 font-medium rounded-lg text-sm px-3 py-1.5 text-center inline-flex items-center dark:bg-yellow-900 dark:text-yellow-300 dark:hover:bg-yellow-800 dark:focus:ring-yellow-800">
 																<i class="fas fa-key w-3.5 h-3.5 mr-1.5"></i>
 																Authenticate

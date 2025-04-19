@@ -219,7 +219,7 @@ func TestRcloneConnection(config db.TransferConfig, providerType string, dbInsta
 		if pass != "" {
 			createArgs = append(createArgs, "pass", pass)
 		}
-	case "gdrive":
+	case "drive":
 		createArgs = append(createArgs, "scope", "drive")
 		if clientID != "" {
 			createArgs = append(createArgs, "client_id", clientID)

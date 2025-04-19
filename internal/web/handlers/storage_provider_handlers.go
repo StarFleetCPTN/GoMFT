@@ -898,7 +898,7 @@ func storageProviderFromRcloneSection(name string, section map[string]string, us
 	}
 	// Optionally: you can check for known types and set generic if not recognized
 	knownTypes := map[string]bool{
-		"sftp": true, "s3": true, "onedrive": true, "gdrive": true, "gphotos": true, "ftp": true, "smb": true, "hetzner": true, "local": true, "webdav": true, "nextcloud": true, "b2": true, "wasabi": true, "minio": true,
+		"sftp": true, "s3": true, "onedrive": true, "drive": true, "gphotos": true, "ftp": true, "smb": true, "hetzner": true, "local": true, "webdav": true, "nextcloud": true, "b2": true, "wasabi": true, "minio": true,
 	}
 	if !knownTypes[providerType] {
 		providerType = string(db.ProviderTypeGeneric)

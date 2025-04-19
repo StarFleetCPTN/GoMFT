@@ -492,11 +492,11 @@ templ StorageProviders_ProvidersList(providers []db.StorageProvider) {
 												Region: { provider.Region }
 											</p>
 										}
-									} else if provider.Type == "gdrive" || provider.Type == "gphotos" {
+									} else if provider.Type == "drive" || provider.Type == "gphotos" {
 										<p class="flex items-center text-sm text-gray-500 dark:text-gray-400">
 											<i class="fab fa-google-drive w-4 h-4 mr-1.5 text-gray-400 dark:text-gray-500"></i>
 											Google 
-											if provider.Type == "gdrive" {
+											if provider.Type == "drive" {
 												Drive
 											} else {
 												Photos
@@ -610,13 +610,13 @@ templ StorageProviders_ProvidersList(providers []db.StorageProvider) {
 						</div>
 						
 						<!-- Authentication Notice (More Visible) -->
-						if (provider.Type == "gdrive" || provider.Type == "gphotos") && (provider.Authenticated == nil || !*provider.Authenticated) {
+						if (provider.Type == "drive" || provider.Type == "gphotos") && (provider.Authenticated == nil || !*provider.Authenticated) {
 							<div class="mt-3 flex items-center justify-between bg-yellow-50 dark:bg-yellow-900/30 rounded-lg p-3 border border-yellow-200 dark:border-yellow-800">
 								<div class="flex items-center">
 									<i class="fas fa-exclamation-triangle text-yellow-500 w-5 h-5 mr-2"></i>
 									<span class="text-sm text-yellow-700 dark:text-yellow-300">
 									Authentication required for Google 
-									if provider.Type == "gdrive" {
+									if provider.Type == "drive" {
 										Drive
 									} else {
 										Photos

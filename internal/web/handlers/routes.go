@@ -109,6 +109,10 @@ func (h *Handlers) RegisterRoutes(router *gin.Engine) {
 		authorized.POST("/jobs/:id/run", h.HandleRunJob)
 		authorized.GET("/history", h.HandleHistory)
 		authorized.GET("/job-runs/:id", h.HandleJobRunDetails)
+
+		// Calendar view route
+		authorized.GET("/calendar", h.HandleCalendarView)
+
 		authorized.GET("/profile", h.HandleProfile)
 		authorized.POST("/profile/theme", h.HandleUpdateTheme)
 		authorized.POST("/logout", h.HandleLogout)

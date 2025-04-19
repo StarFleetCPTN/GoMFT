@@ -465,7 +465,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 		if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
 			return fmt.Errorf("failed to write source config (local): %v", err)
 		}
-	case "gdrive":
+	case "drive":
 		// For Google Drive, we need client ID and secret
 		clientID := getStringValue(sourceCredentials, "client_id", config.SourceClientID)
 
@@ -1018,7 +1018,7 @@ func (db *DB) GenerateRcloneConfig(config *TransferConfig) error {
 		if _, err := f.WriteString(content); err != nil {
 			return fmt.Errorf("failed to write destination config (local): %v", err)
 		}
-	case "gdrive":
+	case "drive":
 		// For Google Drive, we need client ID and secret
 		clientID := getStringValue(destCredentials, "client_id", config.DestClientID)
 
@@ -1244,7 +1244,7 @@ func (db *DB) StoreGoogleDriveToken(configIDStr string, token string) error {
 
 	// Check if we're using a provider reference and update the provider instead
 	if config.IsUsingDestinationProviderReference() && config.DestinationProvider != nil &&
-		(config.DestinationProvider.Type == "gdrive" || config.DestinationProvider.Type == "gphotos") {
+		(config.DestinationProvider.Type == "drive" || config.DestinationProvider.Type == "gphotos") {
 		// Update the provider with the token
 		provider := config.DestinationProvider
 		provider.RefreshToken = token // Set the clear token temporarily
@@ -1257,7 +1257,7 @@ func (db *DB) StoreGoogleDriveToken(configIDStr string, token string) error {
 
 		// Continue with creating the rclone config file since this is still needed for transfers
 	} else if config.IsUsingSourceProviderReference() && config.SourceProvider != nil &&
-		(config.SourceProvider.Type == "gdrive" || config.SourceProvider.Type == "gphotos") {
+		(config.SourceProvider.Type == "drive" || config.SourceProvider.Type == "gphotos") {
 		// Update the provider with the token
 		provider := config.SourceProvider
 		provider.RefreshToken = token // Set the clear token temporarily
@@ -1338,7 +1338,7 @@ func (db *DB) GenerateRcloneConfigWithToken(config *TransferConfig, token string
 	var startYear int
 
 	// Determine if source or destination needs token update
-	if config.DestinationType == "gdrive" || config.DestinationType == "gphotos" {
+	if config.DestinationType == "drive" || config.DestinationType == "gphotos" {
 		configType = config.DestinationType
 		section = "dest"
 		clientID = config.DestClientID
@@ -1346,7 +1346,7 @@ func (db *DB) GenerateRcloneConfigWithToken(config *TransferConfig, token string
 		readOnly = config.DestReadOnly
 		startYear = config.DestStartYear
 		includeArchived = config.DestIncludeArchived
-	} else if config.SourceType == "gdrive" || config.SourceType == "gphotos" {
+	} else if config.SourceType == "drive" || config.SourceType == "gphotos" {
 		configType = config.SourceType
 		section = "source"
 		clientID = config.SourceClientID
@@ -1367,7 +1367,7 @@ func (db *DB) GenerateRcloneConfigWithToken(config *TransferConfig, token string
 	var sectionContent string
 	sectionHeader := fmt.Sprintf("[%s_%d]", section, config.ID)
 
-	if configType == "gdrive" {
+	if configType == "drive" {
 		sectionContent = sectionHeader + "\ntype = drive\n"
 		if clientID != "" {
 			sectionContent += fmt.Sprintf("client_id = %s\n", clientID)
@@ -1432,9 +1432,9 @@ func (db *DB) GenerateRcloneConfigWithToken(config *TransferConfig, token string
 
 	// Update the authentication status in DB
 	authenticated := true
-	if config.DestinationType == "gdrive" || config.DestinationType == "gphotos" {
+	if config.DestinationType == "drive" || config.DestinationType == "gphotos" {
 		config.SetGoogleAuthenticated(authenticated)
-	} else if config.SourceType == "gdrive" || config.SourceType == "gphotos" {
+	} else if config.SourceType == "drive" || config.SourceType == "gphotos" {
 		config.SetGoogleAuthenticated(authenticated)
 	}
 	// Persist the change (assuming UpdateTransferConfig saves the whole object)
@@ -1624,7 +1624,7 @@ func (db *DB) ConvertToProviderReferences(config *TransferConfig) error {
 		}
 
 		// For Google Drive/Photos, carry over authentication status
-		if config.DestinationType == "gdrive" || config.DestinationType == "gphotos" {
+		if config.DestinationType == "drive" || config.DestinationType == "gphotos" {
 			provider.SetAuthenticated(config.GetGoogleAuthenticated())
 		}
 

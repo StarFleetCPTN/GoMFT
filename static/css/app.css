@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import vendor CSS */
+@import './vendor/fullcalendar.css';
+
 /* Custom styles */
 html, body {
   margin: 0;
