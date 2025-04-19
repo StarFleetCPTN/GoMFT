@@ -136,6 +136,7 @@ For environments where Docker is not available or preferred, you can install GoM
 - Go 1.20 or later
 - Node.js 18 or later
 - gcc (for building SQLite dependencies)
+- templ (for generating template code)
 
 ### Building from Source
 
@@ -158,13 +159,25 @@ npm install
 npm run build
 ```
 
-4. Build the Go application:
+4. Install templ if you haven't already:
+
+```bash
+go install github.com/a-h/templ/cmd/templ@latest
+```
+
+5. Generate templ templates:
+
+```bash
+templ generate
+```
+
+6. Build the Go application:
 
 ```bash
 go build -o gomft
 ```
 
-5. Run the application:
+7. Run the application:
 
 ```bash
 ./gomft

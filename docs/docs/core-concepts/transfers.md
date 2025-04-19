@@ -7,6 +7,8 @@ title: Transfers
 
 GoMFT's primary function is to manage file transfers between different storage systems. This page explains the transfer operations available in GoMFT and how to configure them.
 
+> **Note**: GoMFT now supports the Storage Provider feature, which allows you to create reusable connection profiles for your transfers. For detailed information, see the [Storage Providers](/docs/user-guides/storage-provider-guide) guide.
+
 ## Transfer Types
 
 GoMFT supports several types of transfer operations, each with different behaviors:
@@ -51,9 +53,22 @@ When creating a transfer in GoMFT, you need to configure the following elements:
 
 - **Name**: A descriptive name for the transfer
 - **Description**: Optional details about the transfer's purpose
-- **Source**: The source connection and path
-- **Destination**: The destination connection and path
+- **Source**: Either a direct connection configuration or a Storage Provider
+- **Destination**: Either a direct connection configuration or a Storage Provider
 - **Transfer Type**: Copy, Sync, Move, or Bidirectional Sync
+
+#### Using Storage Providers
+
+When creating a transfer, you can now select a Storage Provider instead of entering connection details directly:
+
+1. In the Source or Destination section, select **Provider** from the dropdown
+2. Choose from your available Storage Providers
+3. Enter the path within the selected provider
+
+This approach offers several benefits:
+- Reuse the same provider across multiple transfers
+- Update credentials in one place
+- Enhanced security with AES-256 encryption for credentials
 
 ### Advanced Options
 
@@ -147,12 +162,14 @@ When a transfer fails, GoMFT provides information to help identify the cause:
 
 1. Check the error message in the transfer history
 2. Review the detailed logs for the specific error
-3. Common issues include:
+3. For transfers using Storage Providers, you can test the provider connection directly from the Storage Providers section
+4. Common issues include:
    - Permission problems
    - Network connectivity
    - Invalid credentials
    - Path not found
    - Disk space issues
+   - Expired tokens (for OAuth providers like OneDrive or Google Drive)
 
 ## Best Practices
 
@@ -164,4 +181,6 @@ When a transfer fails, GoMFT provides information to help identify the cause:
 - **Set bandwidth limits** to avoid network congestion during peak hours
 - **Schedule large transfers** during off-peak times
 - **Use notifications** to stay informed about transfer results
-- **Regularly review logs** to identify potential issues 
+- **Regularly review logs** to identify potential issues
+- **Use Storage Providers** for reusable connections across multiple transfers
+- **Convert existing transfers** to use Storage Providers for easier credential management 

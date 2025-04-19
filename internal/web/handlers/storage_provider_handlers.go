@@ -99,14 +99,68 @@ func (h *Handlers) HandleCreateStorageProvider(c *gin.Context) {
 	// Set created by
 	provider.CreatedBy = userID
 
+	// Start a transaction
+	tx := h.DB.Begin()
+	if tx.Error != nil {
+		ctx := components.CreateTemplateContext(c)
+		_ = components.StorageProviderForm(ctx, components.StorageProviderFormData{
+			Provider: &provider,
+			IsEdit:   false,
+			Error:    "Failed to begin transaction",
+		}).Render(ctx, c.Writer)
+		return
+	}
+
 	// Create provider in database
-	err := h.DB.CreateStorageProvider(&provider)
-	if err != nil {
+	if err := tx.Create(&provider).Error; err != nil {
+		tx.Rollback()
 		ctx := components.CreateTemplateContext(c)
 		_ = components.StorageProviderForm(ctx, components.StorageProviderFormData{
 			Provider: &provider,
 			IsEdit:   false,
 			Error:    fmt.Sprintf("Failed to create storage provider: %v", err),
+		}).Render(ctx, c.Writer)
+		return
+	}
+
+	// Create audit log
+	auditDetails := map[string]interface{}{
+		"name":     provider.Name,
+		"type":     provider.Type,
+		"host":     provider.Host,
+		"port":     provider.Port,
+		"username": provider.Username,
+	}
+
+	auditLog := db.AuditLog{
+		Action:     "create",
+		EntityType: "storage_provider",
+		EntityID:   provider.ID,
+		UserID:     userID,
+		Details:    auditDetails,
+		Timestamp:  time.Now(),
+	}
+
+	if err := tx.Create(&auditLog).Error; err != nil {
+		tx.Rollback()
+		log.Printf("Error creating audit log: %v", err)
+		ctx := components.CreateTemplateContext(c)
+		_ = components.StorageProviderForm(ctx, components.StorageProviderFormData{
+			Provider: &provider,
+			IsEdit:   false,
+			Error:    "Failed to create audit log",
+		}).Render(ctx, c.Writer)
+		return
+	}
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		log.Printf("Error committing transaction: %v", err)
+		ctx := components.CreateTemplateContext(c)
+		_ = components.StorageProviderForm(ctx, components.StorageProviderFormData{
+			Provider: &provider,
+			IsEdit:   false,
+			Error:    "Failed to commit transaction",
 		}).Render(ctx, c.Writer)
 		return
 	}
@@ -218,14 +272,68 @@ func (h *Handlers) HandleUpdateStorageProvider(c *gin.Context) {
 		provider.EncryptedRefreshToken = existingProvider.EncryptedRefreshToken
 	}
 
+	// Start a transaction
+	tx := h.DB.Begin()
+	if tx.Error != nil {
+		ctx := components.CreateTemplateContext(c)
+		_ = components.StorageProviderForm(ctx, components.StorageProviderFormData{
+			Provider: &provider,
+			IsEdit:   true,
+			Error:    "Failed to begin transaction",
+		}).Render(ctx, c.Writer)
+		return
+	}
+
+	// Create audit log before update
+	auditDetails := map[string]interface{}{
+		"name":     provider.Name,
+		"type":     provider.Type,
+		"host":     provider.Host,
+		"port":     provider.Port,
+		"username": provider.Username,
+	}
+
+	auditLog := db.AuditLog{
+		Action:     "update",
+		EntityType: "storage_provider",
+		EntityID:   provider.ID,
+		UserID:     userID,
+		Details:    auditDetails,
+		Timestamp:  time.Now(),
+	}
+
+	if err := tx.Create(&auditLog).Error; err != nil {
+		tx.Rollback()
+		log.Printf("Error creating audit log: %v", err)
+		ctx := components.CreateTemplateContext(c)
+		_ = components.StorageProviderForm(ctx, components.StorageProviderFormData{
+			Provider: &provider,
+			IsEdit:   true,
+			Error:    "Failed to create audit log",
+		}).Render(ctx, c.Writer)
+		return
+	}
+
 	// Update provider in database
-	err = h.DB.UpdateStorageProvider(&provider)
-	if err != nil {
+	if err := tx.Save(&provider).Error; err != nil {
+		tx.Rollback()
 		ctx := components.CreateTemplateContext(c)
 		_ = components.StorageProviderForm(ctx, components.StorageProviderFormData{
 			Provider: &provider,
 			IsEdit:   true,
 			Error:    fmt.Sprintf("Failed to update storage provider: %v", err),
+		}).Render(ctx, c.Writer)
+		return
+	}
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		log.Printf("Error committing transaction: %v", err)
+		ctx := components.CreateTemplateContext(c)
+		_ = components.StorageProviderForm(ctx, components.StorageProviderFormData{
+			Provider: &provider,
+			IsEdit:   true,
+			Error:    "Failed to commit transaction",
 		}).Render(ctx, c.Writer)
 		return
 	}
@@ -286,10 +394,64 @@ func (h *Handlers) HandleDeleteStorageProvider(c *gin.Context) {
 		return
 	}
 
+	// Get provider
+	var provider db.StorageProvider
+	if err := h.DB.First(&provider, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Storage provider not found"})
+		return
+	}
+
+	// Check if user owns this provider
+	if provider.CreatedBy != c.GetUint("userID") {
+		// Check if user is admin
+		isAdmin, exists := c.Get("isAdmin")
+		if !exists || isAdmin != true {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You do not have permission to delete this provider"})
+			return
+		}
+	}
+
+	// Start a transaction
+	tx := h.DB.Begin()
+	if tx.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to begin transaction"})
+		return
+	}
+
+	// Create audit log before deletion
+	auditDetails := map[string]interface{}{
+		"name":     provider.Name,
+		"type":     provider.Type,
+		"host":     provider.Host,
+		"port":     provider.Port,
+		"username": provider.Username,
+	}
+
+	auditLog := db.AuditLog{
+		Action:     "delete",
+		EntityType: "storage_provider",
+		EntityID:   provider.ID,
+		UserID:     c.GetUint("userID"),
+		Details:    auditDetails,
+		Timestamp:  time.Now(),
+	}
+
+	if err := tx.Create(&auditLog).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create audit log"})
+		return
+	}
+
 	// Delete provider
-	err = h.DB.DeleteStorageProvider(uint(id))
-	if err != nil {
+	if err := tx.Delete(&provider).Error; err != nil {
+		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to delete provider: %v", err)})
+		return
+	}
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 		return
 	}
 
@@ -376,10 +538,49 @@ func (h *Handlers) HandleDuplicateStorageProvider(c *gin.Context) {
 	duplicateProvider.UpdatedAt = time.Now()
 	// Deep copy pointer fields here if any are added in the future
 
-	// Save the duplicate
-	err = h.DB.CreateStorageProvider(&duplicateProvider)
-	if err != nil {
+	// Start a transaction
+	tx := h.DB.Begin()
+	if tx.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to begin transaction"})
+		return
+	}
+
+	// Create the duplicate in the database
+	if err := tx.Create(&duplicateProvider).Error; err != nil {
+		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create duplicate provider: " + err.Error()})
+		return
+	}
+
+	// Create audit log for duplication
+	auditDetails := map[string]interface{}{
+		"name":            duplicateProvider.Name,
+		"type":            duplicateProvider.Type,
+		"original_id":     originalProvider.ID,
+		"original_name":   originalProvider.Name,
+		"host":            duplicateProvider.Host,
+		"port":            duplicateProvider.Port,
+		"username":        duplicateProvider.Username,
+	}
+
+	auditLog := db.AuditLog{
+		Action:     "duplicate",
+		EntityType: "storage_provider",
+		EntityID:   duplicateProvider.ID,
+		UserID:     userID,
+		Details:    auditDetails,
+		Timestamp:  time.Now(),
+	}
+
+	if err := tx.Create(&auditLog).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create audit log"})
+		return
+	}
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 		return
 	}
 

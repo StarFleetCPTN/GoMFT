@@ -157,12 +157,41 @@ When a schedule runs, GoMFT performs these actions:
 
 GoMFT provides several ways to monitor your scheduled transfers:
 
-<!-- ### Schedule Calendar
+### Transfer Calendar
 
-View all scheduled transfers in a calendar view:
-1. Navigate to **Schedule Calendar** in the Schedules section
-2. See all upcoming scheduled transfers in a monthly, weekly, or daily view
-3. Click on any scheduled transfer to see details or edit it -->
+The Transfer Calendar provides a visual overview of all your scheduled transfers:
+
+1. Navigate to **Transfer Calendar** in the sidebar
+2. View all scheduled transfers in a monthly, weekly, or daily view
+3. Color-coded events indicate different transfer types or statuses
+4. Hover over any event to see a summary of the transfer details
+5. Click on any scheduled transfer to see full details or edit it
+
+#### Calendar Views
+
+- **Month View**: See all scheduled transfers for the entire month
+- **Week View**: Focus on transfers scheduled for the current week
+- **Day View**: Detailed timeline of transfers for a specific day
+- **Agenda View**: List-based view of upcoming transfers
+
+#### Calendar Features
+
+- **Filtering**: Filter transfers by type, status, or associated connection
+<!-- - **Search**: Find specific transfers by name or description -->
+<!-- - **Export**: Export calendar events to iCal or CSV format -->
+<!-- - **Drag and Drop**: Reschedule transfers by dragging them to a new time slot (requires appropriate permissions) -->
+<!-- - **Conflict Detection**: Visual indicators for potentially overlapping transfers -->
+
+<!-- #### Calendar Integration
+
+You can subscribe to the transfer calendar using external calendar applications:
+
+1. Click the **Calendar Subscription** button
+2. Copy the provided iCal URL
+3. Add the URL as a calendar subscription in applications like Google Calendar, Outlook, or Apple Calendar
+4. Set the refresh frequency in your calendar application
+
+> **Note**: The calendar subscription is read-only and requires authentication. Calendar subscriptions will only show transfers that the authenticated user has permission to view. -->
 
 ### Transfer History
 

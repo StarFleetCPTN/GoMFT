@@ -7,6 +7,8 @@ title: Connections
 
 Connections in GoMFT are configurations that define how to access different storage systems. Before you can transfer files, you need to set up connections for your source and destination systems.
 
+> **Note**: GoMFT now supports the Storage Provider feature, which allows you to create reusable connection profiles with securely stored credentials. For detailed information, see the [Storage Providers](/docs/user-guides/storage-provider-guide) guide.
+
 ## Supported Connection Types
 
 GoMFT leverages rclone as its transfer engine, supporting a wide range of storage systems:
@@ -74,19 +76,31 @@ Different connection types require different configuration fields. Here are some
 
 GoMFT follows best practices for handling connection credentials:
 
-- **Encryption**: All sensitive credentials are encrypted at rest
+- **Encryption**: All sensitive credentials are encrypted at rest using AES-256 encryption
 - **Access Control**: Connections are protected by user permissions
 - **Masked Values**: Passwords and secret keys are masked in the UI
 - **Key Management**: SSH keys and other credentials are securely stored
+- **Centralized Management**: With the Storage Provider feature, credentials can be managed in one place and reused across multiple transfers
 
 ## Managing Connections
 
+You can manage connections either through traditional transfer configurations or using the new Storage Provider feature.
+
 ### Viewing Connections
+
+#### Traditional Connections
 
 The **Transfer Configurations** page displays all configured connections with:
 - Configuration name
 - Configuration type
 - Last updated date
+
+#### Storage Providers
+
+Alternatively, you can use the new Storage Provider feature to manage your connections:
+1. Navigate to the **Storage Providers** section in the left sidebar
+2. View a list of all storage providers you have created
+3. Each provider shows name, type, and creation date
 
 ### Editing Transfer Confirgurations
 
@@ -125,4 +139,6 @@ GoMFT includes a configuration testing feature to verify connectivity:
 - **Use service accounts** rather than personal accounts when possible
 - **Document connection details** in the description field
 - **Use the minimal required permissions** for enhanced security
-- **Organize connections** using consistent naming conventions 
+- **Organize connections** using consistent naming conventions
+- **Use Storage Providers** for reusable connections across multiple transfers
+- **Update credentials in one place** by using Storage Providers instead of updating each transfer individually 

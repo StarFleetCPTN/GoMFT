@@ -15,10 +15,11 @@ Environment variables are the primary way to configure GoMFT, especially when ru
 
 | Variable | Description | Default | Example |
 |----------|-------------|---------|---------|
-| SERVER_ADDRESS | Server address and port | :8080 | `SERVER_ADDRESS=:9000` |
+| SERVER_ADDRESS | Server address and port | :8080 | `SERVER_ADDRESS=:8080` |
 | DATA_DIR | Main data directory | ./data | `DATA_DIR=/app/data` |
 | BACKUP_DIR | Directory for backups | ./backups | `BACKUP_DIR=/app/backups` |
 | JWT_SECRET | Secret for JWT tokens | change_this_to_a_secure_random_string | `JWT_SECRET=your-secure-secret-key` |
+| GOMFT_ENCRYPTION_KEY | Key used to encrypt sensitive data in the database | change_this_to_a_secure_random_string | `GOMFT_ENCRYPTION_KEY=your-secure-encryption-key` |
 | BASE_URL | Base URL for GoMFT (used in email links) | http://localhost:8080 | `BASE_URL=https://gomft.example.com` |
 | SKIP_SSL_VERIFY | Skip SSL verification for outgoing webhooks/notifications | false | `SKIP_SSL_VERIFY=false` |
 
@@ -64,6 +65,7 @@ SERVER_ADDRESS=:8080
 DATA_DIR=./data
 BACKUP_DIR=./backups
 JWT_SECRET=change_this_to_a_secure_random_string
+GOMFT_ENCRYPTION_KEY=change_this_to_a_secure_random_string
 BASE_URL=http://localhost:8080
 SKIP_SSL_VERIFY=false
 
@@ -111,6 +113,7 @@ docker run -d \
   -v /path/to/backups:/app/backups \
   -e SERVER_ADDRESS=:8080 \
   -e JWT_SECRET=your-secure-secret \
+  -e GOMFT_ENCRYPTION_KEY=your-secure-encryption-key \
   -e EMAIL_ENABLED=true \
   -e EMAIL_HOST=smtp.example.com \
   -e PUID=1000 \

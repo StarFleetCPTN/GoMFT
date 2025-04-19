@@ -31,6 +31,11 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'User Guides',
+      items: ['user-guides/storage-provider-guide'],
+    },
+    {
+      type: 'category',
       label: 'Advanced Features',
       items: [
         'advanced/notifications-overview',

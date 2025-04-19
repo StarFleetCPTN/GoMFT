@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"os"
 	"strconv"
 	"strings"
@@ -9,14 +11,15 @@ import (
 )
 
 type Config struct {
-	ServerAddress  string      `json:"server_address"`
-	DataDir        string      `json:"data_dir"`
-	BackupDir      string      `json:"backup_dir"`
-	JWTSecret      string      `json:"jwt_secret"`
-	Email          EmailConfig `json:"email"`
-	BaseURL        string      `json:"base_url"`         // Base URL for generating links in emails
-	TOTPEncryptKey string      `json:"totp_encrypt_key"` // Encryption key for TOTP secrets
-	SkipSSLVerify  bool        `json:"skip_ssl_verify"`  // Skip SSL verification for outgoing webhooks/notifications
+	ServerAddress      string      `json:"server_address"`
+	DataDir            string      `json:"data_dir"`
+	BackupDir          string      `json:"backup_dir"`
+	JWTSecret          string      `json:"jwt_secret"`
+	Email              EmailConfig `json:"email"`
+	BaseURL            string      `json:"base_url"`             // Base URL for generating links in emails
+	TOTPEncryptKey     string      `json:"totp_encrypt_key"`     // Encryption key for TOTP secrets
+	GOMFTEncryptionKey string      `json:"gomft_encryption_key"` // Encryption key for database
+	SkipSSLVerify      bool        `json:"skip_ssl_verify"`      // Skip SSL verification for outgoing webhooks/notifications
 }
 
 type EmailConfig struct {
@@ -33,15 +36,37 @@ type EmailConfig struct {
 }
 
 func Load() (*Config, error) {
+	// Generate secure encryption keys
+	defaultTOTPKey, err := generateSecureKey()
+	if err != nil {
+		return nil, err
+	}
+
+	defaultGOMFTKey, err := generateSecureKey()
+	if err != nil {
+		return nil, err
+	}
+	
+	// Only set the environment variables if they're not already defined
+	// This ensures user-provided keys take precedence
+	if os.Getenv("TOTP_ENCRYPTION_KEY") == "" {
+		os.Setenv("TOTP_ENCRYPTION_KEY", defaultTOTPKey)
+	}
+	
+	if os.Getenv("GOMFT_ENCRYPTION_KEY") == "" {
+		os.Setenv("GOMFT_ENCRYPTION_KEY", defaultGOMFTKey)
+	}
+
 	// Default configuration
 	cfg := &Config{
-		ServerAddress:  ":8080",
-		DataDir:        "./data",
-		BackupDir:      "./backups",
-		JWTSecret:      "change_this_to_a_secure_random_string",
-		BaseURL:        "http://localhost:8080",
-		TOTPEncryptKey: "this-is-a-dev-key-not-for-production!", // Default development key
-		SkipSSLVerify:  false,                                   // Default to verifying SSL
+		ServerAddress:      ":8080",
+		DataDir:            "./data",
+		BackupDir:          "./backups",
+		JWTSecret:          "change_this_to_a_secure_random_string",
+		BaseURL:            "http://localhost:8080",
+		TOTPEncryptKey:     defaultTOTPKey, // Secure randomly generated key
+		GOMFTEncryptionKey: defaultGOMFTKey, // Secure randomly generated key
+		SkipSSLVerify:      false, // Default to verifying SSL
 		Email: EmailConfig{
 			Enabled:     false,
 			Host:        "smtp.example.com",
@@ -87,7 +112,9 @@ func Load() (*Config, error) {
 		if totpKey := os.Getenv("TOTP_ENCRYPTION_KEY"); totpKey != "" {
 			cfg.TOTPEncryptKey = totpKey
 		}
-
+		if gomftKey := os.Getenv("GOMFT_ENCRYPTION_KEY"); gomftKey != "" {
+			cfg.GOMFTEncryptionKey = gomftKey
+		}
 		// Email configuration
 		if emailEnabled := os.Getenv("EMAIL_ENABLED"); emailEnabled != "" {
 			cfg.Email.Enabled = strings.ToLower(emailEnabled) == "true"
@@ -145,6 +172,7 @@ func Load() (*Config, error) {
 			"",
 			"# Two-Factor Authentication configuration",
 			"TOTP_ENCRYPTION_KEY=" + cfg.TOTPEncryptKey,
+			"GOMFT_ENCRYPTION_KEY=" + cfg.GOMFTEncryptionKey,
 			"",
 			"# Email configuration",
 			"EMAIL_ENABLED=" + strconv.FormatBool(cfg.Email.Enabled),
@@ -170,4 +198,17 @@ func Load() (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// generateSecureKey creates a cryptographically secure random key encoded as base64
+func generateSecureKey() (string, error) {
+	// Generate 32 bytes of random data (256 bits)
+	bytes := make([]byte, 32)
+	_, err := rand.Read(bytes)
+	if err != nil {
+		return "", err
+	}
+	
+	// Encode as base64
+	return base64.StdEncoding.EncodeToString(bytes), nil
 }
