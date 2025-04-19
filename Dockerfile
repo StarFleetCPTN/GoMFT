@@ -69,10 +69,15 @@ COPY . .
 # Generate template files from .templ files
 RUN templ generate
 
-# Compile the application with version information
+# Compile the main application with version information
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -ldflags "-X github.com/starfleetcptn/gomft/components.AppVersion=${VERSION} -X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME} -X main.Commit=${COMMIT} -X github.com/starfleetcptn/gomft/components.BuildTime=${BUILD_TIME} -X github.com/starfleetcptn/gomft/components.Commit=${COMMIT}" \
     -o /app/gomft
+
+# Compile the command line tool with version information
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
+    -ldflags "-X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME} -X main.Commit=${COMMIT}" \
+    -o /app/gomftctl ./cmd/gomftctl
 
 # Install rclone with appropriate architecture
 RUN apk add --no-cache curl unzip && \
@@ -112,8 +117,9 @@ RUN apk add --no-cache ca-certificates tzdata sqlite bash shadow su-exec \
 RUN addgroup -g ${GID} ${USERNAME} && \
     adduser -D -u ${UID} -G ${USERNAME} -s /bin/sh ${USERNAME}
 
-# Copy the binary from the builder stage
+# Copy the binaries from the builder stage
 COPY --from=builder /app/gomft /app/
+COPY --from=builder /app/gomftctl /app/
 COPY --from=builder /usr/local/bin/rclone /usr/local/bin/rclone
 
 # Copy components
@@ -130,7 +136,7 @@ RUN mkdir -p /app/data /app/backups
 RUN touch /app/.env && chmod 644 /app/.env && chown ${USERNAME}:${USERNAME} /app/.env
 
 # Set executable permissions
-RUN chmod +x /app/gomft
+RUN chmod +x /app/gomft /app/gomftctl
 
 # Set ownership of application files
 RUN chown -R ${USERNAME}:${USERNAME} /app

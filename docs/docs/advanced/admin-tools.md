@@ -7,13 +7,6 @@ title: Admin Tools
 
 GoMFT provides a comprehensive set of administrative tools for system management, monitoring, and maintenance. These tools help administrators maintain the system, troubleshoot issues, and ensure optimal performance.
 
-## Accessing Admin Tools
-
-Admin tools are available to users with administrator privileges:
-
-1. Log in with an administrator account
-2. Navigate to **Admin Tools** in the sidebar menu
-
 ## Log Viewer
 
 The Admin Tools panel includes an integrated log viewer with the following features:

@@ -1,12 +1,15 @@
 package db
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/starfleetcptn/gomft/internal/encryption"
+	"gorm.io/gorm"
 )
 
 // ProviderConfig represents a unique provider configuration extracted from TransferConfigs
@@ -134,6 +137,8 @@ type MigrateProviderDataOptions struct {
 	ValidationOnly bool   // If true, only perform validation without migration
 	Force          bool   // If true, ignore validation errors and proceed with migration
 	BackupDir      string // Directory to store backups in
+	DebugMode      bool   // If true, provide more detailed error information
+	AutoFill       bool   // If true, automatically fill missing required fields with placeholder values
 }
 
 // ExtractUniqueProviderConfigs extracts all unique provider configurations from existing TransferConfig records
@@ -399,11 +404,56 @@ func (db *DB) CreateStorageProviderRecords(uniqueConfigs map[string]*ProviderCon
 			provider.EncryptedClientSecret = encryptedClientSecret
 		}
 
+		// Check if we should attempt to auto-fill missing required fields
+		autoFill := false
+		if tx.Statement != nil && tx.Statement.Context != nil {
+			if autoFillVal := tx.Statement.Context.Value("auto_fill"); autoFillVal != nil {
+				if af, ok := autoFillVal.(bool); ok {
+					autoFill = af
+				}
+			}
+		}
+
 		// Create the provider record
 		if err := tx.Create(provider).Error; err != nil {
-			sanitizedErrMsg := sanitizeErrorMessage(err.Error())
+			// Check if we should try to auto-fill missing fields
+			if autoFill {
+				// Try to determine if it's a missing required field error
+				errStr := err.Error()
+				if strings.Contains(strings.ToLower(errStr), "not null") || 
+				   strings.Contains(strings.ToLower(errStr), "required") || 
+				   strings.Contains(strings.ToLower(errStr), "cannot be null") {
+					
+					// Try to auto-fill missing fields based on provider type
+					filled := autoFillMissingFields(provider, providerConfig)
+					if filled {
+						// Try again with auto-filled fields
+						if retryErr := tx.Create(provider).Error; retryErr == nil {
+							// Success! Add a warning to the log
+							log.Printf("WARNING: Auto-filled missing required fields for provider %s. Please update this provider with correct values.", provider.Name)
+							// Continue with normal flow
+							goto successLabel
+						} else {
+							// Still failed, proceed with normal error handling
+							err = retryErr
+						}
+					}
+				}
+			}
+
+			// Get debug mode flag from context
+			debugMode := false
+			if tx.Statement != nil && tx.Statement.Context != nil {
+				if debugVal := tx.Statement.Context.Value("debug_mode"); debugVal != nil {
+					if debug, ok := debugVal.(bool); ok {
+						debugMode = debug
+					}
+				}
+			}
+			sanitizedErrMsg := sanitizeErrorMessage(err.Error(), debugMode)
 			return rollback(fmt.Errorf("failed to create provider record: %s", sanitizedErrMsg))
 		}
+		successLabel:
 
 		// Store the provider ID in the map
 		providerIDMap[key] = provider.ID
@@ -424,8 +474,127 @@ func (db *DB) CreateStorageProviderRecords(uniqueConfigs map[string]*ProviderCon
 	return providerIDMap, nil
 }
 
+// autoFillMissingFields attempts to fill missing required fields with placeholder values
+// Returns true if fields were filled, false otherwise
+func autoFillMissingFields(provider *StorageProvider, config *ProviderConfig) bool {
+	changesMade := false
+
+	// Check and fill common fields that might be required
+	if provider.Name == "" {
+		provider.Name = fmt.Sprintf("Auto-filled Provider %s", time.Now().Format("2006-01-02 15:04:05"))
+		changesMade = true
+	}
+
+	// Fill fields based on provider type
+	switch provider.Type {
+	case ProviderTypeSFTP, ProviderTypeFTP, ProviderTypeHetzner:
+		// Fill host if empty
+		if provider.Host == "" {
+			provider.Host = "placeholder.example.com"
+			changesMade = true
+		}
+		// Fill port if zero
+		if provider.Port == 0 {
+			if provider.Type == ProviderTypeFTP {
+				provider.Port = 21
+			} else {
+				provider.Port = 22 // Default SFTP port
+			}
+			changesMade = true
+		}
+		// Fill username if empty
+		if provider.Username == "" {
+			provider.Username = "placeholder_user"
+			changesMade = true
+		}
+
+	case ProviderTypeS3:
+		// Fill bucket if empty
+		if provider.Bucket == "" {
+			provider.Bucket = "placeholder-bucket"
+			changesMade = true
+		}
+		// Fill region if empty
+		if provider.Region == "" {
+			provider.Region = "us-east-1"
+			changesMade = true
+		}
+		// Fill access key if empty
+		if provider.AccessKey == "" {
+			provider.AccessKey = "PLACEHOLDER_ACCESS_KEY"
+			changesMade = true
+		}
+		// Fill endpoint if empty
+		if provider.Endpoint == "" {
+			provider.Endpoint = "https://s3.amazonaws.com"
+			changesMade = true
+		}
+
+	case ProviderTypeSMB:
+		// Fill host if empty
+		if provider.Host == "" {
+			provider.Host = "placeholder-smb-server"
+			changesMade = true
+		}
+		// Fill share if empty
+		if provider.Share == "" {
+			provider.Share = "placeholder-share"
+			changesMade = true
+		}
+		// Fill domain if empty
+		if provider.Domain == "" {
+			provider.Domain = "WORKGROUP"
+			changesMade = true
+		}
+
+	case ProviderTypeOneDrive, ProviderTypeGoogleDrive, ProviderTypeGooglePhoto:
+		// Fill client ID if empty
+		if provider.ClientID == "" {
+			provider.ClientID = "placeholder-client-id"
+			changesMade = true
+		}
+		// Fill drive ID if empty for OneDrive/Google Drive
+		if provider.DriveID == "" && (provider.Type == ProviderTypeOneDrive || provider.Type == ProviderTypeGoogleDrive) {
+			provider.DriveID = "placeholder-drive-id"
+			changesMade = true
+		}
+	}
+
+	// Set authenticated to false by default if it's nil
+	if provider.Authenticated == nil {
+		falseVal := false
+		provider.Authenticated = &falseVal
+		changesMade = true
+	}
+
+	// If we made changes, log a warning
+	if changesMade {
+		log.Printf("WARNING: Auto-filled missing required fields for provider type %s. Please update with correct values.", provider.Type)
+	}
+
+	return changesMade
+}
+
 // sanitizeErrorMessage removes any potential sensitive information from error messages
-func sanitizeErrorMessage(errMsg string) string {
+func sanitizeErrorMessage(errMsg string, debugMode bool) string {
+	// In debug mode, we'll provide more information but still sanitize critical parts
+	if debugMode {
+		// List of sensitive keywords to check for and redact
+		sensitiveKeywords := []string{
+			"password", "secret", "token", "key", "credential", "auth",
+		}
+
+		// Redact sensitive information with placeholders instead of hiding the whole message
+		sanitizedMsg := errMsg
+		for _, keyword := range sensitiveKeywords {
+			// Case insensitive replacement using regex
+			re := regexp.MustCompile(fmt.Sprintf(`(?i)(%s\s*[:=]\s*['"]*)[^'"\s]+(['"]*\s*)`, keyword))
+			sanitizedMsg = re.ReplaceAllString(sanitizedMsg, "${1}[REDACTED]${2}")
+		}
+		return fmt.Sprintf("DEBUG: %s", sanitizedMsg)
+	}
+
+	// Standard non-debug mode with strict security
 	// List of sensitive keywords to check for
 	sensitiveKeywords := []string{
 		"password", "secret", "token", "key", "credential", "auth",
@@ -719,6 +888,14 @@ func (db *DB) ValidateMigrationIntegrity() (*ValidationResult, error) {
 
 // MigrateProviderData is the main function that performs the complete migration process
 func (db *DB) MigrateProviderData(options MigrateProviderDataOptions) (*MigrationStats, error) {
+	// Store options in context for use by other functions
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "debug_mode", options.DebugMode)
+	ctx = context.WithValue(ctx, "auto_fill", options.AutoFill)
+	// Create a new DB session with the context
+	dbWithContext := db.DB.WithContext(ctx).Session(&gorm.Session{})
+	// Update our DB wrapper to use this session
+	db.DB = dbWithContext
 	// Initialize migration stats
 	stats := &MigrationStats{
 		StartTime: time.Now(),

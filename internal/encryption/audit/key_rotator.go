@@ -1,4 +1,4 @@
-package keyrotation
+package audit
 
 import (
 	"errors"
@@ -21,22 +21,19 @@ var (
 	ErrNilDB           = errors.New("database connection is nil")
 )
 
-// For backward compatibility
-type RotationStats = rotationmodel.RotationStats
-
 // KeyRotator manages the process of changing encryption keys and re-encrypting data
 type KeyRotator struct {
 	db         *gorm.DB
 	oldService *encryption.EncryptionService
 	newService *encryption.EncryptionService
-	auditor    interface{} // Interface for SecurityAuditor to avoid import cycle
+	auditor    *SecurityAuditor
 	dryRun     bool
 	batchSize  int
 	maxErrors  int
 }
 
 // NewKeyRotator creates a new KeyRotator
-func NewKeyRotator(db *gorm.DB, oldService, newService *encryption.EncryptionService, auditor interface{}) (*KeyRotator, error) {
+func NewKeyRotator(db *gorm.DB, oldService, newService *encryption.EncryptionService, auditor *SecurityAuditor) (*KeyRotator, error) {
 	if db == nil {
 		return nil, ErrNilDB
 	}
@@ -53,7 +50,10 @@ func NewKeyRotator(db *gorm.DB, oldService, newService *encryption.EncryptionSer
 		return nil, ErrSameKey
 	}
 
-	// We don't check for nil auditor here anymore to avoid import cycle
+	if auditor == nil {
+		// Use the global auditor if none provided
+		auditor = GetGlobalAuditor()
+	}
 
 	return &KeyRotator{
 		db:         db,
@@ -174,8 +174,8 @@ func (r *KeyRotator) rotateKeysForRecord(record reflect.Value, modelName, primar
 	encryptedFieldsFound := false
 	recordType := record.Type()
 
-	// Track changes
-	_ = getPrimaryKeyValue(record, primaryKeyName) // Kept for future reference but not used directly
+	// Track changes for audit
+	pkValue := getPrimaryKeyValue(record, primaryKeyName)
 	changes := make(map[string]struct{})
 
 	// Process each field in the struct
@@ -241,8 +241,20 @@ func (r *KeyRotator) rotateKeysForRecord(record reflect.Value, modelName, primar
 		}
 	}
 
-	// We've removed the direct auditor calls to avoid import cycle
-	// Logging is now handled by the audit package's implementation
+	// Log the rotation
+	if r.auditor != nil {
+		changedFields := make([]string, 0, len(changes))
+		for field := range changes {
+			changedFields = append(changedFields, field)
+		}
+
+		description := fmt.Sprintf("Rotated keys for %s (ID: %v) - fields: %s",
+			modelName, pkValue, strings.Join(changedFields, ", "))
+
+		r.auditor.LogKeyRotationEventWithDescription(
+			"old", "new", true, description, 0,
+		)
+	}
 
 	return nil
 }

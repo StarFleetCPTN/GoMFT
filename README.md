@@ -15,6 +15,20 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
   </a>
 </p>
 
+## 📚 Documentation
+
+Comprehensive documentation is available at [https://starfleetcptn.github.io/GoMFT/](https://starfleetcptn.github.io/GoMFT/).
+
+The documentation includes:
+- [Getting Started Guide](https://starfleetcptn.github.io/GoMFT/docs/getting-started)
+- [Installation Instructions](https://starfleetcptn.github.io/GoMFT/docs/installation)
+- [Configuration Reference](https://starfleetcptn.github.io/GoMFT/docs/configuration)
+- [User Guide](https://starfleetcptn.github.io/GoMFT/docs/user-guide)
+- [Storage Provider Setup](https://starfleetcptn.github.io/GoMFT/docs/storage-providers)
+- [Advanced Features](https://starfleetcptn.github.io/GoMFT/docs/advanced)
+- [Troubleshooting](https://starfleetcptn.github.io/GoMFT/docs/troubleshooting)
+- [API Reference](https://starfleetcptn.github.io/GoMFT/docs/api)
+
 > [!WARNING]  
 > This application is actively under development. As such, any aspect of the application—including configurations, data structures, and database fields—may change rapidly and without prior notice. Please review all release notes thoroughly before updating.
 
@@ -86,6 +100,7 @@ GoMFT is a web-based managed file transfer application built with Go, leveraging
   - Optimized for both high-volume small files and large file transfers
   - Maximizes bandwidth utilization for cloud storage providers
 - **Web Interface**: User-friendly interface for managing transfers, built with Templ components
+- **Command Line Tools**: Administrative tasks can be performed via the `gomftctl` CLI tool
 - **File Pattern Matching**: Support for file patterns to filter files during transfers
 - **File Output Patterns**: Dynamic naming of destination files using patterns with date variables
 - **Archive Function**: Option to archive transferred files for backup and compliance
@@ -137,9 +152,10 @@ go install github.com/a-h/templ/cmd/templ@latest
 templ generate
 ```
 
-4. Build the application:
+4. Build the application and CLI tools:
 ```bash
 go build -o gomft
+go build -o gomftctl ./cmd/gomftctl
 ```
 
 ### Docker Installation
@@ -256,7 +272,40 @@ docker-compose up -d
 
 For more information and available tags, visit the [GoMFT Docker Hub page](https://hub.docker.com/r/starfleetcptn/gomft).
 
-Full documentation is available at [https://starfleetcptn.github.io/GoMFT/](https://starfleetcptn.github.io/GoMFT/).
+## Command Line Tools
+
+GoMFT includes a command line tool called `gomftctl` for administrative tasks:
+
+```bash
+# View available commands
+./gomftctl --help
+
+# Migrate provider data
+./gomftctl migrate-providers
+
+# Rotate security keys
+./gomftctl rotate-key --type jwt
+
+# Manage users
+./gomftctl user create --email admin@example.com --password secure_password --admin
+./gomftctl user list
+
+# Backup database
+./gomftctl backup
+```
+
+See the [Admin Tools documentation](https://starfleetcptn.github.io/GoMFT/docs/advanced/admin-tools) for more details.
+
+## Contributing
+
+Contributions are welcome! Please see our [Contributing Guide](https://starfleetcptn.github.io/GoMFT/docs/contributing) for details on how to get started.
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+We also welcome documentation improvements. The documentation source is available in the `docs/` directory.
 
 ## License
 

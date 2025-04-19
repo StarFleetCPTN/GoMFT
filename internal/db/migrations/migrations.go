@@ -29,6 +29,7 @@ func GetMigrations(db *gorm.DB) *gormigrate.Gormigrate {
 		CleanupInvalidBooleans(),            // 013
 		AddStorageProviders(),               // 014
 		AddProviderRefsToTransferConfig(),   // 015
+		UpdateDriveType(),                   // 016
 	)
 
 	return gormigrate.New(db, gormigrate.DefaultOptions, migrations)

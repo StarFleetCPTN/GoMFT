@@ -37,12 +37,12 @@ type EmailConfig struct {
 
 func Load() (*Config, error) {
 	// Generate secure encryption keys
-	defaultTOTPKey, err := generateSecureKey()
+	defaultTOTPKey, err := GenerateSecureKey()
 	if err != nil {
 		return nil, err
 	}
 
-	defaultGOMFTKey, err := generateSecureKey()
+	defaultGOMFTKey, err := GenerateSecureKey()
 	if err != nil {
 		return nil, err
 	}
@@ -200,8 +200,8 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
-// generateSecureKey creates a cryptographically secure random key encoded as base64
-func generateSecureKey() (string, error) {
+// GenerateSecureKey creates a cryptographically secure random key encoded as base64
+func GenerateSecureKey() (string, error) {
 	// Generate 32 bytes of random data (256 bits)
 	bytes := make([]byte, 32)
 	_, err := rand.Read(bytes)

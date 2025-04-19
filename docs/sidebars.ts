@@ -38,13 +38,14 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Advanced Features',
       items: [
+        'advanced/admin-tools',
+        'advanced/command-line-tool',
         'advanced/notifications-overview',
         'advanced/gotify-notifications',
         'advanced/ntfy-notifications',
         'advanced/pushbullet-notifications',
         'advanced/pushover-notifications',
         'advanced/webhook-notifications',
-        'advanced/admin-tools'
       ],
     },
     {

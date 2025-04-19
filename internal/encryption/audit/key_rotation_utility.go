@@ -10,27 +10,12 @@ import (
 	"time"
 
 	"github.com/starfleetcptn/gomft/internal/encryption"
-	"github.com/starfleetcptn/gomft/internal/encryption/keyrotation"
+	"github.com/starfleetcptn/gomft/internal/encryption/rotationmodel"
 	"gorm.io/gorm"
 )
 
-// RotationOptions contains configuration for the key rotation process
-type RotationOptions struct {
-	// DryRun performs all operations but doesn't save changes to database
-	DryRun bool
-	// BatchSize sets the number of records to process in each batch
-	BatchSize int
-	// MaxErrors sets the threshold of errors before aborting
-	MaxErrors int
-	// Parallelism controls how many models are processed in parallel
-	Parallelism int
-	// Timeout specifies a maximum duration for the entire operation
-	Timeout time.Duration
-	// WorkerTimeout specifies maximum duration for a single batch
-	WorkerTimeout time.Duration
-	// ProgressCallback receives updates on rotation progress
-	ProgressCallback func(modelName string, processed, total int)
-}
+// For backward compatibility
+type RotationOptions = rotationmodel.RotationOptions
 
 // RotationUtility provides comprehensive capabilities for rotating encryption keys
 // across multiple database models with detailed auditing and progress tracking
@@ -125,19 +110,19 @@ func (r *RotationUtility) runHook(name string, data interface{}) error {
 }
 
 // RotateKeysForModels performs key rotation for multiple model types with detailed monitoring
-func (r *RotationUtility) RotateKeysForModels(ctx context.Context, models []interface{}) (*keyrotation.RotationStats, error) {
+func (r *RotationUtility) RotateKeysForModels(ctx context.Context, models []interface{}) (*rotationmodel.RotationStats, error) {
 	// Create master context with timeout
 	masterCtx, cancel := context.WithTimeout(ctx, r.options.Timeout)
 	defer cancel()
 
 	// Track overall stats
-	overallStats := &keyrotation.RotationStats{
+	overallStats := &rotationmodel.RotationStats{
 		StartTime: time.Now(),
 		Errors:    make([]string, 0),
 	}
 
-	// Create key rotator
-	rotator, err := keyrotation.NewKeyRotator(r.db, r.oldService, r.newService, r.auditor)
+	// Create key rotator - we'll implement our own version instead of using keyrotation package
+	rotator, err := NewKeyRotator(r.db, r.oldService, r.newService, r.auditor)
 	if err != nil {
 		return overallStats, fmt.Errorf("failed to create key rotator: %w", err)
 	}
@@ -194,7 +179,7 @@ func (r *RotationUtility) RotateKeysForModels(ctx context.Context, models []inte
 
 		// Create a goroutine to handle timeouts
 		rotationDone := make(chan struct{})
-		var modelStats *keyrotation.RotationStats
+		var modelStats *rotationmodel.RotationStats
 		var rotationErr error
 
 		go func() {
@@ -494,19 +479,8 @@ func (r *RotationUtility) estimateMigrationTime(recordCount, fieldCount int) tim
 	return time.Duration(totalTimeMs) * time.Millisecond
 }
 
-// EncryptionMigrationPlan contains the complete plan for migration
-type EncryptionMigrationPlan struct {
-	ModelPlans         map[string]*ModelMigrationPlan `json:"model_plans"`
-	EstimatedDuration  time.Duration                  `json:"estimated_duration"`
-	EstimatedRecords   int                            `json:"estimated_records"`
-	RecommendedOptions RotationOptions                `json:"recommended_options"`
-}
+// For backward compatibility
+type EncryptionMigrationPlan = rotationmodel.EncryptionMigrationPlan
 
-// ModelMigrationPlan contains migration details for a specific model
-type ModelMigrationPlan struct {
-	ModelName       string        `json:"model_name"`
-	RecordCount     int           `json:"record_count"`
-	EstimatedTime   time.Duration `json:"estimated_time"`
-	EncryptedFields []string      `json:"encrypted_fields"`
-	BatchSizeRec    int           `json:"batch_size_recommendation"`
-}
+// For backward compatibility
+type ModelMigrationPlan = rotationmodel.ModelMigrationPlan
