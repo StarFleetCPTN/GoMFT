@@ -75,7 +75,7 @@ func UpdateDriveType() *gormigrate.Migration {
 			}
 
 			// Update dest_type
-			return tx.Exec(`UPDATE transfer_configs SET dest_type = 'drive' WHERE dest_type = 'gdrive'`).Error
+			return tx.Exec(`UPDATE transfer_configs SET destination_type = 'drive' WHERE destination_type = 'gdrive'`).Error
 		},
 		Rollback: func(tx *gorm.DB) error {
 			// Revert source_type
