@@ -19,14 +19,6 @@ templ StorageProviders(ctx context.Context, data StorageProvidersData) {
 		@toast.Container()
 		@toast.ShowToastJS()
 
-		<!-- Import rclone config link -->
-		<div class="mb-4 flex items-center gap-3">
-			<a href="/storage-providers/import" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg shadow flex items-center">
-				<i class="fas fa-file-import mr-2"></i>
-				Import rclone config
-			</a>
-		</div>
-
 		<script>
 			// Handle test provider button clicks
 			window.testProvider = function(button) {
@@ -274,10 +266,17 @@ templ StorageProviders(ctx context.Context, data StorageProvidersData) {
 						<i class="fas fa-server w-6 h-6 mr-2 text-blue-500 dark:text-blue-400"></i>
 						Storage Providers
 					</h1>
-					<a href="/storage-providers/new" class="flex items-center justify-center text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
-						<i class="fas fa-plus w-4 h-4 mr-2"></i>
-						New Provider
-					</a>
+					<!-- Import rclone config and New Provider links side by side -->
+<div class="flex gap-x-4">
+	<a href="/storage-providers/import" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg shadow flex items-center">
+		<i class="fas fa-file-import mr-2"></i>
+		Import rclone config
+	</a>
+	<a href="/storage-providers/new" class="flex items-center justify-center text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg px-5 py-2.5 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800">
+		<i class="fas fa-plus w-4 h-4 mr-2"></i>
+		New Provider
+	</a>
+</div>
 				</div>
 				
 				<div class="mt-6">

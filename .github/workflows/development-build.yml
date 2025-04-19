@@ -1,0 +1,224 @@
+name: Development Build
+
+on:
+  push:
+    branches:
+      - 'development'
+      - 'feature/**'
+  pull_request:
+    branches: [ development, feature/** ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - staging
+
+env:
+  # Use github.repository as the default image name
+  IMAGE_NAME: ${{ github.repository }}
+  REGISTRY: ghcr.io
+  DOCKERHUB_IMAGE: starfleetcptn/gomft
+
+jobs:
+  build:
+    name: Build Development Binaries
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Node.js dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        run: |
+          # Build JavaScript and CSS assets
+          node build.js
+          
+          # Ensure the dist directory exists
+          mkdir -p static/dist
+          
+          # Verify the build output
+          ls -la static/dist
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache: true
+      
+      - name: Install dependencies
+        run: |
+          go mod download
+          # Install templ compiler for template generation
+          go install github.com/a-h/templ/cmd/templ@latest
+      
+      - name: Generate template files
+        run: templ generate
+      
+      - name: Set Version
+        id: version
+        run: |
+          # For development builds, use branch name or PR number with commit hash
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            VERSION="pr-${{ github.event.pull_request.number }}-$(git rev-parse --short HEAD)"
+          else
+            BRANCH=${GITHUB_REF#refs/heads/}
+            VERSION="${BRANCH//\//-}-$(git rev-parse --short HEAD)"
+          fi
+          
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          # Also set build timestamp for versioning
+          echo "BUILD_TIME=$(date -u +'%Y-%m-%d_%H:%M:%S')" >> $GITHUB_ENV
+          echo "COMMIT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+      
+      - name: Build for Linux (amd64)
+        run: |
+          mkdir -p dist
+          
+          # Define common ldflags with version information
+          LDFLAGS="-X github.com/starfleetcptn/gomft/components.AppVersion=$VERSION -X main.Version=$VERSION -X main.BuildTime=$BUILD_TIME -X main.Commit=$COMMIT -X github.com/starfleetcptn/gomft/components.BuildTime=$BUILD_TIME -X github.com/starfleetcptn/gomft/components.Commit=$COMMIT"          
+          
+          # Only build for Linux amd64 for development builds
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="$LDFLAGS" -o dist/gomft-$VERSION-linux-amd64 .
+          
+          # Create checksums
+          cd dist
+          sha256sum * > SHA256SUMS.txt
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-binary
+          path: dist/
+          retention-days: 7  # Keep development builds for 7 days
+
+  docker:
+    name: Build and Push Development Docker Image
+    runs-on: ubuntu-latest
+    needs: build
+    # Set the permissions needed for the GitHub token to push to GHCR
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Set up Node.js for frontend build
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # Install dependencies
+      - name: Install dependencies
+        run: npm ci
+
+      # Build frontend assets
+      - name: Build frontend assets
+        run: |
+          node build.js
+          ls -la static/dist/
+
+      # Set version information
+      - name: Set Version
+        id: version
+        run: |
+          # For development builds, use branch name or PR number with commit hash
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            VERSION="pr-${{ github.event.pull_request.number }}-$(git rev-parse --short HEAD)"
+          else
+            BRANCH=${GITHUB_REF#refs/heads/}
+            VERSION="${BRANCH//\//-}-$(git rev-parse --short HEAD)"
+          fi
+          
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          # Also set build timestamp for versioning
+          echo "BUILD_TIME=$(date -u +'%Y-%m-%d_%H:%M:%S')" >> $GITHUB_ENV
+          echo "COMMIT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+      # Set up Docker Buildx for efficient builds
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Login to GitHub Container Registry
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      # Login to DockerHub
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Extract metadata for GitHub Container Registry
+      - name: Extract GitHub Container Registry metadata
+        id: meta-ghcr
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,format=short
+            type=raw,value=dev-latest
+            
+      # Extract metadata for DockerHub
+      - name: Extract DockerHub metadata
+        id: meta-dockerhub
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKERHUB_IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,format=short
+            type=raw,value=dev-latest
+
+      # Build and push Docker image to both registries
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.meta-ghcr.outputs.tags }}
+            ${{ steps.meta-dockerhub.outputs.tags }}
+          labels: ${{ steps.meta-ghcr.outputs.labels }}
+          platforms: linux/amd64
+          build-args: |
+            VERSION=${{ env.VERSION }}
+            BUILD_TIME=${{ env.BUILD_TIME }}
+            COMMIT=${{ env.COMMIT }}
+            UID=1000
+            GID=1000
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
