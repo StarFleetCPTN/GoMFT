@@ -3,7 +3,28 @@ package toast
 templ ShowToastJS() {
 	<script>
 		// Notification system
+		// Global tracking of shown messages to prevent duplicates
+		window.shownToastMessages = window.shownToastMessages || [];
+
 		function showToast(message, type) {
+			// Check if this exact message has been shown in the last 500ms
+			const messageKey = `${message}-${type}`;
+			if (window.shownToastMessages.includes(messageKey)) {
+				console.log(`Preventing duplicate toast: ${messageKey}`);
+				return;
+			}
+
+			// Add to shown messages
+			window.shownToastMessages.push(messageKey);
+			
+			// Remove from tracking after 500ms to allow the same message later if needed
+			setTimeout(() => {
+				const index = window.shownToastMessages.indexOf(messageKey);
+				if (index > -1) {
+					window.shownToastMessages.splice(index, 1);
+				}
+			}, 500);
+
 			const toastContainer = document.getElementById('toast-container');
 			if (!toastContainer) {
 				console.error("Toast container not found!");

@@ -212,15 +212,33 @@ templ StorageProviders(ctx context.Context, data StorageProvidersData) {
 					localStorage.removeItem('showProviderDuplicateToast');
 				}
 				
-				// Keep other status-based toasts if needed
+				// Process URL parameters for toast notifications
 				const urlParams = new URLSearchParams(window.location.search);
+				
+				// Handle combined status and test_status parameters
 				if (urlParams.get('status') === 'created') {
-					showToast('Provider created successfully', 'success');
-				}
-				if (urlParams.get('status') === 'updated') {
-					showToast('Provider updated successfully', 'success');
-				}
-				if (urlParams.get('error')) {
+					const testStatus = urlParams.get('test_status');
+					const errorMsg = urlParams.get('error');
+					
+					if (testStatus === 'success') {
+						showToast('Provider created and tested successfully', 'success');
+					} else if (testStatus === 'failed' && errorMsg) {
+						showToast(`Provider created but test failed: ${errorMsg}`, 'error');
+					} else {
+						showToast('Provider created successfully', 'success');
+					}
+				} else if (urlParams.get('status') === 'updated') {
+					const testStatus = urlParams.get('test_status');
+					const errorMsg = urlParams.get('error');
+					
+					if (testStatus === 'success') {
+						showToast('Provider updated and tested successfully', 'success');
+					} else if (testStatus === 'failed' && errorMsg) {
+						showToast(`Provider updated but test failed: ${errorMsg}`, 'error');
+					} else {
+						showToast('Provider updated successfully', 'success');
+					}
+				} else if (urlParams.get('error')) {
 					showToast(urlParams.get('error'), 'error');
 				}
 			});
